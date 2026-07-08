@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets / config
+.env
+.streamlit/secrets.toml
+
+# Local Claude Code config
+.claude/
+
+# Personal medical data — NEVER commit
+# Source lab PDFs and everything derived from them.
+data/
+samples/*.pdf
