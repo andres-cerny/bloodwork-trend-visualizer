@@ -1,0 +1,6 @@
+# Normalize line endings: let git handle EOL conversion automatically.
+* text=auto
+
+# Treat these as binary (never touch EOLs / never diff as text).
+*.pdf binary
+*.png binary
