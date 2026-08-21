@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Box } from "../src/lib/models";
 import { buildRows, rowsAsText, type TextRow } from "../src/pdf/rows";
-import { canonicalizeUnit } from "../src/lib/normalize";
+import { canonicalizeUnit, parseRange } from "../src/lib/normalize";
 
 /**
  * pdf.js returns Greek mu (U+03BC) where the document source used the micro
@@ -136,5 +136,32 @@ describe("multi-page report", () => {
     expect(p1).toContain("S_Urea | 5,62 | mmol/l | (2,80-8,00)");
     expect(p1).not.toContain("B_Erytrocyty");
     expect(p2).toContain("B_Hemoglobin | 149 | g/l | (135-175)");
+  });
+});
+
+describe("the font the fixtures are rendered with", () => {
+  it("does not lose the hyphen from a reference range", async () => {
+    // The failure this pins: text drawn with plain Arial loses its hyphen when
+    // read back through pdf.js, so a range printed "4,11-5,60" extracts as
+    // "4,115,60" — which parses to a plausible wrong number instead of
+    // failing. The fixtures are rendered with a bundled DejaVu for exactly
+    // this reason; if someone repoints scripts/_fonts.py at a system font,
+    // this is what catches it.
+    const text = rowsAsText(buildRows(await pageWords("standard.pdf")));
+    expect(text).toContain("(4,11-5,60)");
+    expect(text, "hyphen lost — check the font in scripts/_fonts.py").not.toContain("4,115,60");
+  });
+
+  it("keeps every printed reference range parseable", async () => {
+    const rows = buildRows(await pageWords("standard.pdf"));
+    const ranges = rows
+      .flatMap((r) => r.cells)
+      .filter((c) => /^\(?\d[\d\s.,]*\s*-\s*\d/.test(c));
+    expect(ranges.length, "no ranges found — the fixture changed shape").toBeGreaterThan(0);
+    for (const raw of ranges) {
+      const parsed = parseRange(raw);
+      expect(parsed.low, `"${raw}" did not parse to an interval`).not.toBeNull();
+      expect(parsed.high, `"${raw}" did not parse to an interval`).not.toBeNull();
+    }
   });
 });

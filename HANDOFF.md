@@ -205,6 +205,21 @@ VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA
 
 Then `npx wrangler dev` serves the whole thing including the API routes.
 
+## The PDF generators are font-locked
+
+`scripts/make_demo_data.py` and `scripts/make_layout_fixtures.py` draw with a
+DejaVu bundled at `assets/fonts/`, resolved from the repository and never from
+the system. Their output is font-dependent — glyph widths move text, which
+moves row bounding boxes and page images — and CI regenerates and asserts no
+diff, so a system font makes that output machine-dependent.
+
+**Do not repoint this at a system font.** Two are excluded for cause: plain
+Arial loses the hyphen through pdf.js (`4,11-5,60` extracts as `4,115,60`,
+which parses to a plausible wrong number rather than failing), and Arial
+Unicode is 23 MB, which PyMuPDF embeds whole into every PDF it writes, taking
+fixtures from 1.5 MB to 24 MB each. `web/tests/layouts.test.ts` has a test that
+fails if the hyphen ever goes missing again.
+
 ## The parsing layer exists twice — keep it in step
 
 `src/normalize.py` and `web/src/lib/normalize.ts` implement the same rules.

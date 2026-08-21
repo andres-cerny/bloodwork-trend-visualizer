@@ -1,81 +1,50 @@
-"""Locating a font that can render Czech, and refusing ones that corrupt it.
+"""The font the PDF generators draw with.
 
-The generator scripts hard-coded a Linux DejaVu path, so they could not run on
-macOS at all — they raised `cannot open .../DejaVuSans.ttf` from deep inside
-MuPDF, which reads as a PyMuPDF fault rather than a missing font. Since the
-handoff asks a local session to run these scripts, that made them unusable on
-the machine most likely to run them.
+Resolved from the repository, not from the system, and that is the whole point.
 
-**The output is font-dependent.** Glyph widths differ between fonts, so
-regenerating on a different machine shifts text positions and with them the row
-bounding boxes and rendered page images. CI regenerates on Linux and asserts no
-diff, so the committed artefacts under `web/public/demo/` and
-`web/tests/fixtures/` should be regenerated on Linux — or the resulting diff
-reviewed deliberately rather than committed by accident.
+These generators produce output whose bytes depend on the font: glyph widths
+move text, which moves the row bounding boxes and the rendered page images that
+`web/public/demo/` and `web/tests/fixtures/` are committed copies of. CI
+regenerates and asserts no diff, so any machine with a different font — or a
+different *version* of the same font — produced a spurious diff. Bundling the
+font removes the variable entirely: no install step, no platform branch, no
+warning path, and identical output everywhere.
+
+Two fonts are excluded deliberately, both learned by running into them:
+
+* **Plain Arial** (on every Mac, only 0.8 MB) loses the hyphen when its text is
+  read back through pdf.js. A reference range printed `4,11-5,60` extracts as
+  `4,115,60` — which parses to a plausible wrong number rather than failing.
+  Silently corrupting reference ranges is worse than refusing to run.
+* **Arial Unicode** renders correctly but is 23 MB, and PyMuPDF embeds the whole
+  font into every PDF it writes: fixtures grew from 1.5 MB to 24 MB each.
+
+See `assets/fonts/README.md`.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-# (regular, bold, warning), most preferred first. An empty warning means the
-# choice is free of caveats.
-#
-# DejaVu leads because it is what CI uses, and therefore what the committed
-# artefacts were generated with.
-#
-# Plain Arial is deliberately ABSENT, despite being on every Mac and only
-# 0.8 MB against Arial Unicode's 23 MB. Text drawn with it loses the hyphen
-# when read back through pdf.js: a reference range printed "4,11-5,60"
-# extracts as "4,115,60", which parses to a plausible wrong number instead of
-# failing. A fixture generator that silently corrupts reference ranges is worse
-# than one that refuses to run.
-_CANDIDATES: list[tuple[str, str, str]] = [
-    (
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "",
-    ),
-    (
-        "/opt/homebrew/share/fonts/DejaVuSans.ttf",
-        "/opt/homebrew/share/fonts/DejaVuSans-Bold.ttf",
-        "",
-    ),
-    (
-        str(Path.home() / "Library/Fonts/DejaVuSans.ttf"),
-        str(Path.home() / "Library/Fonts/DejaVuSans-Bold.ttf"),
-        "",
-    ),
-    (
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "Arial Unicode is 23 MB and PyMuPDF embeds the whole font into every "
-        "PDF it writes, so fixtures generated with it grow from 1.5 MB to "
-        "24 MB each. Usable for a local check; do not commit the result. "
-        "Install DejaVu instead: brew install --cask font-dejavu",
-    ),
-]
+FONT_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
+REGULAR = FONT_DIR / "DejaVuSans.ttf"
+BOLD = FONT_DIR / "DejaVuSans-Bold.ttf"
 
 
 def czech_fonts() -> tuple[str, str]:
-    """First usable (regular, bold) pair on this machine.
+    """The bundled (regular, bold) pair.
 
-    Raises with something actionable rather than letting MuPDF fail on a path
-    the caller never chose.
+    Fails loudly if the files are missing rather than falling back to a system
+    font, because a fallback is exactly what reintroduces machine-dependent
+    output — and the failure it caused last time was silent.
     """
-    for regular, bold, warning in _CANDIDATES:
-        if Path(regular).is_file() and Path(bold).is_file():
-            if warning:
-                print(f"WARNING: using {Path(regular).name} — {warning}", file=sys.stderr)
-            return regular, bold
-
-    tried = "\n  ".join(regular for regular, _, _ in _CANDIDATES)
-    raise SystemExit(
-        "No usable font found for rendering Czech. Tried:\n  "
-        + tried
-        + "\n\nInstall DejaVu so output matches CI:"
-        "\n  macOS:  brew install --cask font-dejavu"
-        "\n  Debian: apt-get install fonts-dejavu-core"
-        "\n\nNote that plain Arial is excluded on purpose: pdf.js drops the "
-        "hyphen from text drawn with it, which corrupts reference ranges."
-    )
+    missing = [str(p) for p in (REGULAR, BOLD) if not p.is_file()]
+    if missing:
+        raise SystemExit(
+            "Bundled fonts are missing:\n  "
+            + "\n  ".join(missing)
+            + "\n\nThey are committed to the repository — restore them with:\n"
+            "  git checkout -- assets/fonts\n\n"
+            "They are not resolved from the system on purpose: output is "
+            "font-dependent, and a system font makes it machine-dependent."
+        )
+    return str(REGULAR), str(BOLD)
