@@ -26,26 +26,58 @@ original plan:
   Worker secret. Extraction already happened.
 - **No runtime extraction cost.** A stranger clicking around costs nothing,
   because there is nothing to bill.
-- **No uploads, no storage, no access code, no KV budget ceiling.** All of that
-  existed to make live upload safe. There is no live upload.
-- **No pdf.js.** Page images are pre-rendered and row bounding boxes are
-  pre-computed, so the browser draws a highlight rectangle over a PNG.
+- **No storage.** Uploaded PDFs are parsed in the browser and never written to
+  a server disk. Closing the tab ends the session.
+- **Live upload runs on free models only** (Workers AI), behind a Cloudflare
+  Turnstile check. Your Anthropic key is not in the deployment at any point.
 
-The only runtime API call in the entire product is the chat, on a free-tier
-model whose key lives as a Worker secret and which cannot bill you.
+The site opens on the pre-baked dataset — instant, flawless, zero risk — and
+"zkus vlastní PDF" is offered on top of it.
 
 ## Architecture
 
 ```
-BUILD TIME (your machine, existing Python)      RUNTIME (public, static)
-------------------------------------------      ------------------------
-PDFs
-  → src/pipeline.py  (Sonnet 5 + Opus 4.8)      Worker with static assets
-  → src/normalize.py (values, units, flags)       ├─ SPA  (the four tabs)
-  → src/locate.py    (row bboxes, px coords)      └─ /api/chat → free model
-  → anonymize + redact                                          (Worker secret)
+BUILD TIME (your machine, existing Python)      RUNTIME (public)
+------------------------------------------      ----------------
+PDFs                                            Worker with static assets
+  → src/pipeline.py  (Sonnet 5 + Opus 4.8)        ├─ SPA (the four tabs)
+  → src/normalize.py (values, units, flags)       ├─ /api/extract → Workers AI
+  → src/locate.py    (row bboxes, px coords)      │    (Turnstile-gated)
+  → anonymize + redact                            └─ /api/chat    → Workers AI
   → JSON + page PNGs  ──────────────────────▶   fetched as static JSON
 ```
+
+### Live upload
+
+Opt-in, on top of the pre-baked set. Two extraction paths, chosen per document:
+
+1. **Text layer (preferred).** pdf.js reads the embedded text with x/y
+   coordinates and columns are reconstructed geometrically. Digits come from
+   the file, so a hallucinated decimal is structurally impossible — this is
+   *more* accurate than vision for digital PDFs, and nearly free in neurons.
+2. **Vision fallback.** Pages with no usable text layer are rendered and sent
+   to a Workers AI vision model. Roughly 85 neurons/page against a 10,000/day
+   free allowance — about 120 pages daily, hard-failing rather than billing.
+
+Which path a given PDF takes is detected at runtime, so this works without
+knowing in advance whether the source PDFs are digital or scans.
+
+The two-model cross-check survives: two different free models, unioned
+row-by-row, disagreements flagged into the verification tab. That design
+matters *more* with weaker models, not less — a weak model degrades into "more
+rows to review" rather than into silent wrongness.
+
+### Abuse gate
+
+**Cloudflare Turnstile** (free, unlimited) in front of upload. The Worker
+verifies the token server-side before accepting any extraction work. Because a
+Turnstile token is single-use and a report is many pages, one successful
+verification mints a short-lived HMAC-signed session token covering a bounded
+page count — so the visitor solves one challenge, not one per page.
+
+A per-IP daily counter in KV backs it up. Not for cost (cost is structurally
+zero) but for availability: one abuser should not be able to burn the day's
+Neuron allowance an hour before you demo.
 
 `row_bbox` in `src/locate.py` already returns pixel coordinates in image space
 (it scales PDF points by `RENDER_DPI / 72`), so the boxes map 1:1 onto the
@@ -91,7 +123,7 @@ precomputed.
 | `src/summary.py` | `web/src/lib/summary.ts` | So the summary responds to corrections rather than sitting frozen. Deterministic Czech templates. |
 | `src/models.py` | `web/src/lib/models.ts` | Dataclasses → interfaces. The `*_raw` vs derived split must survive the port intact. |
 | `src/matching.py` | **precomputed** | The analyte set is fixed, so ranked suggestions and their evidence are emitted at build time. Accepting one is an in-memory state change. |
-| `src/locate.py` | **precomputed** | Bboxes emitted as pixel coords in the JSON. No pdf.js. |
+| `src/locate.py` | **precomputed** + `web/src/pdf/locate.ts` | Bboxes precomputed for the pre-baked set; derived from pdf.js text coordinates for uploads. |
 | `src/extract.py`, `ingest.py`, `pipeline.py`, `process.py`, `storage.py` | **build time only** | Unchanged. They run on your machine and never ship. |
 | `app.py` | `web/src/ui/*` | 37KB of Streamlit → components. Altair → a JS charting layer. |
 
@@ -102,7 +134,8 @@ so parity is asserted rather than assumed.
 
 New subsystem — nothing in the repo today.
 
-**Model: Cloudflare Workers AI free tier.** On-platform, no extra credentials,
+**Model: Cloudflare Workers AI free tier.** No Claude tier — your key stays out
+of the deployment entirely. On-platform, no extra credentials,
 10,000 Neurons/day, and it hard-fails rather than billing when exhausted. Key
 lives as a Worker secret, never in the browser.
 
@@ -157,15 +190,21 @@ Four tabs, responsive, mobile-first:
 Corrections and accepted mappings live in memory only. They demonstrate the
 feature and reset on reload, which is correct for a demo.
 
-### Phase 4 — chat
+### Phase 4 — live upload
 
-Worker route, provider interface, context injection, Czech quality evaluation,
-per-IP throttle.
+Turnstile widget and server-side verification, HMAC session tokens, the pdf.js
+text-layer path, the vision fallback, per-IP KV counter. Uploaded data joins the
+same in-memory session state the pre-baked set uses, so all four tabs work on it
+unchanged.
 
-### Phase 5 — deploy
+### Phase 5 — chat
 
-Wrangler config, build pipeline, the Workers AI binding, deploy, verify on a
-real phone and a real desktop.
+Worker route, provider interface, context injection, Czech quality evaluation.
+
+### Phase 6 — deploy
+
+Wrangler config, build pipeline, Workers AI binding, Turnstile keys, deploy,
+verify on a real phone and a real desktop.
 
 ## Risks
 
@@ -174,9 +213,10 @@ real phone and a real desktop.
 | Patient identifiers surviving into the public build | Redaction plus a build-time check that fails the build, not a manual review step. |
 | Free-tier chat's Czech is too weak | Provider interface; evaluate before deploy; swap tiers if needed. |
 | Port drift in the deterministic core | Ported tests are the contract. |
-| Demo looks static / canned | Live correction re-derivation and mapping acceptance are genuinely interactive, and they are the parts a doctor cares about. |
+| Demo looks static / canned | Live upload plus correction re-derivation and mapping acceptance. |
+| Free vision model misreads a doctor's own PDF | Text-layer path avoids vision entirely for digital PDFs; two-model cross-check flags the rest; the pre-baked set still carries the pitch if a live upload disappoints. |
 
 ## Out of scope
 
-Live upload, auth, a database, cross-session persistence, custom domain,
-production security hardening. This is a demo.
+Auth, a database, cross-session persistence, custom domain, production security
+hardening, Claude anywhere in the deployed runtime. This is a demo.

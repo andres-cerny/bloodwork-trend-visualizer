@@ -3,8 +3,14 @@
 __pycache__/
 *.pyc
 
+# Node / web build
+node_modules/
+dist/
+.wrangler/
+
 # Secrets / config
 .env
+.dev.vars
 .streamlit/secrets.toml
 
 # Local Claude Code config
@@ -14,3 +20,4 @@ __pycache__/
 # Source lab PDFs and everything derived from them.
 data/
 samples/*.pdf
+web/public/demo/real/
