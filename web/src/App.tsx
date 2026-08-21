@@ -145,6 +145,10 @@ export default function App() {
               onCorrect={correct}
               focus={focus}
               displayName={(cid) => registry.displayName(cid)}
+              curatedRange={(cid) => {
+                const r = cid ? registry.get(cid)?.referenceRange : null;
+                return r ? { low: r[0], high: r[1] } : null;
+              }}
             />
           )}
           {tab === "mapping" && (

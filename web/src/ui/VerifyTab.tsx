@@ -16,6 +16,7 @@ import type { LabReport, Measurement } from "../lib/models";
 import { isFlagged, normalizeMeasurement } from "../lib/normalize";
 import { checkCorrection } from "../lib/correction";
 import { czDate } from "../lib/czech";
+import { checkImplausible } from "../lib/implausible";
 
 interface Props {
   reports: LabReport[];
@@ -24,9 +25,14 @@ interface Props {
   focus?: { reportId: string; rawName: string } | null;
   /** Resolves a canonical id to its readable Czech name. */
   displayName: (canonicalId: string) => string;
+  /**
+   * Curated interval for an analyte, used only to spot a misread value.
+   * Falls back to the interval printed on the report when absent.
+   */
+  curatedRange: (canonicalId: string | null) => { low: number; high: number } | null;
 }
 
-export default function VerifyTab({ reports, onCorrect, focus, displayName }: Props) {
+export default function VerifyTab({ reports, onCorrect, focus, displayName, curatedRange }: Props) {
   const [reportId, setReportId] = useState(focus?.reportId ?? reports[0]?.id ?? "");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
@@ -38,6 +44,19 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName }: Pr
   const report = reports.find((r) => r.id === reportId) ?? reports[0];
   const sel = picked !== null ? report?.measurements[picked] ?? null : null;
   const check = checkCorrection(draft, sel?.unitRaw ?? "");
+
+  /**
+   * Is this number even a possible measurement? Separate from whether it is
+   * abnormal — that comes from the interval printed on the report.
+   */
+  const implausibleOf = (m: Measurement) =>
+    checkImplausible(
+      m,
+      curatedRange(m.canonicalId) ??
+        (m.refRangeLow !== null && m.refRangeHigh !== null
+          ? { low: m.refRangeLow, high: m.refRangeHigh }
+          : null),
+    );
 
   // Track the image's *rendered* width continuously rather than measuring it
   // once on load.
@@ -97,14 +116,18 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName }: Pr
     if (!report) return [];
     return report.measurements
       .map((m, i) => ({ m, i }))
-      .filter(({ m }) => (onlyFlagged ? isFlagged(m) : true));
+      .filter(({ m }) => (onlyFlagged ? isFlagged(m) || implausibleOf(m) !== null : true));
+    // implausibleOf is stable for a given report; recomputing on filter change
+    // is cheap relative to rendering the table.
   }, [report, onlyFlagged]);
 
   if (!report) return <p className="sub">Nejsou načtena žádná data.</p>;
 
   const page = report.pages[0];
   const scale = page && imgW ? imgW / page.imageWidth : 0;
-  const flaggedCount = report.measurements.filter(isFlagged).length;
+  const flaggedCount = report.measurements.filter(
+    (m) => isFlagged(m) || implausibleOf(m) !== null,
+  ).length;
 
   function pick(i: number) {
     setPicked(i);
@@ -197,6 +220,15 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName }: Pr
                           fourth column: on a phone that column sat off-screen,
                           hiding exactly the rows that need attention. */}
                       <span className="marks">
+                        {(() => {
+                          const imp = implausibleOf(m);
+                          if (!imp) return null;
+                          return (
+                            <span className="chip alert">
+                              {imp.level === "impossible" ? "nemožná hodnota" : "ověřit desetinnou čárku"}
+                            </span>
+                          );
+                        })()}
                         {m.disagreement && <span className="chip alert">neshoda</span>}
                         {m.confidence === "low" && <span className="chip alert">nízká jistota</span>}
                         {m.corrected && <span className="chip">ručně opraveno</span>}
@@ -221,6 +253,10 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName }: Pr
           {sel && (
             <div style={{ marginBottom: 10 }}>
               <p className="muted" style={{ margin: "0 0 6px" }}>{sel.sourceSnippet || sel.rawAnalyteName}</p>
+              {(() => {
+                const imp = implausibleOf(sel);
+                return imp ? <p className="err" style={{ margin: "0 0 6px" }}>⚠ {imp.reason}</p> : null;
+              })()}
               {sel.disagreement && <p className="err" style={{ margin: "0 0 6px" }}>⚠ {sel.disagreement}</p>}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <input

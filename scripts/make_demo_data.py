@@ -83,9 +83,16 @@ DATES = ["2024-02-14", "2024-08-21", "2025-02-19", "2025-08-13"]
 # index. (row index, kind).
 QA_MARKS: dict[int, list[tuple[int, str]]] = {
     0: [(4, "disagreement"), (12, "low")],
+    1: [(0, "misread")],
     2: [(1, "disagreement")],
     3: [(9, "low"), (20, "disagreement")],
 }
+
+# One deliberately misread row, so the demo can show the check that matters
+# most: a decimal point transcribed in the wrong place. The printed page keeps
+# the correct value — only the extracted row is wrong, which is exactly the
+# failure the verification tab exists to catch.
+MISREAD_FACTOR = 10
 
 
 def _nudge(value: str) -> str:
@@ -189,7 +196,14 @@ def main() -> None:
             m.canonical_id = registry.match(name)
 
             kind = marks.get(mi)
-            if kind == "disagreement":
+            if kind == "misread":
+                # Shift the decimal one place, as a vision model occasionally
+                # does. Everything else about the row stays correct.
+                shifted = value.replace(",", "")
+                m.value_raw = f"{shifted[:-1]},{shifted[-1]}" if len(shifted) > 1 else shifted
+                normalize_measurement(m)
+                m.confidence = "low"
+            elif kind == "disagreement":
                 # Show both readings. A flag that says only "the models
                 # disagreed" gives a reader nothing to check against.
                 other = _nudge(value)
