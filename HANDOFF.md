@@ -38,7 +38,13 @@ already sits under each candidate.
 1. **No real Claude calls have ever been made.** There was no
    `ANTHROPIC_API_KEY` in the build environment. Every test so far exercises
    the deterministic layer only. *The end-to-end extraction path is unproven.*
-2. **Never deployed.** `wrangler` was not authenticated.
+2. **Never deployed.** `wrangler whoami` reported "not authenticated", no
+   Cloudflare credentials were present in the environment, and
+   `developers.cloudflare.com` is blocked by the egress proxy — so the
+   official agent-setup flow could not be fetched either. Deploying is a
+   local job: see `docs/deploy.md`. Prefer `wrangler login` (OAuth) over a
+   long-lived API token; there is then no token to leak or clean up, and
+   secrets go in via `wrangler secret put`, never into a file.
 3. **Never tested against a real lab PDF.** Network egress was policy-blocked,
    so no real Czech lab documents could be downloaded. All fixtures are
    synthetic.
@@ -70,6 +76,22 @@ VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA
 ```
 
 Then `npx wrangler dev` serves the whole thing including the API routes.
+
+## A clinician reviewed the UI
+
+Two rounds of subagent evaluation role-playing Czech doctors drove the built
+app and reported what a clinician could not use. Round one found a genuine
+correctness bug — the mapping plausibility check accepted anything, so the UI
+put a green tick on merging homocysteine with uric acid — plus Czech grammar
+errors, negative axes on quantities that cannot be negative, unvalidated and
+irreversible corrections, and a mobile verification tab that hid exactly the
+rows needing review. All were fixed; see the commit "Act on a clinician's
+evaluation of the UI".
+
+If you change the UI, it is worth repeating: spawn a subagent, tell it to
+role-play a Czech doctor who has never seen the app, point it at
+`npx vite preview` with Playwright, and make it *read its own screenshots*.
+It caught things no test would.
 
 ## The main job: test extraction on real PDFs
 
