@@ -53,7 +53,14 @@ openssl rand -base64 32
 npm run deploy
 ```
 
-That builds the SPA into `dist/` and pushes the Worker. The URL it prints is
+That builds the SPA into `dist/`, **checks the build**, and pushes the Worker.
+
+The check exists because the failure it catches is silent: if
+`VITE_TURNSTILE_SITE_KEY` does not reach the bundle, the build still succeeds
+and the app renders "Nahrávání vlastních PDF není v této ukázce zapnuté" —
+which reads as a deliberate setting rather than a broken one, so a keyless
+build would deploy with nothing anywhere saying so. `npm run check:bundle`
+runs it on its own. The URL it prints is
 the link you send.
 
 ## Local development
