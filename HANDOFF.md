@@ -3,6 +3,35 @@
 Give this file to Claude in a local session. It has everything needed to test
 extraction against real PDFs, improve it, and deploy.
 
+## Step 0 — get the branch (do this first)
+
+None of this work is on `main`. A fresh clone, or a checkout that has not
+fetched since, will not have the branch at all — so start here:
+
+```sh
+git fetch origin
+git switch claude/web-app-demo-hosting-ymbgkc
+npm install
+```
+
+If `git switch` reports the branch does not exist, the fetch did not run or
+did not reach the remote — re-run `git fetch origin` and check
+`git branch -r` lists `origin/claude/web-app-demo-hosting-ymbgkc`.
+
+`main` is untouched at `242bd53`, so switching back and forth costs nothing.
+Stash local changes first if `git status` is not clean.
+
+Then confirm the tree is healthy before changing anything:
+
+```sh
+npm test               # 197 unit tests
+python3 tests/test_parity.py   # 58 cross-language parity cases
+```
+
+Both should pass immediately. If they do not, something about the environment
+is wrong — Node 22 and Python 3.11 are what this was built and tested against
+— and it is worth fixing that before trusting any other result.
+
 ## What this is
 
 A Cloudflare-hosted demo of the bloodwork visualizer, built on the branch
@@ -14,7 +43,9 @@ Design doc: `docs/web-demo-plan.md`. Deploy steps: `docs/deploy.md`.
 
 ## State
 
-Built and tested — **88 tests pass** (`npm test`):
+Built and tested — **197 unit tests** (`npm test`), plus 14 browser tests and
+17 live-extraction tests that need a browser or an API key (see *Tests only you
+can run* below):
 
 | Area | File | Covers |
 |---|---|---|
@@ -118,16 +149,15 @@ LIVE_SINGLE_MODEL=1 npm run test:live   # one model instead of two, ~half price
 Without a key the suite **skips** with a message rather than failing, so
 `npm test` stays green for anyone without one.
 
-## First: get it running
+## Running it locally
 
 ```sh
-npm install
-npm test                 # 53 tests, should all pass
-npm run dev              # SPA on the pre-baked data, no API needed
+npm run dev              # SPA on the pre-baked data — no key, no Worker needed
 ```
 
-Then follow `docs/deploy.md` for KV, Turnstile and secrets. For local
-full-stack work you need a git-ignored `.dev.vars`:
+That is enough to look at every tab. For the AI features you need the Worker,
+which means secrets. Follow `docs/deploy.md` for KV, Turnstile and the real
+values; for local full-stack work put them in a git-ignored `.dev.vars`:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
