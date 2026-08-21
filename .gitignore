@@ -3,6 +3,11 @@
 __pycache__/
 *.pyc
 
+# Throwaway driver scripts (Playwright harnesses, one-off probes)
+.eval*.mjs
+.shot.mjs
+.gaps.mjs
+
 # Node / web build
 node_modules/
 dist/
