@@ -108,3 +108,33 @@ describe("scanned page", () => {
     expect(dataRows(buildRows(words)).length).toBe(0);
   });
 });
+
+describe("tight line spacing", () => {
+  it("keeps rows 11pt apart separate rather than merging them", async () => {
+    const rows = buildRows(await pageWords("tight_rows.pdf"));
+    const text = rowsAsText(rows);
+    for (const name of ["S_Sodík", "S_Draslík", "S_Chloridy", "S_Vápník"]) {
+      const line = text.split("\n").find((l) => l.startsWith(name));
+      expect(line, `${name} should be on its own line`).toBeDefined();
+      expect(line!.split(" | ")).toHaveLength(4);
+    }
+  });
+});
+
+describe("unit printed inside the value cell", () => {
+  it("keeps the value and its unit together as one cell", async () => {
+    const text = fold(rowsAsText(buildRows(await pageWords("unit_in_value.pdf"))));
+    expect(text).toContain("S_Glukóza | 5,32 mmol/l | 4,11 - 5,60");
+    expect(text).toContain("S_CRP | <1,0 mg/l | 1,0 - 5,0");
+  });
+});
+
+describe("multi-page report", () => {
+  it("reads each page independently, header and all", async () => {
+    const p1 = rowsAsText(buildRows(await pageWords("multipage.pdf", 1)));
+    const p2 = rowsAsText(buildRows(await pageWords("multipage.pdf", 2)));
+    expect(p1).toContain("S_Urea | 5,62 | mmol/l | (2,80-8,00)");
+    expect(p1).not.toContain("B_Erytrocyty");
+    expect(p2).toContain("B_Hemoglobin | 149 | g/l | (135-175)");
+  });
+});

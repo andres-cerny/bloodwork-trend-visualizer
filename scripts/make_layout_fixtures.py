@@ -139,6 +139,59 @@ def landscape_sections(doc):
         y += 12
 
 
+# 6 — tight line spacing. Attacks the clustering tolerance directly: rows
+#     11pt apart with 9pt text leave very little vertical separation.
+def tight_rows(doc):
+    page = new_page(doc)
+    header(page)
+    y = 130
+    for name, val, unit, ref in [
+        ("S_Sodík", "141", "mmol/l", "137-145"),
+        ("S_Draslík", "4,32", "mmol/l", "(3,80-5,20)"),
+        ("S_Chloridy", "104", "mmol/l", "(97-108)"),
+        ("S_Vápník", "2,38", "mmol/l", "(2,15-2,55)"),
+    ]:
+        page.insert_text((50, y), name, fontname="dj", fontsize=9)
+        page.insert_text((250, y), val, fontname="dj", fontsize=9)
+        page.insert_text((330, y), unit, fontname="dj", fontsize=9)
+        page.insert_text((420, y), ref, fontname="dj", fontsize=9)
+        y += 11
+
+
+# 7 — value and unit printed as one cell ("5,32 mmol/l"), a common variant.
+def unit_in_value(doc):
+    page = new_page(doc)
+    header(page)
+    y = 130
+    for name, val, ref in [
+        ("S_Glukóza", "5,32 mmol/l", "4,11 - 5,60"),
+        ("S_Cholesterol", "6,01 mmol/l", "2,90 - 5,00"),
+        ("S_CRP", "<1,0 mg/l", "1,0 - 5,0"),
+    ]:
+        page.insert_text((50, y), name, fontname="dj", fontsize=9)
+        page.insert_text((260, y), val, fontname="dj", fontsize=9)
+        page.insert_text((420, y), ref, fontname="dj", fontsize=9)
+        y += 19
+
+
+# 8 — a report spilling onto a second page, header repeated.
+def multipage(doc):
+    for part in (0, 1):
+        page = new_page(doc)
+        header(page)
+        y = 130
+        rows = [("S_Urea", "5,62", "mmol/l", "(2,80-8,00)")] if part == 0 else [
+            ("B_Erytrocyty", "5,02", "10^12/l", "(4,20-5,80)"),
+            ("B_Hemoglobin", "149", "g/l", "(135-175)"),
+        ]
+        for name, val, unit, ref in rows:
+            page.insert_text((50, y), name, fontname="dj", fontsize=9)
+            page.insert_text((250, y), val, fontname="dj", fontsize=9)
+            page.insert_text((330, y), unit, fontname="dj", fontsize=9)
+            page.insert_text((420, y), ref, fontname="dj", fontsize=9)
+            y += 19
+
+
 def scanned(doc_path: Path):
     """A page with no text layer at all — must route to the vision path."""
     src = fitz.open()
@@ -162,6 +215,9 @@ def main() -> None:
         ("wrapped_names", wrapped_names),
         ("split_range", split_range),
         ("landscape_sections", landscape_sections),
+        ("tight_rows", tight_rows),
+        ("unit_in_value", unit_in_value),
+        ("multipage", multipage),
     ]:
         doc = fitz.open()
         fn(doc)
