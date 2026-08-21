@@ -6,15 +6,18 @@ await p.goto("http://localhost:4180/", { waitUntil: "networkidle" });
 await p.waitForTimeout(2500);
 await p.getByRole("tab", { name: "🗂️ Namapování" }).click();
 await p.waitForTimeout(1500);
-const ku = p.getByText("Kyselina močová", { exact: true }).first();
-await ku.scrollIntoViewIfNeeded();
-await p.waitForTimeout(400);
-await p.screenshot({ path: `${OUT}/m03-uric-candidate.png` });
-
-// click "Nechat nenamapované — proč?"
-await p.getByRole("button", { name: /Nechat nenamapované/ }).first().click();
-await p.waitForTimeout(900);
-await p.screenshot({ path: `${OUT}/m04-nechat-nenamapovane.png` });
-console.log("=== after 'Nechat nenamapované' ===");
-console.log((await p.locator("body").innerText()).slice(250,2200));
+await p.getByRole("button", { name: "Zobrazit v dokumentu" }).nth(2).click();
+await p.waitForTimeout(1500);
+// find highlight overlay element
+const marks = await p.locator("[class*=highlight],[class*=mark],[style*=border]").count();
+console.log("possible highlight els:", marks);
+// scroll page down to see full source image
+await p.mouse.wheel(0, 900);
+await p.waitForTimeout(600);
+await p.screenshot({ path: `${OUT}/m07-jump-scrolled.png` });
+await p.mouse.wheel(0, 700);
+await p.waitForTimeout(600);
+await p.screenshot({ path: `${OUT}/m08-jump-scrolled2.png` });
+// is any left row visually selected?
+console.log("selected rows:", await p.locator("tr[class*=sel],tr[aria-selected=true]").count());
 await b.close();

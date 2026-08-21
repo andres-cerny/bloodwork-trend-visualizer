@@ -33,8 +33,17 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
   const report = reports.find((r) => r.id === reportId) ?? reports[0];
 
   // Follow a "show me in the document" jump: switch report and select the row.
+  //
+  // Applied once per jump. `reports` has to be read here but must not be a
+  // trigger: correcting a value replaces the reports array, which would
+  // otherwise re-fire this and yank the selection back to the focused row
+  // while the user is working elsewhere.
+  const appliedFocus = useRef<string | null>(null);
   useEffect(() => {
     if (!focus) return;
+    const token = `${focus.reportId}:${focus.rawName}`;
+    if (appliedFocus.current === token) return;
+    appliedFocus.current = token;
     setReportId(focus.reportId);
     const r = reports.find((x) => x.id === focus.reportId);
     const i = r?.measurements.findIndex((m) => m.rawAnalyteName === focus.rawName) ?? -1;
