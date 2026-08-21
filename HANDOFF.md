@@ -86,8 +86,16 @@ already sits under each candidate.
    KV namespace `BUDGET` created and bound, `ANTHROPIC_API_KEY` and
    `SESSION_SECRET` set as Worker secrets. Verified live: `/api/status`
    reports the ledger, demo assets serve, and `/api/extract` returns 401
-   without a session. **Turnstile is not yet configured**, so upload and chat
-   are off until `TURNSTILE_SECRET_KEY` is set and the site key is built in.
+   without a session. Turnstile is configured — widget in Managed mode for
+   `bloodwork-demo.andres-cerny.workers.dev` and `localhost`, all three
+   secrets bound.
+
+   The full gated path was verified through the real Worker (`wrangler dev`
+   with Turnstile's official always-pass test keys): session minted, a PDF
+   uploaded and extracted correctly, the ledger incremented. **The production
+   Turnstile challenge itself cannot be verified by script** — Managed mode
+   detects and refuses automation, headless or headed, which is exactly its
+   purpose. It needs one click from a human browser.
 
 Row reconstruction can be re-checked against real PDFs at **no API cost**;
 only full extraction spends. Keep that split when adding coverage.
