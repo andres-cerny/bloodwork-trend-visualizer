@@ -235,7 +235,8 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                       </span>
                     </td>
                     <td className="num">
-                      {m.valueRaw} <span className="muted">{m.unitRaw}</span>
+                      {m.valueRaw}{" "}
+                      <span className="muted">{m.unitRaw.trim() === "-" ? "" : m.unitRaw}</span>
                     </td>
                     <td><Flag flag={m.flag} /></td>
                   </tr>

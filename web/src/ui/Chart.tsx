@@ -134,6 +134,10 @@ export default function Chart({ trend }: { trend: Trend }) {
     return { top, height: Math.max(1, bottom - top), bLow, bHigh };
   })();
 
+  const offscreenLimits: string[] = [];
+  if (band?.bHigh != null && (band.bHigh < yMin || band.bHigh > yMax)) offscreenLimits.push("horní mez");
+  if (band?.bLow != null && (band.bLow < yMin || band.bLow > yMax)) offscreenLimits.push("dolní mez");
+
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value as number)}`).join(" ");
   const ticks = niceTicks(yMin, yMax);
   const active = hover !== null ? pts[hover] : null;
@@ -156,6 +160,30 @@ export default function Chart({ trend }: { trend: Trend }) {
           <g clipPath={`url(#${clipId})`}>
             <rect x={PAD.left} y={band.top} width={innerW} height={band.height} fill="var(--band)" />
           </g>
+        )}
+
+        {/* Draw each reference limit as a labelled line when it falls inside
+            the view. The shaded band alone is ambiguous: with the axis scaled
+            to the data it often fills the whole plot (saying nothing) or is
+            cropped at an edge, where the cut could be misread as the limit. */}
+        {[
+          { v: band?.bHigh ?? null, label: "horní mez" },
+          { v: band?.bLow ?? null, label: "dolní mez" },
+        ].map(({ v, label }, i) =>
+          v !== null && v >= yMin && v <= yMax ? (
+            <g key={i}>
+              <line
+                x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)}
+                stroke="var(--ink-muted)" strokeWidth={1} strokeDasharray="4 3"
+              />
+              <text
+                x={W - PAD.right} y={y(v) - 4} textAnchor="end"
+                fontSize={11} fill="var(--ink-muted)"
+              >
+                {label} {czNum(v)}
+              </text>
+            </g>
+          ) : null,
         )}
 
         {ticks.map((t, i) => (
