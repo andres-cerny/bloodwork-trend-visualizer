@@ -76,8 +76,9 @@ re-billed.
 ## Web demo (Cloudflare)
 
 A shareable version of this tool runs as a static SPA plus one Worker — see
-**[docs/deploy.md](docs/deploy.md)** to deploy it and
-**[docs/web-demo-plan.md](docs/web-demo-plan.md)** for the design.
+**[docs/deploy.md](docs/deploy.md)** to deploy it,
+**[docs/web-demo-plan.md](docs/web-demo-plan.md)** for the design, and
+**[HANDOFF.md](HANDOFF.md)** for what still needs testing against real PDFs.
 
 ```sh
 npm install
