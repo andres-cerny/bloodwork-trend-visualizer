@@ -129,7 +129,28 @@ test would have:
 If you change the UI, it is worth repeating: spawn a subagent, tell it to
 role-play a Czech doctor who has never seen the app, point it at
 `npx vite preview` with Playwright, and make it *read its own screenshots*.
-It caught things no test would.
+It caught things no test would. Two practical notes: do not rebuild `dist`
+while a review is running (the preview serves from disk, so the reviewer sees
+a moving target), and give each round the previous round's findings to verify
+rather than only asking for fresh ones — the verification is where the
+half-finished fixes surface.
+
+## A security review found one real defect
+
+`export_web_data.py`'s redaction guard could not detect the case it existed
+for. Redaction and verification both ran through the PDF text layer, so on a
+**scanned** page the search matched nothing, nothing was painted over, the
+"did anything survive" check also matched nothing, and a page whose printed
+header carries the patient's name and rodné číslo rendered straight through
+looking clean. Fixed: a page without a usable text layer is refused, and images
+are staged and published only once every page passes.
+
+Confirmed sound in the same review: the HMAC session verification denies on
+every malformed path rather than falling through; no secret can reach the
+client bundle or an error body (the SDK's error stringification uses the
+response body only, never request headers); the spend ledger is driven only by
+token counts Anthropic reports; and the Worker's only outbound hosts are
+hardcoded. Worth re-running before deploy if you change `worker/`.
 
 ## The main job: test extraction on real PDFs
 
