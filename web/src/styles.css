@@ -138,3 +138,14 @@ ul.summary li:last-child { border-bottom: none; }
 
 .muted { color: var(--ink-muted); font-size: 0.8rem; }
 .err { color: var(--status-critical); font-size: 0.85rem; }
+
+/* Mapping candidates: a list, not a table. A table forced the accept button
+   off-screen on a phone; this keeps it reachable without sideways scrolling. */
+ul.cand-list { list-style: none; padding: 0; margin: 0; }
+.cand {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 0; border-bottom: 1px solid var(--grid);
+}
+.cand:last-child { border-bottom: none; }
+.cand-main { flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.cand .btn { flex: 0 0 auto; }

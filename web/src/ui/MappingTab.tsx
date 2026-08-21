@@ -110,36 +110,26 @@ export default function MappingTab({ reports, registry, onMap }: Props) {
             {cands.length === 0 ? (
               <p className="muted">Žádný dostatečně podobný analyt v registru.</p>
             ) : (
-              <div className="scroll-x">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Návrh</th>
-                      <th>Jednotka</th>
-                      <th>Shoda</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cands.map((c) => (
-                      <tr key={c.canonicalId}>
-                        <td>{c.displayName}</td>
-                        <td className="muted">{c.canonicalUnit || "—"}</td>
-                        <td>
-                          <span className="chip">{Math.round(c.score * 100)} %</span>
-                          {c.unitMatch === true && <span className="chip">✔ jednotka</span>}
-                          {c.unitMatch === false && <span className="chip alert">✘ jednotka</span>}
-                        </td>
-                        <td>
-                          <button className="btn" onClick={() => onMap(rawName, c.canonicalId)}>
-                            Přijmout
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ul className="cand-list">
+                {cands.map((c) => (
+                  <li key={c.canonicalId} className="cand">
+                    <div className="cand-main">
+                      <strong>{c.displayName}</strong>
+                      <div>
+                        {/* Boosts can push the raw score past 1; the bar is a
+                            confidence cue, not a probability, so clamp it. */}
+                        <span className="chip">{Math.min(100, Math.round(c.score * 100))} % shoda</span>
+                        {c.canonicalUnit && <span className="chip">{c.canonicalUnit}</span>}
+                        {c.unitMatch === true && <span className="chip">✔ jednotka</span>}
+                        {c.unitMatch === false && <span className="chip alert">✘ jednotka</span>}
+                      </div>
+                    </div>
+                    <button className="btn primary" onClick={() => onMap(rawName, c.canonicalId)}>
+                      Přijmout
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         );
