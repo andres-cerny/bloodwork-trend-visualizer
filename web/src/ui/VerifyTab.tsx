@@ -10,7 +10,7 @@
  * the trend and the summary. That live re-derivation is the point: it shows a
  * misread decimal cannot survive review.
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Flag from "./Flag";
 import type { LabReport, Measurement } from "../lib/models";
 import { isFlagged, normalizeMeasurement } from "../lib/normalize";
@@ -18,10 +18,12 @@ import { isFlagged, normalizeMeasurement } from "../lib/normalize";
 interface Props {
   reports: LabReport[];
   onCorrect: (reportId: string, index: number, next: Measurement) => void;
+  /** Arriving from the mapping tab: open this report with this row selected. */
+  focus?: { reportId: string; rawName: string } | null;
 }
 
-export default function VerifyTab({ reports, onCorrect }: Props) {
-  const [reportId, setReportId] = useState(reports[0]?.id ?? "");
+export default function VerifyTab({ reports, onCorrect, focus }: Props) {
+  const [reportId, setReportId] = useState(focus?.reportId ?? reports[0]?.id ?? "");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
   const [draft, setDraft] = useState<string>("");
@@ -29,6 +31,18 @@ export default function VerifyTab({ reports, onCorrect }: Props) {
   const [imgW, setImgW] = useState(0);
 
   const report = reports.find((r) => r.id === reportId) ?? reports[0];
+
+  // Follow a "show me in the document" jump: switch report and select the row.
+  useEffect(() => {
+    if (!focus) return;
+    setReportId(focus.reportId);
+    const r = reports.find((x) => x.id === focus.reportId);
+    const i = r?.measurements.findIndex((m) => m.rawAnalyteName === focus.rawName) ?? -1;
+    if (i >= 0) {
+      setPicked(i);
+      setDraft(r!.measurements[i].valueRaw);
+    }
+  }, [focus, reports]);
   const rows = useMemo(() => {
     if (!report) return [];
     return report.measurements

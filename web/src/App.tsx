@@ -33,6 +33,8 @@ export default function App() {
   // Bumped on every mapping acceptance: the Registry is mutable, so trends
   // need an explicit signal to rebuild.
   const [registryVersion, setRegistryVersion] = useState(0);
+  // Set when the mapping tab asks to show a row in its source document.
+  const [focus, setFocus] = useState<{ reportId: string; rawName: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -129,9 +131,19 @@ export default function App() {
         <>
           {tab === "trends" && <TrendsTab trends={trends} />}
           {tab === "summary" && <SummaryTab trends={trends} />}
-          {tab === "verify" && <VerifyTab reports={reports} onCorrect={correct} />}
+          {tab === "verify" && (
+            <VerifyTab reports={reports} onCorrect={correct} focus={focus} />
+          )}
           {tab === "mapping" && (
-            <MappingTab reports={reports} registry={registry} onMap={acceptMapping} />
+            <MappingTab
+              reports={reports}
+              registry={registry}
+              onMap={acceptMapping}
+              onShowSource={(reportId, rawName) => {
+                setFocus({ reportId, rawName });
+                setTab("verify");
+              }}
+            />
           )}
 
           <ChatPanel

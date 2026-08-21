@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const OUT = "/tmp/claude-0/-home-user-bloodwork-trend-visualizer/544a684b-642c-5494-ae78-6ed6aa59f825/scratchpad/eval";
+const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+const p = await b.newPage({ viewport: { width: 1200, height: 900 }, deviceScaleFactor: 2 });
+await p.goto("http://localhost:4180/", { waitUntil: "networkidle" });
+await p.waitForTimeout(2500);
+await p.getByRole("tab", { name: "🔍 Ověření" }).click();
+await p.waitForTimeout(1800);
+await p.screenshot({ path: `${OUT}/v01-overeni-top.png` });
+console.log("=== OVERENI TEXT ===");
+console.log((await p.locator("body").innerText()).slice(0,4000));
+await b.close();

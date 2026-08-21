@@ -149,3 +149,23 @@ ul.cand-list { list-style: none; padding: 0; margin: 0; }
 .cand:last-child { border-bottom: none; }
 .cand-main { flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .cand .btn { flex: 0 0 auto; }
+
+/* Mapping review ---------------------------------------------------------- */
+.cand-head { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--ink-muted); margin: 16px 0 8px; }
+ul.cand-list { list-style: none; padding: 0; margin: 0 0 10px; }
+.cand-card { border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 11px 12px; margin-bottom: 9px; }
+.cand-top { display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; }
+.chip.best { background: color-mix(in srgb, var(--series-1) 16%, transparent);
+  color: var(--series-1); font-weight: 600; margin-left: 7px; }
+ul.evidence { list-style: none; padding: 0; margin: 8px 0 0;
+  display: grid; gap: 3px; }
+ul.evidence li { display: flex; gap: 8px; font-size: 0.82rem; }
+.ev-label { color: var(--ink-muted); flex: 0 0 72px; }
+.ev-val { color: var(--ink-2); }
+.ev-val.bad { color: var(--status-critical); }
+table.occ { margin-bottom: 4px; }
+button.btn.linkish { background: none; border: none; padding: 4px 0;
+  color: var(--series-1); text-decoration: underline; font-size: 0.83rem; }

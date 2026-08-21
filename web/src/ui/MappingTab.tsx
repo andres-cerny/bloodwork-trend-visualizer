@@ -1,86 +1,102 @@
 /**
- * Analyte mapping review. Suggestions are precomputed by fuzzy name similarity
- * against the registry — the same evidence the Python surfaces (unit match,
- * plausible value) shown per candidate so the choice is auditable rather than
- * a black box.
+ * Analyte mapping review.
+ *
+ * The question being answered is "is the thing I already have under this
+ * heading the same measurement as the thing I am looking at" — so both sides
+ * are shown: every place the unknown name was seen with what it read, and
+ * what data already sits under each candidate. Suggestions are computed
+ * locally from name similarity, unit compatibility and value plausibility;
+ * no model is involved, and each candidate shows the evidence behind its
+ * ranking rather than only a score.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { LabReport } from "../lib/models";
-import { normKey, type Registry } from "../lib/registry";
+import {
+  findUnmapped,
+  observedStats,
+  suggestMappings,
+  type Candidate,
+  type UnmappedAnalyte,
+} from "../lib/mapping";
+import { czNum } from "../lib/summary";
+import type { Registry } from "../lib/registry";
 
 interface Props {
   reports: LabReport[];
   registry: Registry;
   onMap: (rawName: string, canonicalId: string) => void;
+  /** Jump to the verification tab focused on one occurrence. */
+  onShowSource: (reportId: string, rawName: string) => void;
 }
 
-interface Candidate {
-  canonicalId: string;
-  displayName: string;
-  score: number;
-  unitMatch: boolean | null;
-  canonicalUnit: string;
+function Evidence({ c }: { c: Candidate }) {
+  const o = c.observed;
+  return (
+    <ul className="evidence">
+      <li>
+        <span className="ev-label">Název</span>
+        <span className="ev-val">{Math.round(c.nameSim * 100)} % podobnost</span>
+      </li>
+      <li>
+        <span className="ev-label">Jednotka</span>
+        <span className={`ev-val ${c.unitMatch === false ? "bad" : ""}`}>
+          {c.unitMatch === null
+            ? "nelze porovnat"
+            : c.unitMatch
+              ? `✔ shoduje se (${c.canonicalUnit || o?.unit})`
+              : `✘ liší se (${c.canonicalUnit || o?.unit || "?"})`}
+        </span>
+      </li>
+      <li>
+        <span className="ev-label">Hodnoty</span>
+        <span className={`ev-val ${c.valueOk === false ? "bad" : ""}`}>
+          {c.valueOk === null
+            ? "není s čím porovnat"
+            : c.valueOk
+              ? "✔ v očekávaném rozsahu"
+              : "✘ mimo očekávaný rozsah"}
+        </span>
+      </li>
+    </ul>
+  );
 }
 
-/** Character-bigram Dice coefficient — cheap, and stable for Czech names. */
-function similarity(a: string, b: string): number {
-  if (a === b) return 1;
-  if (a.length < 2 || b.length < 2) return 0;
-  const grams = (s: string) => {
-    const m = new Map<string, number>();
-    for (let i = 0; i < s.length - 1; i++) {
-      const g = s.slice(i, i + 2);
-      m.set(g, (m.get(g) ?? 0) + 1);
-    }
-    return m;
-  };
-  const ga = grams(a);
-  const gb = grams(b);
-  let hits = 0;
-  for (const [g, n] of ga) hits += Math.min(n, gb.get(g) ?? 0);
-  return (2 * hits) / (a.length - 1 + b.length - 1);
-}
-
-function suggest(rawName: string, rawUnit: string, registry: Registry, topN = 3): Candidate[] {
-  const key = normKey(rawName);
-  if (!key) return [];
-  const ru = rawUnit.trim().toLowerCase().replace(/\s+/g, "");
-  const out: Candidate[] = [];
-  for (const a of registry.analytes.values()) {
-    const keys = [a.canonicalId, a.displayNameCs, ...a.synonyms].map(normKey).filter(Boolean);
-    if (keys.length === 0) continue;
-    let nameSim = Math.max(...keys.map((k) => similarity(key, k)));
-    // Substring containment is strong evidence the fuzzy score under-rates.
-    if (key.length >= 3 && keys.some((k) => k.length >= 3 && (k.includes(key) || key.includes(k)))) {
-      nameSim += 0.15;
-    }
-    const cu = (a.canonicalUnit || "").toLowerCase().replace(/\s+/g, "");
-    let unitMatch: boolean | null = null;
-    let score = nameSim;
-    if (ru && cu) {
-      unitMatch = ru === cu || Object.keys(a.unitConversions).some((u) => u.toLowerCase().replace(/\s+/g, "") === ru);
-      score += unitMatch ? 0.2 : -0.25;
-    }
-    if (score >= 0.45) {
-      out.push({ canonicalId: a.canonicalId, displayName: a.displayNameCs, score, unitMatch, canonicalUnit: a.canonicalUnit });
-    }
+function ExistingData({ c }: { c: Candidate }) {
+  const o = c.observed;
+  if (!o || o.count === 0) {
+    return (
+      <p className="muted" style={{ margin: "6px 0 0" }}>
+        Zatím žádná naměřená data — analyt je v registru, ale v těchto reportech
+        se ještě neobjevil.
+      </p>
+    );
   }
-  out.sort((x, y) => y.score - x.score);
-  return out.slice(0, topN);
+  return (
+    <div className="existing">
+      <p className="muted" style={{ margin: "0 0 4px" }}>
+        Už máme <strong>{o.count}</strong> měření
+        {o.firstDate && o.lastDate && (
+          <>
+            {" "}
+            ({o.firstDate === o.lastDate ? o.firstDate : `${o.firstDate} → ${o.lastDate}`})
+          </>
+        )}
+        {o.unit && <> v jednotce <strong>{o.unit}</strong></>}
+        {o.min !== null && o.max !== null && (
+          <>
+            , rozsah <strong>{czNum(o.min)}–{czNum(o.max)}</strong>
+          </>
+        )}
+        .
+      </p>
+    </div>
+  );
 }
 
-export default function MappingTab({ reports, registry, onMap }: Props) {
-  const unmapped = useMemo(() => {
-    const seen = new Map<string, { unit: string; count: number }>();
-    for (const r of reports)
-      for (const m of r.measurements)
-        if (m.canonicalId === null) {
-          const e = seen.get(m.rawAnalyteName);
-          if (e) e.count += 1;
-          else seen.set(m.rawAnalyteName, { unit: m.unitRaw, count: 1 });
-        }
-    return [...seen.entries()].map(([rawName, v]) => ({ rawName, ...v }));
-  }, [reports]);
+export default function MappingTab({ reports, registry, onMap, onShowSource }: Props) {
+  const unmapped = useMemo(() => findUnmapped(reports), [reports]);
+  const stats = useMemo(() => observedStats(reports), [reports]);
+  const [open, setOpen] = useState<string | null>(null);
 
   if (unmapped.length === 0)
     return (
@@ -95,41 +111,86 @@ export default function MappingTab({ reports, registry, onMap }: Props) {
       <div className="card">
         <h2>Namapování analytů</h2>
         <p className="sub">
-          Tyto názvy zatím neznáme. Návrhy počítáme lokálně z podobnosti názvu a
-          shody jednotky — žádné volání modelu. Po přijetí si je aplikace pamatuje
-          a analyt se objeví v trendech.
+          Tyto názvy zatím neznáme, takže se neobjeví v trendech. U každého vidíte,
+          kde přesně se v dokumentech vyskytl a co tam bylo naměřeno, a u každého
+          návrhu, jaká data už pod ním máme — abyste mohli posoudit, jestli jde
+          opravdu o totéž vyšetření. Počítáno lokálně, bez volání modelu.
         </p>
       </div>
-      {unmapped.map(({ rawName, unit, count }) => {
-        const cands = suggest(rawName, unit, registry);
+
+      {unmapped.map((a: UnmappedAnalyte) => {
+        const cands = suggestMappings(a, registry, stats);
+        const isOpen = open === a.rawName;
         return (
-          <div className="card" key={rawName}>
-            <h3>
-              {rawName} <span className="muted">({unit || "bez jednotky"}, {count}×)</span>
-            </h3>
+          <div className="card" key={a.rawName}>
+            <h3 style={{ marginBottom: 4 }}>{a.rawName}</h3>
+            <p className="muted" style={{ margin: "0 0 10px" }}>
+              {a.unitRaw || "bez jednotky"} · {a.occurrences.length}× v dokumentech
+            </p>
+
+            {/* Provenance: where it came from and what it read there. */}
+            <div className="scroll-x">
+              <table className="occ">
+                <thead>
+                  <tr>
+                    <th>Dokument</th>
+                    <th style={{ textAlign: "right" }}>Naměřeno</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {a.occurrences.map((o, i) => (
+                    <tr key={i}>
+                      <td>{o.date ?? "bez data"}<span className="muted"> · s. {o.page}</span></td>
+                      <td className="num">
+                        {o.valueRaw} <span className="muted">{a.unitRaw}</span>
+                      </td>
+                      <td>
+                        <button
+                          className="btn linkish"
+                          onClick={() => onShowSource(o.reportId, a.rawName)}
+                        >
+                          Zobrazit v dokumentu
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="cand-head">Namapovat na</h4>
             {cands.length === 0 ? (
               <p className="muted">Žádný dostatečně podobný analyt v registru.</p>
             ) : (
               <ul className="cand-list">
-                {cands.map((c) => (
-                  <li key={c.canonicalId} className="cand">
-                    <div className="cand-main">
-                      <strong>{c.displayName}</strong>
+                {cands.map((c, i) => (
+                  <li key={c.canonicalId} className="cand-card">
+                    <div className="cand-top">
                       <div>
-                        {/* Boosts can push the raw score past 1; the bar is a
-                            confidence cue, not a probability, so clamp it. */}
-                        <span className="chip">{Math.min(100, Math.round(c.score * 100))} % shoda</span>
-                        {c.canonicalUnit && <span className="chip">{c.canonicalUnit}</span>}
-                        {c.unitMatch === true && <span className="chip">✔ jednotka</span>}
-                        {c.unitMatch === false && <span className="chip alert">✘ jednotka</span>}
+                        <strong>{c.displayName}</strong>
+                        {i === 0 && <span className="chip best">nejlepší shoda</span>}
                       </div>
+                      <button className="btn primary" onClick={() => onMap(a.rawName, c.canonicalId)}>
+                        Namapovat
+                      </button>
                     </div>
-                    <button className="btn primary" onClick={() => onMap(rawName, c.canonicalId)}>
-                      Přijmout
-                    </button>
+                    <ExistingData c={c} />
+                    <Evidence c={c} />
                   </li>
                 ))}
               </ul>
+            )}
+
+            <button className="btn linkish" onClick={() => setOpen(isOpen ? null : a.rawName)}>
+              {isOpen ? "Skrýt" : "Nechat nenamapované — proč?"}
+            </button>
+            {isOpen && (
+              <p className="muted" style={{ marginBottom: 0 }}>
+                Nenamapovaný analyt se nikam neztratí — zůstane v Ověření u svého
+                dokumentu, jen se nezobrazí v trendech, protože ho nelze spolehlivě
+                porovnat mezi odběry.
+              </p>
             )}
           </div>
         );
