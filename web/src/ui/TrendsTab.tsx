@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import Chart from "./Chart";
 import Flag from "./Flag";
 import { czExact, czNum } from "../lib/summary";
-import { numericPoints, type Trend } from "../lib/trends";
+import { numericPoints, suspectPoints, type Trend } from "../lib/trends";
 import { count, czDate, plural } from "../lib/czech";
 
 /** Out-of-range latest result first — the rows a doctor scans for. */
@@ -54,7 +54,8 @@ export default function TrendsTab({
           {all.map((t) => (
             <option key={t.canonicalId} value={t.canonicalId}>
               {t.displayName}
-              {outNow(t) ? " ⚠" : ""}
+              {outNow(t) ? " — mimo rozmezí" : ""}
+              {suspectPoints(t).length ? " — čeká na ověření" : ""}
             </option>
           ))}
         </select>
@@ -65,6 +66,19 @@ export default function TrendsTab({
           <h3>
             {t.displayName} {t.unit && <span className="muted">({t.unit})</span>}
           </h3>
+
+          {/* A reading held out of the series has to be visible here, not only
+              in Ověření. This is the screen a patient is shown, and a value
+              silently missing is only marginally better than a wrong value
+              silently drawn. */}
+          {suspectPoints(t).map((p, i) => (
+            <p key={i} className="held-back">
+              ⚠ {czDate(p.date)}: <strong>{czExact(p.value, p.valueRaw)}</strong>{" "}
+              {t.unit} není v grafu — hodnota čeká na ověření v záložce{" "}
+              <strong>Ověření</strong>.
+            </p>
+          ))}
+
           <Chart trend={t} />
           <details style={{ marginTop: 8 }}>
             <summary className="muted" style={{ cursor: "pointer" }}>

@@ -10,6 +10,12 @@ export interface TrendPoint {
   refHigh: number | null;
   valueRaw: string;
   reportId: string;
+  /**
+   * Set when the extraction layer flagged this reading as probably misread.
+   * Such a point is deliberately kept out of the plotted series — see
+   * numericPoints.
+   */
+  suspect: string | null;
 }
 
 export interface Trend {
@@ -19,8 +25,23 @@ export interface Trend {
   points: TrendPoint[];
 }
 
+/**
+ * The points a trend may actually be drawn or summarised from.
+ *
+ * A reading flagged as a probable transcription error is excluded. Plotting it
+ * would put a value the app has already identified as a typo — glucose read as
+ * 44,5 instead of 4,45 — onto the chart a patient is shown, with the real
+ * series flattened beneath it and no warning anywhere on that screen. The
+ * point is not discarded: it stays in `points`, is listed by `suspectPoints`,
+ * and rejoins the series the moment it is confirmed or corrected in Ověření.
+ */
 export function numericPoints(t: Trend): TrendPoint[] {
-  return t.points.filter((p) => p.value !== null);
+  return t.points.filter((p) => p.value !== null && p.suspect === null);
+}
+
+/** Readings held out of the series pending verification. */
+export function suspectPoints(t: Trend): TrendPoint[] {
+  return t.points.filter((p) => p.suspect !== null);
 }
 
 /**
@@ -32,6 +53,8 @@ export function numericPoints(t: Trend): TrendPoint[] {
 export function buildTrends(
   reports: LabReport[],
   displayNameFn: (cid: string) => string = (cid) => cid,
+  /** Returns a reason when a measurement looks misread, else null. */
+  suspectFn: (m: LabReport["measurements"][number]) => string | null = () => null,
 ): Map<string, Trend> {
   const trends = new Map<string, Trend>();
   for (const report of reports) {
@@ -58,6 +81,7 @@ export function buildTrends(
         refHigh: m.refRangeHigh,
         valueRaw: m.valueRaw,
         reportId: report.id,
+        suspect: suspectFn(m),
       });
     }
   }

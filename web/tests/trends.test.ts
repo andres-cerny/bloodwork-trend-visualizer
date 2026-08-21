@@ -4,7 +4,7 @@
  * trend line implies a comparison that would not be justified.
  */
 import { describe, expect, it } from "vitest";
-import { buildTrends, latestTwo, numericPoints } from "../src/lib/trends";
+import { buildTrends, latestTwo, numericPoints, suspectPoints } from "../src/lib/trends";
 import { makeMeasurement, type LabReport } from "../src/lib/models";
 import { normalizeMeasurement } from "../src/lib/normalize";
 
@@ -103,5 +103,48 @@ describe("latestTwo", () => {
 
   it("returns nulls for an empty series", () => {
     expect(latestTwo({ canonicalId: "x", displayName: "x", unit: "", points: [] })).toEqual([null, null]);
+  });
+});
+
+describe("readings flagged as misread", () => {
+  const withSuspect = () =>
+    buildTrends(
+      [
+        report("a", "2024-01-01", [m("S_Glukóza", "5,10", "glukoza")]),
+        report("b", "2024-08-01", [m("S_Glukóza", "44,5", "glukoza")]),
+        report("c", "2025-01-01", [m("S_Glukóza", "5,32", "glukoza")]),
+      ],
+      (cid) => cid,
+      (mm) => (mm.valueRaw === "44,5" ? "vypadá to na posunutou desetinnou čárku" : null),
+    );
+
+  it("keeps a flagged reading out of the plotted series", () => {
+    // Drawing it would put a value the app has already identified as a typo
+    // onto the screen a patient is shown, flattening the real series beneath.
+    const t = withSuspect().get("glukoza")!;
+    expect(numericPoints(t).map((p) => p.value)).toEqual([5.1, 5.32]);
+  });
+
+  it("does not discard it — it stays listed so it can be surfaced", () => {
+    const t = withSuspect().get("glukoza")!;
+    expect(t.points).toHaveLength(3);
+    expect(suspectPoints(t).map((p) => p.valueRaw)).toEqual(["44,5"]);
+  });
+
+  it("keeps it out of the two-point comparison the summary uses", () => {
+    const [older, newer] = latestTwo(withSuspect().get("glukoza")!);
+    expect([older!.value, newer!.value]).toEqual([5.1, 5.32]);
+  });
+
+  it("draws every point when nothing is flagged", () => {
+    const t = buildTrends(
+      [
+        report("a", "2024-01-01", [m("S_Glukóza", "5,10", "glukoza")]),
+        report("b", "2025-01-01", [m("S_Glukóza", "5,32", "glukoza")]),
+      ],
+      (cid) => cid,
+    ).get("glukoza")!;
+    expect(numericPoints(t)).toHaveLength(2);
+    expect(suspectPoints(t)).toHaveLength(0);
   });
 });

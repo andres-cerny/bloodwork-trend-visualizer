@@ -7,6 +7,7 @@ import { buildChatContext, getStatus, type Budget } from "./lib/api";
 import type { AnalyteDef, LabReport, Measurement } from "./lib/models";
 import { Registry } from "./lib/registry";
 import { buildTrends } from "./lib/trends";
+import { checkImplausible } from "./lib/implausible";
 import ChatPanel from "./ui/ChatPanel";
 import MappingTab from "./ui/MappingTab";
 import SummaryTab from "./ui/SummaryTab";
@@ -59,9 +60,34 @@ export default function App() {
       });
   }, []);
 
+  /** Curated interval for an analyte, when the table covers it. */
+  const curatedRange = useCallback(
+    (cid: string | null) => {
+      const r = cid && registry ? registry.get(cid)?.referenceRange : null;
+      return r ? { low: r[0], high: r[1] } : null;
+    },
+    [registry],
+  );
+
   const trends = useMemo(
-    () => (registry ? buildTrends(reports, (cid) => registry.displayName(cid)) : new Map()),
-    [reports, registry, registryVersion],
+    () =>
+      registry
+        ? buildTrends(
+            reports,
+            (cid) => registry.displayName(cid),
+            // A reading flagged as probably misread is held out of the plotted
+            // series rather than drawn as a real result.
+            (m) =>
+              checkImplausible(
+                m,
+                curatedRange(m.canonicalId) ??
+                  (m.refRangeLow !== null && m.refRangeHigh !== null
+                    ? { low: m.refRangeLow, high: m.refRangeHigh }
+                    : null),
+              )?.reason ?? null,
+          )
+        : new Map(),
+    [reports, registry, registryVersion, curatedRange],
   );
 
   const correct = useCallback((reportId: string, index: number, next: Measurement) => {
@@ -145,10 +171,7 @@ export default function App() {
               onCorrect={correct}
               focus={focus}
               displayName={(cid) => registry.displayName(cid)}
-              curatedRange={(cid) => {
-                const r = cid ? registry.get(cid)?.referenceRange : null;
-                return r ? { low: r[0], high: r[1] } : null;
-              }}
+              curatedRange={curatedRange}
             />
           )}
           {tab === "mapping" && (

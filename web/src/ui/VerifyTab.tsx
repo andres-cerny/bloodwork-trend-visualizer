@@ -123,7 +123,11 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
 
   if (!report) return <p className="sub">Nejsou načtena žádná data.</p>;
 
-  const page = report.pages[0];
+  // The page the selected row is printed on — not always the first. A
+  // multi-page report would otherwise draw the highlight on page 1 for a row
+  // printed on page 2.
+  const page =
+    (sel && report.pages.find((pg) => pg.pageNum === sel.sourcePage)) ?? report.pages[0];
   const scale = page && imgW ? imgW / page.imageWidth : 0;
   const flaggedCount = report.measurements.filter(
     (m) => isFlagged(m) || implausibleOf(m) !== null,

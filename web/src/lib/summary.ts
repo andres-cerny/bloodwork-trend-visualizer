@@ -7,6 +7,7 @@
  * recent numeric results. Never says what a change *means*.
  */
 import type { Flag } from "./models";
+import { czDate } from "./czech";
 import { latestTwo, type Trend, type TrendPoint } from "./trends";
 
 /**
@@ -109,7 +110,11 @@ export function summarizeTrend(trend: Trend): SummaryRecord | null {
       ? `prakticky beze změny, ${sign}${czNum(Math.abs(delta))}${unitSfx}`
       : `${sign}${czNum(Math.abs(delta))}${unitSfx}${pctPart}`;
 
-  let text = `${trend.displayName}: ${czNum(ov)} → ${czNum(nv)}${unitSfx} (${change})`;
+  // Dates included: a +17% move over six days and over six months are
+  // different clinical facts, and the reader cannot tell them apart otherwise.
+  let text =
+    `${trend.displayName}: ${czNum(ov)} → ${czNum(nv)}${unitSfx} (${change})` +
+    ` · ${czDate(older.date)} → ${czDate(newer.date)}`;
 
   const transition = rangeTransition(older.flag, newer.flag);
   if (transition) {

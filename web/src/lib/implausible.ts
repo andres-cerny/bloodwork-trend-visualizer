@@ -19,6 +19,7 @@
  * fires on values that no living patient produces.
  */
 import type { Measurement } from "./models";
+import { czNum } from "./summary";
 
 export interface Implausible {
   /**
@@ -104,7 +105,7 @@ export function checkImplausible(
         ? `Hodnota ${m.valueRaw} je mimo fyziologicky možný rozsah. Vypadá to na ` +
           `posunutou desetinnou čárku — očekávali bychom ${decimalShift.suggestion}.`
         : `Hodnota ${m.valueRaw} je mimo fyziologicky možný rozsah pro tento analyt ` +
-          `(obvyklé meze ${low}–${high}). Zkontrolujte ji prosím proti dokumentu.`,
+          `(typicky ${czNum(low)}–${czNum(high)}). Zkontrolujte ji prosím proti dokumentu.`,
     };
   }
 
@@ -121,9 +122,13 @@ export function checkImplausible(
       level: "suspect-decimal",
       decimalShift: likelyShift,
       reason:
-        `Hodnota ${m.valueRaw} je mimo obvyklé meze (${low}–${high}) a liší se ` +
-        `přesně o jedno desetinné místo od ${likelyShift.suggestion}. ` +
-        `Ověřte prosím proti dokumentu vedle.`,
+        // "typicky" rather than "obvyklé meze": this interval is the curated
+        // one used to spot a misread, not the interval printed on the report,
+        // and showing two different-looking ranges on one screen without
+        // distinguishing them is what makes a reader doubt both.
+        `Hodnota ${m.valueRaw} je mimo typický rozsah pro tento analyt ` +
+        `(${czNum(low)}–${czNum(high)}) a liší se přesně o jedno desetinné místo ` +
+        `od ${likelyShift.suggestion}. Ověřte prosím proti dokumentu vedle.`,
     };
   }
 

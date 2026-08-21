@@ -192,3 +192,14 @@ button.btn.linkish { background: none; border: none; padding: 4px 0;
 .single-point { margin: 6px 0 0; font-size: 0.95rem; }
 .single-point strong { font-size: 1.15rem; }
 .single-point strong.out { color: var(--status-critical); }
+
+/* A reading held out of a series pending verification. Stated on the trend
+   card itself, because that is the screen a patient is shown. */
+.held-back {
+  margin: 0 0 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: color-mix(in srgb, var(--status-critical) 10%, transparent);
+  color: var(--ink-1);
+}

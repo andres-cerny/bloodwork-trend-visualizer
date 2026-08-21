@@ -79,10 +79,42 @@ def identifier_variants(value: str | None) -> list[str]:
     return [s for s in out if len(s) >= 3]
 
 
+# Below this much extractable text, a page cannot be treated as digital: we
+# would be "verifying" redaction against a text layer that barely exists.
+MIN_TEXT_CHARS = 200
+
+
 def redact_and_render(pdf_path: Path, page_num: int, secrets: list[str], dest: Path):
-    """Paint over every identifier occurrence, then render the page to PNG."""
+    """Paint over every identifier occurrence, then render the page to PNG.
+
+    Returns (width, height, hits, problems). ``problems`` is empty only when
+    the page could actually be verified.
+
+    The subtlety that makes this worth reading carefully: finding zero
+    identifiers is only reassuring if we *could* have found them. Redaction and
+    verification both run through the PDF text layer, so on a scanned page the
+    search matches nothing, nothing is painted over, the "did anything survive"
+    check also matches nothing — and a page whose printed header carries the
+    patient's name and rodné číslo renders straight through, looking clean.
+    That is precisely the case the redaction exists for.
+
+    So a page without a usable text layer is refused rather than exported. The
+    verification here is honest about its own reach: it can clear a digital
+    page, and it cannot clear a scan.
+    """
     doc = fitz.open(pdf_path)
     page = doc[page_num - 1]
+    problems: list[str] = []
+
+    text_len = len(page.get_text("text").strip())
+    if text_len < MIN_TEXT_CHARS:
+        doc.close()
+        return 0, 0, 0, [
+            f"page {page_num} has almost no text layer ({text_len} chars) — it is a scan, "
+            f"so identifiers printed on it cannot be located or verified. "
+            f"Redact it by hand, or exclude this report."
+        ]
+
     hits = 0
     for s in secrets:
         for rect in page.search_for(s):
@@ -95,10 +127,13 @@ def redact_and_render(pdf_path: Path, page_num: int, secrets: list[str], dest: P
     pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
     pix.save(dest)
 
-    # Refuse to emit a page that still carries an identifier in its text layer.
-    remaining = [s for s in secrets if page.search_for(s)]
+    # Now meaningful: the page has a text layer, so a surviving match is a
+    # genuine failure and no match means the identifier really is not printed.
+    for s in secrets:
+        if page.search_for(s):
+            problems.append(f"page {page_num}: '{s}' survived redaction")
     doc.close()
-    return pix.width, pix.height, hits, remaining
+    return pix.width, pix.height, hits, problems
 
 
 def main() -> None:
@@ -112,9 +147,26 @@ def main() -> None:
     if not reports:
         sys.exit("No processed reports in data/reports/. Run the pipeline first.")
 
-    if IMG_DIR.exists():
-        shutil.rmtree(IMG_DIR)
-    IMG_DIR.mkdir(parents=True, exist_ok=True)
+    # Every report must actually carry an identity to redact. A report whose
+    # name or rodné číslo the extractor missed contributes no search variants,
+    # so a spelling that appears only there would never be looked for on any
+    # page — silently weakening the redaction for the whole run.
+    missing = [r.source_file for r in reports if not (r.patient_name and r.patient_id)]
+    if missing:
+        sys.exit(
+            "REFUSING TO EXPORT — these reports have no extracted patient name or rodné číslo, "
+            "so their spellings cannot be redacted from any page:\n  "
+            + "\n  ".join(missing)
+        )
+
+    # Stage into a temp directory and publish only once every page has passed.
+    # Writing straight into the published folder meant a refusal still left the
+    # offending images sitting there, under a message saying nothing was
+    # written.
+    staging = OUT / "_staging_pages"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True, exist_ok=True)
 
     secrets: set[str] = set()
     for r in reports:
@@ -134,10 +186,11 @@ def main() -> None:
             if pdf is None:
                 continue
             img_name = f"report{ri}_p{p.page_num}.png"
-            w, h, hits, remaining = redact_and_render(pdf, p.page_num, secrets_list, IMG_DIR / img_name)
+            w, h, hits, problems = redact_and_render(pdf, p.page_num, secrets_list, staging / img_name)
             total_hits += hits
-            if remaining:
-                failures.append(f"{r.source_file} p{p.page_num}: {remaining}")
+            if problems:
+                failures.extend(f"{r.source_file}: {msg}" for msg in problems)
+                continue
             page_dims[p.page_num] = (w, h)
             pages.append({
                 "pageNum": p.page_num,
@@ -184,9 +237,11 @@ def main() -> None:
         })
 
     if failures:
-        print("\nREFUSING TO WRITE — identifiers survived redaction:")
+        shutil.rmtree(staging, ignore_errors=True)
+        print("\nREFUSING TO WRITE — pages could not be cleared:")
         for f in failures:
             print(f"  {f}")
+        print("\nNothing was published; the staged images have been deleted.")
         sys.exit(1)
 
     # Belt and braces: no original identifier may appear anywhere in the JSON.
@@ -194,6 +249,11 @@ def main() -> None:
     leaked = [s for s in secrets_list if s in blob]
     if leaked:
         sys.exit(f"REFUSING TO WRITE — identifiers present in JSON: {leaked}")
+
+    # Every page cleared — publish the staged images now, not before.
+    if IMG_DIR.exists():
+        shutil.rmtree(IMG_DIR)
+    shutil.move(str(staging), str(IMG_DIR))
 
     (OUT / "reports.json").write_text(json.dumps(out_reports, ensure_ascii=False, indent=1), "utf-8")
 
@@ -207,6 +267,11 @@ def main() -> None:
 
     print(f"\nWrote {len(out_reports)} reports, redacted {total_hits} identifier occurrences.")
     print(f"Output → {OUT}. Rebuild with: npm run build")
+    print(
+        "\nThe automated check clears a page's *text layer*. Look at the images in\n"
+        f"{IMG_DIR} before deploying — a stamp, a signature or a handwritten note is\n"
+        "invisible to it."
+    )
 
 
 if __name__ == "__main__":

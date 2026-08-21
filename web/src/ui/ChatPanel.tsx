@@ -49,7 +49,11 @@ export default function ChatPanel({ dataContext, frozen, unlocked, available, on
         Odpovídá na základě už přepsaných a ověřených hodnot. Popisuje, nediagnostikuje.
       </p>
 
-      {frozen ? (
+      {!available ? (
+        // Pointing at a gate that is not rendered was a dead end: the copy
+        // told the reader to complete a check that does not exist on the page.
+        <p className="muted">Chat není v této ukázce zapnutý.</p>
+      ) : frozen ? (
         <p className="muted">Rozpočet dema na AI funkce je vyčerpán — chat je dočasně vypnutý.</p>
       ) : !unlocked ? (
         <p className="muted">Nejdřív projděte ověřením „Nejsem robot“ níže.</p>
