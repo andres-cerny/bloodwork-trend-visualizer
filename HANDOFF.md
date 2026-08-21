@@ -82,7 +82,12 @@ already sits under each candidate.
    returned that were not printed on the page**, and the awkward real-world
    details parsed correctly — the modifier-caret unit `10˄9/l`, `bezrozm.`,
    open-ended ranges like `< 0,84`, decimal commas throughout.
-3. Deploy — see below.
+3. ~~Never deployed~~ → **live at https://bloodwork-demo.andres-cerny.workers.dev**
+   KV namespace `BUDGET` created and bound, `ANTHROPIC_API_KEY` and
+   `SESSION_SECRET` set as Worker secrets. Verified live: `/api/status`
+   reports the ledger, demo assets serve, and `/api/extract` returns 401
+   without a session. **Turnstile is not yet configured**, so upload and chat
+   are off until `TURNSTILE_SECRET_KEY` is set and the site key is built in.
 
 Row reconstruction can be re-checked against real PDFs at **no API cost**;
 only full extraction spends. Keep that split when adding coverage.

@@ -15,7 +15,7 @@
   "kv_namespaces": [
     // Create with: npx wrangler kv namespace create BUDGET
     // then paste the returned id here.
-    { "binding": "BUDGET", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+    { "binding": "BUDGET", "id": "1a27795146e44c9092169ad7c86fa882" }
   ],
 
   "vars": {
