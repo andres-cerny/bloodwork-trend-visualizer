@@ -56,7 +56,7 @@ export function checkCorrection(valueRaw: string, unit: string): Check {
     return {
       severity: "reject",
       message:
-        `„${s}" není číslo ani známý slovní výsledek. Zadejte hodnotu tak, ` +
+        `„${s}“ není číslo ani známý slovní výsledek. Zadejte hodnotu tak, ` +
         `jak je vytištěná (např. 5,32 nebo <1,0), nebo slovní výsledek ` +
         `(např. negativní).`,
     };

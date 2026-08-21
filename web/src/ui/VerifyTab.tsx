@@ -22,9 +22,11 @@ interface Props {
   onCorrect: (reportId: string, index: number, next: Measurement) => void;
   /** Arriving from the mapping tab: open this report with this row selected. */
   focus?: { reportId: string; rawName: string } | null;
+  /** Resolves a canonical id to its readable Czech name. */
+  displayName: (canonicalId: string) => string;
 }
 
-export default function VerifyTab({ reports, onCorrect, focus }: Props) {
+export default function VerifyTab({ reports, onCorrect, focus, displayName }: Props) {
   const [reportId, setReportId] = useState(focus?.reportId ?? reports[0]?.id ?? "");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
@@ -34,6 +36,32 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
   const [imgW, setImgW] = useState(0);
 
   const report = reports.find((r) => r.id === reportId) ?? reports[0];
+  const sel = picked !== null ? report?.measurements[picked] ?? null : null;
+  const check = checkCorrection(draft, sel?.unitRaw ?? "");
+
+  // Track the image's *rendered* width continuously rather than measuring it
+  // once on load.
+  //
+  // The highlight is positioned by scaling a pixel bbox by this width, so a
+  // stale measurement does not misplace the box slightly — it misplaces it
+  // proportionally, and the error grows down the page. On a phone the source
+  // pane reorders above the table once a row is selected, which relayouts the
+  // image after load: the box then pointed at a different analyte's row
+  // entirely, which is the verification feature telling the reader something
+  // untrue.
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el) return;
+    const measure = () => setImgW(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [report?.id, sel?.sourcePage]);
 
   // Follow a "show me in the document" jump: switch report and select the row.
   //
@@ -76,8 +104,6 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
 
   const page = report.pages[0];
   const scale = page && imgW ? imgW / page.imageWidth : 0;
-  const sel = picked !== null ? report.measurements[picked] : null;
-  const check = checkCorrection(draft, sel?.unitRaw ?? "");
   const flaggedCount = report.measurements.filter(isFlagged).length;
 
   function pick(i: number) {
@@ -94,10 +120,13 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
       valueRaw: draft,
       corrected: true,
       disagreement: null,
-      // Keep the machine transcription from the first correction onwards, so
-      // undo always returns to what the document actually said rather than to
-      // an earlier hand-edit.
-      originalValueRaw: base.originalValueRaw ?? base.valueRaw,
+      // Snapshot on the first correction only, so undo always returns to what
+      // the document said rather than to an earlier hand-edit.
+      original: base.original ?? {
+        valueRaw: base.valueRaw,
+        disagreement: base.disagreement,
+        confidence: base.confidence,
+      },
     });
     onCorrect(report.id, picked, next);
   }
@@ -105,15 +134,18 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
   function undo() {
     if (picked === null) return;
     const base = report.measurements[picked];
-    if (base.originalValueRaw === null) return;
+    const orig = base.original;
+    if (!orig) return;
+    // Restore the disagreement too. Without it the row reads as verified while
+    // the two readings still conflict, and it drops out of "jen sporné řádky".
     const next = normalizeMeasurement({
       ...base,
-      valueRaw: base.originalValueRaw,
+      valueRaw: orig.valueRaw,
       corrected: false,
-      originalValueRaw: null,
+      original: null,
     });
-    setDraft(base.originalValueRaw);
-    onCorrect(report.id, picked, next);
+    setDraft(orig.valueRaw);
+    onCorrect(report.id, picked, { ...next, disagreement: orig.disagreement, confidence: orig.confidence });
   }
 
   return (
@@ -155,6 +187,12 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
                   <tr key={i} className="row-pick" aria-selected={picked === i} onClick={() => pick(i)}>
                     <td>
                       {m.rawAnalyteName}
+                      {/* The lab's code is what to check against the page, but
+                          "S_", "B_", "U_" is LIS shorthand — show the readable
+                          name beside it rather than instead of it. */}
+                      {m.canonicalId && displayName(m.canonicalId) !== m.rawAnalyteName && (
+                        <span className="muted"> · {displayName(m.canonicalId)}</span>
+                      )}
                       {/* Review markers ride with the name rather than in a
                           fourth column: on a phone that column sat off-screen,
                           hiding exactly the rows that need attention. */}
@@ -196,9 +234,9 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
                 >
                   Opravit
                 </button>
-                {sel.originalValueRaw !== null && (
+                {sel.original && (
                   <button className="btn" onClick={undo}>
-                    Vrátit původní ({sel.originalValueRaw})
+                    Vrátit původní ({sel.original.valueRaw})
                   </button>
                 )}
               </div>
@@ -214,6 +252,8 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
               <img
                 ref={imgRef} src={page.imageUrl} alt={`Stránka ${page.pageNum}`}
                 onLoad={(e) => setImgW((e.target as HTMLImageElement).clientWidth)}
+                style={{ cursor: "zoom-in" }}
+                onClick={() => window.open(page.imageUrl, "_blank", "noopener")}
               />
               {sel?.bbox && scale > 0 && (
                 <div

@@ -125,8 +125,21 @@ describe("suggestMappings", () => {
     expect(withData[0].observed?.dates).toEqual(["2024-02-14", "2025-08-13"]);
   });
 
+  it("keeps a contradicted candidate visible so the reason can be shown", () => {
+    // Silently dropping it leaves the doctor with "no similar analyte found",
+    // which is less useful than "this looks similar, and here is why it is
+    // wrong".
+    const withData = suggestMappings(
+      findUnmapped(REPORTS)[0],
+      new Registry([def("glukoza", "Glukóza", "mmol/l", ["Homocystein tot."])]),
+      stats,
+    );
+    expect(withData.length).toBeGreaterThan(0);
+    expect(withData[0].rangeMatch).toBe(false);
+  });
+
   it("returns nothing for a name that resembles no analyte", () => {
-    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [] };
+    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [], refRange: null };
     expect(suggestMappings(odd, registry, stats)).toEqual([]);
   });
 
@@ -179,6 +192,9 @@ describe("suggestMappings", () => {
     const c = suggestMappings(u, new Registry([def("bilkovina", "Celková bílkovina", "g/l")]),
       observedStats(reports), 5).find((x) => x.canonicalId === "bilkovina");
     expect(c?.materialMatch).toBe(false);
+    // Urine protein 0–0,15 g/l against serum protein 64–83 g/l: the printed
+    // intervals do not overlap, which is the clearest evidence available.
+    expect(c?.rangeMatch).toBe(false);
   });
 
   it("does not flag material when both come from the same one", () => {

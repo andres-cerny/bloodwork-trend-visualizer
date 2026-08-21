@@ -28,6 +28,13 @@ from pathlib import Path
 import fitz
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# Typical adult intervals, used only to tell analytes apart when mapping.
+# Never used to decide whether a result is abnormal — that comes from the
+# interval printed on the patient's own report.
+REF_RANGES: dict[str, list[float]] = json.loads(
+    (Path(__file__).resolve().parent / "reference_ranges.json").read_text("utf-8")
+)["ranges"]
 sys.path.insert(0, str(ROOT))
 
 from src.config import RENDER_DPI, SAMPLES_DIR, UPLOADS_DIR  # noqa: E402
@@ -195,6 +202,7 @@ def main() -> None:
         "canonicalId": a["canonical_id"], "displayNameCs": a["display_name_cs"],
         "synonyms": a["synonyms"], "canonicalUnit": a["canonical_unit"],
         "unitConversions": a["unit_conversions"],
+        "referenceRange": REF_RANGES.get(a["canonical_id"]),
     } for a in registry], ensure_ascii=False, indent=1), "utf-8")
 
     print(f"\nWrote {len(out_reports)} reports, redacted {total_hits} identifier occurrences.")

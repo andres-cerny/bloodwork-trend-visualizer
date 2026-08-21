@@ -9,13 +9,33 @@
 import type { Flag } from "./models";
 import { latestTwo, type Trend, type TrendPoint } from "./trends";
 
-/** Format a number Czech-style (decimal comma), trimming trailing noise. */
+/**
+ * Format a number Czech-style (decimal comma), trimming trailing noise.
+ *
+ * Rounds for display only. Where the printed value matters — a table beside
+ * the source page, a trend row a reader may check against the document — use
+ * `czExact`, because showing 3,8 for a printed 3,802 in a tool whose pitch is
+ * verification against the source is exactly what makes a reader stop
+ * trusting it.
+ */
 export function czNum(x: number | null | undefined): string {
   if (x === null || x === undefined || !Number.isFinite(x)) return "—";
   const a = Math.abs(x);
   let s = a >= 100 ? x.toFixed(1) : a >= 1 ? x.toFixed(2) : x.toFixed(3);
   if (s.includes(".")) s = s.replace(/0+$/, "").replace(/\.$/, "");
   return s.replace(".", ",");
+}
+
+/**
+ * The value as printed, without rounding. Falls back to a formatted number
+ * when there is no raw string to show (a converted unit, say).
+ */
+export function czExact(value: number | null | undefined, raw?: string | null): string {
+  const printed = (raw ?? "").trim();
+  if (printed) return printed;
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  // No rounding: render the number as-is with a Czech decimal comma.
+  return String(value).replace(".", ",");
 }
 
 function rangeStr(low: number | null, high: number | null): string {

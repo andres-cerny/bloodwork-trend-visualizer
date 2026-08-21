@@ -188,3 +188,7 @@ button.btn.linkish { background: none; border: none; padding: 4px 0;
   /* The page image is the evidence — let it fill the width and be zoomable. */
   .source-pane .srcimg img { max-width: none; width: 100%; }
 }
+
+.single-point { margin: 6px 0 0; font-size: 0.95rem; }
+.single-point strong { font-size: 1.15rem; }
+.single-point strong.out { color: var(--status-critical); }

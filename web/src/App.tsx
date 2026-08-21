@@ -140,7 +140,12 @@ export default function App() {
           {tab === "trends" && <TrendsTab trends={trends} unmappedCount={unmappedCount} />}
           {tab === "summary" && <SummaryTab trends={trends} />}
           {tab === "verify" && (
-            <VerifyTab reports={reports} onCorrect={correct} focus={focus} />
+            <VerifyTab
+              reports={reports}
+              onCorrect={correct}
+              focus={focus}
+              displayName={(cid) => registry.displayName(cid)}
+            />
           )}
           {tab === "mapping" && (
             <MappingTab

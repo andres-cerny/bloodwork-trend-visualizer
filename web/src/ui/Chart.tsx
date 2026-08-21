@@ -11,8 +11,8 @@
  * mobile viewBox without shipping a dependency.
  */
 import { useId, useState } from "react";
-import { czNum } from "../lib/summary";
-import { czMonthYear } from "../lib/czech";
+import { czExact, czNum } from "../lib/summary";
+import { czDate, czMonthYear } from "../lib/czech";
 import { numericPoints, type Trend } from "../lib/trends";
 
 /**
@@ -43,14 +43,41 @@ export function niceTicks(lo: number, hi: number, target = 4): number[] {
 }
 
 const W = 640;
-const H = 220;
-const PAD = { top: 14, right: 14, bottom: 26, left: 46 };
+const H = 240;
+// Generous left padding: axis labels are rendered at a size that survives
+// being scaled down to a ~330px phone viewport, so they need the room.
+const PAD = { top: 18, right: 18, bottom: 30, left: 58 };
 
 export default function Chart({ trend }: { trend: Trend }) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
   const pts = numericPoints(trend);
   if (pts.length === 0) return <p className="muted">Žádné číselné hodnoty k zobrazení.</p>;
+
+  // One measurement is not a trend. Drawing it as a chart invents an axis
+  // scale that does not exist and shades the whole plot as "reference range",
+  // which says nothing.
+  if (pts.length === 1) {
+    const p = pts[0];
+    const out = p.flag === "high" || p.flag === "low";
+    return (
+      <p className="single-point">
+        <strong className={out ? "out" : undefined}>
+          {czExact(p.value, p.valueRaw)}
+          {trend.unit ? ` ${trend.unit}` : ""}
+        </strong>{" "}
+        <span className="muted">
+          — jediné měření ({czDate(p.date)})
+          {p.refLow !== null || p.refHigh !== null
+            ? `, referenční rozmezí ${p.refLow !== null ? czNum(p.refLow) : ""}–${
+                p.refHigh !== null ? czNum(p.refHigh) : ""
+              }`
+            : ""}
+          . Pro vývoj je potřeba alespoň druhý odběr.
+        </span>
+      </p>
+    );
+  }
 
   const values = pts.map((p) => p.value as number);
   const lows = pts.map((p) => p.refLow).filter((v): v is number => v !== null);
@@ -64,8 +91,8 @@ export default function Chart({ trend }: { trend: Trend }) {
   // as a backdrop and simply clips when it extends past the view.
   const lo = Math.min(...values);
   const hi = Math.max(...values);
-  const span = hi - lo;
-  const pad = span > 0 ? span * 0.25 : Math.abs(hi) * 0.15 || 1;
+  const vSpan = hi - lo;
+  const pad = vSpan > 0 ? vSpan * 0.25 : Math.abs(hi) * 0.15 || 1;
 
   // Keep a nearby range edge visible when it is close enough to be useful,
   // so "just inside the limit" still reads as such.
@@ -81,7 +108,21 @@ export default function Chart({ trend }: { trend: Trend }) {
 
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
-  const x = (i: number) => PAD.left + (pts.length === 1 ? innerW / 2 : (i / (pts.length - 1)) * innerW);
+
+  // Space points by DATE, not by index.
+  //
+  // Equal spacing quietly rewrites the history: draws in January, February and
+  // then three years later render identically to three evenly spaced draws, so
+  // a steep rise followed by a plateau reads as a gentle slope. A chart titled
+  // "vývoj hodnot v čase" has to put time on the time axis.
+  const times = pts.map((p) => Date.parse(p.date)).map((v) => (Number.isFinite(v) ? v : 0));
+  const t0 = Math.min(...times);
+  const t1 = Math.max(...times);
+  const span = t1 - t0;
+  const x = (i: number) =>
+    pts.length === 1 || span <= 0
+      ? PAD.left + innerW / 2
+      : PAD.left + ((times[i] - t0) / span) * innerW;
   const y = (v: number) => PAD.top + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
 
   const band = (() => {
@@ -120,7 +161,7 @@ export default function Chart({ trend }: { trend: Trend }) {
         {ticks.map((t, i) => (
           <g key={i}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
-            <text x={PAD.left - 7} y={y(t) + 4} textAnchor="end" fontSize={10} fill="var(--ink-muted)">
+            <text x={PAD.left - 7} y={y(t) + 4} textAnchor="end" fontSize={13} fill="var(--ink-muted)">
               {czNum(t)}
             </text>
           </g>
@@ -141,7 +182,7 @@ export default function Chart({ trend }: { trend: Trend }) {
                 stroke="var(--surface-1)" strokeWidth={2}
               />
               {out && (
-                <text x={x(i)} y={y(p.value as number) - 12} textAnchor="middle" fontSize={11}
+                <text x={x(i)} y={y(p.value as number) - 12} textAnchor="middle" fontSize={13}
                       fill="var(--status-critical)" fontWeight={700}>
                   {p.flag === "high" ? "↑" : "↓"}
                 </text>
@@ -151,10 +192,10 @@ export default function Chart({ trend }: { trend: Trend }) {
               {i === pts.length - 1 && (
                 <text
                   x={x(i) - 9}
-                  y={y(p.value as number) + 4}
+                  y={y(p.value as number) - 10}
                   textAnchor="end"
-                  fontSize={12}
-                  fontWeight={600}
+                  fontSize={14}
+                  fontWeight={700}
                   fill={out ? "var(--status-critical)" : "var(--ink-1)"}
                 >
                   {czNum(p.value)}
@@ -164,11 +205,18 @@ export default function Chart({ trend }: { trend: Trend }) {
           );
         })}
 
-        {pts.map((p, i) => (
-          <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize={10} fill="var(--ink-muted)">
-            {czMonthYear(p.date)}
-          </text>
-        ))}
+        {/* With real time spacing two close draws can collide, so a label is
+            dropped when it would overlap the previous one. */}
+        {pts.map((p, i) => {
+          const MIN_GAP = 46;
+          const prevShown = pts.slice(0, i).reduce((acc, _, j) => (x(j) >= acc ? x(j) : acc), -Infinity);
+          if (i > 0 && i < pts.length - 1 && x(i) - prevShown < MIN_GAP) return null;
+          return (
+            <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize={13} fill="var(--ink-muted)">
+              {czMonthYear(p.date)}
+            </text>
+          );
+        })}
       </svg>
 
       <figcaption className="muted" style={{ minHeight: "1.4em", marginTop: 2 }}>

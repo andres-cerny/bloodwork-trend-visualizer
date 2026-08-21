@@ -22,11 +22,38 @@ export interface Occurrence {
   page: number;
 }
 
+/** A printed reference interval, as parsed by normalize. */
+export interface Range {
+  low: number;
+  high: number;
+}
+
+/**
+ * Do two reference intervals describe the same measurement?
+ *
+ * This is the strongest signal available for mapping, and it is free: the lab
+ * prints the analyte's defining interval on every row. Two spellings of the
+ * same analyte carry near-identical intervals even across labs, while two
+ * different analytes usually do not overlap at all — homocysteine at
+ * 5,0–15,0 µmol/l against uric acid at 202–417 µmol/l share nothing.
+ *
+ * Unlike comparing this patient's own past values, it works on a first-ever
+ * report, where there is no history to compare against.
+ */
+export function rangesCompatible(a: Range, b: Range): boolean {
+  const overlap = Math.min(a.high, b.high) - Math.max(a.low, b.low);
+  if (overlap <= 0) return false;
+  const union = Math.max(a.high, b.high) - Math.min(a.low, b.low);
+  return union <= 0 ? true : overlap / union >= 0.3;
+}
+
 /** An analyte name we could not map, with everywhere it was seen. */
 export interface UnmappedAnalyte {
   rawName: string;
   unitRaw: string;
   occurrences: Occurrence[];
+  /** The reference interval printed beside it, when the lab printed one. */
+  refRange: Range | null;
 }
 
 /** What the existing data already holds under a canonical id. */
@@ -35,6 +62,8 @@ export interface Observed {
   unit: string;
   /** Material prefixes seen on this analyte's printed names: S_, B_, U_, P_. */
   materials: string[];
+  /** The reference interval labs printed for this analyte. */
+  refRange: Range | null;
   min: number | null;
   max: number | null;
   mean: number | null;
@@ -53,6 +82,11 @@ export interface Candidate {
   valueOk: boolean | null;
   /** False when the printed material differs (urine vs serum, say). */
   materialMatch: boolean | null;
+  /** Comparison of reference intervals — the strongest signal. */
+  rangeMatch: boolean | null;
+  candidateRange: Range | null;
+  /** Where the candidate's interval came from, for the UI to explain itself. */
+  rangeSource: "curated" | "documents" | null;
   canonicalUnit: string;
   observed: Observed | null;
   /** Populated when valueOk is false, so the UI can show the two ranges. */
@@ -76,8 +110,11 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
       if (m.canonicalId !== null) continue;
       let e = seen.get(m.rawAnalyteName);
       if (!e) {
-        e = { rawName: m.rawAnalyteName, unitRaw: m.unitRaw, occurrences: [] };
+        e = { rawName: m.rawAnalyteName, unitRaw: m.unitRaw, occurrences: [], refRange: null };
         seen.set(m.rawAnalyteName, e);
+      }
+      if (e.refRange === null && m.refRangeLow !== null && m.refRangeHigh !== null) {
+        e.refRange = { low: m.refRangeLow, high: m.refRangeHigh };
       }
       e.occurrences.push({
         reportId: r.id,
@@ -98,14 +135,20 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
 export function observedStats(reports: LabReport[]): Map<string, Observed> {
   const acc = new Map<
     string,
-    { values: number[]; units: Map<string, number>; dates: Set<string>; materials: Set<string> }
+    {
+      values: number[];
+      units: Map<string, number>;
+      dates: Set<string>;
+      materials: Set<string>;
+      ranges: Range[];
+    }
   >();
   for (const r of reports) {
     for (const m of r.measurements) {
       if (m.canonicalId === null) continue;
       let e = acc.get(m.canonicalId);
       if (!e) {
-        e = { values: [], units: new Map(), dates: new Set(), materials: new Set() };
+        e = { values: [], units: new Map(), dates: new Set(), materials: new Set(), ranges: [] };
         acc.set(m.canonicalId, e);
       }
       if (m.value !== null) e.values.push(m.value);
@@ -113,6 +156,9 @@ export function observedStats(reports: LabReport[]): Map<string, Observed> {
       if (r.reportDate) e.dates.add(r.reportDate);
       const mat = materialPrefix(m.rawAnalyteName);
       if (mat) e.materials.add(mat);
+      if (m.refRangeLow !== null && m.refRangeHigh !== null) {
+        e.ranges.push({ low: m.refRangeLow, high: m.refRangeHigh });
+      }
     }
   }
 
@@ -120,10 +166,17 @@ export function observedStats(reports: LabReport[]): Map<string, Observed> {
   for (const [cid, e] of acc) {
     const dates = [...e.dates].sort();
     const unit = [...e.units.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+    // Median bounds, so one mistyped interval cannot define the analyte.
+    const mid = (xs: number[]) => xs.sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+    const refRange = e.ranges.length
+      ? { low: mid(e.ranges.map((r) => r.low)), high: mid(e.ranges.map((r) => r.high)) }
+      : null;
+
     out.set(cid, {
       count: e.values.length,
       unit,
       materials: [...e.materials].sort(),
+      refRange,
       min: e.values.length ? Math.min(...e.values) : null,
       max: e.values.length ? Math.max(...e.values) : null,
       mean: e.values.length ? e.values.reduce((s, v) => s + v, 0) / e.values.length : null,
@@ -189,6 +242,22 @@ export function suggestMappings(
       score += unitMatch ? 0.2 : -0.25;
     }
 
+    // Reference intervals first — the strongest signal, and the only one that
+    // works on a first-ever report where no history exists to compare against.
+    //
+    // Three sources in order of authority:
+    //   1. the curated table (consistent, and present before any data exists),
+    //   2. the interval labs actually printed for this analyte here,
+    //   3. nothing — in which case the observed-value check below has its say.
+    const candidateRange = a.referenceRange
+      ? { low: a.referenceRange[0], high: a.referenceRange[1] }
+      : (observed?.refRange ?? null);
+    let rangeMatch: boolean | null = null;
+    if (analyte.refRange && candidateRange) {
+      rangeMatch = rangesCompatible(analyte.refRange, candidateRange);
+      score += rangeMatch ? 0.3 : -0.6;
+    }
+
     // Plausibility, as a ratio rather than an additive window.
     //
     // The previous additive slack (max(range, |max|)) widened the accepted
@@ -218,7 +287,13 @@ export function suggestMappings(
       score += materialMatch ? 0.05 : -0.4;
     }
 
-    if (score >= 0.45) {
+    // Select on name similarity, rank on the full score.
+    //
+    // Filtering on the final score would hide contradicted candidates
+    // entirely, and "no similar analyte found" is less useful to a clinician
+    // than "this one looks similar, and here is why it is wrong". They stay
+    // visible, ranked last and marked.
+    if (nameSim >= 0.45 || score >= 0.45) {
       out.push({
         canonicalId: a.canonicalId,
         displayName: a.displayNameCs,
@@ -227,6 +302,9 @@ export function suggestMappings(
         unitMatch,
         valueOk,
         materialMatch,
+        rangeMatch,
+        candidateRange,
+        rangeSource: a.referenceRange ? "curated" : observed?.refRange ? "documents" : null,
         canonicalUnit: a.canonicalUnit,
         observed,
         incomingRange: valueOk === false ? incomingRange : null,

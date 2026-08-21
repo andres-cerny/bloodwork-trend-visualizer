@@ -39,8 +39,20 @@ export interface Measurement {
 
   /** Precomputed at build time (src/locate.py) or derived from pdf.js. */
   bbox: Box | null;
-  /** The machine transcription, kept so a correction can always be undone. */
-  originalValueRaw: string | null;
+  /**
+   * Snapshot of the machine transcription, kept so a correction can be undone.
+   *
+   * The whole QA state is captured, not just the value: clearing a
+   * disagreement on correction is right (a human has adjudicated it), but
+   * restoring only the value on undo would leave the row looking clean while
+   * the two readings still disagree — quietly laundering a disputed value
+   * into a trusted one.
+   */
+  original: {
+    valueRaw: string;
+    disagreement: string | null;
+    confidence: Confidence;
+  } | null;
 }
 
 export interface Page {
@@ -67,6 +79,13 @@ export interface AnalyteDef {
   synonyms: string[];
   canonicalUnit: string;
   unitConversions: Record<string, number>;
+  /**
+   * Typical adult interval, for telling analytes apart when mapping — never
+   * for deciding whether a result is abnormal. That always comes from the
+   * interval printed on the patient's own report. See
+   * scripts/reference_ranges.json.
+   */
+  referenceRange?: [number, number] | null;
 }
 
 /** A measurement with only the raw fields filled — what an extractor returns. */
@@ -93,7 +112,7 @@ export function makeMeasurement(raw: RawMeasurement): Measurement {
     disagreement: null,
     corrected: false,
     bbox: null,
-    originalValueRaw: null,
+    original: null,
     ...raw,
   };
 }

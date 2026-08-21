@@ -4,7 +4,7 @@
  * can appear — these tests pin both the numbers and the wording.
  */
 import { describe, expect, it } from "vitest";
-import { czNum, summarizeChanges, summarizeTrend } from "../src/lib/summary";
+import { czExact, czNum, summarizeChanges, summarizeTrend } from "../src/lib/summary";
 import type { Trend, TrendPoint } from "../src/lib/trends";
 
 const pt = (date: string, value: number | null, flag: TrendPoint["flag"], lo = 4.11, hi = 5.6): TrendPoint => ({
@@ -116,5 +116,23 @@ describe("summarizeChanges", () => {
   it("skips trends that cannot be compared instead of inventing a record", () => {
     const trends = new Map<string, Trend>([["a", trend([pt("2024-01-01", 5.0, "normal")])]]);
     expect(summarizeChanges(trends)).toEqual([]);
+  });
+});
+
+describe("czExact", () => {
+  it("shows the value exactly as printed, without rounding", () => {
+    // czNum would render this as "3,8" — two different numbers for one
+    // measurement in a tool whose pitch is checking against the source.
+    expect(czExact(3.802, "3,802")).toBe("3,802");
+    expect(czNum(3.802)).toBe("3,8");
+  });
+
+  it("keeps a censored value verbatim", () => {
+    expect(czExact(null, "<1,0")).toBe("<1,0");
+  });
+
+  it("falls back to the number when nothing was printed", () => {
+    expect(czExact(5.32, "")).toBe("5,32");
+    expect(czExact(null, "")).toBe("—");
   });
 });

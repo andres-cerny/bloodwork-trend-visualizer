@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import Chart from "./Chart";
 import Flag from "./Flag";
-import { czNum } from "../lib/summary";
+import { czExact, czNum } from "../lib/summary";
 import { numericPoints, type Trend } from "../lib/trends";
-import { count, plural } from "../lib/czech";
+import { count, czDate, plural } from "../lib/czech";
 
 /** Out-of-range latest result first — the rows a doctor scans for. */
 function sortTrends(trends: Trend[]): Trend[] {
@@ -83,8 +83,10 @@ export default function TrendsTab({
                 <tbody>
                   {t.points.map((p, i) => (
                     <tr key={i}>
-                      <td>{p.date}</td>
-                      <td className="num">{p.value !== null ? czNum(p.value) : p.valueRaw}</td>
+                      <td>{czDate(p.date)}</td>
+                      {/* As printed — this table is checkable against the
+                          source, so it must not round. */}
+                      <td className="num">{czExact(p.value, p.valueRaw)}</td>
                       <td className="muted">
                         {p.refLow !== null || p.refHigh !== null
                           ? `${p.refLow !== null ? czNum(p.refLow) : ""}–${p.refHigh !== null ? czNum(p.refHigh) : ""}`
