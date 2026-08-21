@@ -12,13 +12,16 @@ No patient data of any kind: names and identifiers are invented.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-import fitz
+import pymupdf
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from scripts._fonts import czech_fonts  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "web" / "tests" / "fixtures"
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-FONT_B = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT, FONT_B = czech_fonts()
 
 
 def new_page(doc, landscape=False):
@@ -194,14 +197,14 @@ def multipage(doc):
 
 def scanned(doc_path: Path):
     """A page with no text layer at all — must route to the vision path."""
-    src = fitz.open()
+    src = pymupdf.open()
     page = new_page(src)
     header(page, "Laboratoř Sken s.r.o.")
     page.insert_text((50, 140), "S_Glukóza      5,32     mmol/l    (4,11-5,60)", fontname="dj", fontsize=9)
-    pix = page.get_pixmap(matrix=fitz.Matrix(150 / 72, 150 / 72))
-    out = fitz.open()
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(150 / 72, 150 / 72))
+    out = pymupdf.open()
     p2 = out.new_page(width=595, height=842)
-    p2.insert_image(fitz.Rect(0, 0, 595, 842), pixmap=pix)
+    p2.insert_image(pymupdf.Rect(0, 0, 595, 842), pixmap=pix)
     out.save(doc_path)
     out.close()
     src.close()
@@ -219,7 +222,7 @@ def main() -> None:
         ("unit_in_value", unit_in_value),
         ("multipage", multipage),
     ]:
-        doc = fitz.open()
+        doc = pymupdf.open()
         fn(doc)
         doc.save(OUT / f"{name}.pdf")
         doc.close()

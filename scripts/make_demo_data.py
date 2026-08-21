@@ -20,9 +20,13 @@ import shutil
 import sys
 from pathlib import Path
 
-import fitz
+import pymupdf
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from scripts._fonts import czech_fonts  # noqa: E402
+
+FONT, FONT_BOLD = czech_fonts()
 
 # Typical adult intervals, used only to tell analytes apart when mapping.
 # Never used to decide whether a result is abnormal — that comes from the
@@ -39,8 +43,7 @@ from src.normalize import normalize_measurement  # noqa: E402
 OUT = ROOT / "web" / "public" / "demo"
 IMG_DIR = OUT / "pages"
 RENDER_DPI = 220
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
 
 PATIENT_NAME = "Jan Ukázka"
 PATIENT_ID = "800101/0011"  # synthetic — not a real rodné číslo
@@ -126,7 +129,7 @@ def cz_date(iso: str) -> str:
 
 def build_pdf(path: Path, date_iso: str, rows: list[tuple[str, str, str, str]]) -> None:
     """Render one synthetic Czech lab report to a real PDF (with a text layer)."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)  # A4 points
     page.insert_font(fontname="dj", fontfile=FONT)
     page.insert_font(fontname="djb", fontfile=FONT_BOLD)
@@ -142,7 +145,7 @@ def build_pdf(path: Path, date_iso: str, rows: list[tuple[str, str, str, str]]) 
     page.insert_text((250, y), "Výsledek", fontname="djb", fontsize=9)
     page.insert_text((330, y), "Jednotka", fontname="djb", fontsize=9)
     page.insert_text((420, y), "Referenční meze", fontname="djb", fontsize=9)
-    page.draw_line(fitz.Point(50, y + 5), fitz.Point(545, y + 5))
+    page.draw_line(pymupdf.Point(50, y + 5), pymupdf.Point(545, y + 5))
 
     y += 22
     for name, value, unit, ref in rows:
@@ -178,10 +181,10 @@ def main() -> None:
         pdf_path = tmp / f"demo_{ri}.pdf"
         build_pdf(pdf_path, date_iso, page_rows)
 
-        doc = fitz.open(pdf_path)
+        doc = pymupdf.open(pdf_path)
         pg = doc[0]
         zoom = RENDER_DPI / 72.0
-        pix = pg.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+        pix = pg.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom))
         img_name = f"report{ri}_p1.png"
         pix.save(IMG_DIR / img_name)
 

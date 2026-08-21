@@ -25,7 +25,10 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-import fitz
+# `pymupdf`, never the legacy `fitz` alias: importing under the old name prints
+# a deprecation warning to *stdout*, which silently corrupts any pipeline that
+# reads a script's stdout as data. That cost a debugging session once already.
+import pymupdf
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -102,7 +105,7 @@ def redact_and_render(pdf_path: Path, page_num: int, secrets: list[str], dest: P
     verification here is honest about its own reach: it can clear a digital
     page, and it cannot clear a scan.
     """
-    doc = fitz.open(pdf_path)
+    doc = pymupdf.open(pdf_path)
     page = doc[page_num - 1]
     problems: list[str] = []
 
@@ -124,7 +127,7 @@ def redact_and_render(pdf_path: Path, page_num: int, secrets: list[str], dest: P
         page.apply_redactions()
 
     zoom = RENDER_DPI / 72.0
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom))
     pix.save(dest)
 
     # Now meaningful: the page has a text layer, so a surviving match is a
@@ -204,7 +207,7 @@ def main() -> None:
             d = m.to_dict()
             bbox = None
             if pdf is not None:
-                doc = fitz.open(pdf)
+                doc = pymupdf.open(pdf)
                 rects = doc[m.source_page - 1].search_for(m.raw_analyte_name)
                 if rects:
                     zoom = RENDER_DPI / 72.0
