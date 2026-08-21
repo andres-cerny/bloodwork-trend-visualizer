@@ -14,16 +14,24 @@ Design doc: `docs/web-demo-plan.md`. Deploy steps: `docs/deploy.md`.
 
 ## State
 
-Built and tested:
+Built and tested — **88 tests pass** (`npm test`):
 
-- Deterministic core ported to TypeScript (`web/src/lib/`) with 25 parity tests
-  mirroring `tests/test_normalize.py` case for case.
-- Worker (`worker/`) with Turnstile gating, HMAC session tokens, a KV spend
-  ledger that freezes AI features at a configured ceiling, and Claude calls
-  reusing the prompt and tool schema from `src/extract.py`.
-- SPA with all four tabs, chat, and upload. Verified at 390px and 1200px.
-- Text-layer extraction for digital PDFs, vision fallback for scans.
-- 53 tests pass (`npm test`).
+| Area | File | Covers |
+|---|---|---|
+| Deterministic parsing | `web/tests/normalize.test.ts` | 25 parity tests mirroring `tests/test_normalize.py` case for case |
+| Row reconstruction | `web/tests/rows.test.ts`, `layouts.test.ts` | Real `buildRows` against real PDFs through real pdf.js, across 8 awkward layouts |
+| Two-model union | `web/tests/reconcile.test.ts` | Disagreement and the silent under-extraction case |
+| Mapping evidence | `web/tests/mapping.test.ts` | Occurrence provenance, observed stats, unit/value plausibility |
+| Czech summary | `web/tests/summary.test.ts` | Arithmetic *and* wording, incl. absence of diagnostic language |
+| Chart axis | `web/tests/chart.test.ts` | Round tick values |
+| Worker routes | `worker/tests/routes.test.ts` | Session gate, path selection, and the budget freeze |
+| Session tokens | `worker/tests/auth.test.ts` | Forgery, wrong secret, expiry |
+| Spend ledger | `worker/tests/budget.test.ts` | Shard accumulation, freeze boundary, pricing |
+
+Also built: the SPA with all four tabs, chat, Turnstile-gated upload,
+text-layer extraction for digital PDFs with a vision fallback for scans, and a
+mapping review showing where each unmapped value came from and what data
+already sits under each candidate.
 
 **Not done, because this environment could not do it:**
 
