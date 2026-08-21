@@ -1,0 +1,52 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pymupdf python-dotenv
+
+      # The deterministic parsing layer exists twice — Python for the local
+      # pipeline, TypeScript for the browser. These run the same shared fixture
+      # through both, so a change to one that is not mirrored in the other
+      # fails here rather than drifting silently.
+      - name: Parity (Python side)
+        run: python3 tests/test_parity.py
+      - name: Python unit tests
+        run: |
+          python3 tests/test_normalize.py
+          python3 tests/test_matching.py
+
+      - name: TypeScript tests
+        run: npm test
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Build
+        run: npm run build
+
+      # The published demo must never contain real patient data. The generator
+      # is synthetic, so regenerating it must produce no diff — if it does,
+      # something else wrote into web/public/demo.
+      - name: Demo data is reproducible and synthetic
+        run: |
+          python3 -m scripts.seed_registry
+          python3 -m scripts.make_demo_data
+          git diff --exit-code -- web/public/demo/reports.json web/public/demo/registry.json

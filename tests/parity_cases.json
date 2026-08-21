@@ -1,0 +1,71 @@
+{
+  "_about": "Shared fixture for the Python and TypeScript implementations of the deterministic parsing layer. Both tests/test_parity.py and web/tests/parity.test.ts read this file, so a change to one implementation that is not mirrored in the other fails a test instead of drifting silently. Add a case here first, then make both sides pass.",
+  "parse_czech_number": [
+    ["5,4", 5.4],
+    ["0,443", 0.443],
+    ["114", 114.0],
+    ["1 234,5", 1234.5],
+    ["1 234,5", 1234.5],
+    ["1 234,5", 1234.5],
+    ["1.234,5", 1234.5],
+    ["+5,0", 5.0],
+    ["5.", 5.0],
+    ["neprovedeno", null],
+    ["", null],
+    ["negativní", null],
+    ["5..4", null],
+    ["1.234.567", null],
+    ["-5", null]
+  ],
+  "parse_value": [
+    ["5,4", 5.4],
+    ["114", 114.0],
+    ["1,97 !", 1.97],
+    ["29,30 *", 29.3],
+    ["13,80 !", 13.8],
+    ["<1,0", null],
+    [">10", null],
+    ["< 0,1", null],
+    ["neprovedeno", null],
+    ["negativní", null],
+    ["stopy", null],
+    ["", null]
+  ],
+  "canonicalize_unit": [
+    ["mmol/L", "mmol/l"],
+    ["mmol/l", "mmol/l"],
+    ["U/l", "U/l"],
+    ["µkat/l", "µkat/l"],
+    ["μkat/l", "µkat/l"],
+    ["10˄9/l", "10^9/l"],
+    ["10^9/l", "10^9/l"],
+    ["-", ""],
+    ["", ""],
+    ["  g/l  ", "g/l"]
+  ],
+  "parse_range": [
+    ["(4,11-5,60)", [4.11, 5.6, null]],
+    ["4,11-5,60", [4.11, 5.6, null]],
+    ["62,00 - 110", [62.0, 110.0, null]],
+    ["137-145", [137.0, 145.0, null]],
+    ["0,400–0,500", [0.4, 0.5, null]],
+    ["< 5,00", [null, 5.0, null]],
+    ["<2,85", [null, 2.85, null]],
+    ["> 0,5", [0.5, null, null]],
+    ["negativní", [null, null, "negativní"]],
+    ["", [null, null, null]]
+  ],
+  "compute_flag": [
+    [5.0, 4.11, 5.6, "normal"],
+    [1.97, 4.11, 5.6, "low"],
+    [6.0, 4.11, 5.6, "high"],
+    [3.0, null, 2.85, "high"],
+    [2.0, null, 2.85, "normal"],
+    [0.2, 0.5, null, "low"],
+    [1.0, 0.5, null, "normal"],
+    [null, 1.0, 2.0, "unknown"],
+    [5.0, null, null, "unknown"],
+    [4.11, 4.11, 5.6, "normal"],
+    [5.6, 4.11, 5.6, "normal"]
+  ]
+}
