@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bloodwork-demo",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // SPA: unknown paths fall through to index.html rather than 404ing.
+    "not_found_handling": "single-page-application"
+  },
+
+  "kv_namespaces": [
+    // Create with: npx wrangler kv namespace create BUDGET
+    // then paste the returned id here.
+    { "binding": "BUDGET", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+  ],
+
+  "vars": {
+    // Hard ceiling on total Claude spend for the whole site. Once reached,
+    // /api/extract and /api/chat refuse; the pre-baked demo keeps working.
+    "BUDGET_USD_LIMIT": "20",
+    // Pages one Turnstile challenge is good for.
+    "MAX_PAGES_PER_SESSION": "12",
+    "SESSION_TTL_SECONDS": "1800",
+    // "1" disables the Opus cross-check and halves upload cost.
+    "SINGLE_MODEL": "0"
+  }
+
+  // Secrets (never in this file — set with `npx wrangler secret put NAME`):
+  //   ANTHROPIC_API_KEY
+  //   TURNSTILE_SECRET_KEY
+  //   SESSION_SECRET
+}

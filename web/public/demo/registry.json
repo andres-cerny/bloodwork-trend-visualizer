@@ -1,0 +1,1110 @@
+[
+ {
+  "canonicalId": "glukoza",
+  "displayNameCs": "Glukóza",
+  "synonyms": [
+   "S_Glukóza",
+   "Glukóza"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "urea",
+  "displayNameCs": "Urea",
+  "synonyms": [
+   "S_Urea",
+   "Urea"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "kreatinin",
+  "displayNameCs": "Kreatinin",
+  "synonyms": [
+   "S_Kreatinin",
+   "Kreatinin"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "egfr",
+  "displayNameCs": "eGFR (CKD-EPI)",
+  "synonyms": [
+   "xxx_eGF (CKD-EPI)",
+   "eGF (CKD-EPI)",
+   "eGFR",
+   "odhad GF (CKD-EPI)"
+  ],
+  "canonicalUnit": "ml/s/1,73 m2",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "kyselina_mocova",
+  "displayNameCs": "Kyselina močová",
+  "synonyms": [
+   "S_Kyselina močová",
+   "Kyselina močová"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "bilirubin_celkovy",
+  "displayNameCs": "Bilirubin celkový",
+  "synonyms": [
+   "S_Bilirubin celkový",
+   "Celkový bilirubin",
+   "Bilirubin celkový"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "bilirubin_konjugovany",
+  "displayNameCs": "Bilirubin konjugovaný",
+  "synonyms": [
+   "S_Bilirubin konjugovaný"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ast",
+  "displayNameCs": "AST",
+  "synonyms": [
+   "S_AST",
+   "AST",
+   "AST - aspartátaminotransferasa"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "alt",
+  "displayNameCs": "ALT",
+  "synonyms": [
+   "S_ALT",
+   "ALT",
+   "ALT - alaninaminotransferasa"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "alp",
+  "displayNameCs": "ALP",
+  "synonyms": [
+   "S_ALP",
+   "ALP",
+   "ALP - alkalická fosfatasa"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "alp_kostni",
+  "displayNameCs": "ALP kostní",
+  "synonyms": [
+   "S_kostní ALP"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ggt",
+  "displayNameCs": "GGT",
+  "synonyms": [
+   "S_GGT",
+   "gGT",
+   "GGT",
+   "gGT - gamaglutamyltransferasa"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ldh",
+  "displayNameCs": "LDH",
+  "synonyms": [
+   "S_LDH",
+   "LDH",
+   "LDH - laktátdehydrogenasa",
+   "LD"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ck",
+  "displayNameCs": "Kreatinkináza (CK)",
+  "synonyms": [
+   "S_Kreatinkináza",
+   "CK",
+   "Kreatinkináza",
+   "CK - kreatinkinasa"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "acp",
+  "displayNameCs": "ACP celková",
+  "synonyms": [
+   "S_ACP celková"
+  ],
+  "canonicalUnit": "nkat/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "piiinp",
+  "displayNameCs": "PIIINP",
+  "synonyms": [
+   "S_PIIINP"
+  ],
+  "canonicalUnit": "ng/ml",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "erytropoetin",
+  "displayNameCs": "Erytropoetin",
+  "synonyms": [
+   "S_Erytropoetin"
+  ],
+  "canonicalUnit": "U/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "fsh",
+  "displayNameCs": "FSH",
+  "synonyms": [
+   "S_FSH"
+  ],
+  "canonicalUnit": "U/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "lh",
+  "displayNameCs": "LH",
+  "synonyms": [
+   "S_LH"
+  ],
+  "canonicalUnit": "U/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "dhea_s",
+  "displayNameCs": "DHEA-S",
+  "synonyms": [
+   "S_DHEA-S"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "kortizol",
+  "displayNameCs": "Kortizol",
+  "synonyms": [
+   "S_Kortizol"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "testosteron_volny",
+  "displayNameCs": "Testosteron volný",
+  "synonyms": [
+   "S_Testosteron volný"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "testosteron",
+  "displayNameCs": "Testosteron",
+  "synonyms": [
+   "S_Testosteron"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "shbg",
+  "displayNameCs": "SHBG",
+  "synonyms": [
+   "S_SHBG"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "fai",
+  "displayNameCs": "FAI (výpočet)",
+  "synonyms": [
+   "S_výpočet FAI"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "igf1",
+  "displayNameCs": "IGF-1",
+  "synonyms": [
+   "S_IGF 1",
+   "IGF 1"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "sodik",
+  "displayNameCs": "Sodík",
+  "synonyms": [
+   "S_Sodík",
+   "Sodík"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "draslik",
+  "displayNameCs": "Draslík",
+  "synonyms": [
+   "S_Draslík",
+   "Draslík"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "chloridy",
+  "displayNameCs": "Chloridy",
+  "synonyms": [
+   "S_Chloridy",
+   "Chloridy"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "vapnik",
+  "displayNameCs": "Vápník (Ca)",
+  "synonyms": [
+   "S_Ca celkový",
+   "Vápník",
+   "Ca celkový"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "horcik",
+  "displayNameCs": "Hořčík",
+  "synonyms": [
+   "S_Hořčík",
+   "Hořčík"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "horcik_ery",
+  "displayNameCs": "Hořčík v erytrocytech",
+  "synonyms": [
+   "PE_Hořčík v ery"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "fosfor",
+  "displayNameCs": "Fosfor (P)",
+  "synonyms": [
+   "S_P anorganický",
+   "Fosfor",
+   "P anorganický",
+   "Fosfor anorganický"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "zinek",
+  "displayNameCs": "Zinek",
+  "synonyms": [
+   "S_Zinek"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "cholesterol",
+  "displayNameCs": "Cholesterol celkový",
+  "synonyms": [
+   "S_Cholesterol",
+   "Cholesterol celkový",
+   "Cholesterol"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "triacylglyceroly",
+  "displayNameCs": "Triacylglyceroly",
+  "synonyms": [
+   "S_Triacylglyceroly",
+   "Triacylglyceroly"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "hdl",
+  "displayNameCs": "HDL cholesterol",
+  "synonyms": [
+   "S_HDL cholesterol",
+   "HDL-cholesterol",
+   "Cholesterol HDL"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ldl",
+  "displayNameCs": "LDL cholesterol",
+  "synonyms": [
+   "S_LDL cholesterol",
+   "LDL-cholesterol",
+   "Cholesterol LDL"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "non_hdl",
+  "displayNameCs": "non-HDL cholesterol",
+  "synonyms": [
+   "S_Výpočet non-HDL",
+   "S_Non-HDL cholesterol-výp."
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "zelezo",
+  "displayNameCs": "Železo",
+  "synonyms": [
+   "S_Železo",
+   "Železo"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "vk_fe_volna",
+  "displayNameCs": "Volná vazebná kapacita Fe",
+  "synonyms": [
+   "S_Vol.VK Fe"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "vk_fe_celkova",
+  "displayNameCs": "Celková vazebná kapacita Fe",
+  "synonyms": [
+   "S_Celk.VK Fe",
+   "Vazebná kapacita",
+   "Vazebná kapacita F",
+   "Vazebná kapacita Fe"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "saturace_trf",
+  "displayNameCs": "Saturace transferrinu",
+  "synonyms": [
+   "S_Saturace Trf",
+   "S_Sat.transferinu (Fe,Trf)",
+   "Saturace transf.-výp",
+   "Saturace transferinu železem"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ferritin",
+  "displayNameCs": "Ferritin",
+  "synonyms": [
+   "S_Ferritin",
+   "Ferritin",
+   "S_Feritin"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "transferrin",
+  "displayNameCs": "Transferrin",
+  "synonyms": [
+   "S_Transferrin",
+   "Transferin"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "str",
+  "displayNameCs": "Solubilní transferrinový receptor",
+  "synonyms": [
+   "S_Sol.tr.receptor"
+  ],
+  "canonicalUnit": "mg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "vitamin_b12",
+  "displayNameCs": "Vitamin B12",
+  "synonyms": [
+   "S_Vitamin B12"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "aktivni_b12",
+  "displayNameCs": "Aktivní B12 (holoTC)",
+  "synonyms": [
+   "S_Aktivní B12"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "kyselina_listova_ery",
+  "displayNameCs": "Kyselina listová v ery",
+  "synonyms": [
+   "B_Kyselina listová-ery"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "kyselina_listova",
+  "displayNameCs": "Kyselina listová",
+  "synonyms": [
+   "S_Kyselina listová",
+   "Kys.listová"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "vitamin_d",
+  "displayNameCs": "Vitamin D celkový",
+  "synonyms": [
+   "S_Vitamin D celkový",
+   "#S_25-OH vitamin D celkový",
+   "25-OH vitamin D",
+   "25-hydroxyvitamin D"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "homocystein",
+  "displayNameCs": "Homocystein",
+  "synonyms": [
+   "S_Homocystein"
+  ],
+  "canonicalUnit": "µmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "mma",
+  "displayNameCs": "Metylmalonová kyselina",
+  "synonyms": [
+   "PK_Metymalonová kyselina"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "myoglobin",
+  "displayNameCs": "Myoglobin",
+  "synonyms": [
+   "S_Myoglobin"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "crp",
+  "displayNameCs": "CRP",
+  "synonyms": [
+   "S_CRP",
+   "CRP",
+   "S_C-reaktivní protein"
+  ],
+  "canonicalUnit": "mg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "celkova_bilkovina",
+  "displayNameCs": "Celková bílkovina",
+  "synonyms": [
+   "S_Celk.bílkovina",
+   "Bílkovina celková"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "albumin",
+  "displayNameCs": "Albumin",
+  "synonyms": [
+   "S_Albumin",
+   "Albumin"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "c3",
+  "displayNameCs": "C3 komplement",
+  "synonyms": [
+   "S_C3 komplement"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "c4",
+  "displayNameCs": "C4 komplement",
+  "synonyms": [
+   "S_C4 komplement"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "tsh",
+  "displayNameCs": "TSH",
+  "synonyms": [
+   "S_TSH"
+  ],
+  "canonicalUnit": "mU/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ft4",
+  "displayNameCs": "T4 volný (fT4)",
+  "synonyms": [
+   "S_T4 volný"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ft3",
+  "displayNameCs": "T3 volný (fT3)",
+  "synonyms": [
+   "S_T3 volný"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "osteokalcin",
+  "displayNameCs": "Osteokalcin",
+  "synonyms": [
+   "S_Osteokalcin"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "c_peptid",
+  "displayNameCs": "C-peptid",
+  "synonyms": [
+   "S_C-peptid"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "inzulin",
+  "displayNameCs": "Inzulin",
+  "synonyms": [
+   "S_Inzulin"
+  ],
+  "canonicalUnit": "mU/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ige",
+  "displayNameCs": "IgE celkové",
+  "synonyms": [
+   "S_IgE celkové"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ecp",
+  "displayNameCs": "ECP",
+  "synonyms": [
+   "S_ECP"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "leukocyty",
+  "displayNameCs": "Leukocyty",
+  "synonyms": [
+   "B_Leukocyty",
+   "WBS leukocyty",
+   "Leukocyty",
+   "WBC",
+   "B_Leukocyty [WBC]"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "erytrocyty",
+  "displayNameCs": "Erytrocyty",
+  "synonyms": [
+   "B_Erytrocyty",
+   "RBC erytrocyty",
+   "Erytrocyty",
+   "RBC",
+   "B_Erytrocyty [RBC]"
+  ],
+  "canonicalUnit": "10^12/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "hemoglobin",
+  "displayNameCs": "Hemoglobin",
+  "synonyms": [
+   "B_Hemoglobin",
+   "HGB hemoglobin",
+   "Hemoglobin",
+   "HGB",
+   "B_Hemoglobin [HGB]"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "hematokrit",
+  "displayNameCs": "Hematokrit",
+  "synonyms": [
+   "B_Hematokrit",
+   "HCT hematokrit",
+   "Hematokrit",
+   "HCT",
+   "B_Hematokrit [HCT]"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "mcv",
+  "displayNameCs": "MCV",
+  "synonyms": [
+   "B_MCV",
+   "MCV stř. obj. ery.",
+   "MCV",
+   "B_Střední objem ery [MCV]"
+  ],
+  "canonicalUnit": "fl",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "mch",
+  "displayNameCs": "MCH",
+  "synonyms": [
+   "B_MCH",
+   "MCH ob. HB v ery.",
+   "MCH",
+   "B_Barvivo ery [MCH]"
+  ],
+  "canonicalUnit": "pg",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "mchc",
+  "displayNameCs": "MCHC",
+  "synonyms": [
+   "B_MCHC",
+   "MCHC konc. HB v ery.",
+   "MCHC",
+   "B_Stř.bar.koncentrace [MCHC]"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "rdw",
+  "displayNameCs": "RDW",
+  "synonyms": [
+   "B_RDW-CV",
+   "RDW distr. křivka ery.",
+   "RDW-CV",
+   "RDW",
+   "B_Distr. křivka ery [RDW]"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "trombocyty",
+  "displayNameCs": "Trombocyty",
+  "synonyms": [
+   "B_Trombocyty",
+   "PLT trombocyty",
+   "Trombocyty",
+   "PLT",
+   "B_Trombocyty [PLT]"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "trombokrit",
+  "displayNameCs": "Trombokrit",
+  "synonyms": [
+   "B_Trombokrit",
+   "PCT hematokrit trombo",
+   "PCT"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "pdw",
+  "displayNameCs": "PDW",
+  "synonyms": [
+   "B_PDW",
+   "PDW distr. křivka trombo",
+   "PDW"
+  ],
+  "canonicalUnit": "fl",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "mpv",
+  "displayNameCs": "MPV",
+  "synonyms": [
+   "B_MPV",
+   "MPV stř. obj. trombo",
+   "MPV"
+  ],
+  "canonicalUnit": "fl",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "retikulocyty",
+  "displayNameCs": "Retikulocyty",
+  "synonyms": [
+   "B_Retikulocyty"
+  ],
+  "canonicalUnit": "1",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "retikulocyty_abs",
+  "displayNameCs": "Retikulocyty (absolutní)",
+  "synonyms": [
+   "B_Retikulocyty #"
+  ],
+  "canonicalUnit": "10^12/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "retik_index",
+  "displayNameCs": "Retikulocytární index",
+  "synonyms": [
+   "B_Retik. index"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "neutrofily",
+  "displayNameCs": "Neutrofily",
+  "synonyms": [
+   "B_Neutrofily",
+   "Granulocyty"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {
+   "": 100.0
+  }
+ },
+ {
+  "canonicalId": "lymfocyty",
+  "displayNameCs": "Lymfocyty",
+  "synonyms": [
+   "B_Lymfocyty",
+   "Lymfocyty"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {
+   "": 100.0
+  }
+ },
+ {
+  "canonicalId": "monocyty",
+  "displayNameCs": "Monocyty",
+  "synonyms": [
+   "B_Monocyty",
+   "Monocyty"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {
+   "": 100.0
+  }
+ },
+ {
+  "canonicalId": "eosinofily",
+  "displayNameCs": "Eosinofily",
+  "synonyms": [
+   "B_Eosinofily",
+   "B_Eozinofily",
+   "B_Eozinofily.",
+   "Eozinofily"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {
+   "": 100.0
+  }
+ },
+ {
+  "canonicalId": "basofily",
+  "displayNameCs": "Basofily",
+  "synonyms": [
+   "B_Basofily",
+   "B_Bazofily",
+   "B_Bazofily.",
+   "Bazofily"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {
+   "": 100.0
+  }
+ },
+ {
+  "canonicalId": "neutrofily_abs",
+  "displayNameCs": "Neutrofily (absolutní)",
+  "synonyms": [
+   "B_Neutrofily #",
+   "Gra granulocyty",
+   "Neutrofily-abs"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "lymfocyty_abs",
+  "displayNameCs": "Lymfocyty (absolutní)",
+  "synonyms": [
+   "B_Lymfocyty #",
+   "Lym lymfocyty",
+   "Lymfocyty-abs"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "monocyty_abs",
+  "displayNameCs": "Monocyty (absolutní)",
+  "synonyms": [
+   "B_Monocyty #",
+   "Mon monocyty",
+   "Monocyty-abs"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "eosinofily_abs",
+  "displayNameCs": "Eosinofily (absolutní)",
+  "synonyms": [
+   "B_Eosinofily #",
+   "Eozinofily-abs"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "basofily_abs",
+  "displayNameCs": "Basofily (absolutní)",
+  "synonyms": [
+   "B_Basofily #",
+   "Bazofily-abs"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "egfr_mdrd",
+  "displayNameCs": "eGFR (MDRD)",
+  "synonyms": [
+   "odhad GF (MDRD)"
+  ],
+  "canonicalUnit": "ml/s/1,73 m2",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "iga",
+  "displayNameCs": "IgA",
+  "synonyms": [
+   "IgA"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "igg",
+  "displayNameCs": "IgG",
+  "synonyms": [
+   "IgG"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "igm",
+  "displayNameCs": "IgM",
+  "synonyms": [
+   "IgM"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "estradiol",
+  "displayNameCs": "Estradiol",
+  "synonyms": [
+   "S_Estradiol"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "progesteron",
+  "displayNameCs": "Progesteron",
+  "synonyms": [
+   "S_Progesteron"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "nt_probnp",
+  "displayNameCs": "NT-proBNP",
+  "synonyms": [
+   "NT-proBNP"
+  ],
+  "canonicalUnit": "ng/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "troponin_i",
+  "displayNameCs": "Troponin I",
+  "synonyms": [
+   "Troponin I"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ck_mb",
+  "displayNameCs": "CK-MB mass",
+  "synonyms": [
+   "CK-MB mass"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "index_aterogenity",
+  "displayNameCs": "Index aterogenity",
+  "synonyms": [
+   "Index aterogenity",
+   "Index aterogenity-výp."
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "osmolalita",
+  "displayNameCs": "Osmolalita",
+  "synonyms": [
+   "S_Osmolalita-výpočet"
+  ],
+  "canonicalUnit": "mmol/kg",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "vapnik_ionizovany",
+  "displayNameCs": "Vápník ionizovaný",
+  "synonyms": [
+   "S_Vápník ioniz.-výpočet"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "vapnik_korigovany",
+  "displayNameCs": "Vápník korigovaný",
+  "synonyms": [
+   "S_Vápník korig.-výpočet"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "fw",
+  "displayNameCs": "Sedimentace (FW)",
+  "synonyms": [
+   "Sedimentace"
+  ],
+  "canonicalUnit": "mm/h",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "hemolyza_index",
+  "displayNameCs": "Index hemolýzy",
+  "synonyms": [
+   "Hemolýza-index"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "ikterita_index",
+  "displayNameCs": "Index ikterity",
+  "synonyms": [
+   "Ikterita-index"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {}
+ },
+ {
+  "canonicalId": "chyloza_index",
+  "displayNameCs": "Index chylozity",
+  "synonyms": [
+   "Chylóza-index"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {}
+ }
+]
