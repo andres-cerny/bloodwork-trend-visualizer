@@ -14,6 +14,33 @@ import { useId, useState } from "react";
 import { czNum } from "../lib/summary";
 import { numericPoints, type Trend } from "../lib/trends";
 
+/**
+ * Round axis values a person would actually write: 1, 2, 2.5, 5 or 10 times a
+ * power of ten. Deriving ticks from the data range instead produces labels
+ * like "0,056", which reads as a measurement rather than a scale marker.
+ */
+export function niceStep(range: number, target: number): number {
+  if (!(range > 0)) return 1;
+  const rough = range / target;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  const step = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  return step * mag;
+}
+
+export function niceTicks(lo: number, hi: number, target = 4): number[] {
+  const step = niceStep(hi - lo, target);
+  const first = Math.ceil(lo / step) * step;
+  const out: number[] = [];
+  // Guard against a degenerate range producing an unbounded loop.
+  for (let v = first, i = 0; v <= hi + step * 1e-9 && i < 20; v += step, i++) {
+    // Re-round: repeated addition accumulates float error that shows up in
+    // the label as 0,30000000000000004.
+    out.push(Math.round(v / step) * step);
+  }
+  return out;
+}
+
 const W = 640;
 const H = 220;
 const PAD = { top: 14, right: 14, bottom: 26, left: 46 };
@@ -48,7 +75,7 @@ export default function Chart({ trend }: { trend: Trend }) {
   })();
 
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value as number)}`).join(" ");
-  const ticks = [yMin, (yMin + yMax) / 2, yMax];
+  const ticks = niceTicks(yMin, yMax);
   const active = hover !== null ? pts[hover] : null;
 
   return (
