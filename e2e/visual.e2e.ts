@@ -61,11 +61,22 @@ afterAll(async () => {
   server?.kill();
 });
 
+/**
+ * Open the app and wait until it has rendered its own data.
+ *
+ * NOT `waitUntil: "networkidle"`. When a Turnstile site key is configured the
+ * upload panel embeds Cloudflare's widget, which holds a blob request open for
+ * the life of the page — the network is never idle, so every navigation times
+ * out after 30s and the whole suite fails for a reason that has nothing to do
+ * with the app. Waiting for the app's own first render is both faster and the
+ * thing actually being asserted.
+ */
 async function open(viewport: { width: number; height: number }): Promise<Page> {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 2 });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto(BASE, { waitUntil: "networkidle" });
+  await page.goto(BASE, { waitUntil: "load" });
+  await page.waitForSelector(".patient-bar", { timeout: 15_000 });
   (page as any).__errors = errors;
   return page;
 }
@@ -91,20 +102,20 @@ async function textOf(page: Page, selector: string, timeoutMs = 4000): Promise<s
 }
 
 /**
- * Pick an analyte by matching the option's visible text.
+ * Put one analyte's chart on screen.
  *
- * selectOption takes a literal label, and the options carry suffixes like
- * "— čeká na ověření", so the value is resolved from the rendered text.
+ * The trends tab opens empty by design, so this drives the real flow: open the
+ * picker, type enough of the name to narrow the list, click the match.
  */
 async function selectAnalyte(page: Page, pattern: RegExp) {
-  const value = await page.evaluate((src) => {
-    const re = new RegExp(src);
-    const sel = document.querySelector<HTMLSelectElement>("#analyte")!;
-    const opt = [...sel.options].find((o) => re.test(o.textContent ?? ""));
-    return opt ? opt.value : null;
-  }, pattern.source);
-  if (!value) throw new Error(`no analyte option matching ${pattern}`);
-  await page.selectOption("#analyte", value);
+  await page.getByRole("button", { name: /Přidat analyt/ }).click();
+  await page.waitForTimeout(150);
+  const query = pattern.source.replace(/[\^$]/g, "").slice(0, 6);
+  await page.getByLabel("Hledat analyt").fill(query);
+  await page.waitForTimeout(150);
+  const item = page.locator(".picker-item", { hasText: pattern }).first();
+  if ((await item.count()) === 0) throw new Error(`no analyte matching ${pattern}`);
+  await item.click();
   await page.waitForTimeout(350);
 }
 
@@ -145,8 +156,8 @@ describe("trends visualise correctly", () => {
   });
 
   it("spaces points by date, not by index", async () => {
-    // Draws are 0/189/371/546 days apart. Even spacing would put them at
-    // thirds; this asserts the real proportions.
+    // The ten demo draws sit 0…1526 days from the first. Even spacing would
+    // put them at ninths; this asserts the real proportions.
     const page = await open(DESKTOP);
     await selectAnalyte(page, /Cholesterol celkový/);
     const xs = await page.evaluate(() => {
@@ -157,8 +168,10 @@ describe("trends visualise correctly", () => {
     });
     const span = xs[xs.length - 1] - xs[0];
     const frac = xs.map((x) => (x - xs[0]) / span);
-    for (const [i, want] of [0, 189 / 546, 371 / 546, 1].entries()) {
-      expect(Math.abs(frac[i] - want), `point ${i}`).toBeLessThan(0.02);
+    const days = [0, 217, 350, 483, 644, 798, 973, 1127, 1323, 1526];
+    expect(xs.length, "one dot per draw").toBe(days.length);
+    for (const [i, d] of days.entries()) {
+      expect(Math.abs(frac[i] - d / 1526), `point ${i}`).toBeLessThan(0.02);
     }
     await page.close();
   });
@@ -192,6 +205,33 @@ describe("trends visualise correctly", () => {
     await selectAnalyte(page, /CRP/);
     expect(await page.locator("svg").count()).toBe(0);
     expect(await textOf(page, ".single-point")).toContain("2,4");
+    await page.close();
+  });
+});
+
+describe("the chart answers a pointer", () => {
+  it("shows a readout when the pointer is on the dot itself", async () => {
+    /*
+     * The defect this guards: the visible dot was painted over its own hit
+     * target, and mouseenter does not bubble — so pointing straight at a
+     * measurement did nothing and only the ring of empty space around it
+     * responded. Hovering by coordinate, at the centre of the mark, is exactly
+     * the case that failed.
+     */
+    const page = await open(DESKTOP);
+    await selectAnalyte(page, /Cholesterol celkový/);
+    const dot = page.locator("svg circle[stroke-width]").nth(4);
+    const box = (await dot.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(250);
+
+    // textContent, not innerText: the readout is SVG, and innerText is an
+    // HTMLElement property — reading it here throws rather than returning "".
+    const tip = ((await page.locator(".chart-tip").first().textContent()) ?? "").trim();
+    expect(tip, "no readout at the dot centre").not.toBe("");
+    // Date and value, so the reader knows which draw they are pointing at.
+    expect(tip).toMatch(/\d{1,2}\. \d{1,2}\. \d{4}/);
+    expect(tip).toMatch(/\d,\d/);
     await page.close();
   });
 });
@@ -273,6 +313,91 @@ describe("verification points at the right place", () => {
   });
 });
 
+describe("the highlight frames the row without covering it", () => {
+  /**
+   * The defect this guards: the highlight was a 2px border with a red wash
+   * inside it, and box-sizing put that border on the first and last pixel row
+   * of the print while the wash sat over the digits — the value it pointed at
+   * was the one thing it obscured.
+   *
+   * Asserted structurally, because "is the number readable" is not something a
+   * DOM query can answer: the box must have no fill and no border of its own,
+   * and its ring must be a shadow spread, which paints outside the box.
+   */
+  it("paints nothing inside the highlighted box", async () => {
+    const page = await open(DESKTOP);
+    await tab(page, "🔍 Ověření").click();
+    await page.waitForTimeout(300);
+    await page.locator("tr.row-pick").nth(4).click();
+    await page.waitForTimeout(500);
+
+    const style = await page.locator(".srcimg .hl").evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        background: s.backgroundColor,
+        borderTop: s.borderTopWidth,
+        borderBottom: s.borderBottomWidth,
+        shadow: s.boxShadow,
+      };
+    });
+    expect(style.background, "the row must not be tinted").toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(style.borderTop, "a border is drawn inside the box").toBe("0px");
+    expect(style.borderBottom, "a border is drawn inside the box").toBe("0px");
+    expect(style.shadow, "the ring must be an outside shadow").not.toBe("none");
+    await page.close();
+  });
+});
+
+describe("the document rail", () => {
+  it("clears every report and can load the demo back", async () => {
+    // Without this there was no way to get the sample patient off the screen,
+    // so anyone trying their own PDF mixed it into a fictional person's.
+    const page = await open(DESKTOP);
+    await page.getByRole("button", { name: "Odebrat všechny reporty" }).click();
+    await page.getByRole("button", { name: "Ano, odebrat vše" }).click();
+    await page.waitForTimeout(300);
+
+    expect(await textOf(page, ".patient-bar")).toContain("Žádný pacient");
+    expect(await page.getByRole("tab").count(), "tabs lead nowhere with no data").toBe(0);
+
+    await page.getByRole("button", { name: "Načíst ukázková data" }).first().click();
+    await page.waitForTimeout(300);
+    expect(await textOf(page, ".patient-bar")).toContain("Jan Ukázka");
+    await page.close();
+  });
+
+  it("keeps upload and the report list off the reading area", async () => {
+    // They used to sit at the bottom of every tab, several thousand pixels
+    // below the charts.
+    const page = await open(DESKTOP);
+    const railBox = await page.locator(".sidebar").boundingBox();
+    const mainBox = await page.locator(".main").boundingBox();
+    expect(railBox!.x + railBox!.width).toBeLessThanOrEqual(mainBox!.x + 1);
+    // The upload control itself is behind a challenge that may not have
+    // rendered yet, so the invariant is asserted on what is always there: the
+    // rail lists the loaded documents, and the reading area lists none of it.
+    expect(await page.locator(".sidebar .reportlist li").count()).toBe(10);
+    expect(await page.locator(".main .reportlist").count()).toBe(0);
+    expect(await page.locator(".main").getByText("Nahrát PDF").count()).toBe(0);
+    await page.close();
+  });
+});
+
+describe("the summary points back at the source", () => {
+  it("opens verification on the row an analyte was read from", async () => {
+    const page = await open(DESKTOP);
+    await tab(page, "📝 Souhrn změn").click();
+    await page.waitForTimeout(300);
+    await page.locator(".sum-row").first().click();
+    await page.waitForTimeout(600);
+
+    expect(await tab(page, "🔍 Ověření").getAttribute("aria-selected")).toBe("true");
+    expect(await page.locator("tr.row-pick[aria-selected=true]").count()).toBe(1);
+    expect(await page.locator(".srcimg .hl").count(), "no row framed on the page").toBe(1);
+    await page.close();
+  });
+});
+
 describe("a correction re-derives everything", () => {
   it("updates the flag, the review count and the chart", async () => {
     const page = await open(DESKTOP);
@@ -282,7 +407,7 @@ describe("a correction re-derives everything", () => {
     const countBefore = await page.locator("label", { hasText: "jen řádky k ověření" }).innerText();
 
     // Correct the deliberately misread glucose on the second report.
-    await page.selectOption("select", { index: 1 });
+    await page.selectOption("#report", { index: 1 });
     await page.waitForTimeout(300);
     await page.locator("tr.row-pick").first().click();
     await page.waitForTimeout(300);
@@ -328,8 +453,8 @@ describe("mapping explains itself", () => {
     await page.waitForTimeout(300);
     const card = page.locator(".card", { hasText: "S_Homocystein tot." }).first();
     const cardText = (await card.innerText()).trim();
-    expect(cardText).toContain("14. 2. 2024");
-    expect(cardText).toContain("11,2");
+    expect(cardText).toContain("8. 2. 2022");
+    expect(cardText).toContain("10,6");
     expect((await card.locator(".cand-card").first().innerText())).toContain("Homocystein");
     await page.close();
   });

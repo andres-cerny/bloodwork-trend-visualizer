@@ -12,7 +12,7 @@
  */
 import { useId, useState } from "react";
 import { czExact, czNum } from "../lib/summary";
-import { czDate, czMonthYear } from "../lib/czech";
+import { czDate, czMonthYear, prettyUnit } from "../lib/czech";
 import { numericPoints, type Trend } from "../lib/trends";
 
 /**
@@ -210,13 +210,24 @@ export default function Chart({ trend }: { trend: Trend }) {
           const out = p.flag === "high" || p.flag === "low";
           return (
             <g key={i}>
-              {/* Hit target deliberately larger than the mark. */}
+              {/*
+                Hit target deliberately larger than the mark — and everything
+                drawn after it is pointer-transparent.
+
+                mouseenter does not bubble, so the visible dot painted on top
+                of this circle was eating the event: pointing straight at a
+                measurement did nothing, and only the ring of empty space
+                around it responded. Guarded by "shows a readout when the
+                pointer is on the dot itself" in e2e/visual.e2e.ts.
+              */}
               <circle cx={x(i)} cy={y(p.value as number)} r={16} fill="transparent"
-                      onMouseEnter={() => setHover(i)} onClick={() => setHover(i)} />
+                      onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)}
+                      onClick={() => setHover((h) => (h === i ? null : i))} />
               {/* An unconfirmed reading is drawn hollow. It may well be
                   right, so dropping it would hide real data — but it must not
                   look as solid as a value two reads agreed on. */}
               <circle
+                pointerEvents="none"
                 cx={x(i)} cy={y(p.value as number)} r={hover === i ? 6.5 : 5}
                 fill={p.unconfirmed ? "var(--surface-1)" : out ? "var(--status-critical)" : "var(--series-1)"}
                 stroke={p.unconfirmed ? (out ? "var(--status-critical)" : "var(--series-1)") : "var(--surface-1)"}
@@ -225,7 +236,7 @@ export default function Chart({ trend }: { trend: Trend }) {
               />
               {out && (
                 <text x={x(i)} y={y(p.value as number) - 12} textAnchor="middle" fontSize={13}
-                      fill="var(--status-critical)" fontWeight={700}>
+                      pointerEvents="none" fill="var(--status-critical)" fontWeight={700}>
                   {p.flag === "high" ? "↑" : "↓"}
                 </text>
               )}
@@ -233,6 +244,7 @@ export default function Chart({ trend }: { trend: Trend }) {
                   opening twenty tables to find the current value. */}
               {i === pts.length - 1 && (
                 <text
+                  pointerEvents="none"
                   x={x(i) - 9}
                   y={y(p.value as number) - 10}
                   textAnchor="end"
@@ -246,6 +258,61 @@ export default function Chart({ trend }: { trend: Trend }) {
             </g>
           );
         })}
+
+        {/* Hover readout, anchored to the point.
+            The caption under the chart carries the same words for screen
+            readers and for touch, but a reader following a line with the mouse
+            should not have to look away from it to find out what they are
+            pointing at. Drawn last so it sits over the series, and flipped
+            near an edge so it never leaves the plot. */}
+        {hover !== null && active && (() => {
+          const lines = [
+            czDate(active.date),
+            `${czExact(active.value, active.valueRaw)}${trend.unit ? ` ${prettyUnit(trend.unit)}` : ""}`,
+            active.flag === "high"
+              ? "nad rozmezím"
+              : active.flag === "low"
+                ? "pod rozmezím"
+                : active.refLow !== null || active.refHigh !== null
+                  ? "v rozmezí"
+                  : "",
+          ].filter(Boolean);
+          if (active.unconfirmed) lines.push("nepotvrzeno");
+          // No text metrics inside an SVG viewBox, so the width is estimated
+          // per line from its character count. Erring a little wide only
+          // leaves padding; erring narrow clips the date.
+          const w = Math.max(84, ...lines.map((l, i) => l.length * (i === 1 ? 6.9 : 5.6) + 18));
+          const h = 16 + lines.length * 14;
+          const px = x(hover);
+          const py = y(active.value as number);
+          const left = px + 14 + w > W - PAD.right ? px - 14 - w : px + 14;
+          const top = Math.min(Math.max(PAD.top, py - h / 2), H - PAD.bottom - h);
+          const out = active.flag === "high" || active.flag === "low";
+          return (
+            <g className="chart-tip" pointerEvents="none">
+              {/* A guide down to the axis: with ten points a box floating
+                  beside the line leaves "which one?" genuinely open. */}
+              <line
+                x1={px} x2={px} y1={PAD.top} y2={H - PAD.bottom}
+                stroke="var(--ink-muted)" strokeWidth={1} strokeDasharray="3 3" opacity={0.55}
+              />
+              <rect x={left} y={top} width={w} height={h} rx={7}
+                    fill="var(--surface-1)" stroke="var(--border-strong)" strokeWidth={1} />
+              {lines.map((l, i) => (
+                <text
+                  key={i}
+                  x={left + 9}
+                  y={top + 14 + i * 14}
+                  fontSize={i === 1 ? 12.5 : 10.5}
+                  fontWeight={i === 1 ? 700 : 400}
+                  fill={i === 1 ? (out ? "var(--status-critical)" : "var(--ink-1)") : "var(--ink-2)"}
+                >
+                  {l}
+                </text>
+              ))}
+            </g>
+          );
+        })()}
 
         {/* With real time spacing two close draws can collide, so a label is
             dropped when it would overlap the previous one. */}

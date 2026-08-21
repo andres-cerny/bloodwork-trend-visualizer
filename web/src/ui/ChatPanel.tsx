@@ -1,4 +1,12 @@
-import { useState } from "react";
+/**
+ * Questions about the loaded results, as its own screen.
+ *
+ * It used to be a card pinned under every tab, where a two-line answer sat
+ * below several thousand pixels of charts and the composer was never on
+ * screen at the same time as the conversation. As a tab it gets the height a
+ * conversation needs, and the reader chooses when to be in it.
+ */
+import { useEffect, useRef, useState } from "react";
 import { ApiError, askChat, type Budget } from "../lib/api";
 
 interface Props {
@@ -21,6 +29,13 @@ export default function ChatPanel({ dataContext, frozen, unlocked, available, on
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  // A reply that lands below the fold reads as no reply at all.
+  useEffect(() => {
+    const el = logRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [history, busy]);
 
   async function send(text: string) {
     if (!text.trim() || busy) return;
@@ -42,41 +57,55 @@ export default function ChatPanel({ dataContext, frozen, unlocked, available, on
     }
   }
 
-  return (
-    <div className="card">
-      <h2>Zeptejte se na výsledky</h2>
-      <p className="sub">
-        Odpovídá na základě už přepsaných a ověřených hodnot. Popisuje, nediagnostikuje.
-      </p>
+  const blocked = !available ? (
+    // Pointing at a gate that is not rendered was a dead end: the copy told
+    // the reader to complete a check that does not exist on the page.
+    "Chat není v této ukázce zapnutý."
+  ) : frozen ? (
+    "Rozpočet ukázky na AI funkce je vyčerpán — chat je dočasně vypnutý."
+  ) : !unlocked ? (
+    "Nejdřív projděte ověřením „Nejsem robot“ v levém panelu Nahrát PDF."
+  ) : null;
 
-      {!available ? (
-        // Pointing at a gate that is not rendered was a dead end: the copy
-        // told the reader to complete a check that does not exist on the page.
-        <p className="muted">Chat není v této ukázce zapnutý.</p>
-      ) : frozen ? (
-        <p className="muted">Rozpočet dema na AI funkce je vyčerpán — chat je dočasně vypnutý.</p>
-      ) : !unlocked ? (
-        <p className="muted">Nejdřív projděte ověřením „Nejsem robot“ níže.</p>
+  return (
+    <div className={`card chat-card${blocked ? "" : " live"}`}>
+      <div className="card-head">
+        <div>
+          <h2>Zeptejte se na výsledky</h2>
+          <p className="sub" style={{ marginBottom: 0 }}>
+            Odpovídá na základě už přepsaných a ověřených hodnot. Popisuje,
+            nediagnostikuje.
+          </p>
+        </div>
+      </div>
+
+      {blocked ? (
+        <p className="muted">{blocked}</p>
       ) : (
         <>
-          {history.length > 0 && (
-            <div className="chat-log">
+          {history.length === 0 ? (
+            <div className="chat-empty">
+              <p style={{ margin: 0, fontSize: "0.9rem" }}>Například:</p>
+              <div className="suggestions">
+                {SUGGESTIONS.map((s) => (
+                  <button key={s} className="btn small" onClick={() => send(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="chat-log" ref={logRef}>
               {history.map((m, i) => (
                 <div key={i} className={`msg ${m.role === "user" ? "user" : "bot"}`}>
                   {m.content}
                 </div>
               ))}
-              {busy && <div className="msg bot muted">…</div>}
-            </div>
-          )}
-
-          {history.length === 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-              {SUGGESTIONS.map((s) => (
-                <button key={s} className="btn" style={{ fontSize: "0.82rem" }} onClick={() => send(s)}>
-                  {s}
-                </button>
-              ))}
+              {busy && (
+                <div className="msg bot muted" aria-live="polite">
+                  …
+                </div>
+              )}
             </div>
           )}
 
@@ -91,7 +120,7 @@ export default function ChatPanel({ dataContext, frozen, unlocked, available, on
               type="text" value={input} onChange={(e) => setInput(e.target.value)}
               placeholder="Napište dotaz…" aria-label="Dotaz" disabled={busy}
             />
-            <button className="btn primary" type="submit" disabled={busy || !input.trim()}>
+            <button className="btn accent" type="submit" disabled={busy || !input.trim()}>
               Odeslat
             </button>
           </form>

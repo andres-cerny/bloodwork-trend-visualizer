@@ -21,8 +21,11 @@ import { czDate, prettyUnit } from "../lib/czech";
 interface Props {
   reports: LabReport[];
   onCorrect: (reportId: string, index: number, next: Measurement) => void;
-  /** Arriving from the mapping tab: open this report with this row selected. */
-  focus?: { reportId: string; rawName: string } | null;
+  /**
+   * Arriving from another tab: open this report with this row selected. `seq`
+   * distinguishes two jumps to the same row, so asking for it twice works.
+   */
+  focus?: { reportId: string; rawName: string; seq?: number } | null;
   /** Resolves a canonical id to its readable Czech name. */
   displayName: (canonicalId: string) => string;
   /**
@@ -31,6 +34,10 @@ interface Props {
    */
   curatedRange: (canonicalId: string | null) => { low: number; high: number } | null;
 }
+
+/** Padding around the magnified row crop, in rendered pixels. */
+const ROW_BLEED_X = 26;
+const ROW_BLEED_Y = 3;
 
 export default function VerifyTab({ reports, onCorrect, focus, displayName, curatedRange }: Props) {
   const [reportId, setReportId] = useState(focus?.reportId ?? reports[0]?.id ?? "");
@@ -80,7 +87,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   const appliedFocus = useRef<string | null>(null);
   useEffect(() => {
     if (!focus) return;
-    const token = `${focus.reportId}:${focus.rawName}`;
+    const token = `${focus.reportId}:${focus.rawName}:${focus.seq ?? 0}`;
     if (appliedFocus.current === token) return;
     appliedFocus.current = token;
     setReportId(focus.reportId);
@@ -125,8 +132,14 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   // rows share the same width, and the tight vertical crop means no
   // neighbouring line is in frame to be mistaken for this one.
   const rowH = sel?.bbox ? Math.max(1, sel.bbox[3] - sel.bbox[1]) : 1;
+  // Fit the crop *including* its bleed inside the pane. Scaling to the bare
+  // row width made the strip wider than the pane, so the reference-range
+  // column — the thing being checked — sat outside the visible area behind a
+  // scrollbar nobody notices.
   const rowZoom =
-    sel?.bbox && imgW ? Math.min(1, imgW / Math.max(1, sel.bbox[2] - sel.bbox[0])) : 0;
+    sel?.bbox && imgW
+      ? Math.min(1, Math.max(80, imgW - ROW_BLEED_X * 2) / Math.max(1, sel.bbox[2] - sel.bbox[0]))
+      : 0;
   const flaggedCount = report.measurements.filter((m) => needsReview(review(m))).length;
 
   function pick(i: number) {
@@ -174,26 +187,31 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   return (
     <>
       <div className="card">
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <select value={report.id} onChange={(e) => { setReportId(e.target.value); setPicked(null); }}>
+        <div className="toolbar">
+          <label htmlFor="report" className="muted">Report</label>
+          <select
+            id="report"
+            value={report.id}
+            onChange={(e) => { setReportId(e.target.value); setPicked(null); }}
+          >
             {reports.map((r) => (
               <option key={r.id} value={r.id}>
                 {czDate(r.reportDate)} — {r.labName ?? r.sourceFile}
               </option>
             ))}
           </select>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.86rem" }}>
+          <label className="switch">
             <input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />
             jen řádky k ověření ({flaggedCount})
           </label>
+          <span className="spacer" />
+          <span className="muted">
+            Klepněte na řádek — ukáže se, kde přesně stojí na zdrojové stránce.
+          </span>
         </div>
-        <p className="sub" style={{ marginTop: 8, marginBottom: 0 }}>
-          Klepněte na řádek — ukáže se, kde přesně stojí na zdrojové stránce.
-          Opravená hodnota se ihned znovu vyhodnotí.
-        </p>
       </div>
 
-      <div className={`grid2${sel ? " source-first" : ""}`}>
+      <div className={`grid2 verify${sel ? " source-first" : ""}`}>
         <div className="card table-pane">
           <h3>Přepsané řádky</h3>
           <div className="scroll-x">
@@ -248,16 +266,16 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
         <div className="card source-pane">
           <h3>Zdrojová stránka</h3>
           {sel && (
-            <div style={{ marginBottom: 10 }}>
-              <p className="muted" style={{ margin: "0 0 6px" }}>{sel.sourceSnippet || sel.rawAnalyteName}</p>
+            <div className="correction">
+              <p className="snippet">{sel.sourceSnippet || sel.rawAnalyteName}</p>
               {(() => {
                 const r = review(sel);
-                return r.reason ? <p className="err" style={{ margin: "0 0 6px" }}>⚠ {r.reason}</p> : null;
+                return r.reason ? <p className="err" style={{ margin: "0 0 8px" }}>⚠ {r.reason}</p> : null;
               })()}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div className="row">
                 <input
                   type="text" value={draft} onChange={(e) => setDraft(e.target.value)}
-                  aria-label="Opravit hodnotu" style={{ flex: "1 1 120px", minWidth: 0 }}
+                  aria-label="Opravit hodnotu"
                 />
                 <button
                   className="btn primary"
@@ -294,18 +312,22 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                 style={{
                   backgroundImage: `url(${page.imageUrl})`,
                   backgroundSize: `${page.imageWidth * rowZoom}px auto`,
-                  // Crop tight to the row. Bleeding into the line above or
-                  // below invites verifying against the wrong one.
+                  // Tight vertically — bleeding into the line above or below
+                  // invites verifying against the wrong one — but generous
+                  // sideways: the bbox ends at the last glyph the text
+                  // layer reported, which on a split reference range cuts the
+                  // number in half — the crop then shows "(0,17-0,7".
                   backgroundPosition:
-                    `-${sel.bbox[0] * rowZoom - 8}px -${sel.bbox[1] * rowZoom - 3}px`,
-                  width: (sel.bbox[2] - sel.bbox[0]) * rowZoom + 16,
-                  height: rowH * rowZoom + 6,
+                    `-${sel.bbox[0] * rowZoom - ROW_BLEED_X}px -${sel.bbox[1] * rowZoom - ROW_BLEED_Y}px`,
+                  width: (sel.bbox[2] - sel.bbox[0]) * rowZoom + ROW_BLEED_X * 2,
+                  height: rowH * rowZoom + ROW_BLEED_Y * 2,
                 }}
               />
             </div>
           )}
 
           {page ? (
+            <>
             <div className={`srcimg${zoomed ? " zoomed" : ""}`}>
               {/* The highlight is positioned in percentages, so its containing
                   block must be the image's own box. When enlarged the image
@@ -344,6 +366,10 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
               )}
               </div>
             </div>
+            <p className="zoom-hint">
+              {zoomed ? "Klepnutím na stránku zmenšíte zpět." : "Klepnutím na stránku přiblížíte."}
+            </p>
+            </>
           ) : (
             <p className="muted">Zdrojový obrázek není k dispozici.</p>
           )}

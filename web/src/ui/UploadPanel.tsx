@@ -1,6 +1,8 @@
 /**
- * Turnstile-gated upload. One challenge mints a session covering a bounded
- * number of pages, so a multi-page report needs one CAPTCHA, not one per page.
+ * Turnstile-gated upload, living in the left rail: a drop target, a challenge
+ * and honest per-page progress. One challenge mints a session covering a
+ * bounded number of pages, so a multi-page report needs one CAPTCHA, not one
+ * per page.
  *
  * Pages are processed one at a time on purpose: a phone rendering a long
  * report at 220 DPI concurrently is the fastest way to run it out of memory,
@@ -34,7 +36,10 @@ interface Props {
 export default function UploadPanel({ registry, frozen, maxPages, onReport, onBudget, onUnlock }: Props) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(hasSession());
-  const [progress, setProgress] = useState<string | null>(null);
+  // Structured rather than a sentence, so the rail can draw a real bar. A
+  // spinner cannot say "page 7 of 12", and a 12-page report is a long wait.
+  const [progress, setProgress] = useState<{ page: number; total: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Notes are outcomes worth mentioning (a page limit, a scanned page), not
   // failures — showing them in the error colour makes a working upload look
@@ -88,7 +93,7 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
       const failedPages: number[] = [];
 
       for (let p = 1; p <= pageCount; p++) {
-        setProgress(`Zpracovávám stránku ${p} z ${pageCount}…`);
+        setProgress({ page: p, total: pageCount });
         const assets = await pageAssets(doc, p);
 
         // Digital PDF: send the reconstructed rows, not the image. The model
@@ -188,51 +193,103 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
 
   if (frozen)
     return (
-      <div className="card">
-        <h2>Zkusit vlastní PDF</h2>
-        <p className="muted">Rozpočet dema na AI funkce je vyčerpán — nahrávání je dočasně vypnuté.</p>
-      </div>
+      <p className="muted">
+        Rozpočet ukázky na AI funkce je vyčerpán — nahrávání je dočasně vypnuté.
+      </p>
     );
 
-  return (
-    <div className="card">
-      <h2>Zkusit vlastní PDF</h2>
-      <p className="sub">
-        PDF se čte ve vašem prohlížeči a neukládá se. Obrázky jednotlivých stránek
-        — <strong>včetně hlavičky se jménem a rodným číslem</strong> — se posílají
-        k přepisu na Anthropic API a procházejí serverem této ukázky. Nikde se
-        neukládají a po zavření stránky po nich tady nezůstane stopa.
-        Limit ukázky: {maxPages} stran.
+  // A missing site key is a deployment condition, not a user error. The old
+  // copy printed the environment-variable name in red, which reads as a broken
+  // app to anyone who is not the person who deployed it.
+  if (!SITE_KEY)
+    return (
+      <p className="muted">
+        Nahrávání vlastních PDF není v této ukázce zapnuté. Ukázková data fungují
+        normálně.
       </p>
+    );
 
-      {/* A missing site key is a deployment condition, not a user error. The
-          old copy printed the environment-variable name in red, which reads as
-          a broken app to anyone who is not the person who deployed it. */}
-      {!SITE_KEY ? (
-        <p className="muted">
-          Nahrávání vlastních PDF není v této ukázce zapnuté. Ukázková data níže
-          fungují normálně.
+  if (!ready)
+    return (
+      <>
+        <p className="muted" style={{ margin: "0 0 8px" }}>
+          Nejdřív krátké ověření, že nejste robot. Pak můžete nahrát PDF.
         </p>
-      ) : (
-        !ready && <div ref={boxRef} />
-      )}
+        <div ref={boxRef} />
+        {error && <p className="err" style={{ margin: "8px 0 0" }}>{error}</p>}
+      </>
+    );
 
-      {ready && (
+  const busy = progress !== null;
+
+  return (
+    <>
+      <label
+        className={`drop${dragging ? " over" : ""}${busy ? " busy" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!busy) setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          if (busy) return;
+          const f = e.dataTransfer.files?.[0];
+          if (f) void handleFile(f);
+        }}
+      >
+        <span className="drop-icon" aria-hidden="true">
+          {busy ? "⏳" : "📄"}
+        </span>
+        <span className="drop-main">
+          {busy ? `Zpracovávám stránku ${progress!.page} z ${progress!.total}…` : "Přetáhněte PDF sem"}
+        </span>
+        <span className="drop-sub">
+          {busy ? "Nechte okno otevřené." : `nebo klepněte a vyberte · limit ukázky ${maxPages} stran`}
+        </span>
         <input
-          type="file" accept="application/pdf" disabled={progress !== null}
+          type="file"
+          accept="application/pdf"
+          disabled={busy}
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void handleFile(f);
+            // Clear it, or picking the same file twice in a row does nothing.
+            e.target.value = "";
           }}
         />
+      </label>
+
+      {busy && (
+        <div className="progressbar" style={{ marginTop: 8 }} role="progressbar"
+             aria-valuenow={progress!.page} aria-valuemin={0} aria-valuemax={progress!.total}>
+          <i style={{ width: `${(progress!.page / progress!.total) * 100}%` }} />
+        </div>
       )}
-      {progress && <p className="muted" style={{ marginBottom: 0 }}>{progress}</p>}
-      {notes.map((n, i) => (
-        <p key={i} className="muted" style={{ marginBottom: 0 }}>
-          {n}
-        </p>
-      ))}
-      {error && <p className="err" style={{ marginBottom: 0 }}>{error}</p>}
-    </div>
+
+      {(notes.length > 0 || error) && (
+        <div className="runlog">
+          {notes.map((n, i) => (
+            <span className="line" key={i}>
+              <span aria-hidden="true">•</span>
+              <span>{n}</span>
+            </span>
+          ))}
+          {error && (
+            <span className="line err">
+              <span aria-hidden="true">✕</span>
+              <span>{error}</span>
+            </span>
+          )}
+        </div>
+      )}
+
+      <p className="muted" style={{ margin: "9px 0 0" }}>
+        PDF se čte ve vašem prohlížeči. Obrázky stránek —{" "}
+        <strong>včetně hlavičky se jménem a rodným číslem</strong> — se posílají
+        k přepisu na Anthropic API a nikde se neukládají.
+      </p>
+    </>
   );
 }

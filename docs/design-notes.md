@@ -7,7 +7,113 @@ not undone by accident.
 
 Verify visual changes with `npm run test:e2e` — it drives the built app in a
 real browser at 390px and 1200px and asserts *rendered geometry*, which is
-where the worst defects here lived.
+where the worst defects here lived. It waits for the app's own first render,
+never for `networkidle`: with a Turnstile site key configured the upload panel
+embeds a widget that holds a request open for the life of the page, so the
+network is never idle and every navigation would time out.
+
+## The shell: a left rail, a reading area, one screen per question
+
+The demo used to be a single 1100px column with the ingest controls parked at
+the bottom of every tab — you scrolled past several thousand pixels of charts
+to reach the upload box, and the chat answered two lines below that. The
+Streamlit original it replaced had this right, and the layout is now back to
+it:
+
+- **The left rail owns the documents.** Upload, the list of loaded reports,
+  removing one, removing all. Anything that answers "which PDFs am I looking
+  at" lives there and nowhere else. Below 1080px it becomes an off-canvas
+  drawer with its own close button — on a phone it covers most of the screen,
+  so the strip of scrim beside it is not a target anyone can hit.
+- **The reading area owns the findings.** One tab per question, including chat,
+  which is a conversation and needs the height of a screen rather than a card
+  under a chart.
+- **The patient line is in the top bar**, pinned above everything, for the same
+  reason it used to be a sticky strip: a chart screenshotted into a record has
+  to say whose it is.
+
+**Clearing every report is a first-class action, and it is reversible.** There
+was no way to get rid of the sample patient, so anyone trying their own PDF
+mixed their results into a fictional person's. It confirms first (an uploaded
+PDF is never stored — reloading it costs another extraction) and the demo set
+can be loaded back with one button.
+
+## The verification highlight frames the row, it does not cover it
+
+The highlight was a 2px border with a red wash inside it. `box-sizing:
+border-box` put that border on the first and last pixel row of the print and
+the wash over the digits — the value it pointed at was the one thing it
+obscured. It is now a `box-shadow` ring drawn *outside* the element's box, with
+a second, very large spread dimming the rest of the page instead of tinting the
+row. Nothing is painted over the characters being verified.
+
+`getBoundingClientRect` ignores both, so the geometry assertions in
+`e2e/visual.e2e.ts` still measure exactly the same box.
+
+The magnified row crop bleeds sideways as well as fitting the pane width. Scaled
+to the bare bounding box it ran wider than its container, and the
+reference-range column — the thing being checked — sat off-screen behind a
+scrollbar nobody notices.
+
+## The summary is grouped, and every line is a link
+
+Twenty analytes as one flat list buried the four a doctor opened it for. It is
+now out-of-range, then real moves inside the interval, then a collapsed
+"prakticky beze změny". Each line jumps to the row it was read from in
+verification: the next question about a surprising number is "where does that
+come from", and the answer is the printed row.
+
+## Trends open empty, and analytes are added by name
+
+The tab used to plot all twenty analytes on load. That is not a view of
+anything — it is twenty charts to scroll past to reach the one you came for. It
+now opens with a search picker and nothing else, the way the Streamlit original
+worked: **＋ Přidat analyt**, type, pick, and it stacks under the ones already
+there. Matching ignores diacritics ("kyselina mocova" finds "Kyselina močová")
+and prefers prefixes, so typing "al" offers ALT before Kyselina močová.
+
+The empty screen still names the out-of-range analytes as one-click chips.
+"Nothing here, go and choose" is honest but unhelpful, and what a doctor came
+for is usually one of those four.
+
+## The hover readout is on the chart, not under it
+
+Pointing at a measurement shows a small box with the draw date, the value with
+its unit, its range status and whether it is unconfirmed, plus a dashed guide
+down to the axis. It used to be a line of text in the figcaption below the
+plot, which is a long way to look for something you are pointing at. That
+caption is still written — it is the accessible and touch fallback — but it is
+no longer the only channel.
+
+**Everything drawn after the hit target is `pointerEvents="none"`.** The
+visible dot was painted over its own hit circle and `mouseenter` does not
+bubble, so pointing *straight at* a measurement did nothing and only the ring
+of empty space around it responded. Guarded by "shows a readout when the
+pointer is on the dot itself".
+
+## Light / dark / system
+
+Three states, not two: a machine set to dark should serve the app dark, and a
+two-way toggle has to guess at first paint and is wrong half the time. The
+choice is the one thing this app persists to `localStorage` — it says nothing
+about a patient, and a theme that resets every reload is not a setting.
+
+The dark palette's values live once, as `--dk-*`, aliased onto the real tokens
+by the system-preference rule and by `[data-theme="dark"]`. Those two rules
+cannot be merged (a media query and a plain selector), and written out in full
+they drifted immediately — a token added to one and forgotten in the other
+gives a nearly-dark page with a white table header, but only for readers whose
+system theme is light. `web/tests/theme.test.ts` fails if the two lists stop
+matching.
+
+## The demo dataset is ten draws over four years
+
+Two to three a year, unevenly spaced, which is what routine follow-up looks
+like. Fewer draws hid whole classes of defect: an axis that spaces by index, a
+chart that flattens a real slope, a summary that reads the last two draws and
+misses the shape. The headline analytes end at their highest — see the summary
+limitation below; the dataset must not manufacture the one case the summary
+reads wrong.
 
 ## The palette is validated, not chosen by taste
 
@@ -82,8 +188,10 @@ clinic sees this:
   `<1,0` render as "pod rozmezím", but a low CRP is a good result. Fixing it
   needs a per-analyte flag for whether the lower bound is clinical or a
   detection limit.
-- **The summary compares only the last two draws.** ALT rising across four
-  draws with GGT alongside is the arresting fact; the prose says "+11% since
-  February".
+- **The summary compares only the last two draws.** With ten demo draws this
+  is now plain to see: ALT climbing 0,61 → 1,02 across two and a half years,
+  with GGT alongside, is the arresting fact; the prose says "+5 %". The demo
+  data deliberately ends on a rising point so it does not also invert the sign,
+  but the missing shape is the real gap.
 - **In-range analytes rank by percent change**, which inside a wide interval is
   usually assay noise.

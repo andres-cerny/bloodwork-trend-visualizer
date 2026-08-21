@@ -45,7 +45,7 @@ The site opens on the pre-baked dataset — instant, flawless, zero risk — and
 BUILD TIME (your machine, existing Python)      RUNTIME (public)
 ------------------------------------------      ----------------
 PDFs                                            Worker with static assets
-  → src/pipeline.py  (Sonnet 5 + Opus 4.8)        ├─ SPA (the four tabs)
+  → src/pipeline.py  (Sonnet 5 + Opus 4.8)        ├─ SPA (the five tabs)
   → src/normalize.py (values, units, flags)       ├─ /api/extract → Workers AI
   → src/locate.py    (row bboxes, px coords)      │    (Turnstile-gated)
   → anonymize + redact                            └─ /api/chat    → Workers AI
@@ -210,7 +210,7 @@ feature and reset on reload, which is correct for a demo.
 
 Turnstile widget and server-side verification, HMAC session tokens, the pdf.js
 text-layer path, the vision fallback, per-IP KV counter. Uploaded data joins the
-same in-memory session state the pre-baked set uses, so all four tabs work on it
+same in-memory session state the pre-baked set uses, so all five tabs work on it
 unchanged.
 
 ### Phase 5 — chat

@@ -1,4 +1,11 @@
 /*
+ * Design system for the bloodwork demo.
+ *
+ * Layout is desktop-first — this is read on a clinic workstation, so the
+ * ingest controls live in a permanent left rail and the reading area gets the
+ * rest of the screen. Below 1080px the rail becomes an off-canvas drawer;
+ * nothing is dropped, it just moves.
+ *
  * Palette values come from the dataviz reference palette and were validated
  * with its checker in both modes: series blue vs status red scores ΔE 23.8
  * (light) / 25.7 (dark) under simulated CVD.
@@ -7,100 +14,408 @@
  * "in range" wears the neutral series colour and only out-of-range is marked.
  * Direction is carried by an arrow and a Czech label as well as colour, and
  * the reference band means out-of-range is legible from position alone.
+ *
+ * No webfont. system-ui renders instantly and, in a tool whose pitch is that
+ * your data does not leave the browser, a request to a font CDN on every load
+ * is the wrong signal.
  */
 :root {
-  --surface-1: #fcfcfb;
-  --plane: #f9f9f7;
-  --ink-1: #0b0b0b;
+  /* Surfaces: the plane is a shade deeper than the cards, so a card reads as
+     a card without needing a heavy border. */
+  --plane: #f2f1ed;
+  --surface-1: #ffffff;
+  --surface-2: #faf9f6;
+  --surface-3: #f0efea;
+  --ink-1: #14130f;
   --ink-2: #52514e;
-  --ink-muted: #898781;
-  --grid: #e1e0d9;
+  --ink-muted: #85837d;
+  --grid: #e6e5df;
+  --border: #e0dfd8;
+  --border-strong: #cfcec5;
   --series-1: #2a78d6;
+  --series-1-soft: rgba(42, 120, 214, 0.10);
   --status-critical: #d03b3b;
+  --status-critical-soft: rgba(208, 59, 59, 0.10);
   --band: rgba(42, 120, 214, 0.09);
-  --border: #e1e0d9;
   --chip: #eeede8;
+
   --radius: 10px;
+  --radius-sm: 7px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 19, 15, 0.05);
+  --shadow-md: 0 2px 4px rgba(20, 19, 15, 0.05), 0 8px 20px -12px rgba(20, 19, 15, 0.22);
+  --shadow-lg: 0 18px 48px -18px rgba(20, 19, 15, 0.34);
+
+  --rail: 316px;
+  --topbar: 56px;
+}
+
+/*
+ * Dark palette.
+ *
+ * The values live once, as --dk-* on :root, and are aliased onto the real
+ * tokens by two selectors: the system preference (unless the reader has forced
+ * light) and an explicit data-theme="dark". Written out twice, the two blocks
+ * drifted the moment anyone touched one of them — with the values in one place
+ * only the alias list is duplicated, and `web/tests/theme.test.ts` fails if
+ * those two lists ever stop matching.
+ */
+:root {
+  --dk-plane: #0d0d0c;
+  --dk-surface-1: #1a1a19;
+  --dk-surface-2: #171716;
+  --dk-surface-3: #232322;
+  --dk-ink-1: #ffffff;
+  --dk-ink-2: #c3c2b7;
+  --dk-ink-muted: #8e8c85;
+  --dk-grid: #2c2c2a;
+  --dk-border: #2c2c2a;
+  --dk-border-strong: #3d3d3a;
+  --dk-series-1: #3987e5;
+  --dk-series-1-soft: rgba(57, 135, 229, 0.16);
+  --dk-status-critical: #e05555;
+  --dk-status-critical-soft: rgba(224, 85, 85, 0.16);
+  --dk-band: rgba(57, 135, 229, 0.14);
+  --dk-chip: #262625;
+  --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --dk-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+  --dk-shadow-lg: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --surface-1: #1a1a19;
-    --plane: #0d0d0d;
-    --ink-1: #ffffff;
-    --ink-2: #c3c2b7;
-    --ink-muted: #898781;
-    --grid: #2c2c2a;
-    --series-1: #3987e5;
-    --status-critical: #d03b3b;
-    --band: rgba(57, 135, 229, 0.14);
-    --border: #2c2c2a;
-    --chip: #232322;
+    --plane: var(--dk-plane);
+    --surface-1: var(--dk-surface-1);
+    --surface-2: var(--dk-surface-2);
+    --surface-3: var(--dk-surface-3);
+    --ink-1: var(--dk-ink-1);
+    --ink-2: var(--dk-ink-2);
+    --ink-muted: var(--dk-ink-muted);
+    --grid: var(--dk-grid);
+    --border: var(--dk-border);
+    --border-strong: var(--dk-border-strong);
+    --series-1: var(--dk-series-1);
+    --series-1-soft: var(--dk-series-1-soft);
+    --status-critical: var(--dk-status-critical);
+    --status-critical-soft: var(--dk-status-critical-soft);
+    --band: var(--dk-band);
+    --chip: var(--dk-chip);
+    --shadow-sm: var(--dk-shadow-sm);
+    --shadow-md: var(--dk-shadow-md);
+    --shadow-lg: var(--dk-shadow-lg);
   }
 }
 
+/* Forced dark, whatever the system says. */
+:root[data-theme="dark"] {
+    --plane: var(--dk-plane);
+    --surface-1: var(--dk-surface-1);
+    --surface-2: var(--dk-surface-2);
+    --surface-3: var(--dk-surface-3);
+    --ink-1: var(--dk-ink-1);
+    --ink-2: var(--dk-ink-2);
+    --ink-muted: var(--dk-ink-muted);
+    --grid: var(--dk-grid);
+    --border: var(--dk-border);
+    --border-strong: var(--dk-border-strong);
+    --series-1: var(--dk-series-1);
+    --series-1-soft: var(--dk-series-1-soft);
+    --status-critical: var(--dk-status-critical);
+    --status-critical-soft: var(--dk-status-critical-soft);
+    --band: var(--dk-band);
+    --chip: var(--dk-chip);
+    --shadow-sm: var(--dk-shadow-sm);
+    --shadow-md: var(--dk-shadow-md);
+    --shadow-lg: var(--dk-shadow-lg);
+}
+
 * { box-sizing: border-box; }
+
+html, body { height: 100%; }
 
 body {
   margin: 0;
   background: var(--plane);
   color: var(--ink-1);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
 }
 
-.wrap { max-width: 1100px; margin: 0 auto; padding: 16px 14px 64px; }
-
-header.top h1 { font-size: 1.25rem; margin: 0 0 2px; letter-spacing: -0.01em; }
-header.top p { margin: 0; color: var(--ink-2); font-size: 0.9rem; }
-
-.banner {
-  border: 1px solid var(--border); background: var(--surface-1);
-  border-radius: var(--radius); padding: 10px 12px; margin: 12px 0;
-  font-size: 0.86rem; color: var(--ink-2);
+:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
-.banner.warn { border-color: var(--status-critical); color: var(--ink-1); }
 
-/* Tabs: horizontally scrollable on a phone rather than wrapping or shrinking. */
+/* Shell -------------------------------------------------------------------- */
+
+.app { min-height: 100%; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 14px;
+  height: var(--topbar); padding: 0 16px;
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  display: flex; align-items: baseline; gap: 8px;
+  font-weight: 650; letter-spacing: -0.01em; white-space: nowrap;
+}
+.brand .mark { font-size: 1.05rem; }
+.brand .sub { color: var(--ink-muted); font-weight: 400; font-size: 0.8rem; }
+
+/*
+ * Whose results these are — pinned to the top bar, so it is on screen on every
+ * tab and in any screenshot taken for the record. The trends page runs to
+ * several thousand pixels; a chart that does not say whose it is, is evidence
+ * of nothing.
+ */
+.patient-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-left: auto; font-size: 0.87rem; min-width: 0;
+}
+.patient-bar .pname { font-weight: 600; white-space: nowrap; }
+.patient-bar .pid { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.patient-bar .dot { color: var(--border-strong); }
+.patient-bar .prange { color: var(--ink-muted); white-space: nowrap; }
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  align-items: start;
+}
+
+.main {
+  min-width: 0;
+  padding: 0 22px 72px;
+  max-width: 1320px;
+}
+
+/* Left rail ---------------------------------------------------------------- */
+
+.sidebar {
+  position: sticky; top: var(--topbar);
+  height: calc(100vh - var(--topbar));
+  overflow-y: auto; overscroll-behavior: contain;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 14px 14px 28px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.rail-section > h2 {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--ink-muted); font-weight: 650;
+  margin: 0 0 8px; display: flex; align-items: center; gap: 7px;
+}
+.rail-section > h2 .n {
+  background: var(--chip); color: var(--ink-2); border-radius: 999px;
+  padding: 1px 7px; font-size: 0.72rem; letter-spacing: 0;
+}
+.rail-foot { margin-top: auto; padding-top: 6px; border-top: 1px solid var(--border); }
+
+/* Report list: the loaded PDFs, each removable.
+   It scrolls inside itself rather than growing without limit — with ten
+   reports loaded an unbounded list pushed "remove all" off the bottom of the
+   rail, which is where someone goes precisely when there are too many. */
+ul.reportlist {
+  list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 5px;
+  /* 345px is six rows and half of the seventh: a row cut in half is the
+     affordance that says "keep scrolling", where a clean edge reads as the end
+     of the list. */
+  max-height: 345px; overflow-y: auto; overscroll-behavior: contain;
+}
+.reportlist li {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 6px 8px;
+}
+.reportlist .rl-main { min-width: 0; flex: 1; }
+.reportlist .rl-date { font-size: 0.83rem; font-weight: 600; }
+.reportlist .rl-meta {
+  font-size: 0.73rem; color: var(--ink-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reportlist .rl-x {
+  flex: 0 0 auto; border: none; background: none; cursor: pointer;
+  color: var(--ink-muted); font-size: 1rem; line-height: 1; padding: 4px 5px;
+  border-radius: 6px;
+}
+.reportlist .rl-x:hover { background: var(--status-critical-soft); color: var(--status-critical); }
+
+/* Drop zone ---------------------------------------------------------------- */
+
+.drop {
+  border: 1.5px dashed var(--border-strong); border-radius: var(--radius);
+  background: var(--surface-1); padding: 16px 12px; text-align: center;
+  cursor: pointer; display: block;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.drop:hover { border-color: var(--series-1); }
+.drop.over { border-color: var(--series-1); background: var(--series-1-soft); }
+.drop.busy { cursor: progress; opacity: 0.75; }
+.drop .drop-icon { font-size: 1.35rem; line-height: 1; }
+.drop .drop-main { display: block; font-size: 0.87rem; font-weight: 600; margin-top: 5px; }
+.drop .drop-sub { display: block; font-size: 0.76rem; color: var(--ink-muted); margin-top: 3px; }
+.drop input[type="file"] { display: none; }
+
+/* A processing run, reported step by step rather than as a spinner. */
+.runlog {
+  margin: 9px 0 0; padding: 9px 10px; border-radius: var(--radius-sm);
+  background: var(--surface-3); font-size: 0.79rem; color: var(--ink-2);
+  display: grid; gap: 4px;
+}
+.runlog .line { display: flex; gap: 7px; align-items: baseline; }
+.runlog .line.err { color: var(--status-critical); }
+.progressbar { height: 3px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.progressbar i {
+  display: block; height: 100%; background: var(--series-1);
+  transition: width 220ms ease;
+}
+
+/* Tabs --------------------------------------------------------------------- */
+
+.tabs-wrap {
+  position: sticky; top: var(--topbar); z-index: 20;
+  background: color-mix(in srgb, var(--plane) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(10px);
+  margin: 0 -22px 16px; padding: 10px 22px 9px;
+  border-bottom: 1px solid var(--border);
+}
 nav.tabs {
-  display: flex; gap: 4px; margin: 14px 0 12px;
+  display: flex; gap: 3px;
   overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
 nav.tabs::-webkit-scrollbar { display: none; }
 nav.tabs button {
-  flex: 0 0 auto; padding: 9px 14px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface-1);
-  color: var(--ink-2); font-size: 0.88rem; cursor: pointer; white-space: nowrap;
+  flex: 0 0 auto; padding: 8px 14px; border-radius: 999px;
+  border: 1px solid transparent; background: transparent;
+  color: var(--ink-2); font: inherit; font-size: 0.88rem; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  transition: background 110ms ease, color 110ms ease;
 }
+nav.tabs button:hover { background: var(--surface-3); color: var(--ink-1); }
 nav.tabs button[aria-selected="true"] {
-  background: var(--ink-1); color: var(--surface-1); border-color: var(--ink-1);
+  background: var(--surface-1); color: var(--ink-1);
+  border-color: var(--border); box-shadow: var(--shadow-sm);
+  font-weight: 600;
 }
+
+/* Cards -------------------------------------------------------------------- */
 
 .card {
   background: var(--surface-1); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
 }
-.card h2 { font-size: 1rem; margin: 0 0 2px; }
-.card h3 { font-size: 0.94rem; margin: 0 0 8px; }
-.sub { color: var(--ink-2); font-size: 0.84rem; margin: 0 0 10px; }
+.card.flush { padding: 0; overflow: hidden; }
+.card h2 { font-size: 1.02rem; margin: 0 0 3px; letter-spacing: -0.01em; }
+.card h3 {
+  font-size: 0.95rem; margin: 0 0 9px; letter-spacing: -0.005em;
+  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.card-head > :first-child { min-width: 0; }
+.sub { color: var(--ink-2); font-size: 0.85rem; margin: 0 0 12px; max-width: 78ch; }
+.sub:last-child { margin-bottom: 0; }
 
-select, input[type="text"], textarea, button.btn {
-  font: inherit; padding: 8px 10px; border-radius: 8px;
-  border: 1px solid var(--border); background: var(--surface-1); color: var(--ink-1);
+/* A card holding one control does not need a card's padding. */
+.card.toolbar-card { padding: 11px 14px; }
+
+.section-title {
+  font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-muted); font-weight: 650; margin: 20px 0 9px;
 }
-button.btn { cursor: pointer; }
-button.btn.primary { background: var(--ink-1); color: var(--surface-1); border-color: var(--ink-1); }
-button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.section-title:first-child { margin-top: 0; }
+
+.banner {
+  border: 1px solid var(--border); background: var(--surface-1);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm); padding: 10px 13px; margin: 0 0 14px;
+  font-size: 0.84rem; color: var(--ink-2); box-shadow: var(--shadow-sm);
+}
+.banner strong { color: var(--ink-1); }
+.banner.warn { border-left-color: var(--status-critical); }
+.banner details > summary {
+  cursor: pointer; color: var(--ink-2); font-size: 0.84rem; list-style: none;
+}
+.banner details > summary::-webkit-details-marker { display: none; }
+.banner details > summary::before { content: "▸ "; color: var(--ink-muted); }
+.banner details[open] > summary::before { content: "▾ "; }
+.banner details p { margin: 8px 0 0; }
+
+/* Controls ----------------------------------------------------------------- */
+
+select, input[type="text"], input[type="search"], textarea {
+  font: inherit; font-size: 0.9rem; padding: 8px 11px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--ink-1);
+  min-width: 0;
+}
+select { cursor: pointer; }
+input::placeholder { color: var(--ink-muted); }
+
+button.btn {
+  font: inherit; font-size: 0.87rem; font-weight: 500;
+  padding: 8px 13px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--ink-1);
+  cursor: pointer; white-space: nowrap;
+  transition: background 110ms ease, border-color 110ms ease;
+}
+button.btn:hover:not(:disabled) { background: var(--surface-3); }
+/* One affirmative colour across the app: the accept, correct and send buttons
+   are the same action in three places and should not look like three ranks. */
+button.btn.primary, button.btn.accent {
+  background: var(--series-1); color: #fff; border-color: var(--series-1);
+}
+button.btn.primary:hover:not(:disabled),
+button.btn.accent:hover:not(:disabled) { opacity: 0.9; background: var(--series-1); }
+button.btn.danger { color: var(--status-critical); border-color: var(--border-strong); }
+button.btn.danger:hover:not(:disabled) {
+  background: var(--status-critical-soft); border-color: var(--status-critical);
+}
+button.btn.small { padding: 5px 10px; font-size: 0.8rem; }
+button.btn.wide { width: 100%; text-align: center; }
+button.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+button.btn.linkish {
+  background: none; border: none; padding: 4px 0;
+  color: var(--series-1); text-decoration: underline; font-size: 0.83rem;
+}
+button.btn.linkish:hover:not(:disabled) { background: none; opacity: 0.8; }
+
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toolbar .spacer { flex: 1 1 auto; }
+
+.switch {
+  display: inline-flex; gap: 7px; align-items: center; font-size: 0.86rem;
+  color: var(--ink-2); cursor: pointer; user-select: none;
+}
+.switch input { accent-color: var(--series-1); width: 15px; height: 15px; }
 
 /* Wide content scrolls inside its own container; the page never scrolls sideways. */
 .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+/* Tables ------------------------------------------------------------------- */
+
 table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
-th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--grid); }
-th { color: var(--ink-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--grid); }
+th {
+  color: var(--ink-muted); font-weight: 650; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  position: sticky; top: 0; background: var(--surface-1); z-index: 1;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tr.row-pick { cursor: pointer; }
-tr.row-pick[aria-selected="true"] { background: var(--chip); }
+tr.row-pick:hover td { background: var(--surface-2); }
+tr.row-pick[aria-selected="true"] td { background: var(--series-1-soft); }
+tr.row-pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--series-1); }
 
 /* Status is never colour alone: an arrow glyph and a Czech label ride along. */
 .flag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; white-space: nowrap; }
@@ -110,9 +425,13 @@ tr.row-pick[aria-selected="true"] { background: var(--chip); }
 
 .chip {
   display: inline-block; padding: 2px 8px; border-radius: 999px;
-  background: var(--chip); color: var(--ink-2); font-size: 0.75rem; margin-right: 5px;
+  background: var(--chip); color: var(--ink-2); font-size: 0.74rem; margin-right: 5px;
+  white-space: nowrap;
 }
-.chip.alert { background: color-mix(in srgb, var(--status-critical) 16%, transparent); color: var(--status-critical); font-weight: 600; }
+.chip.alert {
+  background: var(--status-critical-soft); color: var(--status-critical); font-weight: 600;
+}
+.chip.best { background: var(--series-1-soft); color: var(--series-1); font-weight: 600; margin-left: 7px; }
 
 /*
  * minmax(0, 1fr), not 1fr.
@@ -123,72 +442,264 @@ tr.row-pick[aria-selected="true"] { background: var(--chip); }
  * overflow-x container. The same applies to the flex column below, hence
  * min-width: 0 on the items.
  */
-.grid2 { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.grid2 { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
 .grid2 > * { min-width: 0; }
 @media (min-width: 820px) { .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-
-.srcimg { width: 100%; }
-/* The positioning context for the highlight — sized to the image itself. */
-.srcimg-inner { position: relative; width: 100%; }
-.srcimg img { width: 100%; display: block; border-radius: 8px; border: 1px solid var(--border); }
-.srcimg .hl {
-  position: absolute; border: 2px solid var(--status-critical);
-  border-radius: 3px; background: color-mix(in srgb, var(--status-critical) 12%, transparent);
-  pointer-events: none;
+/* Verification reads better with the transcript narrower than the page image. */
+@media (min-width: 1180px) {
+  /* align-items: start — each pane keeps its own height. Stretched, the
+     transcript card ran on as blank white under its own scroll area to match
+     a tall page image. */
+  .grid2.verify { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); align-items: start; }
+  /*
+   * The transcript scrolls inside its own pane, so the source page stays put
+   * while you work down the rows — and the sticky column header stays with the
+   * table instead of disappearing under the tab strip.
+   */
+  .verify .table-pane .scroll-x { max-height: calc(100vh - var(--topbar) - 190px); overflow-y: auto; }
 }
+
+/* Trends ------------------------------------------------------------------- */
+
+.trend-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.trend-grid > * { min-width: 0; }
+/* Two charts abreast once there is room: a doctor comparing ALT with GGT
+   should not have to scroll between them. */
+@media (min-width: 1280px) {
+  .trend-grid.multi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* One chart alone does not need 1100px of width; past about 860 the line just
+   stretches and the eye has further to travel between points. */
+.trend-grid:not(.multi) { max-width: 880px; }
+.trend-card { margin-bottom: 0; }
+.trend-card h3 .unit { color: var(--ink-muted); font-weight: 400; font-size: 0.85rem; }
+.trend-card h3 .spacer { flex: 1 1 auto; }
+.chart-note { margin: 8px 0 0; font-size: 0.78rem; color: var(--ink-muted); }
+
+.single-point { margin: 6px 0 0; font-size: 0.95rem; }
+.single-point strong { font-size: 1.15rem; }
+.single-point strong.out { color: var(--status-critical); }
+
+/* A reading held out of a series pending verification. Stated on the trend
+   card itself, because that is the screen a patient is shown. */
+.held-back {
+  margin: 0 0 9px; padding: 8px 11px; border-radius: var(--radius-sm);
+  font-size: 0.84rem; background: var(--status-critical-soft); color: var(--ink-1);
+  border-left: 3px solid var(--status-critical);
+}
+
+/* Plotted, but nothing has confirmed it. Stated in words next to the chart —
+   a hollow dot is a convention the reader has not been taught. */
+.unconfirmed-note {
+  margin: 0 0 9px; padding: 8px 11px; border-radius: var(--radius-sm);
+  font-size: 0.84rem; background: var(--surface-3); color: var(--ink-2);
+  border-left: 3px solid var(--border-strong);
+}
+
+/* Summary ------------------------------------------------------------------ */
 
 ul.summary { list-style: none; padding: 0; margin: 0; }
-ul.summary li { padding: 9px 0; border-bottom: 1px solid var(--grid); font-size: 0.9rem; }
+ul.summary li { border-bottom: 1px solid var(--grid); }
 ul.summary li:last-child { border-bottom: none; }
-
-.chat-log { display: flex; flex-direction: column; gap: 9px; margin-bottom: 10px; }
-.msg { padding: 9px 11px; border-radius: 10px; font-size: 0.89rem; max-width: 88%; white-space: pre-wrap; }
-.msg.user { align-self: flex-end; background: var(--ink-1); color: var(--surface-1); }
-.msg.bot { align-self: flex-start; background: var(--chip); color: var(--ink-1); }
-.chat-form { display: flex; gap: 8px; }
-.chat-form input { flex: 1; min-width: 0; }
-
-.muted { color: var(--ink-muted); font-size: 0.8rem; }
-.err { color: var(--status-critical); font-size: 0.85rem; }
-
-/* Mapping candidates: a list, not a table. A table forced the accept button
-   off-screen on a phone; this keeps it reachable without sideways scrolling. */
-ul.cand-list { list-style: none; padding: 0; margin: 0; }
-.cand {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 0; border-bottom: 1px solid var(--grid);
+.sum-row {
+  display: flex; align-items: baseline; gap: 9px; width: 100%;
+  padding: 10px 10px 10px 11px; margin: 0; border: none; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit; font-size: 0.89rem;
+  text-align: left; cursor: pointer;
 }
-.cand:last-child { border-bottom: none; }
-.cand-main { flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.cand .btn { flex: 0 0 auto; }
+.sum-row:hover { background: var(--surface-2); }
+.sum-row .sum-text { flex: 1; min-width: 0; }
+.sum-row .sum-go {
+  flex: 0 0 auto; color: var(--ink-muted); font-size: 0.78rem;
+  white-space: nowrap; transition: color 110ms ease;
+}
+.sum-row:hover .sum-go, .sum-row:focus-visible .sum-go { color: var(--series-1); }
+.sum-name { font-weight: 600; }
 
-/* Mapping review ---------------------------------------------------------- */
-.cand-head { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em;
-  color: var(--ink-muted); margin: 16px 0 8px; }
+/* Chat --------------------------------------------------------------------- */
+
+.chat-card { max-width: 920px; }
+/* Only the live conversation claims the height; a card that says "chat is off"
+   does not need two thirds of the viewport to say it. */
+.chat-card.live { display: flex; flex-direction: column; min-height: 62vh; }
+.chat-log {
+  flex: 1; display: flex; flex-direction: column; gap: 10px;
+  margin: 4px 0 14px; overflow-y: auto;
+}
+.msg {
+  padding: 10px 13px; border-radius: 14px; font-size: 0.9rem; line-height: 1.55;
+  max-width: min(72ch, 82%); white-space: pre-wrap;
+}
+.msg.user {
+  align-self: flex-end; background: var(--series-1); color: #fff;
+  border-bottom-right-radius: 5px;
+}
+.msg.bot {
+  align-self: flex-start; background: var(--surface-3); color: var(--ink-1);
+  border-bottom-left-radius: 5px;
+}
+.chat-empty {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  align-items: flex-start; gap: 12px; color: var(--ink-2);
+}
+.chat-form { display: flex; gap: 8px; align-items: center; }
+.chat-form input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 999px; }
+.chat-form .btn { border-radius: 999px; padding: 10px 18px; }
+.suggestions { display: flex; gap: 7px; flex-wrap: wrap; }
+
+/* Verification ------------------------------------------------------------- */
+
+.marks { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-left: 6px; vertical-align: middle; }
+/* A review chip carries the two conflicting readings, so it is long on
+   purpose. Kept unbreakable it set the minimum width of the whole transcript
+   table and pushed the status column out of view; here it may wrap. */
+.marks .chip { margin-right: 0; white-space: normal; }
+
+.correction {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 11px 12px; margin-bottom: 12px;
+}
+.correction .snippet {
+  font-size: 0.82rem; color: var(--ink-2); margin: 0 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.correction .row { display: flex; gap: 7px; flex-wrap: wrap; }
+.correction input { flex: 1 1 130px; }
+
+.srcimg { width: 100%; }
+/* The positioning context for the highlight — sized to the image itself.
+   overflow:hidden keeps the spotlight dimming below from spilling out of the
+   page image and greying the whole card. */
+.srcimg-inner { position: relative; width: 100%; overflow: hidden; border-radius: 8px; }
+.srcimg img { width: 100%; display: block; border: 1px solid var(--border); border-radius: 8px; }
+
+/*
+ * The highlight frames the row from OUTSIDE it.
+ *
+ * It used to be a 2px border with a red wash inside, and box-sizing put that
+ * border on top of the first and last pixel row of the print — the value it
+ * points at was the one thing it obscured. Now the ring is a box-shadow spread
+ * (drawn outside the element's box, over the margin between rows) and a second,
+ * huge spread dims the rest of the page instead of tinting the row. Nothing is
+ * painted over the characters being verified.
+ *
+ * getBoundingClientRect is unaffected by either, so the geometry assertions in
+ * e2e/visual.e2e.ts still measure the same box.
+ */
+.srcimg .hl {
+  position: absolute; pointer-events: none; background: transparent;
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 2px var(--status-critical),
+    0 0 0 100vmax rgba(15, 15, 12, 0.14);
+}
+
+/* Magnified crop of the selected row, so the number can actually be read on a
+   phone where the full page renders too small. */
+.rowzoom {
+  border: 1px solid var(--border-strong);
+  /* Inset, not border-left: a 3px border under a rounded corner renders as a
+     red crescent. */
+  box-shadow: inset 3px 0 0 var(--status-critical);
+  border-radius: var(--radius-sm); overflow-x: auto; margin-bottom: 11px; background: #fff;
+}
+.rowzoom-img {
+  background-repeat: no-repeat;
+  min-width: 100%;
+  /* The crop is a slice of a white lab page; keep it light in both themes so
+     the print stays black-on-white as it is on paper. */
+  background-color: #fff;
+}
+.zoom-hint {
+  font-size: 0.75rem; color: var(--ink-muted); margin: 7px 0 0; text-align: right;
+}
+
+/* Mapping ------------------------------------------------------------------ */
+
 ul.cand-list { list-style: none; padding: 0; margin: 0 0 10px; }
-.cand-card { border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 11px 12px; margin-bottom: 9px; }
-.cand-top { display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; flex-wrap: wrap; }
-.chip.best { background: color-mix(in srgb, var(--series-1) 16%, transparent);
-  color: var(--series-1); font-weight: 600; margin-left: 7px; }
-ul.evidence { list-style: none; padding: 0; margin: 8px 0 0;
-  display: grid; gap: 3px; }
+.cand-head {
+  font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-muted); font-weight: 650; margin: 16px 0 8px;
+}
+.cand-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 13px; margin-bottom: 9px; background: var(--surface-2);
+}
+.cand-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+ul.evidence { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 3px; }
 ul.evidence li { display: flex; gap: 8px; font-size: 0.82rem; }
 .ev-label { color: var(--ink-muted); flex: 0 0 72px; }
 .ev-val { color: var(--ink-2); }
 .ev-val.bad { color: var(--status-critical); }
 table.occ { margin-bottom: 4px; }
-button.btn.linkish { background: none; border: none; padding: 4px 0;
-  color: var(--series-1); text-decoration: underline; font-size: 0.83rem; }
 
 /* A candidate contradicted by unit, material or magnitude recedes rather than
    competing visually with a plausible one. */
 .cand-card.implausible { opacity: 0.72; border-style: dashed; }
 
-/* Verification ------------------------------------------------------------ */
-.marks { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-left: 6px; vertical-align: middle; }
-.marks .chip { margin-right: 0; }
+/* Empty state -------------------------------------------------------------- */
+
+.empty {
+  text-align: center; padding: 56px 20px; max-width: 560px; margin: 40px auto;
+}
+.empty .glyph { font-size: 2.4rem; }
+.empty h2 { font-size: 1.15rem; margin: 12px 0 6px; }
+.empty p { color: var(--ink-2); font-size: 0.9rem; margin: 0 0 18px; }
+.empty .btn { margin: 0 5px; }
+
+.muted { color: var(--ink-muted); font-size: 0.8rem; }
+.err { color: var(--status-critical); font-size: 0.85rem; }
+
+/* Drawer (below the rail breakpoint) --------------------------------------- */
+
+.drawer-toggle { display: none; }
+.scrim { display: none; }
+
+@media (max-width: 1079px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .main { padding: 0 14px 72px; }
+  .tabs-wrap { margin: 0 -14px 14px; padding: 9px 14px 8px; }
+
+  .drawer-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 11px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong); background: var(--surface-1);
+    color: var(--ink-1); font: inherit; font-size: 0.84rem; cursor: pointer;
+  }
+
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+    width: min(340px, 88vw); height: 100vh;
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-101%);
+    visibility: hidden;
+    transition: transform 180ms ease, visibility 180ms;
+  }
+  .sidebar.open { transform: none; visibility: visible; }
+
+  .scrim {
+    display: block; position: fixed; inset: 0; z-index: 40;
+    background: rgba(15, 15, 12, 0.42); border: none; padding: 0;
+    opacity: 0; pointer-events: none; transition: opacity 180ms ease;
+  }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+
+  .patient-bar .prange { display: none; }
+  .brand .sub { display: none; }
+}
+
+@media (max-width: 640px) {
+  .brand .name { display: none; }
+  /* The identity stays — the name is what a screenshot needs to carry — but
+     the rodné číslo wraps the top bar onto a second line at this width, and
+     the sticky tab strip is positioned against a fixed bar height. */
+  .patient-bar .pid, .patient-bar .dot { display: none; }
+  .card { padding: 13px 14px; }
+  .msg { max-width: 92%; }
+}
 
 /* On a phone the source page is what the doctor jumped here to see, so once a
    row is picked it comes first instead of sitting below a 22-row table. On a
@@ -202,78 +713,90 @@ button.btn.linkish { background: none; border: none; padding: 4px 0;
   .source-pane .srcimg img { max-width: none; width: 100%; }
 }
 
-.single-point { margin: 6px 0 0; font-size: 0.95rem; }
-.single-point strong { font-size: 1.15rem; }
-.single-point strong.out { color: var(--status-critical); }
-
-/* A reading held out of a series pending verification. Stated on the trend
-   card itself, because that is the screen a patient is shown. */
-.held-back {
-  margin: 0 0 8px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  background: color-mix(in srgb, var(--status-critical) 10%, transparent);
-  color: var(--ink-1);
-}
-
-/* Whose results these are, carried on every tab. */
-.patient-bar {
-  display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  padding: 9px 12px; margin: 12px 0 0;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--surface-1); font-size: 0.9rem;
-}
-
-/* The tab strip scrolls, but a hard cut at the edge gives no sign of it — and
-   a banner elsewhere tells the reader to open a tab they cannot see. */
-.tabs-wrap { position: relative; }
-.tabs-wrap::after {
-  content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
-  pointer-events: none;
-  background: linear-gradient(to right, transparent, var(--plane));
-}
-
-/* Magnified crop of the selected row, so the number can actually be read on a
-   phone where the full page renders too small. */
-.rowzoom {
-  border: 2px solid var(--status-critical);
-  border-radius: 8px;
-  overflow-x: auto;
-  margin-bottom: 10px;
-  background: #fff;
-}
-.rowzoom-img {
-  background-repeat: no-repeat;
-  min-width: 100%;
-  /* The crop is a slice of a white lab page; keep it light in both themes so
-     the print stays black-on-white as it is on paper. */
-  background-color: #fff;
-}
-
-/* Plotted, but nothing has confirmed it. Stated in words next to the chart —
-   a hollow dot is a convention the reader has not been taught. */
-.unconfirmed-note {
-  margin: 0 0 8px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  background: var(--chip);
-  color: var(--ink-2);
-}
-
-/* Keep the patient on screen: the trends page runs to several thousand pixels,
-   and a chart screenshotted for the record must still say whose it is. */
-.patient-bar.sticky {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  /* Opaque, or scrolled content shows through the identity line. */
-  background: var(--surface-1);
-}
-
 /* Click-to-enlarge. The pane scrolls; the inner box grows with the image so
    the percentage-positioned highlight keeps resolving against the image. */
-.srcimg.zoomed { overflow: auto; max-height: 70vh; }
+.srcimg.zoomed { overflow: auto; max-height: 74vh; }
 .srcimg.zoomed .srcimg-inner { width: max-content; }
 .srcimg.zoomed img { width: auto; max-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* Drawer header: only ever visible when the rail is an overlay. */
+.rail-head { display: none; }
+@media (max-width: 1079px) {
+  .rail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 650; font-size: 0.9rem;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+  .rail-head .rl-x { font-size: 1.1rem; }
+}
+
+/*
+ * Print: a doctor prints a trend into the record. The rail, the tab strip and
+ * the top bar are navigation — they carry nothing onto paper — but the patient
+ * line must survive, or the printout is an anonymous chart.
+ */
+@media print {
+  body { background: #fff; }
+  .sidebar, .scrim, .tabs-wrap, .drawer-toggle, .drop, .zoom-hint { display: none !important; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .topbar {
+    position: static; height: auto; padding: 0 0 8px; backdrop-filter: none;
+    background: #fff;
+  }
+  .main { max-width: none; padding: 0; }
+  .card { box-shadow: none; break-inside: avoid; page-break-inside: avoid; }
+  .trend-grid.multi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .verify .table-pane .scroll-x { max-height: none; overflow: visible; }
+}
+
+/* Theme switch ------------------------------------------------------------- */
+
+.theme-switch {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-1);
+  color: var(--ink-2); font: inherit; font-size: 0.8rem; cursor: pointer;
+  white-space: nowrap;
+}
+.theme-switch:hover { background: var(--surface-3); color: var(--ink-1); }
+@media (max-width: 900px) { .theme-switch .theme-label { display: none; } }
+
+/* Analyte picker ----------------------------------------------------------- */
+
+.picker-wrap { position: relative; }
+.picker {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 25;
+  width: min(340px, 86vw);
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  padding: 8px; display: grid; gap: 6px;
+}
+.picker input { width: 100%; }
+ul.picker-list {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 46vh; overflow-y: auto; overscroll-behavior: contain;
+}
+.picker-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 9px; border: none; border-radius: var(--radius-sm);
+  background: none; color: inherit; font: inherit; font-size: 0.87rem;
+  text-align: left; cursor: pointer;
+}
+.picker-item.on { background: var(--series-1-soft); }
+.picker-name { flex: 1; min-width: 0; }
+.picker-item .chip { margin-right: 0; font-size: 0.7rem; }
+
+.empty-pick { padding: 26px 22px 22px; }
+.empty-pick h2 { font-size: 1.05rem; }
+.empty-pick .suggestions .btn { display: inline-flex; align-items: center; gap: 7px; }
+
+/* The ✕ that drops an analyte from the trend list sits in the card heading. */
+.trend-card h3 .rl-x { border: none; background: none; }
+
+/* Hover readout on a chart. The shadow is what separates it from the series
+   underneath; a 1px border alone reads as part of the plot. */
+.chart-tip { filter: drop-shadow(0 2px 7px rgba(20, 19, 15, 0.22)); }
