@@ -51,7 +51,8 @@ export async function verifySession(secret: string, token: string | null): Promi
   const [payload, sig] = token.split(".", 2);
   let ok: boolean;
   try {
-    ok = await crypto.subtle.verify("HMAC", await hmacKey(secret), b64urlDecode(sig), enc.encode(payload));
+    const sigBytes = b64urlDecode(sig) as unknown as BufferSource;
+    ok = await crypto.subtle.verify("HMAC", await hmacKey(secret), sigBytes, enc.encode(payload));
   } catch {
     return null;
   }

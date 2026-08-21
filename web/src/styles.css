@@ -1,0 +1,140 @@
+/*
+ * Palette values come from the dataviz reference palette and were validated
+ * with its checker in both modes: series blue vs status red scores ΔE 23.8
+ * (light) / 25.7 (dark) under simulated CVD.
+ *
+ * Green is deliberately absent. Red↔green fails CVD separation at ΔE 4.1, so
+ * "in range" wears the neutral series colour and only out-of-range is marked.
+ * Direction is carried by an arrow and a Czech label as well as colour, and
+ * the reference band means out-of-range is legible from position alone.
+ */
+:root {
+  --surface-1: #fcfcfb;
+  --plane: #f9f9f7;
+  --ink-1: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-muted: #898781;
+  --grid: #e1e0d9;
+  --series-1: #2a78d6;
+  --status-critical: #d03b3b;
+  --band: rgba(42, 120, 214, 0.09);
+  --border: #e1e0d9;
+  --chip: #eeede8;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --ink-1: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-muted: #898781;
+    --grid: #2c2c2a;
+    --series-1: #3987e5;
+    --status-critical: #d03b3b;
+    --band: rgba(57, 135, 229, 0.14);
+    --border: #2c2c2a;
+    --chip: #232322;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--plane);
+  color: var(--ink-1);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.wrap { max-width: 1100px; margin: 0 auto; padding: 16px 14px 64px; }
+
+header.top h1 { font-size: 1.25rem; margin: 0 0 2px; letter-spacing: -0.01em; }
+header.top p { margin: 0; color: var(--ink-2); font-size: 0.9rem; }
+
+.banner {
+  border: 1px solid var(--border); background: var(--surface-1);
+  border-radius: var(--radius); padding: 10px 12px; margin: 12px 0;
+  font-size: 0.86rem; color: var(--ink-2);
+}
+.banner.warn { border-color: var(--status-critical); color: var(--ink-1); }
+
+/* Tabs: horizontally scrollable on a phone rather than wrapping or shrinking. */
+nav.tabs {
+  display: flex; gap: 4px; margin: 14px 0 12px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+nav.tabs::-webkit-scrollbar { display: none; }
+nav.tabs button {
+  flex: 0 0 auto; padding: 9px 14px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-1);
+  color: var(--ink-2); font-size: 0.88rem; cursor: pointer; white-space: nowrap;
+}
+nav.tabs button[aria-selected="true"] {
+  background: var(--ink-1); color: var(--surface-1); border-color: var(--ink-1);
+}
+
+.card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+}
+.card h2 { font-size: 1rem; margin: 0 0 2px; }
+.card h3 { font-size: 0.94rem; margin: 0 0 8px; }
+.sub { color: var(--ink-2); font-size: 0.84rem; margin: 0 0 10px; }
+
+select, input[type="text"], textarea, button.btn {
+  font: inherit; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-1); color: var(--ink-1);
+}
+button.btn { cursor: pointer; }
+button.btn.primary { background: var(--ink-1); color: var(--surface-1); border-color: var(--ink-1); }
+button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Wide content scrolls inside its own container; the page never scrolls sideways. */
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--grid); }
+th { color: var(--ink-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.row-pick { cursor: pointer; }
+tr.row-pick[aria-selected="true"] { background: var(--chip); }
+
+/* Status is never colour alone: an arrow glyph and a Czech label ride along. */
+.flag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; white-space: nowrap; }
+.flag.out { color: var(--status-critical); font-weight: 600; }
+.flag.norm { color: var(--ink-2); }
+.flag.unk { color: var(--ink-muted); }
+
+.chip {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  background: var(--chip); color: var(--ink-2); font-size: 0.75rem; margin-right: 5px;
+}
+.chip.alert { background: color-mix(in srgb, var(--status-critical) 16%, transparent); color: var(--status-critical); font-weight: 600; }
+
+.grid2 { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 820px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+
+.srcimg { position: relative; width: 100%; }
+.srcimg img { width: 100%; display: block; border-radius: 8px; border: 1px solid var(--border); }
+.srcimg .hl {
+  position: absolute; border: 2px solid var(--status-critical);
+  border-radius: 3px; background: color-mix(in srgb, var(--status-critical) 12%, transparent);
+  pointer-events: none;
+}
+
+ul.summary { list-style: none; padding: 0; margin: 0; }
+ul.summary li { padding: 9px 0; border-bottom: 1px solid var(--grid); font-size: 0.9rem; }
+ul.summary li:last-child { border-bottom: none; }
+
+.chat-log { display: flex; flex-direction: column; gap: 9px; margin-bottom: 10px; }
+.msg { padding: 9px 11px; border-radius: 10px; font-size: 0.89rem; max-width: 88%; white-space: pre-wrap; }
+.msg.user { align-self: flex-end; background: var(--ink-1); color: var(--surface-1); }
+.msg.bot { align-self: flex-start; background: var(--chip); color: var(--ink-1); }
+.chat-form { display: flex; gap: 8px; }
+.chat-form input { flex: 1; min-width: 0; }
+
+.muted { color: var(--ink-muted); font-size: 0.8rem; }
+.err { color: var(--status-critical); font-size: 0.85rem; }
