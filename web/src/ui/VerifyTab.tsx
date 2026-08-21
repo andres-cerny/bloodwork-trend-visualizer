@@ -129,6 +129,18 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   const page =
     (sel && report.pages.find((pg) => pg.pageNum === sel.sourcePage)) ?? report.pages[0];
   const scale = page && imgW ? imgW / page.imageWidth : 0;
+
+  // Show the whole printed row, as large as that allows.
+  //
+  // Name, value, unit and interval have to be readable together — verifying a
+  // number against the wrong column is the failure this pane exists to
+  // prevent, so none of them may be scrolled out of sight. Fitting the row's
+  // own width gives roughly 2.5x the scale of the full-page view, where 22
+  // rows share the same width, and the tight vertical crop means no
+  // neighbouring line is in frame to be mistaken for this one.
+  const rowH = sel?.bbox ? Math.max(1, sel.bbox[3] - sel.bbox[1]) : 1;
+  const rowZoom =
+    sel?.bbox && imgW ? Math.min(1, imgW / Math.max(1, sel.bbox[2] - sel.bbox[0])) : 0;
   const flaggedCount = report.measurements.filter(
     (m) => isFlagged(m) || implausibleOf(m) !== null,
   ).length;
@@ -295,6 +307,32 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
               )}
             </div>
           )}
+          {/* A magnified strip of the selected row.
+              On a phone the full page renders about 330px wide for a 1819px
+              scan, so the printed rows are ~5px tall — the highlight lands on
+              the right row but the number inside it cannot be read, and the
+              whole point is reading that number. Opening the raw image loses
+              the highlight, because it is an overlay rather than part of the
+              picture. This crops the page around the row instead, at a scale
+              that stays legible. */}
+          {page && sel?.bbox && rowZoom > 0 && (
+            <div className="rowzoom" aria-label="Přiblížený řádek">
+              <div
+                className="rowzoom-img"
+                style={{
+                  backgroundImage: `url(${page.imageUrl})`,
+                  backgroundSize: `${page.imageWidth * rowZoom}px auto`,
+                  // Crop tight to the row. Bleeding into the line above or
+                  // below invites verifying against the wrong one.
+                  backgroundPosition:
+                    `-${sel.bbox[0] * rowZoom - 8}px -${sel.bbox[1] * rowZoom - 3}px`,
+                  width: (sel.bbox[2] - sel.bbox[0]) * rowZoom + 16,
+                  height: rowH * rowZoom + 6,
+                }}
+              />
+            </div>
+          )}
+
           {page ? (
             <div className="srcimg">
               <img

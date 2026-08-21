@@ -220,3 +220,20 @@ button.btn.linkish { background: none; border: none; padding: 4px 0;
   pointer-events: none;
   background: linear-gradient(to right, transparent, var(--plane));
 }
+
+/* Magnified crop of the selected row, so the number can actually be read on a
+   phone where the full page renders too small. */
+.rowzoom {
+  border: 2px solid var(--status-critical);
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 10px;
+  background: #fff;
+}
+.rowzoom-img {
+  background-repeat: no-repeat;
+  min-width: 100%;
+  /* The crop is a slice of a white lab page; keep it light in both themes so
+     the print stays black-on-white as it is on paper. */
+  background-color: #fff;
+}
