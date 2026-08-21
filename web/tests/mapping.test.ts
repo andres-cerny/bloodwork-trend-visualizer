@@ -5,7 +5,7 @@
  * be right even when the score is close.
  */
 import { describe, expect, it } from "vitest";
-import { findUnmapped, observedStats, suggestMappings } from "../src/lib/mapping";
+import { findUnmapped, materialPrefix, observedStats, suggestMappings } from "../src/lib/mapping";
 import { makeMeasurement, type AnalyteDef, type LabReport } from "../src/lib/models";
 import { normalizeMeasurement } from "../src/lib/normalize";
 import { Registry } from "../src/lib/registry";
@@ -128,5 +128,82 @@ describe("suggestMappings", () => {
   it("returns nothing for a name that resembles no analyte", () => {
     const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [] };
     expect(suggestMappings(odd, registry, stats)).toEqual([]);
+  });
+
+  it("rejects a candidate whose recorded values are orders of magnitude away", () => {
+    // The bug this pins: homocysteine reads 11-14 µmol/l, uric acid is
+    // recorded at 331-392 µmol/l. The old additive slack widened the accepted
+    // window to roughly -61..784, so this passed as plausible and the UI put a
+    // green tick on merging two unrelated tests.
+    const withUricAcid = [
+      report("r1", "2024-02-14", [
+        m("S_Kyselina močová", "331", "µmol/l", "(202-417)", "kyselina_mocova"),
+        m("S_Homocystein tot.", "11,2", "µmol/l", "(5,0-15,0)", null),
+      ]),
+      report("r2", "2025-08-13", [
+        m("S_Kyselina močová", "392", "µmol/l", "(202-417)", "kyselina_mocova"),
+        m("S_Homocystein tot.", "14,0", "µmol/l", "(5,0-15,0)", null),
+      ]),
+    ];
+    const [unmappedHcy] = findUnmapped(withUricAcid);
+    const cands = suggestMappings(unmappedHcy, registry, observedStats(withUricAcid), 5);
+    const uric = cands.find((c) => c.canonicalId === "kyselina_mocova");
+    if (uric) {
+      expect(uric.valueOk).toBe(false);
+      // The UI needs both ranges to explain itself.
+      expect(uric.incomingRange).toEqual([11.2, 14]);
+    }
+  });
+
+  it("accepts values within the same order of magnitude", () => {
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
+        m("Glykémie", "5,60", "mmol/l", "(4,11-5,60)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("glukoza", "Glukóza", "mmol/l")]),
+      observedStats(reports), 5).find((x) => x.canonicalId === "glukoza");
+    expect(c?.valueOk).toBe(true);
+  });
+
+  it("flags a different material — urine is not serum", () => {
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Celková bílkovina", "72", "g/l", "(64-83)", "bilkovina"),
+        m("U_Bílkovina", "0,15", "g/l", "(0-0,15)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("bilkovina", "Celková bílkovina", "g/l")]),
+      observedStats(reports), 5).find((x) => x.canonicalId === "bilkovina");
+    expect(c?.materialMatch).toBe(false);
+  });
+
+  it("does not flag material when both come from the same one", () => {
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
+        m("S_Glykémie", "5,30", "mmol/l", "(4,11-5,60)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("glukoza", "Glukóza", "mmol/l")]),
+      observedStats(reports), 5).find((x) => x.canonicalId === "glukoza");
+    expect(c?.materialMatch).toBe(true);
+  });
+});
+
+describe("materialPrefix", () => {
+  it("reads the material a Czech lab prints before the name", () => {
+    expect(materialPrefix("S_Glukóza")).toBe("s");
+    expect(materialPrefix("U_Bílkovina")).toBe("u");
+    expect(materialPrefix("B_Hemoglobin")).toBe("b");
+  });
+
+  it("returns null when no material is printed", () => {
+    expect(materialPrefix("Glukóza")).toBeNull();
+    expect(materialPrefix("")).toBeNull();
   });
 });
