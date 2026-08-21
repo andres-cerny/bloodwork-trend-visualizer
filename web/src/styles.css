@@ -114,10 +114,22 @@ tr.row-pick[aria-selected="true"] { background: var(--chip); }
 }
 .chip.alert { background: color-mix(in srgb, var(--status-critical) 16%, transparent); color: var(--status-critical); font-weight: 600; }
 
-.grid2 { display: grid; gap: 12px; grid-template-columns: 1fr; }
-@media (min-width: 820px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+/*
+ * minmax(0, 1fr), not 1fr.
+ *
+ * A grid track sized `1fr` still has an automatic minimum of min-content, so a
+ * wide child — here the transcript table — pushes the track past the viewport
+ * and the whole page scrolls sideways, even though the table sits in its own
+ * overflow-x container. The same applies to the flex column below, hence
+ * min-width: 0 on the items.
+ */
+.grid2 { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.grid2 > * { min-width: 0; }
+@media (min-width: 820px) { .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 
-.srcimg { position: relative; width: 100%; }
+.srcimg { width: 100%; }
+/* The positioning context for the highlight — sized to the image itself. */
+.srcimg-inner { position: relative; width: 100%; }
 .srcimg img { width: 100%; display: block; border-radius: 8px; border: 1px solid var(--border); }
 .srcimg .hl {
   position: absolute; border: 2px solid var(--status-critical);
@@ -183,6 +195,7 @@ button.btn.linkish { background: none; border: none; padding: 4px 0;
    wide screen the two panes sit side by side and order is irrelevant. */
 @media (max-width: 819px) {
   .grid2.source-first { display: flex; flex-direction: column; }
+  .grid2.source-first > * { min-width: 0; }
   .grid2.source-first .source-pane { order: 1; }
   .grid2.source-first .table-pane { order: 2; }
   /* The page image is the evidence — let it fill the width and be zoomable. */
@@ -259,6 +272,8 @@ button.btn.linkish { background: none; border: none; padding: 4px 0;
   background: var(--surface-1);
 }
 
-/* Click-to-enlarge, keeping the highlight overlay aligned. */
+/* Click-to-enlarge. The pane scrolls; the inner box grows with the image so
+   the percentage-positioned highlight keeps resolving against the image. */
 .srcimg.zoomed { overflow: auto; max-height: 70vh; }
+.srcimg.zoomed .srcimg-inner { width: max-content; }
 .srcimg.zoomed img { width: auto; max-width: none; }

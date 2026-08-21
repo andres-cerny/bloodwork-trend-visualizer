@@ -55,6 +55,69 @@ already sits under each candidate.
 
 Items 1 and 3 are the real risk. Everything below is about closing them.
 
+## Tests only you can run
+
+Two suites are deliberately outside `npm test` and outside CI, because they
+need a real API key or a real browser — the two things missing where this was
+built. **Run both before you trust anything here.**
+
+```sh
+npm run test:e2e      # the built app in a real browser — no key needed
+npm run test:live     # real extraction through Claude — costs ~$0.20
+npm run test:handoff  # both
+```
+
+### `npm run test:e2e` — does it visualise correctly
+
+Builds the app, serves it with `vite preview`, drives it with Playwright at
+390px and 1200px, and asserts **rendered geometry** rather than state. It
+covers the defects that passed every unit test in the project:
+
+- the source highlight frames the same row on a phone as on a desktop, and
+  stays aligned when the image is enlarged;
+- a reading flagged as a misread is *not* plotted, and is named on the card;
+- an unconfirmed reading *is* plotted and is named;
+- chart points are spaced by real elapsed time, not by index;
+- correcting a value re-derives the flag, the review count and the chart, and
+  undo restores the original reading *and* its warning;
+- no page scrolls sideways on any tab at either width.
+
+Needs Chromium. If Playwright cannot find one: `npx playwright install
+chromium`, or point `CHROMIUM_PATH` at an existing binary.
+
+Writing this suite immediately found two live regressions — a grid track
+sized `1fr` letting the transcript table push the page 19px wide on a phone,
+and the highlight still being timing-sensitive because it was positioned from
+a measured pixel width. The highlight is now positioned in percentages of the
+image's own dimensions, which cannot go stale.
+
+### `npm run test:live` — does it extract correctly
+
+```sh
+ANTHROPIC_API_KEY=sk-ant-... npm run test:live
+```
+
+Runs the real extraction path — both models, cross-checked — against the
+generated layout fixtures, and asserts **exact** output. That is possible
+because `scripts/make_layout_fixtures.py` builds those PDFs from literal
+values, so every character printed on each page is known: the Czech decimal
+comma, the lab's `!` and `*` markers, the censored `<1,0`. A value that
+arrives "correct" but normalised (comma to point, marker dropped) fails.
+
+It also asserts the provenance guarantee — every returned value must be
+literally printed on the page — that no row is invented, and that the vision
+fallback transcribes a page with no text layer.
+
+Cost is printed at the end and capped:
+
+```sh
+LIVE_MAX_USD=1 npm run test:live        # abort past $1 (default $2)
+LIVE_SINGLE_MODEL=1 npm run test:live   # one model instead of two, ~half price
+```
+
+Without a key the suite **skips** with a message rather than failing, so
+`npm test` stays green for anyone without one.
+
 ## First: get it running
 
 ```sh

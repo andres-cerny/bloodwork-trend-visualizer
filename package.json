@@ -9,7 +9,10 @@
     "test": "vitest run",
     "deploy": "npm run build && wrangler deploy",
     "test:parity": "python3 tests/test_parity.py && vitest run tests/parity.test.ts",
-    "test:all": "npm run test:parity && vitest run && tsc -b"
+    "test:all": "npm run test:parity && vitest run && tsc -b",
+    "test:live": "vitest run --config vitest.handoff.config.ts tests/live",
+    "test:e2e": "npm run build && vitest run --config vitest.handoff.config.ts e2e",
+    "test:handoff": "npm run test:e2e && npm run test:live"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

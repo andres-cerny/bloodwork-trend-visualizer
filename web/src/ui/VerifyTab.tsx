@@ -3,8 +3,8 @@
  * row highlighted where it actually sits on the page.
  *
  * The highlight is drawn from a precomputed pixel bbox (src/locate.py for the
- * demo set, pdf.js text coordinates for uploads) scaled by the rendered image's
- * displayed width — so it stays aligned at any viewport size.
+ * demo set, pdf.js text coordinates for uploads), positioned as a percentage
+ * of the image's own dimensions so it cannot go stale when the pane relayouts.
  *
  * Correcting a value re-runs normalizeMeasurement, which re-derives the flag,
  * the trend and the summary. That live re-derivation is the point: it shows a
@@ -54,16 +54,9 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   // with the chips on screen — which it did when they were computed separately.
   const review = (m: Measurement) => reviewOf(m, curatedRange);
 
-  // Track the image's *rendered* width continuously rather than measuring it
-  // once on load.
-  //
-  // The highlight is positioned by scaling a pixel bbox by this width, so a
-  // stale measurement does not misplace the box slightly — it misplaces it
-  // proportionally, and the error grows down the page. On a phone the source
-  // pane reorders above the table once a row is selected, which relayouts the
-  // image after load: the box then pointed at a different analyte's row
-  // entirely, which is the verification feature telling the reader something
-  // untrue.
+  // The magnified row strip still needs a rendered width; the highlight no
+  // longer does. Tracked continuously rather than read once, because this
+  // pane relayouts on selection and on enlarging the image.
   useEffect(() => {
     const el = imgRef.current;
     if (!el) return;
@@ -122,7 +115,6 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   // printed on page 2.
   const page =
     (sel && report.pages.find((pg) => pg.pageNum === sel.sourcePage)) ?? report.pages[0];
-  const scale = page && imgW ? imgW / page.imageWidth : 0;
 
   // Show the whole printed row, as large as that allows.
   //
@@ -315,24 +307,42 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
 
           {page ? (
             <div className={`srcimg${zoomed ? " zoomed" : ""}`}>
+              {/* The highlight is positioned in percentages, so its containing
+                  block must be the image's own box. When enlarged the image
+                  grows past the pane, which scrolls — so the scrolling element
+                  and the positioning context have to be different elements, or
+                  the percentages resolve against the wrong width. */}
+              <div className="srcimg-inner">
               <img
                 ref={imgRef} src={page.imageUrl} alt={`Stránka ${page.pageNum}`}
                 onLoad={(e) => setImgW((e.target as HTMLImageElement).clientWidth)}
                 style={{ cursor: zoomed ? "zoom-out" : "zoom-in" }}
                 onClick={() => setZoomed((z) => !z)}
               />
-              {sel?.bbox && scale > 0 && (
+              {sel?.bbox && page && (
+                // Positioned in percentages of the image's own dimensions
+                // rather than from a measured pixel width.
+                //
+                // A measured width is only correct once layout has settled,
+                // and this pane relayouts constantly — the source panel
+                // reorders above the table on a phone when a row is picked,
+                // and the image can be enlarged to native size. Any read taken
+                // before the observer catches up misplaces the box
+                // proportionally, so the error grows down the page and the
+                // highlight frames the wrong row. Percentages are resolved by
+                // the browser at paint time and cannot be stale.
                 <div
                   ref={hlRef}
                   className="hl"
                   style={{
-                    left: sel.bbox[0] * scale - 4,
-                    top: sel.bbox[1] * scale - 4,
-                    width: (sel.bbox[2] - sel.bbox[0]) * scale + 8,
-                    height: (sel.bbox[3] - sel.bbox[1]) * scale + 8,
+                    left: `${(sel.bbox[0] / page.imageWidth) * 100}%`,
+                    top: `${(sel.bbox[1] / page.imageHeight) * 100}%`,
+                    width: `${((sel.bbox[2] - sel.bbox[0]) / page.imageWidth) * 100}%`,
+                    height: `${((sel.bbox[3] - sel.bbox[1]) / page.imageHeight) * 100}%`,
                   }}
                 />
               )}
+              </div>
             </div>
           ) : (
             <p className="muted">Zdrojový obrázek není k dispozici.</p>
