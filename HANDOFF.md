@@ -125,6 +125,32 @@ test would have:
 - The x axis was not time, so a three-year gap drew like a six-month one.
 - "Triacylglyceroly vzrostlo" — Czech verb agreement, across a 109-entry
   registry of mixed gender.
+- A fix that rescued one flag and left the class: the misread check reached the
+  chart while a model disagreement did not, so four readings the app had itself
+  doubted were being plotted silently.
+
+**The rule that came out of it, worth keeping:** a doubt raised anywhere must
+travel to the screen a patient is shown. `web/src/lib/review.ts` is the single
+authority; the verification chips, the filter, its counter and the trend
+screen all read it. If you add a new kind of doubt, add it there — not at a
+call site.
+
+## Known clinical limitations, not yet addressed
+
+Raised by reviewers and left open deliberately; worth deciding on before a
+real clinic sees this:
+
+- **Reference ranges are applied as two-sided.** A CRP printed as `1,0–5,0`
+  makes `<1,0` render as "pod rozmezím", but a low CRP is a good result. Any
+  analyte whose printed lower bound is a detection limit rather than a clinical
+  threshold will show a false "abnormal". Fixing this means knowing, per
+  analyte, whether the lower bound is clinical — a registry field, not a
+  parsing change.
+- **The summary compares only the two most recent draws.** ALT rising
+  0,61 → 0,72 → 0,84 → 0,93 across four draws with GGT alongside is the
+  clinically arresting fact, and the prose reports only "+11% since February".
+- **In-range analytes are ranked by percent change**, which inside a wide
+  reference interval is often assay noise rather than signal.
 
 If you change the UI, it is worth repeating: spawn a subagent, tell it to
 role-play a Czech doctor who has never seen the app, point it at
