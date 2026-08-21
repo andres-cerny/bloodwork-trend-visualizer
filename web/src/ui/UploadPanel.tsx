@@ -8,9 +8,9 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { ApiError, type Budget, extract, hasSession, startSession } from "../lib/api";
-import { makeMeasurement, type LabReport, type Measurement } from "../lib/models";
-import { normalizeMeasurement } from "../lib/normalize";
-import { normKey, type Registry } from "../lib/registry";
+import { type LabReport, type Measurement } from "../lib/models";
+import { reconcile } from "../lib/reconcile";
+import { type Registry } from "../lib/registry";
 
 declare global {
   interface Window {
@@ -28,52 +28,6 @@ interface Props {
   onReport: (report: LabReport) => void;
   onBudget: (b: Budget) => void;
   onUnlock: () => void;
-}
-
-/**
- * Union two independent reads of the same page.
- *
- * Agreement marks a row trustworthy; a differing value or a row only one model
- * saw is flagged for the verification tab. That last case is the important
- * one — it catches silent under-extraction, which a per-row confidence score
- * on a single read cannot see.
- */
-function reconcile(reads: any[]): Measurement[] {
-  const byKey = new Map<string, { m: Measurement; models: Set<string>; values: Set<string> }>();
-  for (const read of reads) {
-    for (const raw of read.measurements ?? []) {
-      const key = normKey(raw.raw_analyte_name);
-      const existing = byKey.get(key);
-      if (existing) {
-        existing.models.add(read.model);
-        existing.values.add(raw.value_raw);
-      } else {
-        byKey.set(key, {
-          m: makeMeasurement({
-            rawAnalyteName: raw.raw_analyte_name,
-            valueRaw: raw.value_raw,
-            unitRaw: raw.unit_raw ?? "",
-            refRangeRaw: raw.ref_range_raw ?? "",
-            sourceSnippet: raw.source_snippet ?? "",
-            confidence: raw.confidence ?? "high",
-            extractedBy: read.model,
-          }),
-          models: new Set([read.model]),
-          values: new Set([raw.value_raw]),
-        });
-      }
-    }
-  }
-
-  const total = reads.length;
-  const out: Measurement[] = [];
-  for (const { m, models, values } of byKey.values()) {
-    let disagreement: string | null = null;
-    if (values.size > 1) disagreement = `modely přečetly různé hodnoty: ${[...values].join(" / ")}`;
-    else if (total > 1 && models.size < total) disagreement = `řádek viděl jen ${[...models].join(", ")}`;
-    out.push(normalizeMeasurement({ ...m, disagreement, escalated: total > 1 }));
-  }
-  return out;
 }
 
 export default function UploadPanel({ registry, frozen, maxPages, onReport, onBudget, onUnlock }: Props) {
