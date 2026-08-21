@@ -16,7 +16,7 @@ function fakeKv() {
   const store = new Map<string, string>();
   return {
     get: async (k: string) => store.get(k) ?? null,
-    put: async (k: string, v: string) => void store.set(k, v),
+    put: async (k: string, v: string, _opts?: unknown) => void store.set(k, v),
   } as unknown as KVNamespace;
 }
 
@@ -166,6 +166,51 @@ describe("extraction path selection", () => {
     const s = await mintSession(SECRET, 600, 12);
     const res = await worker.fetch(post("/api/extract", {}, s), makeEnv());
     expect(res.status).toBe(400);
+  });
+});
+
+describe("per-session page allowance", () => {
+  it("refuses once the session's pages are spent", async () => {
+    // Without this the `pages` claim is just a comment: one Turnstile solve
+    // would buy unlimited extraction for the token's lifetime.
+    const env = makeEnv({ MAX_PAGES_PER_SESSION: "2" });
+    const s = await mintSession(SECRET, 600, 2);
+    const call = () => worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
+
+    expect((await call()).status).toBe(200);
+    expect((await call()).status).toBe(200);
+
+    const third = await call();
+    expect(third.status).toBe(429);
+    expect(((await third.json()) as any).error).toBe("page_limit");
+  });
+
+  it("makes no Claude call once the allowance is spent", async () => {
+    const env = makeEnv({ MAX_PAGES_PER_SESSION: "1" });
+    const s = await mintSession(SECRET, 600, 1);
+    await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
+    calls = [];
+    await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("counts per session, so a fresh challenge starts clean", async () => {
+    const env = makeEnv({ MAX_PAGES_PER_SESSION: "1" });
+    const a = await mintSession(SECRET, 600, 1);
+    const b = await mintSession(SECRET, 600, 1);
+    expect((await worker.fetch(post("/api/extract", { rowsText: "x" }, a), env)).status).toBe(200);
+    expect((await worker.fetch(post("/api/extract", { rowsText: "x" }, a), env)).status).toBe(429);
+    expect((await worker.fetch(post("/api/extract", { rowsText: "x" }, b), env)).status).toBe(200);
+  });
+
+  it("does not consume the allowance on chat", async () => {
+    const env = makeEnv({ MAX_PAGES_PER_SESSION: "1" });
+    const s = await mintSession(SECRET, 600, 1);
+    await worker.fetch(
+      post("/api/chat", { dataContext: "d", history: [{ role: "user", content: "ahoj" }] }, s),
+      env,
+    );
+    expect((await worker.fetch(post("/api/extract", { rowsText: "x" }, s), env)).status).toBe(200);
   });
 });
 

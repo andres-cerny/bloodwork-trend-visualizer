@@ -75,3 +75,30 @@ export async function budgetState(kv: KVNamespace, budgetUsd: number): Promise<B
     remainingUsd: Math.max(0, budgetUsd - spentUsd),
   };
 }
+
+
+/**
+ * Pages already extracted under one session.
+ *
+ * The session token carries a `pages` allowance, but a claim nobody reads is
+ * just a comment: without this counter one Turnstile solve buys unlimited
+ * extraction calls for the token's lifetime. The spend ceiling still bounds
+ * the loss, so this is about how fast a single visitor can consume it, not
+ * about whether they can exceed it.
+ *
+ * Keyed per session, so ordinary sequential page extraction never contends.
+ */
+export async function consumePage(
+  kv: KVNamespace,
+  sid: string,
+  allowance: number,
+  ttlSeconds: number,
+): Promise<{ ok: boolean; used: number }> {
+  const key = `pages_${sid}`;
+  const used = parseInt((await kv.get(key)) || "0", 10) || 0;
+  if (used >= allowance) return { ok: false, used };
+  // expirationTtl keeps these from accumulating; they are only meaningful for
+  // as long as the session token itself is valid.
+  await kv.put(key, String(used + 1), { expirationTtl: Math.max(60, ttlSeconds) });
+  return { ok: true, used: used + 1 };
+}

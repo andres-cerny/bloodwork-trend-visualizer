@@ -7,8 +7,8 @@
  * neither, so a frozen budget degrades the site to a read-only demo rather
  * than breaking it.
  */
-import { mintSession, verifySession, verifyTurnstile } from "./auth";
-import { budgetState, priceUsd, recordSpendUsd } from "./budget";
+import { mintSession, verifySession, verifyTurnstile, type SessionClaims } from "./auth";
+import { budgetState, consumePage, priceUsd, recordSpendUsd } from "./budget";
 import {
   chat,
   extractPage,
@@ -41,25 +41,38 @@ const budgetLimit = (env: Env) => parseFloat(env.BUDGET_USD_LIMIT ?? "20") || 20
 const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_SESSION ?? "12", 10) || 12;
 const sessionTtl = (env: Env) => parseInt(env.SESSION_TTL_SECONDS ?? "1800", 10) || 1800;
 
-/** Shared preamble for the AI routes: session valid, budget not exhausted. */
-async function guard(request: Request, env: Env): Promise<Response | null> {
+/**
+ * Shared preamble for the AI routes: session valid, budget not exhausted.
+ * Returns the claims on success so a caller can enforce per-session limits.
+ */
+async function guard(
+  request: Request,
+  env: Env,
+): Promise<{ blocked: Response } | { claims: SessionClaims }> {
   const token = request.headers.get("x-demo-session");
   const claims = await verifySession(env.SESSION_SECRET, token);
   if (!claims) {
-    return json({ error: "session_invalid", message: "Ověření vypršelo. Načtěte stránku znovu." }, 401);
+    return {
+      blocked: json(
+        { error: "session_invalid", message: "Ověření vypršelo. Načtěte stránku znovu." },
+        401,
+      ),
+    };
   }
   const state = await budgetState(env.BUDGET, budgetLimit(env));
   if (state.frozen) {
-    return json(
-      {
-        error: "budget_exhausted",
-        message: "Demo vyčerpalo svůj rozpočet na AI funkce. Ukázková data zůstávají dostupná.",
-        budget: state,
-      },
-      402,
-    );
+    return {
+      blocked: json(
+        {
+          error: "budget_exhausted",
+          message: "Demo vyčerpalo svůj rozpočet na AI funkce. Ukázková data zůstávají dostupná.",
+          budget: state,
+        },
+        402,
+      ),
+    };
   }
-  return null;
+  return { claims };
 }
 
 async function handleSession(request: Request, env: Env): Promise<Response> {
@@ -80,8 +93,29 @@ async function handleSession(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleExtract(request: Request, env: Env): Promise<Response> {
-  const blocked = await guard(request, env);
-  if (blocked) return blocked;
+  const g = await guard(request, env);
+  if ("blocked" in g) return g.blocked;
+
+  // Spend the session's page allowance. Minting a `pages` claim and never
+  // reading it back means one Turnstile solve buys unlimited extraction for
+  // the token's lifetime.
+  const { ok, used } = await consumePage(
+    env.BUDGET,
+    g.claims.sid,
+    g.claims.pages,
+    sessionTtl(env),
+  );
+  if (!ok) {
+    return json(
+      {
+        error: "page_limit",
+        message:
+          `Limit ukázky je ${g.claims.pages} stran na jedno ověření. ` +
+          `Načtěte stránku znovu a projděte ověřením „Nejsem robot“.`,
+      },
+      429,
+    );
+  }
 
   const { imageBase64, mediaType, textLayer, rowsText } = (await request
     .json()
@@ -133,6 +167,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   return json({
     reads,
     mode: useText ? "text" : "vision",
+    pagesUsed: used,
     costUsd: Math.round(spent * 10000) / 10000,
     // Zero across a whole report means the tools+system prefix is under the
     // ~1024-token cache minimum, not that something is broken.
@@ -142,8 +177,8 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleChat(request: Request, env: Env): Promise<Response> {
-  const blocked = await guard(request, env);
-  if (blocked) return blocked;
+  const g = await guard(request, env);
+  if ("blocked" in g) return g.blocked;
 
   const { dataContext, history } = (await request.json().catch(() => ({}))) as {
     dataContext?: string;
