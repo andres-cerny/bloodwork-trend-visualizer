@@ -12,6 +12,7 @@
  */
 import { useId, useState } from "react";
 import { czNum } from "../lib/summary";
+import { czMonthYear } from "../lib/czech";
 import { numericPoints, type Trend } from "../lib/trends";
 
 /**
@@ -54,11 +55,29 @@ export default function Chart({ trend }: { trend: Trend }) {
   const values = pts.map((p) => p.value as number);
   const lows = pts.map((p) => p.refLow).filter((v): v is number => v !== null);
   const highs = pts.map((p) => p.refHigh).filter((v): v is number => v !== null);
-  const lo = Math.min(...values, ...lows, ...highs);
-  const hi = Math.max(...values, ...lows, ...highs);
-  const pad = (hi - lo) * 0.15 || Math.abs(hi) * 0.15 || 1;
-  const yMin = lo - pad;
-  const yMax = hi + pad;
+
+  // Scale to the DATA, not to the reference range.
+  //
+  // Including the range in the domain flattens the thing the chart exists to
+  // show: ferritin moving 112 → 88 inside a 30–400 band renders as a straight
+  // line, and the fall is exactly why the chart was opened. The band is drawn
+  // as a backdrop and simply clips when it extends past the view.
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const span = hi - lo;
+  const pad = span > 0 ? span * 0.25 : Math.abs(hi) * 0.15 || 1;
+
+  // Keep a nearby range edge visible when it is close enough to be useful,
+  // so "just inside the limit" still reads as such.
+  const nearLow = lows.filter((v) => v >= lo - pad * 2);
+  const nearHigh = highs.filter((v) => v <= hi + pad * 2);
+  let yMin = Math.min(lo - pad, ...nearLow);
+  let yMax = Math.max(hi + pad, ...nearHigh);
+
+  // A concentration or a count cannot be negative, and an axis that says
+  // "-25,5" for ferritin undermines every number beside it.
+  const canBeNegative = values.some((v) => v < 0) || lows.some((v) => v < 0);
+  if (!canBeNegative && yMin < 0) yMin = 0;
 
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
@@ -127,13 +146,27 @@ export default function Chart({ trend }: { trend: Trend }) {
                   {p.flag === "high" ? "↑" : "↓"}
                 </text>
               )}
+              {/* Label the latest point: reading twenty charts should not mean
+                  opening twenty tables to find the current value. */}
+              {i === pts.length - 1 && (
+                <text
+                  x={x(i) - 9}
+                  y={y(p.value as number) + 4}
+                  textAnchor="end"
+                  fontSize={12}
+                  fontWeight={600}
+                  fill={out ? "var(--status-critical)" : "var(--ink-1)"}
+                >
+                  {czNum(p.value)}
+                </text>
+              )}
             </g>
           );
         })}
 
         {pts.map((p, i) => (
           <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize={10} fill="var(--ink-muted)">
-            {p.date.slice(2, 7).replace("-", "/")}
+            {czMonthYear(p.date)}
           </text>
         ))}
       </svg>

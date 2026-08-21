@@ -14,6 +14,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Flag from "./Flag";
 import type { LabReport, Measurement } from "../lib/models";
 import { isFlagged, normalizeMeasurement } from "../lib/normalize";
+import { checkCorrection } from "../lib/correction";
+import { czDate } from "../lib/czech";
 
 interface Props {
   reports: LabReport[];
@@ -28,6 +30,7 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
   const [picked, setPicked] = useState<number | null>(null);
   const [draft, setDraft] = useState<string>("");
   const imgRef = useRef<HTMLImageElement>(null);
+  const hlRef = useRef<HTMLDivElement>(null);
   const [imgW, setImgW] = useState(0);
 
   const report = reports.find((r) => r.id === reportId) ?? reports[0];
@@ -52,6 +55,16 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
       setDraft(r!.measurements[i].valueRaw);
     }
   }, [focus, reports]);
+
+  // A jump that lands on the right page but leaves the row 900px below the
+  // fold has not arrived. Wait for the image to lay out before scrolling.
+  useEffect(() => {
+    if (picked === null || !hlRef.current) return;
+    const id = requestAnimationFrame(() =>
+      hlRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [picked, imgW]);
   const rows = useMemo(() => {
     if (!report) return [];
     return report.measurements
@@ -64,6 +77,7 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
   const page = report.pages[0];
   const scale = page && imgW ? imgW / page.imageWidth : 0;
   const sel = picked !== null ? report.measurements[picked] : null;
+  const check = checkCorrection(draft, sel?.unitRaw ?? "");
   const flaggedCount = report.measurements.filter(isFlagged).length;
 
   function pick(i: number) {
@@ -74,7 +88,31 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
   function save() {
     if (picked === null) return;
     const base = report.measurements[picked];
-    const next = normalizeMeasurement({ ...base, valueRaw: draft, corrected: true, disagreement: null });
+    if (checkCorrection(draft, base.unitRaw).severity === "reject") return;
+    const next = normalizeMeasurement({
+      ...base,
+      valueRaw: draft,
+      corrected: true,
+      disagreement: null,
+      // Keep the machine transcription from the first correction onwards, so
+      // undo always returns to what the document actually said rather than to
+      // an earlier hand-edit.
+      originalValueRaw: base.originalValueRaw ?? base.valueRaw,
+    });
+    onCorrect(report.id, picked, next);
+  }
+
+  function undo() {
+    if (picked === null) return;
+    const base = report.measurements[picked];
+    if (base.originalValueRaw === null) return;
+    const next = normalizeMeasurement({
+      ...base,
+      valueRaw: base.originalValueRaw,
+      corrected: false,
+      originalValueRaw: null,
+    });
+    setDraft(base.originalValueRaw);
     onCorrect(report.id, picked, next);
   }
 
@@ -85,7 +123,7 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
           <select value={report.id} onChange={(e) => { setReportId(e.target.value); setPicked(null); }}>
             {reports.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.reportDate ?? "bez data"} — {r.labName ?? r.sourceFile}
+                {czDate(r.reportDate)} — {r.labName ?? r.sourceFile}
               </option>
             ))}
           </select>
@@ -100,8 +138,8 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
         </p>
       </div>
 
-      <div className="grid2">
-        <div className="card">
+      <div className={`grid2${sel ? " source-first" : ""}`}>
+        <div className="card table-pane">
           <h3>Přepsané řádky</h3>
           <div className="scroll-x">
             <table>
@@ -110,33 +148,37 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
                   <th>Analyt</th>
                   <th style={{ textAlign: "right" }}>Hodnota</th>
                   <th>Stav</th>
-                  <th>QA</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map(({ m, i }) => (
                   <tr key={i} className="row-pick" aria-selected={picked === i} onClick={() => pick(i)}>
-                    <td>{m.rawAnalyteName}</td>
+                    <td>
+                      {m.rawAnalyteName}
+                      {/* Review markers ride with the name rather than in a
+                          fourth column: on a phone that column sat off-screen,
+                          hiding exactly the rows that need attention. */}
+                      <span className="marks">
+                        {m.disagreement && <span className="chip alert">neshoda</span>}
+                        {m.confidence === "low" && <span className="chip alert">nízká jistota</span>}
+                        {m.corrected && <span className="chip">ručně opraveno</span>}
+                      </span>
+                    </td>
                     <td className="num">
                       {m.valueRaw} <span className="muted">{m.unitRaw}</span>
                     </td>
                     <td><Flag flag={m.flag} /></td>
-                    <td>
-                      {m.disagreement && <span className="chip alert">neshoda</span>}
-                      {m.confidence === "low" && <span className="chip alert">nízká jistota</span>}
-                      {m.corrected && <span className="chip">opraveno</span>}
-                    </td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={4} className="muted">Žádné sporné řádky — vše prošlo.</td></tr>
+                  <tr><td colSpan={3} className="muted">Žádné sporné řádky — vše prošlo.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
 
-        <div className="card">
+        <div className="card source-pane">
           <h3>Zdrojová stránka</h3>
           {sel && (
             <div style={{ marginBottom: 10 }}>
@@ -147,10 +189,24 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
                   type="text" value={draft} onChange={(e) => setDraft(e.target.value)}
                   aria-label="Opravit hodnotu" style={{ flex: "1 1 120px", minWidth: 0 }}
                 />
-                <button className="btn primary" onClick={save} disabled={draft === sel.valueRaw}>
+                <button
+                  className="btn primary"
+                  onClick={save}
+                  disabled={draft === sel.valueRaw || check.severity === "reject"}
+                >
                   Opravit
                 </button>
+                {sel.originalValueRaw !== null && (
+                  <button className="btn" onClick={undo}>
+                    Vrátit původní ({sel.originalValueRaw})
+                  </button>
+                )}
               </div>
+              {check.message && (
+                <p className={check.severity === "reject" ? "err" : "muted"} style={{ margin: "6px 0 0" }}>
+                  {check.message}
+                </p>
+              )}
             </div>
           )}
           {page ? (
@@ -161,6 +217,7 @@ export default function VerifyTab({ reports, onCorrect, focus }: Props) {
               />
               {sel?.bbox && scale > 0 && (
                 <div
+                  ref={hlRef}
                   className="hl"
                   style={{
                     left: sel.bbox[0] * scale - 4,

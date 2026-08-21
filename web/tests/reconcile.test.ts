@@ -33,13 +33,20 @@ describe("reconcile", () => {
     expect(m.disagreement).toContain("5,82");
   });
 
+  it("names the readings rather than the model that produced them", () => {
+    // A model id means nothing to a clinician; the two numbers mean everything.
+    const [m] = reconcile([sonnet([row("S_Glukóza", "5,32")]), opus([row("S_Glukóza", "5,82")])]);
+    expect(m.disagreement).not.toContain("claude");
+    expect(m.disagreement).not.toContain("opus");
+  });
+
   it("flags a row only one model saw — the under-extraction case", () => {
     const rows = reconcile([
       sonnet([row("S_Glukóza", "5,32"), row("S_CRP", "<1,0", "mg/l", "(1,0-5,0)")]),
       opus([row("S_Glukóza", "5,32")]),
     ]);
     const crp = rows.find((r) => r.rawAnalyteName === "S_CRP")!;
-    expect(crp.disagreement).toContain("claude-sonnet-5");
+    expect(crp.disagreement).toContain("jedno ze dvou čtení");
     const glu = rows.find((r) => r.rawAnalyteName === "S_Glukóza")!;
     expect(glu.disagreement).toBeNull();
   });

@@ -5,6 +5,8 @@ interface Props {
   dataContext: string;
   frozen: boolean;
   unlocked: boolean;
+  /** False when no Turnstile site key is configured, so no gate can appear. */
+  available: boolean;
   onBudget: (b: Budget) => void;
 }
 
@@ -14,7 +16,7 @@ const SUGGESTIONS = [
   "Jak se vyvíjí cholesterol?",
 ];
 
-export default function ChatPanel({ dataContext, frozen, unlocked, onBudget }: Props) {
+export default function ChatPanel({ dataContext, frozen, unlocked, available, onBudget }: Props) {
   const [history, setHistory] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);

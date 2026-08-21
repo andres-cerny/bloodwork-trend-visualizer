@@ -25,22 +25,27 @@ function rangeStr(low: number | null, high: number | null): string {
   return "—";
 }
 
-function direction(delta: number, eps: number): string {
-  if (delta > eps) return "vzrostlo";
-  if (delta < -eps) return "kleslo";
-  return "beze změny";
+function direction(delta: number, eps: number): "up" | "down" | "flat" {
+  if (delta > eps) return "up";
+  if (delta < -eps) return "down";
+  return "flat";
 }
 
-/** Descriptive clause about crossing the reference range (or not). */
+/**
+ * Clause about the reference range.
+ *
+ * Written without a verb on purpose. Czech verbs agree with the subject's
+ * gender and number, and the subject here is an analyte name pulled from a
+ * registry of 109 entries — "Triacylglyceroly vzrostlo" instead of "vzrostly"
+ * is instantly visible to a native reader. Gendering the whole registry would
+ * be a large, fragile change to fix phrasing; dropping the verb removes the
+ * agreement problem entirely and reads like a lab report rather than prose.
+ */
 function rangeTransition(oldFlag: Flag, newFlag: Flag): string {
-  if (newFlag === "high")
-    return oldFlag !== "high" ? "a je nad referenčním rozmezím" : "a zůstává nad referenčním rozmezím";
-  if (newFlag === "low")
-    return oldFlag !== "low" ? "a je pod referenčním rozmezím" : "a zůstává pod referenčním rozmezím";
+  if (newFlag === "high") return oldFlag !== "high" ? "nově nad rozmezím" : "stále nad rozmezím";
+  if (newFlag === "low") return oldFlag !== "low" ? "nově pod rozmezím" : "stále pod rozmezím";
   if (newFlag === "normal")
-    return oldFlag === "high" || oldFlag === "low"
-      ? "a je nyní v referenčním rozmezí"
-      : "a je v referenčním rozmezí";
+    return oldFlag === "high" || oldFlag === "low" ? "nově v rozmezí" : "v rozmezí";
   return "";
 }
 
@@ -70,24 +75,27 @@ export function summarizeTrend(trend: Trend): SummaryRecord | null {
   const eps = Math.max(Math.abs(ov) * 0.01, 1e-9);
   const dir = direction(delta, eps);
 
-  let text: string;
-  if (dir === "beze změny") {
-    text = `${trend.displayName} beze změny (${czNum(ov)} → ${czNum(nv)}${unitSfx})`;
-  } else {
-    const pct = ov ? (delta / ov) * 100 : null;
-    const sign = delta > 0 ? "+" : "−";
-    const pctPart = pct !== null ? `, ${sign}${czNum(Math.abs(pct))} %` : "";
-    text =
-      `${trend.displayName} ${dir} z ${czNum(ov)} na ${czNum(nv)}${unitSfx} ` +
-      `(${sign}${czNum(Math.abs(delta))}${pctPart})`;
-  }
+  const sign = delta > 0 ? "+" : "−";
+  const pct = ov ? (delta / ov) * 100 : null;
+  // Whole percent: a doctor reads this as a magnitude, and "+16,67 %" implies
+  // a precision that two measurements do not carry.
+  const pctPart = pct !== null ? ` / ${sign}${Math.round(Math.abs(pct))} %` : "";
+
+  // "beze změny" printed beside two visibly different numbers reads as a
+  // contradiction and undermines the rest of the list, so a sub-threshold
+  // move says so explicitly and still shows its size.
+  const change =
+    dir === "flat"
+      ? `prakticky beze změny, ${sign}${czNum(Math.abs(delta))}${unitSfx}`
+      : `${sign}${czNum(Math.abs(delta))}${unitSfx}${pctPart}`;
+
+  let text = `${trend.displayName}: ${czNum(ov)} → ${czNum(nv)}${unitSfx} (${change})`;
 
   const transition = rangeTransition(older.flag, newer.flag);
   if (transition) {
     const rng = rangeStr(newer.refLow, newer.refHigh);
-    text += ` ${transition}${rng !== "—" ? ` (${rng})` : ""}`;
+    text += ` — ${transition}${rng !== "—" ? ` ${rng}` : ""}`;
   }
-  text += ".";
 
   // rank: out-of-range first, then bigger relative moves
   const outOfRange = newer.flag === "high" || newer.flag === "low";
@@ -97,7 +105,7 @@ export function summarizeTrend(trend: Trend): SummaryRecord | null {
     displayName: trend.displayName,
     text,
     outOfRange,
-    changed: dir !== "beze změny",
+    changed: dir !== "flat",
     newFlag: newer.flag,
     older,
     newer,

@@ -41,31 +41,49 @@ describe("czNum", () => {
 describe("summarizeTrend", () => {
   it("describes a rise with its absolute and relative change", () => {
     const r = summarizeTrend(trend([pt("2024-01-01", 5.0, "normal"), pt("2025-01-01", 6.0, "high")]))!;
-    expect(r.text).toContain("vzrostlo z 5 na 6");
+    expect(r.text).toContain("5 → 6");
     expect(r.text).toContain("+1");
     expect(r.text).toContain("+20 %");
   });
 
+  it("uses no verb, so no analyte can disagree with it grammatically", () => {
+    // "Triacylglyceroly vzrostlo" (should be "vzrostly") was the failure this
+    // avoids: the subject comes from a 109-entry registry of mixed gender.
+    const r = summarizeTrend(
+      trend([pt("2024-01-01", 1.98, "normal"), pt("2025-01-01", 2.31, "high")], "Triacylglyceroly"),
+    )!;
+    for (const verb of ["vzrostlo", "kleslo", "vzrostly", "klesly", "vzrostla", "klesla"]) {
+      expect(r.text).not.toContain(verb);
+    }
+  });
+
   it("says a value has newly left the reference range", () => {
     const r = summarizeTrend(trend([pt("2024-01-01", 5.0, "normal"), pt("2025-01-01", 6.0, "high")]))!;
-    expect(r.text).toContain("je nad referenčním rozmezím");
+    expect(r.text).toContain("nově nad rozmezím");
     expect(r.outOfRange).toBe(true);
   });
 
   it("distinguishes staying out of range from newly leaving it", () => {
     const r = summarizeTrend(trend([pt("2024-01-01", 6.5, "high"), pt("2025-01-01", 7.0, "high")]))!;
-    expect(r.text).toContain("zůstává nad referenčním rozmezím");
+    expect(r.text).toContain("stále nad rozmezím");
   });
 
   it("says a value has returned into range", () => {
     const r = summarizeTrend(trend([pt("2024-01-01", 3.0, "low"), pt("2025-01-01", 5.0, "normal")]))!;
-    expect(r.text).toContain("je nyní v referenčním rozmezí");
+    expect(r.text).toContain("nově v rozmezí");
   });
 
-  it("treats a sub-1% move as no change", () => {
-    const r = summarizeTrend(trend([pt("2024-01-01", 5.0, "normal"), pt("2025-01-01", 5.004, "normal")]))!;
-    expect(r.text).toContain("beze změny");
+  it("does not claim 'no change' beside two visibly different numbers", () => {
+    const r = summarizeTrend(trend([pt("2024-01-01", 142, "normal", 137, 145), pt("2025-01-01", 141, "normal", 137, 145)]))!;
+    expect(r.text).toContain("prakticky beze změny");
+    expect(r.text).toContain("−1");
     expect(r.changed).toBe(false);
+  });
+
+  it("rounds the percentage to a whole number", () => {
+    const r = summarizeTrend(trend([pt("2024-01-01", 6.0, "high"), pt("2025-01-01", 7.0, "high")]))!;
+    expect(r.text).toContain("+17 %");
+    expect(r.text).not.toContain("16,67");
   });
 
   it("returns nothing when there is only one numeric result to compare", () => {

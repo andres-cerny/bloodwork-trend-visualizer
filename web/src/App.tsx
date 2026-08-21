@@ -92,6 +92,14 @@ export default function App() {
   );
 
   const chatContext = useMemo(() => buildChatContext(reports, trends), [reports, trends]);
+  // Analytes excluded from every trend. Without saying so, "Všechny (20)" reads
+  // as the complete picture while two measurements are quietly missing.
+  const unmappedCount = useMemo(
+    () => new Set(
+      reports.flatMap((r) => r.measurements.filter((m) => m.canonicalId === null).map((m) => m.rawAnalyteName)),
+    ).size,
+    [reports],
+  );
   const frozen = budget?.frozen ?? false;
   const patient = reports.find((r) => r.patientName)?.patientName;
 
@@ -129,7 +137,7 @@ export default function App() {
         <p className="muted">Načítám…</p>
       ) : (
         <>
-          {tab === "trends" && <TrendsTab trends={trends} />}
+          {tab === "trends" && <TrendsTab trends={trends} unmappedCount={unmappedCount} />}
           {tab === "summary" && <SummaryTab trends={trends} />}
           {tab === "verify" && (
             <VerifyTab reports={reports} onCorrect={correct} focus={focus} />
@@ -150,6 +158,7 @@ export default function App() {
             dataContext={chatContext}
             frozen={frozen}
             unlocked={unlocked}
+            available={Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY)}
             onBudget={setBudget}
           />
 

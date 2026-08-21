@@ -169,3 +169,22 @@ ul.evidence li { display: flex; gap: 8px; font-size: 0.82rem; }
 table.occ { margin-bottom: 4px; }
 button.btn.linkish { background: none; border: none; padding: 4px 0;
   color: var(--series-1); text-decoration: underline; font-size: 0.83rem; }
+
+/* A candidate contradicted by unit, material or magnitude recedes rather than
+   competing visually with a plausible one. */
+.cand-card.implausible { opacity: 0.72; border-style: dashed; }
+
+/* Verification ------------------------------------------------------------ */
+.marks { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-left: 6px; vertical-align: middle; }
+.marks .chip { margin-right: 0; }
+
+/* On a phone the source page is what the doctor jumped here to see, so once a
+   row is picked it comes first instead of sitting below a 22-row table. On a
+   wide screen the two panes sit side by side and order is irrelevant. */
+@media (max-width: 819px) {
+  .grid2.source-first { display: flex; flex-direction: column; }
+  .grid2.source-first .source-pane { order: 1; }
+  .grid2.source-first .table-pane { order: 2; }
+  /* The page image is the evidence — let it fill the width and be zoomable. */
+  .source-pane .srcimg img { max-width: none; width: 100%; }
+}

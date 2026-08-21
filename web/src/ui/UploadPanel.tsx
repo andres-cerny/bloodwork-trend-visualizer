@@ -203,8 +203,17 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         k přepisu. Limit ukázky: {maxPages} stran.
       </p>
 
-      {!SITE_KEY && <p className="err">Turnstile není nakonfigurován (VITE_TURNSTILE_SITE_KEY).</p>}
-      {!ready && <div ref={boxRef} />}
+      {/* A missing site key is a deployment condition, not a user error. The
+          old copy printed the environment-variable name in red, which reads as
+          a broken app to anyone who is not the person who deployed it. */}
+      {!SITE_KEY ? (
+        <p className="muted">
+          Nahrávání vlastních PDF není v této ukázce zapnuté. Ukázková data níže
+          fungují normálně.
+        </p>
+      ) : (
+        !ready && <div ref={boxRef} />
+      )}
 
       {ready && (
         <input

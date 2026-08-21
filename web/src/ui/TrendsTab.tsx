@@ -3,6 +3,7 @@ import Chart from "./Chart";
 import Flag from "./Flag";
 import { czNum } from "../lib/summary";
 import { numericPoints, type Trend } from "../lib/trends";
+import { count, plural } from "../lib/czech";
 
 /** Out-of-range latest result first — the rows a doctor scans for. */
 function sortTrends(trends: Trend[]): Trend[] {
@@ -19,7 +20,13 @@ function outNow(t: Trend): boolean {
   return !!last && (last.flag === "high" || last.flag === "low");
 }
 
-export default function TrendsTab({ trends }: { trends: Map<string, Trend> }) {
+export default function TrendsTab({
+  trends,
+  unmappedCount = 0,
+}: {
+  trends: Map<string, Trend>;
+  unmappedCount?: number;
+}) {
   const all = useMemo(() => sortTrends([...trends.values()]), [trends]);
   const [selected, setSelected] = useState<string>("");
 
@@ -31,6 +38,14 @@ export default function TrendsTab({ trends }: { trends: Map<string, Trend> }) {
   return (
     <>
       <div className="card">
+        {unmappedCount > 0 && (
+          <p className="sub" style={{ marginTop: 0 }}>
+            Pozor: {count(unmappedCount, "analyt se", "analyty se", "analytů se")}{" "}
+            {plural(unmappedCount, "nezobrazuje", "nezobrazují", "nezobrazuje")} — zatím
+            {plural(unmappedCount, " nemá", " nemají", " nemá")} přiřazený název. Najdete
+            {plural(unmappedCount, " ho", " je", " je")} v záložce <strong>Namapování</strong>.
+          </p>
+        )}
         <label htmlFor="analyte" className="sub" style={{ display: "block" }}>
           Analyt
         </label>

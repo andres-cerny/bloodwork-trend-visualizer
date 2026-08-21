@@ -19,6 +19,7 @@ import {
   type UnmappedAnalyte,
 } from "../lib/mapping";
 import { czNum } from "../lib/summary";
+import { count, czDate } from "../lib/czech";
 import type { Registry } from "../lib/registry";
 
 interface Props {
@@ -29,36 +30,54 @@ interface Props {
   onShowSource: (reportId: string, rawName: string) => void;
 }
 
-function Evidence({ c }: { c: Candidate }) {
+const MATERIAL_CS: Record<string, string> = {
+  s: "sérum", b: "plná krev", p: "plazma", u: "moč", pk: "plazma", fw: "krev",
+};
+const materialCs = (m: string) => MATERIAL_CS[m] ?? m.toUpperCase();
+
+function Evidence({ c, incomingUnit }: { c: Candidate; incomingUnit: string }) {
   const o = c.observed;
   return (
     <ul className="evidence">
-      <li>
-        <span className="ev-label">Název</span>
-        <span className="ev-val">{Math.round(c.nameSim * 100)} % podobnost</span>
-      </li>
       <li>
         <span className="ev-label">Jednotka</span>
         <span className={`ev-val ${c.unitMatch === false ? "bad" : ""}`}>
           {c.unitMatch === null
             ? "nelze porovnat"
             : c.unitMatch
-              ? `✔ shoduje se (${c.canonicalUnit || o?.unit})`
-              : `✘ liší se (${c.canonicalUnit || o?.unit || "?"})`}
+              ? `✔ obojí ${c.canonicalUnit || o?.unit}`
+              : `✘ ${incomingUnit || "?"} vs ${c.canonicalUnit || o?.unit || "?"}`}
         </span>
       </li>
+      {c.materialMatch !== null && (
+        <li>
+          <span className="ev-label">Materiál</span>
+          <span className={`ev-val ${c.materialMatch === false ? "bad" : ""}`}>
+            {c.materialMatch
+              ? `✔ obojí ${o?.materials.map(materialCs).join(", ")}`
+              : `✘ jiný materiál než ${o?.materials.map(materialCs).join(", ")}`}
+          </span>
+        </li>
+      )}
       <li>
         <span className="ev-label">Hodnoty</span>
         <span className={`ev-val ${c.valueOk === false ? "bad" : ""}`}>
           {c.valueOk === null
             ? "není s čím porovnat"
             : c.valueOk
-              ? "✔ v očekávaném rozsahu"
-              : "✘ mimo očekávaný rozsah"}
+              ? "✔ řádově odpovídají"
+              : c.incomingRange
+                ? `✘ ${czNum(c.incomingRange[0])}–${czNum(c.incomingRange[1])} vs ${czNum(o?.min)}–${czNum(o?.max)}`
+                : "✘ neodpovídají"}
         </span>
       </li>
     </ul>
   );
+}
+
+/** A candidate contradicted by unit, material or magnitude is not a near miss. */
+function isImplausible(c: Candidate): boolean {
+  return c.unitMatch === false || c.materialMatch === false || c.valueOk === false;
 }
 
 function ExistingData({ c }: { c: Candidate }) {
@@ -114,7 +133,7 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
           Tyto názvy zatím neznáme, takže se neobjeví v trendech. U každého vidíte,
           kde přesně se v dokumentech vyskytl a co tam bylo naměřeno, a u každého
           návrhu, jaká data už pod ním máme — abyste mohli posoudit, jestli jde
-          opravdu o totéž vyšetření. Počítáno lokálně, bez volání modelu.
+          opravdu o totéž vyšetření.
         </p>
       </div>
 
@@ -125,7 +144,8 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
           <div className="card" key={a.rawName}>
             <h3 style={{ marginBottom: 4 }}>{a.rawName}</h3>
             <p className="muted" style={{ margin: "0 0 10px" }}>
-              {a.unitRaw || "bez jednotky"} · {a.occurrences.length}× v dokumentech
+              {a.unitRaw && a.unitRaw.trim() !== "-" ? a.unitRaw : "bez jednotky"} ·{" "}
+              {count(a.occurrences.length, "výskyt", "výskyty", "výskytů")} v dokumentech
             </p>
 
             {/* Provenance: where it came from and what it read there. */}
@@ -141,7 +161,7 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
                 <tbody>
                   {a.occurrences.map((o, i) => (
                     <tr key={i}>
-                      <td>{o.date ?? "bez data"}<span className="muted"> · s. {o.page}</span></td>
+                      <td>{czDate(o.date)}<span className="muted"> · s. {o.page}</span></td>
                       <td className="num">
                         {o.valueRaw} <span className="muted">{a.unitRaw}</span>
                       </td>
@@ -164,21 +184,31 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
               <p className="muted">Žádný dostatečně podobný analyt v registru.</p>
             ) : (
               <ul className="cand-list">
-                {cands.map((c, i) => (
-                  <li key={c.canonicalId} className="cand-card">
-                    <div className="cand-top">
-                      <div>
-                        <strong>{c.displayName}</strong>
-                        {i === 0 && <span className="chip best">nejlepší shoda</span>}
+                {cands.map((c, i) => {
+                  const bad = isImplausible(c);
+                  return (
+                    <li key={c.canonicalId} className={`cand-card${bad ? " implausible" : ""}`}>
+                      <div className="cand-top">
+                        <div>
+                          <strong>{c.displayName}</strong>
+                          {i === 0 && !bad && <span className="chip best">nejlepší shoda</span>}
+                          {bad && <span className="chip alert">nedoporučujeme</span>}
+                        </div>
+                        {/* A contradicted candidate keeps a quiet button. An
+                            identical black button beside a red warning invites
+                            the click it is warning against. */}
+                        <button
+                          className={bad ? "btn" : "btn primary"}
+                          onClick={() => onMap(a.rawName, c.canonicalId)}
+                        >
+                          Namapovat{bad ? " přesto" : ""}
+                        </button>
                       </div>
-                      <button className="btn primary" onClick={() => onMap(a.rawName, c.canonicalId)}>
-                        Namapovat
-                      </button>
-                    </div>
-                    <ExistingData c={c} />
-                    <Evidence c={c} />
-                  </li>
-                ))}
+                      <ExistingData c={c} />
+                      <Evidence c={c} incomingUnit={a.unitRaw} />
+                    </li>
+                  );
+                })}
               </ul>
             )}
 

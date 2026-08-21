@@ -61,11 +61,14 @@ export function reconcile(reads: RawRead[]): Measurement[] {
   const total = reads.length;
   const out: Measurement[] = [];
   for (const { m, models, values } of byKey.values()) {
+    // Say what the readings were, not which program produced them. A model id
+    // tells a clinician nothing; two conflicting numbers side by side tell
+    // them exactly what to check on the page.
     let disagreement: string | null = null;
     if (values.size > 1) {
-      disagreement = `modely přečetly různé hodnoty: ${[...values].join(" / ")}`;
+      disagreement = `dvě nezávislá čtení se liší: ${[...values].join(" / ")}`;
     } else if (total > 1 && models.size < total) {
-      disagreement = `řádek viděl jen ${[...models].join(", ")}`;
+      disagreement = "řádek našlo jen jedno ze dvou čtení";
     }
     out.push(normalizeMeasurement({ ...m, disagreement, escalated: total > 1 }));
   }

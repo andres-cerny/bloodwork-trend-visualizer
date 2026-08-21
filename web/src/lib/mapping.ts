@@ -33,6 +33,8 @@ export interface UnmappedAnalyte {
 export interface Observed {
   count: number;
   unit: string;
+  /** Material prefixes seen on this analyte's printed names: S_, B_, U_, P_. */
+  materials: string[];
   min: number | null;
   max: number | null;
   mean: number | null;
@@ -49,8 +51,22 @@ export interface Candidate {
   nameSim: number;
   unitMatch: boolean | null;
   valueOk: boolean | null;
+  /** False when the printed material differs (urine vs serum, say). */
+  materialMatch: boolean | null;
   canonicalUnit: string;
   observed: Observed | null;
+  /** Populated when valueOk is false, so the UI can show the two ranges. */
+  incomingRange: [number, number] | null;
+}
+
+/**
+ * The material a Czech lab prints before the analyte name: S_ (sérum),
+ * B_ (plná krev), P_ (plazma), U_ (moč). Mapping a urine result onto a serum
+ * analyte is a different test, not a synonym, however similar the names look.
+ */
+export function materialPrefix(rawName: string): string | null {
+  const m = /^([a-zA-Z]{1,4})_/.exec((rawName || "").trim());
+  return m ? m[1].toLowerCase() : null;
 }
 
 export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
@@ -80,18 +96,23 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
 
 /** Per-canonical-id evidence from measurements that are already mapped. */
 export function observedStats(reports: LabReport[]): Map<string, Observed> {
-  const acc = new Map<string, { values: number[]; units: Map<string, number>; dates: Set<string> }>();
+  const acc = new Map<
+    string,
+    { values: number[]; units: Map<string, number>; dates: Set<string>; materials: Set<string> }
+  >();
   for (const r of reports) {
     for (const m of r.measurements) {
       if (m.canonicalId === null) continue;
       let e = acc.get(m.canonicalId);
       if (!e) {
-        e = { values: [], units: new Map(), dates: new Set() };
+        e = { values: [], units: new Map(), dates: new Set(), materials: new Set() };
         acc.set(m.canonicalId, e);
       }
       if (m.value !== null) e.values.push(m.value);
       if (m.unit) e.units.set(m.unit, (e.units.get(m.unit) ?? 0) + 1);
       if (r.reportDate) e.dates.add(r.reportDate);
+      const mat = materialPrefix(m.rawAnalyteName);
+      if (mat) e.materials.add(mat);
     }
   }
 
@@ -102,6 +123,7 @@ export function observedStats(reports: LabReport[]): Map<string, Observed> {
     out.set(cid, {
       count: e.values.length,
       unit,
+      materials: [...e.materials].sort(),
       min: e.values.length ? Math.min(...e.values) : null,
       max: e.values.length ? Math.max(...e.values) : null,
       mean: e.values.length ? e.values.reduce((s, v) => s + v, 0) / e.values.length : null,
@@ -167,14 +189,33 @@ export function suggestMappings(
       score += unitMatch ? 0.2 : -0.25;
     }
 
-    // Plausibility: would this value sit anywhere near what the candidate has
-    // already recorded? Slack is generous because one analyte legitimately
-    // moves a long way between samples.
+    // Plausibility, as a ratio rather than an additive window.
+    //
+    // The previous additive slack (max(range, |max|)) widened the accepted
+    // window to roughly -61..784 for an analyte observed at 331..392, so a
+    // value of 14 passed as plausible and the UI showed a green tick on a
+    // clinically wrong mapping. A ratio test is what actually matters here:
+    // the same analyte moves within an order of magnitude between samples,
+    // and a different analyte is usually orders away.
     let valueOk: boolean | null = null;
+    let incomingRange: [number, number] | null = null;
     if (meanV !== null && observed && observed.min !== null && observed.max !== null) {
-      const slack = Math.max(observed.max - observed.min, Math.abs(observed.max), 1e-9);
-      valueOk = observed.min - slack <= meanV && meanV <= observed.max + slack;
-      score += valueOk ? 0.1 : -0.2;
+      incomingRange = [Math.min(...values), Math.max(...values)];
+      // Signs must agree before a ratio means anything.
+      if (meanV <= 0 || observed.min <= 0) {
+        valueOk = observed.min - Math.abs(observed.max) <= meanV && meanV <= observed.max + Math.abs(observed.max);
+      } else {
+        valueOk = meanV >= observed.min / 3 && meanV <= observed.max * 3;
+      }
+      score += valueOk ? 0.1 : -0.35;
+    }
+
+    // Material: a urine result is not a serum result, whatever the names do.
+    const incomingMaterial = materialPrefix(analyte.rawName);
+    let materialMatch: boolean | null = null;
+    if (incomingMaterial && observed && observed.materials.length > 0) {
+      materialMatch = observed.materials.includes(incomingMaterial);
+      score += materialMatch ? 0.05 : -0.4;
     }
 
     if (score >= 0.45) {
@@ -185,8 +226,10 @@ export function suggestMappings(
         nameSim,
         unitMatch,
         valueOk,
+        materialMatch,
         canonicalUnit: a.canonicalUnit,
         observed,
+        incomingRange: valueOk === false ? incomingRange : null,
       });
     }
   }

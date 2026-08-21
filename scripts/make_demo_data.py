@@ -81,6 +81,25 @@ QA_MARKS: dict[int, list[tuple[int, str]]] = {
 }
 
 
+def _nudge(value: str) -> str:
+    """A plausible misreading of a printed value, for the demo's QA flags.
+
+    Shifts one digit rather than inventing an unrelated number — a real
+    disagreement between two reads looks like a confusable glyph, not noise.
+    """
+    digits = [i for i, c in enumerate(value) if c.isdigit()]
+    if not digits:
+        return value
+    i = digits[-1]
+    # Confusable pairs, and never a no-op: a "disagreement" showing the same
+    # number twice is worse than no flag at all.
+    swapped = {"0": "8", "1": "7", "2": "7", "3": "8", "4": "9",
+               "5": "6", "6": "5", "7": "1", "8": "3", "9": "4"}
+    replacement = swapped[value[i]]
+    assert replacement != value[i]
+    return value[:i] + replacement + value[i + 1:]
+
+
 def cz_date(iso: str) -> str:
     y, m, d = iso.split("-")
     return f"{int(d)}.{int(m)}.{y}"
@@ -164,18 +183,35 @@ def main() -> None:
 
             kind = marks.get(mi)
             if kind == "disagreement":
-                m.disagreement = "claude-opus-4-8 přečetl jinou hodnotu"
+                # Show both readings. A flag that says only "the models
+                # disagreed" gives a reader nothing to check against.
+                other = _nudge(value)
+                m.disagreement = f"dvě nezávislá čtení se liší: {value} / {other}"
                 m.escalated = True
             elif kind == "low":
                 m.confidence = "low"
 
-            # Same text-layer lookup src/locate.py performs, scaled to pixels.
+            # Same text-layer lookup src/locate.py performs, scaled to pixels
+            # — but spanning the whole printed row, not just the analyte name.
+            # A doctor verifying a result is checking the number; a box drawn
+            # around the word "Homocystein" frames the one part they already
+            # believe.
             rects = pg.search_for(name)
             bbox = None
             if rects:
-                r = sorted(rects, key=lambda r: r.y0)[0]
-                bbox = [round(r.x0 * zoom, 1), round(r.y0 * zoom, 1),
-                        round(r.x1 * zoom, 1), round(r.y1 * zoom, 1)]
+                r = sorted(rects, key=lambda rr: rr.y0)[0]
+                x0, y0, x1, y1 = r.x0, r.y0, r.x1, r.y1
+                for other in (value, unit, ref):
+                    if not other or not other.strip():
+                        continue
+                    for cand in pg.search_for(other.strip()):
+                        # Same printed line, to the right of the name.
+                        if abs(cand.y0 - r.y0) <= 3 and cand.x0 >= r.x0:
+                            x1 = max(x1, cand.x1)
+                            y0 = min(y0, cand.y0)
+                            y1 = max(y1, cand.y1)
+                bbox = [round(x0 * zoom, 1), round(y0 * zoom, 1),
+                        round(x1 * zoom, 1), round(y1 * zoom, 1)]
 
             d = m.to_dict()
             measurements.append({

@@ -39,6 +39,8 @@ export interface Measurement {
 
   /** Precomputed at build time (src/locate.py) or derived from pdf.js. */
   bbox: Box | null;
+  /** The machine transcription, kept so a correction can always be undone. */
+  originalValueRaw: string | null;
 }
 
 export interface Page {
@@ -91,6 +93,7 @@ export function makeMeasurement(raw: RawMeasurement): Measurement {
     disagreement: null,
     corrected: false,
     bbox: null,
+    originalValueRaw: null,
     ...raw,
   };
 }
