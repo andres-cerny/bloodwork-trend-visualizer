@@ -26,7 +26,11 @@ Built and tested — **88 tests pass** (`npm test`):
 | Chart axis | `web/tests/chart.test.ts` | Round tick values |
 | Worker routes | `worker/tests/routes.test.ts` | Session gate, path selection, and the budget freeze |
 | Session tokens | `worker/tests/auth.test.ts` | Forgery, wrong secret, expiry |
-| Spend ledger | `worker/tests/budget.test.ts` | Shard accumulation, freeze boundary, pricing |
+| Spend ledger | `worker/tests/budget.test.ts` | Shard accumulation, freeze boundary, cache-token pricing |
+| Misread detection | `web/tests/implausible.test.ts` | A decimal slip caught; a real extreme left alone |
+| Mapping evidence | `web/tests/mapping.test.ts` | Value plausibility, material mismatch, provenance |
+| Cross-language parity | `tests/test_parity.py` + `web/tests/parity.test.ts` | **Both** read `tests/parity_cases.json` |
+| Strategy benchmark | `web/tests/bench/plausibility.bench.test.ts` | Scores the plausibility detectors against each other |
 
 Also built: the SPA with all four tabs, chat, Turnstile-gated upload,
 text-layer extraction for digital PDFs with a vision fallback for scans, and a
@@ -77,16 +81,50 @@ VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA
 
 Then `npx wrangler dev` serves the whole thing including the API routes.
 
+## The parsing layer exists twice — keep it in step
+
+`src/normalize.py` and `web/src/lib/normalize.ts` implement the same rules.
+`tests/parity_cases.json` is read by tests on both sides, so changing one
+without the other fails. **To change a parsing rule: edit the fixture first,
+then make both implementations satisfy it.** CI (`.github/workflows/test.yml`)
+runs both suites plus a check that regenerating the demo data produces no diff.
+
+## Where plausibility numbers come from
+
+Three separate things use ranges, and confusing them causes real harm:
+
+| Purpose | Source | File |
+|---|---|---|
+| Is this result abnormal? | The interval printed on the patient's own report | `src/normalize.py` / `normalize.ts` |
+| Is this the same analyte? | Curated table, then printed intervals, then observed values | `web/src/lib/mapping.ts` |
+| Is this number even possible? | Curated table, else the printed interval | `web/src/lib/implausible.ts` |
+
+`scripts/reference_ranges.json` holds the curated intervals. **They are seeded
+from commonly published adult values and are NOT verified against a Czech
+clinical source** — check them against ČSKB recommendations or a lab handbook
+before relying on them beyond a demo. They are only ever used to tell analytes
+apart and to spot a misread; a result is never flagged normal or abnormal from
+them.
+
+The benchmark comparing the strategies is
+`web/tests/bench/plausibility.bench.test.ts` — run it after changing any of
+this. On its current cases: observed values 8/15 with 7 false accepts, printed
+intervals 12/15, the curated table 15/15.
+
 ## A clinician reviewed the UI
 
-Two rounds of subagent evaluation role-playing Czech doctors drove the built
-app and reported what a clinician could not use. Round one found a genuine
-correctness bug — the mapping plausibility check accepted anything, so the UI
-put a green tick on merging homocysteine with uric acid — plus Czech grammar
-errors, negative axes on quantities that cannot be negative, unvalidated and
-irreversible corrections, and a mobile verification tab that hid exactly the
-rows needing review. All were fixed; see the commit "Act on a clinician's
-evaluation of the UI".
+Rounds of subagent evaluation role-playing Czech doctors drove the built app
+and reported what a clinician could not use. Between them they caught things no
+test would have:
+
+- The mapping plausibility check accepted anything, so the UI showed a green
+  tick recommending homocysteine be merged with uric acid.
+- On mobile the source highlight pointed at the **wrong row** — the one feature
+  meant to prove the numbers was telling the reader something untrue.
+- Correcting a value and undoing it laundered a disputed row into a clean one.
+- The x axis was not time, so a three-year gap drew like a six-month one.
+- "Triacylglyceroly vzrostlo" — Czech verb agreement, across a 109-entry
+  registry of mixed gender.
 
 If you change the UI, it is worth repeating: spawn a subagent, tell it to
 role-play a Czech doctor who has never seen the app, point it at
