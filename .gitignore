@@ -29,3 +29,6 @@ web/public/demo/real/
 
 # macOS venv (the checked-in .venv layout is Windows-only)
 .venv-mac/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

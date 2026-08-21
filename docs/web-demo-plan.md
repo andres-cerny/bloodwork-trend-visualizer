@@ -3,9 +3,13 @@
 Plan for publishing the bloodwork visualizer as a link-shareable demo that works
 on phone and desktop, hosted on Cloudflare with no custom domain.
 
-Status: **built**. Phases 1–5 are implemented on `claude/web-app-demo-hosting-ymbgkc`;
-phase 6 (deploy) needs Cloudflare credentials — see [deploy.md](deploy.md).
-`main` is untouched.
+Status: **shipped and live** at https://bloodwork-demo.andres-cerny.workers.dev
+
+This document is kept as the record of *why* the design went the way it did —
+the alternatives weighed, and what each decision was protecting against. It is
+no longer a plan to work through. For what must not be broken see
+[constraints.md](constraints.md); for the UI see
+[design-notes.md](design-notes.md).
 
 ## Goal
 

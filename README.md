@@ -75,17 +75,27 @@ re-billed.
 
 ## Web demo (Cloudflare)
 
-A shareable version of this tool runs as a static SPA plus one Worker — see
-**[docs/deploy.md](docs/deploy.md)** to deploy it,
-**[docs/web-demo-plan.md](docs/web-demo-plan.md)** for the design, and
-**[HANDOFF.md](HANDOFF.md)** for what still needs testing against real PDFs.
+A shareable version of this tool runs as a static SPA plus one Worker.
+**Live: https://bloodwork-demo.andres-cerny.workers.dev**
 
 ```sh
 npm install
-npm run dev        # SPA against the pre-baked demo data
-npm test           # parity tests for the TypeScript port
-npm run deploy     # build + push to Cloudflare
+npm run dev          # SPA against the pre-baked demo data — no key needed
+npm test             # 199 unit tests (TS) — no key, no browser
+npm run test:e2e     # the built app driven in a real browser
+npm run test:live    # real extraction through Claude (~$0.10, needs a key)
+npm run deploy       # build, check the bundle, push to Cloudflare
 ```
+
+Also `python3 tests/test_parity.py` — 58 cases run through **both** the Python
+and TypeScript parsing implementations, which must agree.
+
+| Read this | For |
+|---|---|
+| [docs/constraints.md](docs/constraints.md) | Invariants that break something real if changed blindly |
+| [docs/design-notes.md](docs/design-notes.md) | Why the UI looks as it does; what a clinician could not use |
+| [docs/deploy.md](docs/deploy.md) | KV, Turnstile, secrets, the spend ceiling |
+| [docs/web-demo-plan.md](docs/web-demo-plan.md) | The original design and why each decision went that way |
 
 The site opens on a **pre-baked synthetic dataset** — no API calls, no real
 patient — and offers live upload on top of it, gated by Cloudflare Turnstile.
