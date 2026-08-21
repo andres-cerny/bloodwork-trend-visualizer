@@ -148,6 +148,30 @@ export default function App() {
     [registry],
   );
 
+  /**
+   * Withdraw a mapping just accepted.
+   *
+   * Symmetrical with acceptMapping: the synonym is unlearned and every
+   * measurement carrying that raw name goes back to unmapped, so the analyte
+   * reappears on this screen exactly as it was.
+   */
+  const undoMapping = useCallback(
+    (rawName: string, canonicalId: string) => {
+      if (!registry) return;
+      registry.removeSynonym(canonicalId, rawName);
+      setReports((prev) =>
+        prev.map((r) => ({
+          ...r,
+          measurements: r.measurements.map((m) =>
+            m.rawAnalyteName === rawName ? { ...m, canonicalId: null } : m,
+          ),
+        })),
+      );
+      setRegistryVersion((v) => v + 1);
+    },
+    [registry],
+  );
+
   /** Open the verification tab on a specific transcribed row. */
   const showSource = useCallback((reportId: string, rawName: string) => {
     setFocus({ reportId, rawName, seq: Date.now() });
@@ -390,6 +414,7 @@ export default function App() {
                   reports={reports}
                   registry={registry}
                   onMap={acceptMapping}
+                  onUndoMap={undoMapping}
                   onShowSource={showSource}
                 />
               )}

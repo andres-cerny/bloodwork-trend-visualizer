@@ -5,7 +5,15 @@
  * be right even when the score is close.
  */
 import { describe, expect, it } from "vitest";
-import { findUnmapped, materialPrefix, observedStats, suggestMappings } from "../src/lib/mapping";
+import {
+  findUnmapped,
+  isImplausible,
+  materialPrefix,
+  observedStats,
+  signalsOf,
+  suggestMappings,
+  verdictOf,
+} from "../src/lib/mapping";
 import { makeMeasurement, type AnalyteDef, type LabReport } from "../src/lib/models";
 import { normalizeMeasurement } from "../src/lib/normalize";
 import { Registry } from "../src/lib/registry";
@@ -32,12 +40,19 @@ const report = (id: string, date: string, ms: ReturnType<typeof m>[]): LabReport
   measurements: ms,
 });
 
-const def = (id: string, name: string, unit: string, syn: string[] = []): AnalyteDef => ({
+const def = (
+  id: string,
+  name: string,
+  unit: string,
+  syn: string[] = [],
+  referenceRange?: [number, number],
+): AnalyteDef => ({
   canonicalId: id,
   displayNameCs: name,
   synonyms: syn,
   canonicalUnit: unit,
   unitConversions: {},
+  ...(referenceRange ? { referenceRange } : {}),
 });
 
 const REPORTS = [
@@ -265,5 +280,132 @@ describe("name similarity is a necessary condition", () => {
     const c = suggestMappings(u, new Registry([def("glukoza", "Glukóza", "mmol/l")]),
       observedStats(reports), 5).find((x) => x.canonicalId === "glukoza");
     expect(c?.nameWeak).toBe(false);
+  });
+});
+
+describe("the verdict a candidate is presented under", () => {
+  /** The one place a wrong mapping gets made is the promoted recommendation. */
+  const candidateFor = (reports: LabReport[], defs: AnalyteDef[], cid: string) => {
+    const [u] = findUnmapped(reports);
+    const cands = suggestMappings(u, new Registry(defs), observedStats(reports), 5);
+    return { u, c: cands.find((x) => x.canonicalId === cid)! };
+  };
+
+  it("calls a candidate contradicted when the reference intervals disagree", () => {
+    // This is the regression that mattered: rangeMatch carries the largest
+    // weight in the scorer (-0.6) and was the one signal isImplausible did
+    // not consult, so a candidate the algorithm had all but rejected could
+    // still be promoted as the clean best match with no warning on it.
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Celková bílkovina", "72", "g/l", "(64-83)", "bilkovina"),
+        m("U_Bílkovina", "0,15", "g/l", "(0-0,15)", null),
+      ]),
+    ];
+    const { c } = candidateFor(reports, [def("bilkovina", "Celková bílkovina", "g/l")], "bilkovina");
+    expect(c.rangeMatch).toBe(false);
+    expect(isImplausible(c)).toBe(true);
+    expect(verdictOf(c)).toBe("contradicted");
+  });
+
+  it("lets the reference interval alone contradict a candidate", () => {
+    // The case the old test could not see: total and conjugated bilirubin
+    // share a unit, a material and most of a name, and there is no history
+    // under the candidate to compare magnitudes against. Every other signal
+    // is agreeing or silent. Only the printed intervals — 3–21 against 0–5 —
+    // say these are different tests, and before rangeMatch was consulted
+    // this candidate was promoted as the clean best match.
+    const reports = [
+      report("r1", "2024-01-01", [m("S_Bilirubin celkový", "12", "µmol/l", "(3-21)", null)]),
+    ];
+    const { c } = candidateFor(
+      reports,
+      [def("bilirubin_konjugovany", "Bilirubin konjugovaný", "µmol/l", [], [0, 5])],
+      "bilirubin_konjugovany",
+    );
+    expect(c.nameWeak, "the names are close enough to look right").toBe(false);
+    expect(c.unitMatch, "the units agree").toBe(true);
+    expect(c.valueOk, "no history to compare magnitudes against").toBeNull();
+    expect(c.materialMatch, "no material recorded for the candidate").toBeNull();
+    expect(c.rangeMatch, "the intervals are the only objection").toBe(false);
+
+    expect(isImplausible(c)).toBe(true);
+    expect(verdictOf(c)).toBe("contradicted");
+  });
+
+  it("recommends only when something actually corroborates", () => {
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
+        m("S_Glukosa", "5,30", "mmol/l", "(4,11-5,60)", null),
+      ]),
+    ];
+    const { c } = candidateFor(reports, [def("glukoza", "Glukóza", "mmol/l")], "glukoza");
+    expect(verdictOf(c)).toBe("recommended");
+  });
+
+  it("separates 'nothing known' from 'checked and agrees'", () => {
+    // No unit printed, no interval printed, no history under the candidate:
+    // nothing contradicts it and nothing supports it either. Offering that
+    // under the same word as a corroborated match is how a guess gets
+    // accepted as a finding.
+    const reports = [
+      report("r1", "2024-01-01", [m("Glukosa", "5,30", "", "", null)]),
+    ];
+    const { c } = candidateFor(reports, [def("glukoza", "Glukóza", "")], "glukoza");
+    expect(c.unitMatch).toBeNull();
+    expect(c.rangeMatch).toBeNull();
+    expect(c.valueOk).toBeNull();
+    expect(verdictOf(c)).toBe("possible");
+  });
+});
+
+describe("the evidence the screen renders", () => {
+  it("always carries the reference interval, the strongest signal", () => {
+    // It was computed, weighted and unit-tested, and never shown: the doctor
+    // saw name, unit, material and magnitude but not the one comparison the
+    // ranking leaned on hardest.
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
+        m("S_Glukosa", "5,30", "mmol/l", "(4,11-5,60)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("glukoza", "Glukóza", "mmol/l")]),
+      observedStats(reports), 5)[0];
+    const sig = signalsOf(c, u).find((s) => s.key === "range");
+    expect(sig).toBeDefined();
+    expect(sig!.state).toBe("ok");
+    expect(sig!.detail).toContain("4,11–5,6");
+  });
+
+  it("names the material even when there is nothing to compare it against", () => {
+    // A urine reading mapped onto a serum analyte is a different test. When
+    // the candidate has no history yet the comparison is impossible — but
+    // staying silent hid the fact that the reading came from urine at all.
+    const reports = [report("r1", "2024-01-01", [m("U_Bílkovina", "0,15", "g/l", "(0-0,15)", null)])];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("bilkovina", "Celková bílkovina", "g/l")]),
+      observedStats(reports), 5)[0];
+    const sig = signalsOf(c, u).find((s) => s.key === "material");
+    expect(sig, "no material line at all").toBeDefined();
+    expect(sig!.state).toBe("unknown");
+    expect(sig!.detail).toContain("moč");
+  });
+
+  it("says which side a mismatched unit came from", () => {
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Celková bílkovina", "72", "g/l", "(64-83)", "bilkovina"),
+        m("U_Bílkovina", "negativní", "-", "", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("bilkovina", "Celková bílkovina", "g/l")]),
+      observedStats(reports), 5)[0];
+    const sig = signalsOf(c, u).find((s) => s.key === "unit")!;
+    expect(sig.state).toBe("bad");
+    expect(sig.detail).toContain("g/l");
   });
 });

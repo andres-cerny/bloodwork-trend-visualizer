@@ -17,69 +17,21 @@
  * Needs Chromium. If Playwright cannot find one, run:
  *   npx playwright install chromium
  */
-import { spawn, type ChildProcess } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chromium, type Browser, type Page } from "playwright";
+import type { Page } from "playwright";
+import { DESKTOP, MOBILE, startApp, type Harness } from "./lib/harness";
 
-const PORT = Number(process.env.E2E_PORT ?? 4300);
-const BASE = `http://localhost:${PORT}/`;
-const MOBILE = { width: 390, height: 844 };
-const DESKTOP = { width: 1200, height: 900 };
-
-let server: ChildProcess;
-let browser: Browser;
-
-async function waitForServer(url: string, timeoutMs = 60_000) {
-  const started = Date.now();
-  for (;;) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return;
-    } catch {
-      /* not up yet */
-    }
-    if (Date.now() - started > timeoutMs) throw new Error(`server never came up at ${url}`);
-    await new Promise((r) => setTimeout(r, 400));
-  }
-}
+let app: Harness;
 
 beforeAll(async () => {
-  // Serve the built app, so this tests what would actually be deployed rather
-  // than the dev server's transformed output.
-  server = spawn("npx", ["vite", "preview", "--port", String(PORT)], {
-    stdio: "ignore",
-    detached: false,
-  });
-  await waitForServer(BASE);
-  browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM_PATH || undefined,
-  });
-});
+  app = await startApp(Number(process.env.E2E_PORT ?? 4300));
+}, 120_000);
 
 afterAll(async () => {
-  await browser?.close();
-  server?.kill();
+  await app?.stop();
 });
 
-/**
- * Open the app and wait until it has rendered its own data.
- *
- * NOT `waitUntil: "networkidle"`. When a Turnstile site key is configured the
- * upload panel embeds Cloudflare's widget, which holds a blob request open for
- * the life of the page — the network is never idle, so every navigation times
- * out after 30s and the whole suite fails for a reason that has nothing to do
- * with the app. Waiting for the app's own first render is both faster and the
- * thing actually being asserted.
- */
-async function open(viewport: { width: number; height: number }): Promise<Page> {
-  const page = await browser.newPage({ viewport, deviceScaleFactor: 2 });
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto(BASE, { waitUntil: "load" });
-  await page.waitForSelector(".patient-bar", { timeout: 15_000 });
-  (page as any).__errors = errors;
-  return page;
-}
+const open = (viewport: { width: number; height: number }) => app.open(viewport);
 
 const tab = (page: Page, name: string) => page.getByRole("tab", { name });
 
@@ -446,26 +398,117 @@ describe("a correction re-derives everything", () => {
   });
 });
 
-describe("mapping explains itself", () => {
-  it("shows where an unmapped value came from and what it would join", async () => {
+describe("mapping leads with the decision", () => {
+  const openMapping = async () => {
     const page = await open(DESKTOP);
     await tab(page, "🗂️ Přiřazení názvů").click();
-    await page.waitForTimeout(300);
-    const card = page.locator(".card", { hasText: "S_Homocystein tot." }).first();
-    const cardText = (await card.innerText()).trim();
-    expect(cardText).toContain("8. 2. 2022");
-    expect(cardText).toContain("10,6");
-    expect((await card.locator(".cand-card").first().innerText())).toContain("Homocystein");
+    await page.waitForTimeout(400);
+    return page;
+  };
+
+  const cardFor = (page: Page, rawName: string) =>
+    page.locator(".map-card", { hasText: rawName }).first();
+
+  it("shows where an unmapped value came from and what it would join", async () => {
+    const page = await openMapping();
+    const card = cardFor(page, "S_Homocystein tot.");
+    expect(await card.locator(".cand-card.featured").innerText()).toContain("Homocystein");
+
+    // Provenance is one click away rather than in front of the decision.
+    await card.locator(".occ-details > summary").click();
+    await page.waitForTimeout(250);
+    const occ = await card.locator("table.occ").innerText();
+    expect(occ).toContain("8. 2. 2022");
+    expect(occ).toContain("10,6");
     await page.close();
   });
 
-  it("marks a candidate it does not recommend", async () => {
-    const page = await open(DESKTOP);
-    await tab(page, "🗂️ Přiřazení názvů").click();
-    await page.waitForTimeout(300);
-    const bad = page.locator(".cand-card.implausible").first();
+  it("shows the reference interval it ranked on", async () => {
+    // The strongest signal in the scorer, and for a long time the only one
+    // the screen did not render: the reader saw the ranking but not the
+    // comparison it leaned on hardest.
+    const page = await openMapping();
+    const sig = cardFor(page, "S_Homocystein tot.").locator(".cand-card.featured .sig", {
+      hasText: "Referenční rozmezí",
+    });
+    expect(await sig.count(), "no reference-interval row").toBe(1);
+    expect(await sig.innerText()).toContain("5–15");
+    expect(await sig.getAttribute("class")).toContain("sig-ok");
+    await page.close();
+  });
+
+  it("refuses to promote a candidate the evidence contradicts", async () => {
+    // U_Bílkovina is a urine protein; every candidate is a serum analyte with
+    // a different unit. Promoting the least-bad of them put a filled accept
+    // button on a mapping the algorithm had already rejected.
+    const page = await openMapping();
+    const card = cardFor(page, "U_Bílkovina");
+    expect(await card.locator(".cand-card.featured").count(), "a contradicted candidate was promoted").toBe(0);
+    expect(await card.locator(".no-lead").innerText()).toContain("Žádný návrh neobstál");
+
+    // Still reachable, still marked, and the accept button is the quiet one.
+    await card.getByRole("button", { name: /Další návrhy/ }).click();
+    await page.waitForTimeout(250);
+    const bad = card.locator(".cand-card.implausible").first();
     expect(await bad.count()).toBeGreaterThan(0);
-    expect(await bad.getByRole("button").innerText()).toContain("přesto");
+    expect(await bad.innerText()).toContain("nedoporučujeme");
+    const btn = bad.getByRole("button", { name: /Přiřadit/ });
+    expect(await btn.innerText()).toContain("přesto");
+    expect(await btn.getAttribute("class"), "the warned-against button must not be the accent one")
+      .not.toContain("primary");
+    await page.close();
+  });
+
+  it("can reach an analyte the suggester never offered", async () => {
+    // The only options used to be the top three guesses. When the right
+    // analyte was not among them there was no way to say so.
+    const page = await openMapping();
+    const card = cardFor(page, "U_Bílkovina");
+    await card.getByRole("button", { name: "Vybrat jiný analyt…" }).click();
+    await page.waitForTimeout(250);
+    await page.getByLabel("Hledat analyt").fill("ferrit");
+    await page.waitForTimeout(200);
+    const item = page.locator(".picker-item", { hasText: "Ferritin" }).first();
+    expect(await item.count(), "the full registry is not reachable").toBe(1);
+    await item.click();
+    await page.waitForTimeout(400);
+
+    expect(await textOf(page, ".undo-banner")).toContain("Ferritin");
+    expect(await page.locator(".map-card", { hasText: "U_Bílkovina" }).count()).toBe(0);
+    await page.close();
+  });
+
+  it("puts an accepted mapping back on one click", async () => {
+    // Accepting merges one analyte's history into another's, where it then
+    // looks like it always belonged. Without a way back a misclick is
+    // permanent for the session and invisible afterwards.
+    const page = await openMapping();
+    await cardFor(page, "S_Homocystein tot.")
+      .locator(".cand-card.featured")
+      .getByRole("button", { name: "Přiřadit" })
+      .click();
+    await page.waitForTimeout(400);
+    expect(await page.locator(".map-card", { hasText: "S_Homocystein tot." }).count()).toBe(0);
+
+    await page.getByRole("button", { name: "Vrátit zpět" }).click();
+    await page.waitForTimeout(400);
+    expect(
+      await page.locator(".map-card", { hasText: "S_Homocystein tot." }).count(),
+      "undo did not bring the analyte back",
+    ).toBe(1);
+    await page.close();
+  });
+
+  it("counts what is left to decide", async () => {
+    const page = await openMapping();
+    expect(await textOf(page, ".count-chip")).toContain("2");
+    await cardFor(page, "U_Bílkovina").getByRole("button", { name: "Nechat nepřiřazené" }).click();
+    await page.waitForTimeout(300);
+    expect(await textOf(page, ".count-chip")).toContain("1");
+    // innerText returns the text-transform: uppercase form of a section title.
+    expect((await textOf(page, ".held-card summary")).toLowerCase()).toContain(
+      "ponechané bez přiřazení (1)",
+    );
     await page.close();
   });
 });

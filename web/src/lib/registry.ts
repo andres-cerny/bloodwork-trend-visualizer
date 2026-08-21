@@ -30,6 +30,8 @@ export function normKey(name: string): string {
 export class Registry {
   readonly analytes = new Map<string, AnalyteDef>();
   private index = new Map<string, string>();
+  /** `canonicalId\u0000rawName` for every synonym taught by the UI. */
+  private learned = new Set<string>();
 
   constructor(analytes: AnalyteDef[]) {
     for (const a of analytes) this.addAnalyte(a);
@@ -59,9 +61,42 @@ export class Registry {
   addSynonym(canonicalId: string, rawName: string): void {
     const a = this.analytes.get(canonicalId);
     if (!a) return;
-    if (!a.synonyms.includes(rawName)) a.synonyms.push(rawName);
+    if (!a.synonyms.includes(rawName)) {
+      a.synonyms.push(rawName);
+      this.learned.add(`${canonicalId}\u0000${rawName}`);
+    }
     const k = normKey(rawName);
     if (k) this.index.set(k, canonicalId);
+  }
+
+  /**
+   * Forget a synonym taught by a mapping acceptance.
+   *
+   * Accepting a mapping merges one analyte's history into another's, and it
+   * takes two clicks. Without a way back, a misclick is permanent for the
+   * session and — worse — invisible afterwards, because the merged rows now
+   * look like they always belonged. Only synonyms this registry learned can
+   * be withdrawn: a name that came from the shipped table is not the user's
+   * to unlearn, and dropping it would silently change how future reports
+   * parse.
+   */
+  removeSynonym(canonicalId: string, rawName: string): boolean {
+    const a = this.analytes.get(canonicalId);
+    if (!a) return false;
+    if (!this.learned.delete(`${canonicalId}\u0000${rawName}`)) return false;
+    const i = a.synonyms.indexOf(rawName);
+    if (i < 0) return false;
+    a.synonyms.splice(i, 1);
+    const k = normKey(rawName);
+    // Only clear the index entry if it still points here and no remaining
+    // name normalizes to the same key.
+    if (k && this.index.get(k) === canonicalId) {
+      const stillNamed = [a.canonicalId, a.displayNameCs, ...a.synonyms].some(
+        (n) => normKey(n) === k,
+      );
+      if (!stillNamed) this.index.delete(k);
+    }
+    return true;
   }
 }
 

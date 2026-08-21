@@ -13,6 +13,7 @@
  */
 import type { LabReport } from "./models";
 import { normKey, type Registry } from "./registry";
+import { prettyUnit } from "./czech";
 
 export interface Occurrence {
   reportId: string;
@@ -331,4 +332,153 @@ export function suggestMappings(
   }
   out.sort((x, y) => y.score - x.score);
   return out.slice(0, topN);
+}
+
+/**
+ * How much the evidence supports one candidate.
+ *
+ * `contradicted` is the important one: it is the difference between "we could
+ * not find corroboration" and "we found a reason this is a different test".
+ * The scorer already knows the difference — it applies penalties of -0.25 to
+ * -0.6 — but the score is one number, and a number cannot be argued with at
+ * the point of decision. This turns it back into a verdict the screen can
+ * lead with.
+ */
+export type Verdict = "recommended" | "possible" | "contradicted";
+
+/**
+ * A single line of evidence, in the form the screen renders.
+ *
+ * Derived here rather than in the component so the wording and the state can
+ * be asserted in unit tests: "shows a tick" and "says why" are exactly the
+ * things that regress silently when markup is refactored.
+ */
+export interface Signal {
+  key: "name" | "unit" | "range" | "values" | "material";
+  label: string;
+  state: "ok" | "bad" | "unknown";
+  detail: string;
+}
+
+/** A candidate contradicted by name, unit, material, interval or magnitude. */
+export function isImplausible(c: Candidate): boolean {
+  return (
+    c.nameWeak ||
+    c.unitMatch === false ||
+    c.materialMatch === false ||
+    c.valueOk === false ||
+    // The reference interval carries the largest weight in the scorer (-0.6).
+    // Leaving it out of this test meant a candidate the algorithm had all but
+    // rejected could still be presented as the clean best match.
+    c.rangeMatch === false
+  );
+}
+
+export function verdictOf(c: Candidate): Verdict {
+  if (isImplausible(c)) return "contradicted";
+  // Nothing contradicts it — but "nothing known" is not the same as "checked
+  // and agrees", and offering the two under one word is how a guess gets
+  // accepted as a finding.
+  const corroborated =
+    c.rangeMatch === true || c.unitMatch === true || c.valueOk === true || c.materialMatch === true;
+  return corroborated ? "recommended" : "possible";
+}
+
+const czRange = (r: Range | null): string =>
+  r ? `${czMappingNum(r.low)}–${czMappingNum(r.high)}` : "";
+
+/** Czech decimal comma, without pulling the summary module into this one. */
+function czMappingNum(x: number | null | undefined): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return "?";
+  const s = Math.abs(x) >= 100 ? x.toFixed(0) : Math.abs(x) >= 10 ? x.toFixed(1) : x.toFixed(2);
+  return s.replace(/\.?0+$/, "").replace(".", ",") || "0";
+}
+
+const MATERIAL_CS: Record<string, string> = {
+  s: "sérum", b: "plná krev", p: "plazma", u: "moč", pk: "plazma", fw: "krev",
+};
+export const materialCs = (m: string): string => MATERIAL_CS[m] ?? m.toUpperCase();
+
+/**
+ * The evidence for one candidate, strongest signal first.
+ *
+ * Order matters: the reference interval is the only signal that works on a
+ * first-ever report and carries the heaviest weight, so it is read before the
+ * value comparison that needs history to mean anything.
+ */
+export function signalsOf(c: Candidate, incoming: UnmappedAnalyte): Signal[] {
+  const o = c.observed;
+  const out: Signal[] = [];
+
+  out.push({
+    key: "name",
+    label: "Název",
+    state: c.nameWeak ? "bad" : "ok",
+    detail: c.nameWeak
+      ? "jiný název — pravděpodobně jiné vyšetření"
+      : `podobá se názvu ${c.displayName}`,
+  });
+
+  out.push({
+    key: "unit",
+    label: "Jednotka",
+    state: c.unitMatch === null ? "unknown" : c.unitMatch ? "ok" : "bad",
+    detail:
+      c.unitMatch === null
+        ? "nelze porovnat"
+        : c.unitMatch
+          ? `obojí ${prettyUnit(c.canonicalUnit || o?.unit) || "bez jednotky"}`
+          : `${prettyUnit(incoming.unitRaw) || "bez jednotky"} vs ${prettyUnit(c.canonicalUnit || o?.unit) || "bez jednotky"}`,
+  });
+
+  out.push({
+    key: "range",
+    label: "Referenční rozmezí",
+    state: c.rangeMatch === null ? "unknown" : c.rangeMatch ? "ok" : "bad",
+    detail:
+      c.rangeMatch === null
+        ? incoming.refRange
+          ? "u tohoto analytu rozmezí neznáme"
+          : "laboratoř rozmezí neuvedla"
+        : `${czRange(incoming.refRange)} vs ${czRange(c.candidateRange)}` +
+          (c.rangeSource === "curated" ? " (z tabulky)" : " (z dokumentů)") +
+          (c.rangeMatch ? "" : " — neodpovídá"),
+  });
+
+  out.push({
+    key: "values",
+    label: "Naměřené hodnoty",
+    state: c.valueOk === null ? "unknown" : c.valueOk ? "ok" : "bad",
+    detail:
+      c.valueOk === null
+        ? "pod tímto názvem zatím nemáme data"
+        : c.valueOk
+          ? "řádově odpovídají"
+          : c.incomingRange
+            ? `${czMappingNum(c.incomingRange[0])}–${czMappingNum(c.incomingRange[1])} vs ${czMappingNum(o?.min)}–${czMappingNum(o?.max)}`
+            : "neodpovídají",
+  });
+
+  // Worth a line whenever the lab printed a material prefix — including when
+  // it cannot be compared. A urine result mapped onto a serum analyte is a
+  // different test however alike the names look, so leaving the row out when
+  // the candidate has no history yet hid the one fact most likely to stop a
+  // wrong mapping: that this reading came from urine at all.
+  const incomingMaterial = materialPrefix(incoming.rawName);
+  if (incomingMaterial) {
+    const mats = o?.materials.map(materialCs).join(", ") ?? "";
+    out.push({
+      key: "material",
+      label: "Materiál",
+      state: c.materialMatch === null ? "unknown" : c.materialMatch ? "ok" : "bad",
+      detail:
+        c.materialMatch === null
+          ? `${materialCs(incomingMaterial)} — není s čím porovnat`
+          : c.materialMatch
+            ? `obojí ${mats}`
+            : `${materialCs(incomingMaterial)} vs ${mats}`,
+    });
+  }
+
+  return out;
 }

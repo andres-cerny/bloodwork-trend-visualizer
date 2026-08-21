@@ -179,6 +179,77 @@ Each of these was a real finding. The parenthetical is what it protects.
   filter does not list, or a listed row with no chip, leaves the reader unable
   to tell what is being asked of them.
 
+## Mapping leads with the decision, not with the data
+
+The mapping screen answers one question — *is the thing I already have under
+this heading the same measurement as the thing I am looking at* — and getting
+it wrong merges one analyte's history into another's, where it then looks like
+it always belonged. That makes it the most consequential screen in the app,
+and it used to be laid out as a data dump: ten rows of provenance before the
+first decision, four suggestions of equal visual weight, and no way to reach an
+analyte the suggester had not offered.
+
+It is now built around the decision:
+
+- **The recommendation is promoted** into a filled card with an accent edge —
+  one per analyte, accepted without scrolling. Alternatives, the occurrence
+  table and the escape hatch expand in place.
+- **A contradicted candidate is never promoted.** When nothing survives the
+  evidence the screen says so and offers the registry, instead of putting a
+  filled accept button on a mapping the algorithm has already rejected. The
+  contradicted ones stay reachable, marked, behind a quiet button.
+- **The reference interval is shown.** It carries the largest weight in the
+  scorer (+0.3 / −0.6), it is the only signal that works on a first-ever report
+  where there is no history to compare against — and it was computed, weighted,
+  unit-tested and never rendered. It was also missing from the test that decides
+  whether to warn, so a candidate the algorithm had all but rejected could still
+  be presented as the clean best match. `mapping.test.ts` now isolates that
+  case: total against conjugated bilirubin, same unit, same material, similar
+  name, no history — where only the printed intervals object.
+- **"Nothing known" is not "checked and agrees".** A candidate with no
+  corroborating signal is labelled *bez potvrzení*, not *doporučeno*.
+- **The material is always named**, even when it cannot be compared. A urine
+  reading mapped onto a serum analyte is a different test however alike the
+  names look, and staying silent when the candidate had no history yet hid the
+  one fact most likely to stop it.
+- **Every acceptance is reversible.** `Registry.removeSynonym` unlearns only
+  what the UI taught — a shipped synonym is not the user's to delete, since
+  dropping it would silently change how every future report parses.
+
+## The layout auditor
+
+`e2e/audit.e2e.ts` walks every screen at four widths in both palettes — 81
+combinations — and checks six invariants against the rendered boxes: no
+sideways page scroll, nothing outside the viewport, no text clipped without an
+ellipsis, 4.5:1 contrast on every piece of type, no control below the 24×24
+target floor, and no control whose centre is claimed by something painted over
+it.
+
+It knows nothing about this app, so a new screen is audited by being added to
+the list of screens, and a new invariant is enforced everywhere at once. Its
+first run reported 1689 violations. Most were real: `--ink-muted` was 3.2–3.8:1
+throughout, which on a screen a doctor reads numbers from is not a style
+preference.
+
+Three rules it does *not* enforce, because each produced only false positives:
+
+- **Sticky bars covering content.** Content scrolling under a sticky header is
+  what sticky means. `elementFromPoint` answers the same question honestly, so
+  the z-index heuristic was deleted rather than loosened.
+- **Overlap across layers.** A dropdown over its list, a drawer over the page,
+  a scrim over what it blocks — comparing across layers reports the design.
+- **Long thin targets.** A full-width 20px disclosure row satisfies the intent
+  of the 24×24 floor; a 22×17px ✕ does not.
+
+Two measurement details are load-bearing. Element rects are intersected with
+every clipping ancestor, or anything scrolled out of a capped list reports a
+phantom box on top of whatever follows it. And visibility is decided by
+`checkVisibility()`, not by `display`: the body of a closed `<details>` is
+hidden with `content-visibility`, which leaves `getBoundingClientRect` still
+reporting a real box.
+
+Run it with `npm run test:audit`.
+
 ## Still open
 
 Three clinical limitations, deliberately left — decide on them before a real

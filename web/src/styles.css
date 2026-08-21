@@ -28,14 +28,22 @@
   --surface-3: #f0efea;
   --ink-1: #14130f;
   --ink-2: #52514e;
-  --ink-muted: #85837d;
+  --ink-muted: #6a6862;
   --grid: #e6e5df;
   --border: #e0dfd8;
   --border-strong: #cfcec5;
+  /* Signal colours draw things — a chart line, a ring on a scanned page, a
+     tinted row. Ink colours are for text, and are darker, because the same
+     blue that reads correctly as a 2px line on white is only 3.4:1 as 12px
+     type on a tinted chip. Keeping one token for both jobs meant every
+     legibility fix dulled the graphics; splitting them lets each be right. */
   --series-1: #2a78d6;
   --series-1-soft: rgba(42, 120, 214, 0.10);
+  --accent: #2470cc;
+  --accent-ink: #2264b2;
   --status-critical: #d03b3b;
   --status-critical-soft: rgba(208, 59, 59, 0.10);
+  --critical-ink: #b32828;
   --band: rgba(42, 120, 214, 0.09);
   --chip: #eeede8;
 
@@ -68,14 +76,17 @@
   --dk-surface-3: #232322;
   --dk-ink-1: #ffffff;
   --dk-ink-2: #c3c2b7;
-  --dk-ink-muted: #8e8c85;
+  --dk-ink-muted: #9a988f;
   --dk-grid: #2c2c2a;
   --dk-border: #2c2c2a;
   --dk-border-strong: #3d3d3a;
   --dk-series-1: #3987e5;
   --dk-series-1-soft: rgba(57, 135, 229, 0.16);
+  --dk-accent: #1d74dd;
+  --dk-accent-ink: #6ba6ec;
   --dk-status-critical: #e05555;
   --dk-status-critical-soft: rgba(224, 85, 85, 0.16);
+  --dk-critical-ink: #ec8a8a;
   --dk-band: rgba(57, 135, 229, 0.14);
   --dk-chip: #262625;
   --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -97,8 +108,11 @@
     --border-strong: var(--dk-border-strong);
     --series-1: var(--dk-series-1);
     --series-1-soft: var(--dk-series-1-soft);
+    --accent: var(--dk-accent);
+    --accent-ink: var(--dk-accent-ink);
     --status-critical: var(--dk-status-critical);
     --status-critical-soft: var(--dk-status-critical-soft);
+    --critical-ink: var(--dk-critical-ink);
     --band: var(--dk-band);
     --chip: var(--dk-chip);
     --shadow-sm: var(--dk-shadow-sm);
@@ -121,8 +135,11 @@
     --border-strong: var(--dk-border-strong);
     --series-1: var(--dk-series-1);
     --series-1-soft: var(--dk-series-1-soft);
+    --accent: var(--dk-accent);
+    --accent-ink: var(--dk-accent-ink);
     --status-critical: var(--dk-status-critical);
     --status-critical-soft: var(--dk-status-critical-soft);
+    --critical-ink: var(--dk-critical-ink);
     --band: var(--dk-band);
     --chip: var(--dk-chip);
     --shadow-sm: var(--dk-shadow-sm);
@@ -240,12 +257,18 @@ ul.reportlist {
   font-size: 0.73rem; color: var(--ink-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.reportlist .rl-x {
+/* A 22×17px ✕ was the smallest target in the app and the most destructive
+   one — it removes a document. Sized to the 24px floor and centred.
+   Scoped to the class rather than to `.reportlist`, because the same ✕ closes
+   the drawer and drops a trend card, and those two inherited nothing. */
+.rl-x {
   flex: 0 0 auto; border: none; background: none; cursor: pointer;
-  color: var(--ink-muted); font-size: 1rem; line-height: 1; padding: 4px 5px;
+  color: var(--ink-muted); font-size: 1rem; line-height: 1;
+  width: 28px; height: 28px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
   border-radius: 6px;
 }
-.reportlist .rl-x:hover { background: var(--status-critical-soft); color: var(--status-critical); }
+.rl-x:hover { background: var(--status-critical-soft); color: var(--critical-ink); }
 
 /* Drop zone ---------------------------------------------------------------- */
 
@@ -270,7 +293,7 @@ ul.reportlist {
   display: grid; gap: 4px;
 }
 .runlog .line { display: flex; gap: 7px; align-items: baseline; }
-.runlog .line.err { color: var(--status-critical); }
+.runlog .line.err { color: var(--critical-ink); }
 .progressbar { height: 3px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .progressbar i {
   display: block; height: 100%; background: var(--series-1);
@@ -372,11 +395,11 @@ button.btn:hover:not(:disabled) { background: var(--surface-3); }
 /* One affirmative colour across the app: the accept, correct and send buttons
    are the same action in three places and should not look like three ranks. */
 button.btn.primary, button.btn.accent {
-  background: var(--series-1); color: #fff; border-color: var(--series-1);
+  background: var(--accent); color: #fff; border-color: var(--accent);
 }
 button.btn.primary:hover:not(:disabled),
-button.btn.accent:hover:not(:disabled) { opacity: 0.9; background: var(--series-1); }
-button.btn.danger { color: var(--status-critical); border-color: var(--border-strong); }
+button.btn.accent:hover:not(:disabled) { opacity: 0.9; background: var(--accent); }
+button.btn.danger { color: var(--critical-ink); border-color: var(--border-strong); }
 button.btn.danger:hover:not(:disabled) {
   background: var(--status-critical-soft); border-color: var(--status-critical);
 }
@@ -385,7 +408,7 @@ button.btn.wide { width: 100%; text-align: center; }
 button.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 button.btn.linkish {
   background: none; border: none; padding: 4px 0;
-  color: var(--series-1); text-decoration: underline; font-size: 0.83rem;
+  color: var(--accent-ink); text-decoration: underline; font-size: 0.83rem;
 }
 button.btn.linkish:hover:not(:disabled) { background: none; opacity: 0.8; }
 
@@ -396,7 +419,7 @@ button.btn.linkish:hover:not(:disabled) { background: none; opacity: 0.8; }
   display: inline-flex; gap: 7px; align-items: center; font-size: 0.86rem;
   color: var(--ink-2); cursor: pointer; user-select: none;
 }
-.switch input { accent-color: var(--series-1); width: 15px; height: 15px; }
+.switch input { accent-color: var(--accent); width: 18px; height: 18px; margin: 4px; }
 
 /* Wide content scrolls inside its own container; the page never scrolls sideways. */
 .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -419,7 +442,7 @@ tr.row-pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var
 
 /* Status is never colour alone: an arrow glyph and a Czech label ride along. */
 .flag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; white-space: nowrap; }
-.flag.out { color: var(--status-critical); font-weight: 600; }
+.flag.out { color: var(--critical-ink); font-weight: 600; }
 .flag.norm { color: var(--ink-2); }
 .flag.unk { color: var(--ink-muted); }
 
@@ -429,9 +452,9 @@ tr.row-pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var
   white-space: nowrap;
 }
 .chip.alert {
-  background: var(--status-critical-soft); color: var(--status-critical); font-weight: 600;
+  background: var(--status-critical-soft); color: var(--critical-ink); font-weight: 600;
 }
-.chip.best { background: var(--series-1-soft); color: var(--series-1); font-weight: 600; margin-left: 7px; }
+.chip.best { background: var(--series-1-soft); color: var(--accent-ink); font-weight: 600; margin-left: 7px; }
 
 /*
  * minmax(0, 1fr), not 1fr.
@@ -478,7 +501,7 @@ tr.row-pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var
 
 .single-point { margin: 6px 0 0; font-size: 0.95rem; }
 .single-point strong { font-size: 1.15rem; }
-.single-point strong.out { color: var(--status-critical); }
+.single-point strong.out { color: var(--critical-ink); }
 
 /* A reading held out of a series pending verification. Stated on the trend
    card itself, because that is the screen a patient is shown. */
@@ -513,7 +536,7 @@ ul.summary li:last-child { border-bottom: none; }
   flex: 0 0 auto; color: var(--ink-muted); font-size: 0.78rem;
   white-space: nowrap; transition: color 110ms ease;
 }
-.sum-row:hover .sum-go, .sum-row:focus-visible .sum-go { color: var(--series-1); }
+.sum-row:hover .sum-go, .sum-row:focus-visible .sum-go { color: var(--accent-ink); }
 .sum-name { font-weight: 600; }
 
 /* Chat --------------------------------------------------------------------- */
@@ -616,29 +639,96 @@ ul.summary li:last-child { border-bottom: none; }
 
 /* Mapping ------------------------------------------------------------------ */
 
-ul.cand-list { list-style: none; padding: 0; margin: 0 0 10px; }
-.cand-head {
-  font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--ink-muted); font-weight: 650; margin: 16px 0 8px;
+/* Mapping ------------------------------------------------------------------
+ *
+ * The screen is a stack of decisions, so the recommendation is the only thing
+ * given visual weight: a filled card with an accent edge. Alternatives, the
+ * occurrence table and the escape hatch are plain controls that expand in
+ * place, because reaching for them is the exception.
+ */
+.map-card { display: grid; gap: 0; }
+.map-head h3 {
+  margin: 0 0 3px; font-size: 1.02rem; letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
+.map-meta { margin: 0 0 4px; }
+.count-chip { white-space: nowrap; align-self: flex-start; }
+
+ul.cand-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 9px; }
+
 .cand-card {
   border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 12px 13px; margin-bottom: 9px; background: var(--surface-2);
+  padding: 12px 13px; background: var(--surface-2);
+}
+/* The promoted recommendation. One card per screen carries this, so the eye
+   lands on the decision rather than searching a list of equals. */
+.cand-card.featured {
+  background: var(--surface-1); border-color: var(--border-strong);
+  box-shadow: inset 3px 0 0 var(--accent); padding-left: 16px;
 }
 .cand-top {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; flex-wrap: wrap;
 }
-ul.evidence { list-style: none; padding: 0; margin: 9px 0 0; display: grid; gap: 3px; }
-ul.evidence li { display: flex; gap: 8px; font-size: 0.82rem; }
-.ev-label { color: var(--ink-muted); flex: 0 0 72px; }
-.ev-val { color: var(--ink-2); }
-.ev-val.bad { color: var(--status-critical); }
+.cand-id { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; min-width: 0; }
+.cand-id strong { font-size: 0.98rem; }
+.cand-effect { margin: 7px 0 0; font-size: 0.83rem; color: var(--ink-2); }
+
+/* Evidence. Two columns where there is room: five signals in one column is a
+   list to read, in two it is a pattern to recognise. */
+ul.signals {
+  list-style: none; padding: 0; margin: 11px 0 0;
+  display: grid; gap: 5px 26px;
+  /* Two columns at most. Three fitted at 1280px and made the labels ragged
+     across the card, which is the opposite of what a table of evidence is
+     for — the eye should be able to run down the marks. */
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+}
+@media (min-width: 1100px) {
+  ul.signals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Fixed label column so every detail starts on the same line, and a wrapped
+   detail hangs under itself instead of under the label. */
+.sig {
+  display: grid; grid-template-columns: 13px 122px minmax(0, 1fr);
+  gap: 7px; font-size: 0.82rem; align-items: baseline;
+}
+.sig-mark { font-weight: 700; }
+.sig-label { color: var(--ink-muted); }
+.sig-detail { color: var(--ink-2); overflow-wrap: anywhere; }
+.sig-ok .sig-mark { color: var(--accent-ink); }
+.sig-bad .sig-mark, .sig-bad .sig-detail { color: var(--critical-ink); }
+.sig-unknown .sig-mark, .sig-unknown .sig-detail { color: var(--ink-muted); }
+
+.map-actions {
+  position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
+}
+/* Anchored to the row, not to the button, so the list opens inside the card
+   whichever button was pressed. */
+.map-actions .picker { left: 0; right: auto; max-width: calc(100vw - 34px); }
+
+.no-lead { margin: 4px 0 0; }
+.occ-details { margin-top: 14px; }
+.occ-details > summary { cursor: pointer; margin: 0; }
+.occ-details[open] > summary { margin-bottom: 6px; }
 table.occ { margin-bottom: 4px; }
 
-/* A candidate contradicted by unit, material or magnitude recedes rather than
-   competing visually with a plausible one. */
-.cand-card.implausible { opacity: 0.72; border-style: dashed; }
+.undo-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 12px 0 0; font-size: 0.86rem;
+}
+
+ul.held-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; }
+ul.held-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+  padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); font-size: 0.86rem;
+}
+
+/* A candidate contradicted by name, unit, interval, material or magnitude
+   recedes rather than competing visually with a plausible one. */
+.cand-card.implausible { border-style: dashed; background: var(--surface-2); }
 
 /* Empty state -------------------------------------------------------------- */
 
@@ -651,7 +741,7 @@ table.occ { margin-bottom: 4px; }
 .empty .btn { margin: 0 5px; }
 
 .muted { color: var(--ink-muted); font-size: 0.8rem; }
-.err { color: var(--status-critical); font-size: 0.85rem; }
+.err { color: var(--critical-ink); font-size: 0.85rem; }
 
 /* Drawer (below the rail breakpoint) --------------------------------------- */
 
