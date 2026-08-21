@@ -9,7 +9,14 @@
  */
 import { mintSession, verifySession, verifyTurnstile } from "./auth";
 import { budgetState, priceUsd, recordSpendUsd } from "./budget";
-import { chat, extractPage, MODEL_ESCALATION, MODEL_PRIMARY, type ChatTurn } from "./claude";
+import {
+  chat,
+  extractPage,
+  extractPageText,
+  MODEL_ESCALATION,
+  MODEL_PRIMARY,
+  type ChatTurn,
+} from "./claude";
 
 export interface Env {
   ASSETS: Fetcher;
@@ -76,12 +83,20 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   const blocked = await guard(request, env);
   if (blocked) return blocked;
 
-  const { imageBase64, mediaType, textLayer } = (await request.json().catch(() => ({}))) as {
+  const { imageBase64, mediaType, textLayer, rowsText } = (await request
+    .json()
+    .catch(() => ({}))) as {
     imageBase64?: string;
     mediaType?: string;
     textLayer?: string | null;
+    rowsText?: string | null;
   };
-  if (!imageBase64) return json({ error: "missing_image" }, 400);
+
+  // Digital PDFs take the text path: the characters come from the file, so
+  // the client can verify every returned value against the printed page.
+  // Only scans fall back to sending an image.
+  const useText = typeof rowsText === "string" && rowsText.trim().length > 0;
+  if (!useText && !imageBase64) return json({ error: "missing_page" }, 400);
 
   const models = env.SINGLE_MODEL === "1" ? [MODEL_PRIMARY] : [MODEL_PRIMARY, MODEL_ESCALATION];
 
@@ -89,7 +104,9 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   // a page is only as slow as the slower model rather than their sum.
   const results = await Promise.allSettled(
     models.map((m) =>
-      extractPage(env.ANTHROPIC_API_KEY, m, imageBase64, mediaType || "image/jpeg", textLayer ?? null),
+      useText
+        ? extractPageText(env.ANTHROPIC_API_KEY, m, rowsText!)
+        : extractPage(env.ANTHROPIC_API_KEY, m, imageBase64!, mediaType || "image/jpeg", textLayer ?? null),
     ),
   );
 
@@ -109,6 +126,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
 
   return json({
     reads,
+    mode: useText ? "text" : "vision",
     costUsd: Math.round(spent * 10000) / 10000,
     budget: await budgetState(env.BUDGET, budgetLimit(env)),
   });

@@ -115,30 +115,50 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
     try {
       // pdf.js is ~1.4 MB and only the upload path needs it, so it is pulled
       // in on first use rather than shipped in the landing bundle.
-      const { findRowBox, loadPdf, pageAssets } = await import("../pdf/pdf");
+      const { isPrintedOnPage, loadPdf, pageAssets, rowBoxFor, rowsAsText } = await import("../pdf/pdf");
       const doc = await loadPdf(file);
       const pageCount = Math.min(doc.numPages, maxPages);
       const measurements: Measurement[] = [];
       const pages = [];
+      let unverified = 0;
+      let sawScan = false;
       let reportDate: string | null = null;
       let labName: string | null = null;
 
       for (let p = 1; p <= pageCount; p++) {
         setProgress(`Zpracovávám stránku ${p} z ${pageCount}…`);
         const assets = await pageAssets(doc, p);
-        const res = await extract(assets.imageBase64, assets.mediaType, assets.textLayer);
+
+        // Digital PDF: send the reconstructed rows, not the image. The model
+        // assigns columns; the characters come from the file.
+        const res = assets.hasTextLayer
+          ? await extract(null, null, null, rowsAsText(assets.rows))
+          : await extract(assets.imageBase64, assets.mediaType, assets.textLayer, null);
         onBudget(res.budget);
+        if (res.mode === "vision") sawScan = true;
 
         for (const read of res.reads) {
           reportDate = reportDate ?? read.report_date ?? null;
           labName = labName ?? read.lab_name ?? null;
         }
         for (const m of reconcile(res.reads)) {
+          // Provenance: on the text path a transcribed value must literally
+          // appear on the page. Anything that does not is a fabrication, and
+          // it is flagged for review rather than allowed into a trend.
+          let disagreement = m.disagreement;
+          let confidence = m.confidence;
+          if (assets.hasTextLayer && !isPrintedOnPage(m.valueRaw, assets.rows)) {
+            disagreement = `hodnota "${m.valueRaw}" není na stránce vytištěna`;
+            confidence = "low";
+            unverified += 1;
+          }
           measurements.push({
             ...m,
             sourcePage: p,
+            confidence,
+            disagreement,
             canonicalId: registry.match(m.rawAnalyteName),
-            bbox: findRowBox(assets.words, m.rawAnalyteName),
+            bbox: rowBoxFor(m.rawAnalyteName, assets.rows),
           });
         }
         pages.push({
@@ -149,9 +169,14 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         });
       }
 
-      if (doc.numPages > maxPages) {
-        setError(`Zpracovány první ${maxPages} strany z ${doc.numPages} — limit ukázky.`);
-      }
+      const notes: string[] = [];
+      if (doc.numPages > maxPages)
+        notes.push(`Zpracovány první ${maxPages} strany z ${doc.numPages} — limit ukázky.`);
+      if (sawScan)
+        notes.push("Část stran nemá textovou vrstvu (sken) — přepsány z obrázku.");
+      if (unverified)
+        notes.push(`${unverified} hodnot nesouhlasí s textem na stránce — označeno k ověření.`);
+      if (notes.length) setError(notes.join(" "));
       onReport({
         id: `upload-${Date.now()}`,
         sourceFile: file.name,

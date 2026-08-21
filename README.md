@@ -92,7 +92,12 @@ Uploaded PDFs are parsed in the browser and never written to a server, so
 closing the tab genuinely ends the session.
 
 Extraction and chat use Claude exactly as the local tool does (Sonnet 5 and
-Opus 4.8 cross-checking each other). The key lives as a Worker secret, and a
+Opus 4.8 cross-checking each other). For **digital PDFs the page image is
+never sent**: pdf.js reconstructs the printed rows from the text layer's own
+coordinates and Claude assigns columns, so the characters come from the file.
+Every returned value is then checked against the printed page — one that is
+not there is flagged, never trended. Scans fall back to the 220 DPI vision
+path automatically. The key lives as a Worker secret, and a
 KV-backed ledger prices every call and **freezes the AI features once total
 spend hits a configured ceiling** (default $20) — at which point the pre-baked
 demo keeps working.

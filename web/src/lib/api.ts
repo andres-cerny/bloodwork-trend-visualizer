@@ -44,12 +44,20 @@ export async function startSession(turnstileToken: string): Promise<void> {
   setSession(session);
 }
 
-export async function extract(imageBase64: string, mediaType: string, textLayer: string | null) {
-  return post<{ reads: any[]; costUsd: number; budget: Budget }>("/api/extract", {
-    imageBase64,
-    mediaType,
-    textLayer,
-  });
+/**
+ * Extract one page. Pass `rowsText` for a digital PDF (no image leaves the
+ * browser at all); pass the image only when the page is a scan.
+ */
+export async function extract(
+  imageBase64: string | null,
+  mediaType: string | null,
+  textLayer: string | null,
+  rowsText: string | null,
+) {
+  return post<{ reads: any[]; mode: "text" | "vision"; costUsd: number; budget: Budget }>(
+    "/api/extract",
+    { imageBase64, mediaType, textLayer, rowsText },
+  );
 }
 
 export async function askChat(dataContext: string, history: Array<{ role: "user" | "assistant"; content: string }>) {

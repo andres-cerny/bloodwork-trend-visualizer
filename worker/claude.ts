@@ -24,6 +24,26 @@ const SYSTEM_EXTRACT =
   "přiřaď je ke správnému řádku. Confidence nastav 'low' u čehokoli, co je " +
   "špatně čitelné nebo nejednoznačné.";
 
+/**
+ * Prompt for the text-layer path.
+ *
+ * The model is doing column assignment, not character recognition — the rows
+ * arrive already reconstructed from the PDF's own text coordinates. Copying
+ * cells verbatim is therefore not a plea for accuracy but a checkable rule:
+ * the client verifies every returned value against the printed page and
+ * rejects anything that is not there.
+ */
+const SYSTEM_EXTRACT_TEXT =
+  "Jsi přesný extraktor českých laboratorních výsledků. Dostaneš řádky " +
+  "vytištěné na stránce, tak jak jsou v PDF, buňky oddělené znakem '|'. " +
+  "Tvým úkolem je rozhodnout, které řádky jsou naměřené výsledky, a přiřadit " +
+  "buňky do sloupců: název analytu, hodnota, jednotka, referenční interval. " +
+  "Text buněk NIKDY neupravuj — kopíruj ho ZNAKOVĚ PŘESNĚ tak, jak je uveden " +
+  "(včetně desetinné čárky, '<', '>' a značek jako '!'). Nic nepočítej ani " +
+  "nepřeváděj. Pokud některý sloupec na řádku chybí, vrať prázdný řetězec. " +
+  "Hlavičky, patičky a informace o pacientovi mezi výsledky nezahrnuj. " +
+  "Confidence nastav 'low', pokud si přiřazením sloupců nejsi jistý.";
+
 const TEXT_LAYER_HINT =
   "Nápověda — textová vrstva PDF (pořadí může být zpřeházené, " +
   "obrázek je závazný pro přiřazení sloupců; text použij jen k " +
@@ -122,7 +142,51 @@ async function callAnthropic(apiKey: string, body: unknown): Promise<any> {
   return res.json();
 }
 
-/** Transcribe one rendered page with one model. */
+/**
+ * Extract from the page's own text layer — no image sent.
+ *
+ * Preferred over `extractPage` whenever the PDF is digital: the characters
+ * come from the file rather than from pixels, so a misread decimal is not
+ * merely unlikely, it is impossible. Also markedly cheaper, since a page of
+ * text costs a fraction of a 220 DPI image in input tokens.
+ */
+export async function extractPageText(
+  apiKey: string,
+  model: string,
+  rowsText: string,
+): Promise<PageExtraction> {
+  const data = await callAnthropic(apiKey, {
+    model,
+    max_tokens: 8000,
+    system: SYSTEM_EXTRACT_TEXT,
+    tools: [TOOL],
+    tool_choice: { type: "tool", name: TOOL.name },
+    messages: [
+      {
+        role: "user",
+        content: `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}`,
+      },
+    ],
+  });
+
+  const block = (data.content ?? []).find((b: any) => b.type === "tool_use");
+  const input = block?.input ?? {};
+  return {
+    report_date: input.report_date ?? null,
+    report_date_raw: input.report_date_raw ?? null,
+    lab_name: input.lab_name ?? null,
+    patient_name: input.patient_name ?? null,
+    patient_id: input.patient_id ?? null,
+    measurements: Array.isArray(input.measurements) ? input.measurements : [],
+    usage: {
+      inputTokens: data.usage?.input_tokens ?? 0,
+      outputTokens: data.usage?.output_tokens ?? 0,
+    },
+    model,
+  };
+}
+
+/** Transcribe one rendered page image with one model. Used for scans. */
 export async function extractPage(
   apiKey: string,
   model: string,

@@ -52,16 +52,27 @@ PDFs                                            Worker with static assets
 
 Opt-in, on top of the pre-baked set. Two extraction paths, chosen per document:
 
-1. **Text layer (preferred).** pdf.js reads the embedded text with x/y
-   coordinates and columns are reconstructed geometrically. Digits come from
-   the file, so a hallucinated decimal is structurally impossible — this is
-   *more* accurate than vision for digital PDFs, and nearly free in neurons.
-2. **Vision fallback.** Pages with no usable text layer are rendered and sent
-   to a Workers AI vision model. Roughly 85 neurons/page against a 10,000/day
-   free allowance — about 120 pages daily, hard-failing rather than billing.
+1. **Text layer (default).** pdf.js reads the embedded text with x/y
+   coordinates, and `buildRows` clusters items into printed rows by vertical
+   centre, ordering cells left to right. Claude then does *column assignment*
+   rather than character recognition — the characters come from the file.
 
-Which path a given PDF takes is detected at runtime, so this works without
-knowing in advance whether the source PDFs are digital or scans.
+   This makes provenance checkable rather than a matter of trust:
+   `isPrintedOnPage` verifies every returned value literally appears on the
+   page, and anything that does not is flagged for review instead of reaching
+   a trend. A misread decimal stops being unlikely and becomes impossible.
+
+   It is also cheaper (a page of text costs a fraction of a 220 DPI image in
+   input tokens) and lighter on phones — the page is rendered at 110 DPI for
+   human display only, never at model resolution.
+
+2. **Vision fallback.** Pages with no usable text layer are rendered at the
+   full 220 DPI and sent to the same two models with the original image
+   prompt. Retained deliberately: a doctor may bring a scan, and the demo
+   should not simply refuse it.
+
+The path is chosen per page at runtime from whether the page carries a usable
+text layer, so a mixed document works without configuration.
 
 The two-model cross-check survives: two different free models, unioned
 row-by-row, disagreements flagged into the verification tab. That design
@@ -124,7 +135,7 @@ precomputed.
 | `src/summary.py` | `web/src/lib/summary.ts` | So the summary responds to corrections rather than sitting frozen. Deterministic Czech templates. |
 | `src/models.py` | `web/src/lib/models.ts` | Dataclasses → interfaces. The `*_raw` vs derived split must survive the port intact. |
 | `src/matching.py` | **precomputed** | The analyte set is fixed, so ranked suggestions and their evidence are emitted at build time. Accepting one is an in-memory state change. |
-| `src/locate.py` | **precomputed** + `web/src/pdf/locate.ts` | Bboxes precomputed for the pre-baked set; derived from pdf.js text coordinates for uploads. |
+| `src/locate.py` | **precomputed** + `web/src/pdf/rows.ts` | Bboxes precomputed for the pre-baked set. For uploads the row bbox falls out of the clustering directly — no text search needed at all. |
 | `src/extract.py`, `ingest.py`, `pipeline.py`, `process.py`, `storage.py` | **build time only** | Unchanged. They run on your machine and never ship. |
 | `app.py` | `web/src/ui/*` | 37KB of Streamlit → components. Altair → a JS charting layer. |
 
@@ -215,7 +226,7 @@ verify on a real phone and a real desktop.
 | Free-tier chat's Czech is too weak | Provider interface; evaluate before deploy; swap tiers if needed. |
 | Port drift in the deterministic core | Ported tests are the contract. |
 | Demo looks static / canned | Live upload plus correction re-derivation and mapping acceptance. |
-| Free vision model misreads a doctor's own PDF | Text-layer path avoids vision entirely for digital PDFs; two-model cross-check flags the rest; the pre-baked set still carries the pitch if a live upload disappoints. |
+| A model fabricates a value on upload | On the text path this is caught deterministically — a value not printed on the page is flagged, never trended. On the vision path the two-model cross-check flags disagreement, and the pre-baked set still carries the pitch. |
 
 ## Out of scope
 
