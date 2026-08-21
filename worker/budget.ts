@@ -21,9 +21,28 @@ export const MODEL_PRICING: Record<string, [number, number]> = {
   "claude-opus-4-8": [5.0, 25.0],
 };
 
-export function priceUsd(model: string, inputTokens: number, outputTokens: number): number {
+/**
+ * Price one call.
+ *
+ * Cached input is billed differently from fresh input — a cache write costs
+ * ~1.25x and a cache read ~0.1x — so counting every input token at full rate
+ * would overstate spend and freeze the demo early. The multipliers apply to
+ * the model's own input rate.
+ */
+export function priceUsd(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cacheReadTokens = 0,
+  cacheWriteTokens = 0,
+): number {
   const [inPrice, outPrice] = MODEL_PRICING[model] ?? [3.0, 15.0];
-  return (inputTokens / 1e6) * inPrice + (outputTokens / 1e6) * outPrice;
+  return (
+    (inputTokens / 1e6) * inPrice +
+    (cacheWriteTokens / 1e6) * inPrice * 1.25 +
+    (cacheReadTokens / 1e6) * inPrice * 0.1 +
+    (outputTokens / 1e6) * outPrice
+  );
 }
 
 export async function totalSpentUsd(kv: KVNamespace): Promise<number> {

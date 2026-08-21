@@ -38,6 +38,12 @@ function makeEnv(over: Partial<Env> = {}): Env {
 /** One tool_use reply, priced so a known number of calls crosses the ceiling. */
 function anthropicReply(rows: Array<[string, string, string, string]>, outTokens = 1000) {
   return {
+    id: "msg_test",
+    type: "message",
+    role: "assistant",
+    model: "claude-sonnet-5",
+    stop_reason: "tool_use",
+    stop_sequence: null,
     content: [
       {
         type: "tool_use",
@@ -58,7 +64,12 @@ function anthropicReply(rows: Array<[string, string, string, string]>, outTokens
         },
       },
     ],
-    usage: { input_tokens: 2000, output_tokens: outTokens },
+    usage: {
+      input_tokens: 2000,
+      output_tokens: outTokens,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+    },
   };
 }
 
@@ -66,14 +77,27 @@ let calls: Array<{ url: string; body: any }> = [];
 
 beforeEach(() => {
   calls = [];
-  vi.stubGlobal("fetch", async (url: any, init: any) => {
-    const u = String(url);
-    if (u.includes("turnstile")) return new Response(JSON.stringify({ success: true }), { status: 200 });
-    const body = init?.body ? JSON.parse(init.body) : {};
+  // The SDK may call fetch with a Request object rather than (url, init), so
+  // read the body from whichever shape arrives.
+  vi.stubGlobal("fetch", async (input: any, init?: any) => {
+    const req: Request | null = typeof input === "object" && "url" in input ? (input as Request) : null;
+    const u = req ? req.url : String(input);
+
+    if (u.includes("turnstile")) {
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    const rawBody = req ? await req.clone().text() : init?.body;
+    const body = rawBody ? JSON.parse(String(rawBody)) : {};
     calls.push({ url: u, body });
-    return new Response(JSON.stringify(anthropicReply([["S_Glukóza", "5,32", "mmol/l", "(4,11-5,60)"]])), {
-      status: 200,
-    });
+
+    return new Response(
+      JSON.stringify(anthropicReply([["S_Glukóza", "5,32", "mmol/l", "(4,11-5,60)"]])),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
   });
 });
 afterEach(() => vi.unstubAllGlobals());

@@ -2,12 +2,19 @@
  * Claude calls, server-side. The API key lives as a Worker secret and never
  * reaches the browser.
  *
+ * Uses the official SDK rather than raw fetch, which brings retry with
+ * exponential backoff on 408/409/429/5xx and connection errors — the Python
+ * pipeline retries transient API failures and this had no equivalent, so one
+ * blip lost a page.
+ *
  * The extraction prompt and tool schema are lifted verbatim from
  * src/extract.py — the model's only job is verbatim transcription, and every
  * number is computed afterwards by normalize.ts. Keep the two in sync: if the
  * Czech prompt drifts between the Python and this file, the demo and the local
  * tool stop extracting the same way.
  */
+
+import Anthropic from "@anthropic-ai/sdk";
 
 export const MODEL_PRIMARY = "claude-sonnet-5";
 export const MODEL_ESCALATION = "claude-opus-4-8";
@@ -105,6 +112,37 @@ const TOOL = {
 export interface Usage {
   inputTokens: number;
   outputTokens: number;
+  /** Non-zero once the tools+system prefix is long enough to cache. */
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+function usageOf(u: Anthropic.Usage | undefined): Usage {
+  return {
+    inputTokens: u?.input_tokens ?? 0,
+    outputTokens: u?.output_tokens ?? 0,
+    cacheReadTokens: u?.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: u?.cache_creation_input_tokens ?? 0,
+  };
+}
+
+/** The tool_use block a forced tool_choice guarantees. */
+function toolInput(message: Anthropic.Message): Record<string, unknown> {
+  const block = message.content.find((b) => b.type === "tool_use");
+  return (block && "input" in block ? (block.input as Record<string, unknown>) : {}) ?? {};
+}
+
+function toExtraction(input: Record<string, any>, usage: Usage, model: string): PageExtraction {
+  return {
+    report_date: input.report_date ?? null,
+    report_date_raw: input.report_date_raw ?? null,
+    lab_name: input.lab_name ?? null,
+    patient_name: input.patient_name ?? null,
+    patient_id: input.patient_id ?? null,
+    measurements: Array.isArray(input.measurements) ? input.measurements : [],
+    usage,
+    model,
+  };
 }
 
 export interface PageExtraction {
@@ -125,21 +163,30 @@ export interface PageExtraction {
   model: string;
 }
 
-async function callAnthropic(apiKey: string, body: unknown): Promise<any> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(body),
+function clientFor(apiKey: string): Anthropic {
+  return new Anthropic({
+    apiKey,
+    // Three attempts total. A page that still fails is skipped and reported
+    // rather than sinking the whole report.
+    maxRetries: 3,
   });
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`anthropic ${res.status}: ${detail.slice(0, 400)}`);
-  }
-  return res.json();
+}
+
+/**
+ * The system prompt and tool schema are byte-identical on every page of a
+ * report, so they are marked cacheable. Caching is a prefix match in the order
+ * tools -> system -> messages, so the breakpoint goes on the system block:
+ * everything before it (the tools) is cached with it, and the per-page rows
+ * that follow stay outside.
+ *
+ * Note the minimum cacheable prefix is ~1024 tokens; this prefix may sit under
+ * that, in which case caching silently does not engage. `cacheReadTokens` on
+ * the result is there so that can be checked against a real key rather than
+ * assumed — if it stays zero across the pages of one report, the prefix is too
+ * short to cache and the annotation is simply inert.
+ */
+function cachedSystem(text: string): Anthropic.TextBlockParam[] {
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
 }
 
 /**
@@ -155,35 +202,17 @@ export async function extractPageText(
   model: string,
   rowsText: string,
 ): Promise<PageExtraction> {
-  const data = await callAnthropic(apiKey, {
+  const message = await clientFor(apiKey).messages.create({
     model,
     max_tokens: 8000,
-    system: SYSTEM_EXTRACT_TEXT,
-    tools: [TOOL],
+    system: cachedSystem(SYSTEM_EXTRACT_TEXT),
+    tools: [TOOL as unknown as Anthropic.Tool],
     tool_choice: { type: "tool", name: TOOL.name },
     messages: [
-      {
-        role: "user",
-        content: `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}`,
-      },
+      { role: "user", content: `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}` },
     ],
   });
-
-  const block = (data.content ?? []).find((b: any) => b.type === "tool_use");
-  const input = block?.input ?? {};
-  return {
-    report_date: input.report_date ?? null,
-    report_date_raw: input.report_date_raw ?? null,
-    lab_name: input.lab_name ?? null,
-    patient_name: input.patient_name ?? null,
-    patient_id: input.patient_id ?? null,
-    measurements: Array.isArray(input.measurements) ? input.measurements : [],
-    usage: {
-      inputTokens: data.usage?.input_tokens ?? 0,
-      outputTokens: data.usage?.output_tokens ?? 0,
-    },
-    model,
-  };
+  return toExtraction(toolInput(message), usageOf(message.usage), model);
 }
 
 /** Transcribe one rendered page image with one model. Used for scans. */
@@ -202,30 +231,15 @@ export async function extractPage(
   }
   content.push({ type: "text", text: "Přepiš všechny měřené řádky z této stránky." });
 
-  const data = await callAnthropic(apiKey, {
+  const message = await clientFor(apiKey).messages.create({
     model,
     max_tokens: 8000,
-    system: SYSTEM_EXTRACT,
-    tools: [TOOL],
+    system: cachedSystem(SYSTEM_EXTRACT),
+    tools: [TOOL as unknown as Anthropic.Tool],
     tool_choice: { type: "tool", name: TOOL.name },
-    messages: [{ role: "user", content }],
+    messages: [{ role: "user", content: content as Anthropic.ContentBlockParam[] }],
   });
-
-  const block = (data.content ?? []).find((b: any) => b.type === "tool_use");
-  const input = block?.input ?? {};
-  return {
-    report_date: input.report_date ?? null,
-    report_date_raw: input.report_date_raw ?? null,
-    lab_name: input.lab_name ?? null,
-    patient_name: input.patient_name ?? null,
-    patient_id: input.patient_id ?? null,
-    measurements: Array.isArray(input.measurements) ? input.measurements : [],
-    usage: {
-      inputTokens: data.usage?.input_tokens ?? 0,
-      outputTokens: data.usage?.output_tokens ?? 0,
-    },
-    model,
-  };
+  return toExtraction(toolInput(message), usageOf(message.usage), model);
 }
 
 const SYSTEM_CHAT =
@@ -254,23 +268,21 @@ export async function chat(
   dataContext: string,
   history: ChatTurn[],
 ): Promise<{ text: string; usage: Usage; model: string }> {
-  const data = await callAnthropic(apiKey, {
+  const message = await clientFor(apiKey).messages.create({
     model: MODEL_CHAT,
     max_tokens: 1200,
-    system: `${SYSTEM_CHAT}\n\n=== DATA PACIENTA ===\n${dataContext}`,
+    // The instructions are stable; the patient's data changes per session, so
+    // the breakpoint sits between them.
+    system: [
+      { type: "text", text: SYSTEM_CHAT, cache_control: { type: "ephemeral" } },
+      { type: "text", text: `=== DATA PACIENTA ===\n${dataContext}` },
+    ],
     messages: history.slice(-12),
   });
-  const text = (data.content ?? [])
-    .filter((b: any) => b.type === "text")
-    .map((b: any) => b.text)
+  const text = message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
     .join("")
     .trim();
-  return {
-    text,
-    usage: {
-      inputTokens: data.usage?.input_tokens ?? 0,
-      outputTokens: data.usage?.output_tokens ?? 0,
-    },
-    model: MODEL_CHAT,
-  };
+  return { text, usage: usageOf(message.usage), model: MODEL_CHAT };
 }

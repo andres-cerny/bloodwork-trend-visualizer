@@ -114,7 +114,13 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   const reads = [];
   for (const r of results) {
     if (r.status !== "fulfilled") continue;
-    spent += priceUsd(r.value.model, r.value.usage.inputTokens, r.value.usage.outputTokens);
+    spent += priceUsd(
+      r.value.model,
+      r.value.usage.inputTokens,
+      r.value.usage.outputTokens,
+      r.value.usage.cacheReadTokens,
+      r.value.usage.cacheWriteTokens,
+    );
     reads.push(r.value);
   }
   if (spent > 0) await recordSpendUsd(env.BUDGET, spent);
@@ -128,6 +134,9 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
     reads,
     mode: useText ? "text" : "vision",
     costUsd: Math.round(spent * 10000) / 10000,
+    // Zero across a whole report means the tools+system prefix is under the
+    // ~1024-token cache minimum, not that something is broken.
+    cacheReadTokens: reads.reduce((s, r) => s + r.usage.cacheReadTokens, 0),
     budget: await budgetState(env.BUDGET, budgetLimit(env)),
   });
 }
@@ -144,7 +153,13 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
 
   try {
     const res = await chat(env.ANTHROPIC_API_KEY, (dataContext ?? "").slice(0, 60000), history);
-    const spent = priceUsd(res.model, res.usage.inputTokens, res.usage.outputTokens);
+    const spent = priceUsd(
+      res.model,
+      res.usage.inputTokens,
+      res.usage.outputTokens,
+      res.usage.cacheReadTokens,
+      res.usage.cacheWriteTokens,
+    );
     await recordSpendUsd(env.BUDGET, spent);
     return json({
       text: res.text,

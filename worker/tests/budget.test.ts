@@ -22,6 +22,17 @@ describe("pricing", () => {
   it("falls back to Sonnet pricing for an unknown model rather than charging zero", () => {
     expect(priceUsd("something-new", 1_000_000, 0)).toBeCloseTo(3, 6);
   });
+
+  it("bills a cache read at a tenth and a cache write at 1.25x", () => {
+    // Counting cached input at the full rate would overstate spend and freeze
+    // the demo earlier than the ceiling actually requires.
+    expect(priceUsd("claude-sonnet-5", 0, 0, 1_000_000, 0)).toBeCloseTo(0.3, 6);
+    expect(priceUsd("claude-sonnet-5", 0, 0, 0, 1_000_000)).toBeCloseTo(3.75, 6);
+  });
+
+  it("defaults cache tokens to zero so existing call sites are unaffected", () => {
+    expect(priceUsd("claude-sonnet-5", 1_000_000, 1_000_000)).toBeCloseTo(18, 6);
+  });
 });
 
 describe("ledger", () => {
