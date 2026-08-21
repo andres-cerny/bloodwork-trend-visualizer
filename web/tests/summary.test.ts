@@ -17,6 +17,7 @@ const pt = (date: string, value: number | null, flag: TrendPoint["flag"], lo = 4
   valueRaw: value === null ? "<1,0" : String(value).replace(".", ","),
   reportId: "r",
   suspect: null,
+  unconfirmed: null,
 });
 
 const trend = (points: TrendPoint[], name = "Glukóza"): Trend => ({

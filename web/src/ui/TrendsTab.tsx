@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import Chart from "./Chart";
 import Flag from "./Flag";
 import { czExact, czNum } from "../lib/summary";
-import { numericPoints, suspectPoints, type Trend } from "../lib/trends";
+import { numericPoints, suspectPoints, unconfirmedPoints, type Trend } from "../lib/trends";
 import { count, czDate, plural, prettyUnit } from "../lib/czech";
 
 /** Out-of-range latest result first — the rows a doctor scans for. */
@@ -22,11 +22,12 @@ function outNow(t: Trend): boolean {
 
 export default function TrendsTab({
   trends,
-  unmappedCount = 0,
+  unmappedNames = [],
 }: {
   trends: Map<string, Trend>;
-  unmappedCount?: number;
+  unmappedNames?: string[];
 }) {
+  const unmappedCount = unmappedNames.length;
   const all = useMemo(() => sortTrends([...trends.values()]), [trends]);
   const [selected, setSelected] = useState<string>("");
 
@@ -43,7 +44,8 @@ export default function TrendsTab({
             Pozor: {count(unmappedCount, "analyt se", "analyty se", "analytů se")}{" "}
             {plural(unmappedCount, "nezobrazuje", "nezobrazují", "nezobrazuje")} — zatím
             {plural(unmappedCount, " nemá", " nemají", " nemá")} přiřazený název. Najdete
-            {plural(unmappedCount, " ho", " je", " je")} v záložce <strong>Přiřazení názvů</strong>.
+            {plural(unmappedCount, " ho", " je", " je")} v záložce{" "}
+            <strong>Přiřazení názvů</strong>: {unmappedNames.join(", ")}.
           </p>
         )}
         <label htmlFor="analyte" className="sub" style={{ display: "block" }}>
@@ -56,6 +58,7 @@ export default function TrendsTab({
               {t.displayName}
               {outNow(t) ? " — mimo rozmezí" : ""}
               {suspectPoints(t).length ? " — čeká na ověření" : ""}
+              {!suspectPoints(t).length && unconfirmedPoints(t).length ? " — nepotvrzeno" : ""}
             </option>
           ))}
         </select>
@@ -78,6 +81,18 @@ export default function TrendsTab({
               <strong>Ověření</strong>.
             </p>
           ))}
+
+          {/* Plotted but unconfirmed: named here, because a hollow dot alone
+              is a convention the reader has not been taught. */}
+          {unconfirmedPoints(t).length > 0 && (
+            <p className="unconfirmed-note">
+              Nepotvrzené hodnoty v grafu (kroužek):{" "}
+              {unconfirmedPoints(t)
+                .map((p) => `${czDate(p.date)} — ${czExact(p.value, p.valueRaw)}`)
+                .join("; ")}
+              . Ověřte je prosím v záložce <strong>Ověření</strong>.
+            </p>
+          )}
 
           <Chart trend={t} />
           <details style={{ marginTop: 8 }}>

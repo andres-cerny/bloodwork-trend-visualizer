@@ -82,7 +82,12 @@ DATES = ["2024-02-14", "2024-08-21", "2025-02-19", "2025-08-13"]
 # Rows the "two models disagreed" / "hard to read" story hangs on, per report
 # index. (row index, kind).
 QA_MARKS: dict[int, list[tuple[int, str]]] = {
-    0: [(4, "disagreement"), (12, "low")],
+    # Row 12 is CRP, whose value is the censored "<1,0" on most reports —
+    # marking it uncertain on one report only made identical printed text tell
+    # two different stories across documents. Row 7 (kreatinin) is a plain
+    # number, so the flag reads as being about legibility, which is what it
+    # means.
+    0: [(4, "disagreement"), (7, "low")],
     1: [(0, "misread")],
     2: [(1, "disagreement")],
     3: [(9, "low"), (20, "disagreement")],

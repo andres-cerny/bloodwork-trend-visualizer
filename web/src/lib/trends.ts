@@ -11,11 +11,16 @@ export interface TrendPoint {
   valueRaw: string;
   reportId: string;
   /**
-   * Set when the extraction layer flagged this reading as probably misread.
-   * Such a point is deliberately kept out of the plotted series — see
-   * numericPoints.
+   * Set when the reading is probably *wrong* (a misread decimal). Kept out of
+   * the plotted series — see numericPoints.
    */
   suspect: string | null;
+  /**
+   * Set when the reading may well be right but nothing has confirmed it — two
+   * reads disagreed, or the transcription was flagged uncertain. Plotted, but
+   * marked: dropping it would hide real data.
+   */
+  unconfirmed: string | null;
 }
 
 export interface Trend {
@@ -55,6 +60,8 @@ export function buildTrends(
   displayNameFn: (cid: string) => string = (cid) => cid,
   /** Returns a reason when a measurement looks misread, else null. */
   suspectFn: (m: LabReport["measurements"][number]) => string | null = () => null,
+  /** Returns a reason when a reading is plotted but unconfirmed, else null. */
+  unconfirmedFn: (m: LabReport["measurements"][number]) => string | null = () => null,
 ): Map<string, Trend> {
   const trends = new Map<string, Trend>();
   for (const report of reports) {
@@ -82,6 +89,7 @@ export function buildTrends(
         valueRaw: m.valueRaw,
         reportId: report.id,
         suspect: suspectFn(m),
+        unconfirmed: unconfirmedFn(m),
       });
     }
   }
@@ -97,4 +105,15 @@ export function latestTwo(trend: Trend): [TrendPoint | null, TrendPoint | null] 
   if (pts.length >= 2) return [pts[pts.length - 2], pts[pts.length - 1]];
   if (pts.length === 1) return [null, pts[pts.length - 1]];
   return [null, null];
+}
+
+
+/** Plotted points that nothing has confirmed. */
+export function unconfirmedPoints(t: Trend): TrendPoint[] {
+  return t.points.filter((p) => p.value !== null && p.suspect === null && p.unconfirmed !== null);
+}
+
+/** Every point held out of the series or plotted with a caveat. */
+export function hasDoubt(t: Trend): boolean {
+  return t.points.some((p) => p.suspect !== null || p.unconfirmed !== null);
 }

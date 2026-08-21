@@ -59,6 +59,11 @@ export default function Chart({ trend }: { trend: Trend }) {
   // which says nothing.
   if (pts.length === 1) {
     const p = pts[0];
+    // Censored results ("<1,0") are ordinary lab results, not extraction
+    // failures. Counting only numeric points made a CRP measured four times —
+    // <1,0, <1,0, 2,4, <1,0 — announce itself as "jediné měření", which is
+    // simply untrue and reads aloud as a clinical statement.
+    const censored = trend.points.filter((q) => q.value === null);
     const out = p.flag === "high" || p.flag === "low";
     return (
       <p className="single-point">
@@ -67,13 +72,17 @@ export default function Chart({ trend }: { trend: Trend }) {
           {trend.unit ? ` ${trend.unit}` : ""}
         </strong>{" "}
         <span className="muted">
-          — jediné měření ({czDate(p.date)})
+          {censored.length === 0
+            ? ` — jediné měření (${czDate(p.date)})`
+            : ` — jediný číselný výsledek (${czDate(p.date)}); ` +
+              `${censored.length === 1 ? "další odběr" : `dalších ${censored.length} odběrů`} ` +
+              `pod mezí stanovitelnosti (${censored.map((q) => q.valueRaw).join(", ")})`}
           {p.refLow !== null || p.refHigh !== null
             ? `, referenční rozmezí ${p.refLow !== null ? czNum(p.refLow) : ""}–${
                 p.refHigh !== null ? czNum(p.refHigh) : ""
               }`
             : ""}
-          . Pro vývoj je potřeba alespoň druhý odběr.
+          . Pro křivku je potřeba alespoň druhá číselná hodnota.
         </span>
       </p>
     );
@@ -204,10 +213,15 @@ export default function Chart({ trend }: { trend: Trend }) {
               {/* Hit target deliberately larger than the mark. */}
               <circle cx={x(i)} cy={y(p.value as number)} r={16} fill="transparent"
                       onMouseEnter={() => setHover(i)} onClick={() => setHover(i)} />
+              {/* An unconfirmed reading is drawn hollow. It may well be
+                  right, so dropping it would hide real data — but it must not
+                  look as solid as a value two reads agreed on. */}
               <circle
                 cx={x(i)} cy={y(p.value as number)} r={hover === i ? 6.5 : 5}
-                fill={out ? "var(--status-critical)" : "var(--series-1)"}
-                stroke="var(--surface-1)" strokeWidth={2}
+                fill={p.unconfirmed ? "var(--surface-1)" : out ? "var(--status-critical)" : "var(--series-1)"}
+                stroke={p.unconfirmed ? (out ? "var(--status-critical)" : "var(--series-1)") : "var(--surface-1)"}
+                strokeWidth={p.unconfirmed ? 2.5 : 2}
+                strokeDasharray={p.unconfirmed ? "3 2" : undefined}
               />
               {out && (
                 <text x={x(i)} y={y(p.value as number) - 12} textAnchor="middle" fontSize={13}
@@ -249,8 +263,9 @@ export default function Chart({ trend }: { trend: Trend }) {
 
       <figcaption className="muted" style={{ minHeight: "1.4em", marginTop: 2 }}>
         {active
-          ? `${active.date}: ${czNum(active.value)}${trend.unit ? ` ${trend.unit}` : ""}` +
-            (active.flag === "high" ? " — nad rozmezím" : active.flag === "low" ? " — pod rozmezím" : "")
+          ? `${czDate(active.date)}: ${czNum(active.value)}${trend.unit ? ` ${trend.unit}` : ""}` +
+            (active.flag === "high" ? " — nad rozmezím" : active.flag === "low" ? " — pod rozmezím" : "") +
+            (active.unconfirmed ? " · nepotvrzeno" : "")
           : band
             ? `Referenční rozmezí ${band.bLow !== null ? czNum(band.bLow) : ""}${
                 band.bLow !== null && band.bHigh !== null ? "–" : ""

@@ -13,10 +13,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Flag from "./Flag";
 import type { LabReport, Measurement } from "../lib/models";
-import { isFlagged, normalizeMeasurement } from "../lib/normalize";
+import { normalizeMeasurement } from "../lib/normalize";
+import { needsReview, reviewOf } from "../lib/review";
 import { checkCorrection } from "../lib/correction";
 import { czDate, prettyUnit } from "../lib/czech";
-import { checkImplausible } from "../lib/implausible";
 
 interface Props {
   reports: LabReport[];
@@ -40,23 +40,19 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   const imgRef = useRef<HTMLImageElement>(null);
   const hlRef = useRef<HTMLDivElement>(null);
   const [imgW, setImgW] = useState(0);
+  // The image carried cursor:zoom-in and did nothing when clicked. Toggling to
+  // native width (inside a scroll container) is what that cursor promises, and
+  // it keeps the highlight, which opening the raw file did not.
+  const [zoomed, setZoomed] = useState(false);
 
   const report = reports.find((r) => r.id === reportId) ?? reports[0];
   const sel = picked !== null ? report?.measurements[picked] ?? null : null;
   const check = checkCorrection(draft, sel?.unitRaw ?? "");
 
-  /**
-   * Is this number even a possible measurement? Separate from whether it is
-   * abnormal — that comes from the interval printed on the report.
-   */
-  const implausibleOf = (m: Measurement) =>
-    checkImplausible(
-      m,
-      curatedRange(m.canonicalId) ??
-        (m.refRangeLow !== null && m.refRangeHigh !== null
-          ? { low: m.refRangeLow, high: m.refRangeHigh }
-          : null),
-    );
+  // Single authority for "can this row be trusted, and why". The table chips,
+  // the filter and its counter all read it, so the count can never disagree
+  // with the chips on screen — which it did when they were computed separately.
+  const review = (m: Measurement) => reviewOf(m, curatedRange);
 
   // Track the image's *rendered* width continuously rather than measuring it
   // once on load.
@@ -116,9 +112,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
     if (!report) return [];
     return report.measurements
       .map((m, i) => ({ m, i }))
-      .filter(({ m }) => (onlyFlagged ? isFlagged(m) || implausibleOf(m) !== null : true));
-    // implausibleOf is stable for a given report; recomputing on filter change
-    // is cheap relative to rendering the table.
+      .filter(({ m }) => (onlyFlagged ? needsReview(review(m)) : true));
   }, [report, onlyFlagged]);
 
   if (!report) return <p className="sub">Nejsou načtena žádná data.</p>;
@@ -141,9 +135,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   const rowH = sel?.bbox ? Math.max(1, sel.bbox[3] - sel.bbox[1]) : 1;
   const rowZoom =
     sel?.bbox && imgW ? Math.min(1, imgW / Math.max(1, sel.bbox[2] - sel.bbox[0])) : 0;
-  const flaggedCount = report.measurements.filter(
-    (m) => isFlagged(m) || implausibleOf(m) !== null,
-  ).length;
+  const flaggedCount = report.measurements.filter((m) => needsReview(review(m))).length;
 
   function pick(i: number) {
     setPicked(i);
@@ -237,24 +229,13 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                           hiding exactly the rows that need attention. */}
                       <span className="marks">
                         {(() => {
-                          const imp = implausibleOf(m);
-                          if (!imp) return null;
+                          const r = review(m);
+                          if (!r.chip) return null;
                           return (
-                            <span className="chip alert">
-                              {imp.level === "impossible" ? "nemožná hodnota" : "ověřit desetinnou čárku"}
-                            </span>
+                            <span className={r.level === "ok" ? "chip" : "chip alert"}>{r.chip}</span>
                           );
                         })()}
-                        {m.disagreement && <span className="chip alert">neshoda</span>}
-                        {m.confidence === "low" && <span className="chip alert">nízká jistota</span>}
                         {m.corrected && <span className="chip">ručně opraveno</span>}
-                        {/* Every filtered row must show why it is listed;
-                            otherwise the reader is told a row needs checking
-                            and given nothing to look at. */}
-                        {m.value === null && m.valueRaw.trim() !== "" && !m.disagreement &&
-                          m.confidence !== "low" && !implausibleOf(m) && (
-                            <span className="chip">nečíselný výsledek</span>
-                          )}
                       </span>
                     </td>
                     <td className="num">
@@ -278,10 +259,9 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
             <div style={{ marginBottom: 10 }}>
               <p className="muted" style={{ margin: "0 0 6px" }}>{sel.sourceSnippet || sel.rawAnalyteName}</p>
               {(() => {
-                const imp = implausibleOf(sel);
-                return imp ? <p className="err" style={{ margin: "0 0 6px" }}>⚠ {imp.reason}</p> : null;
+                const r = review(sel);
+                return r.reason ? <p className="err" style={{ margin: "0 0 6px" }}>⚠ {r.reason}</p> : null;
               })()}
-              {sel.disagreement && <p className="err" style={{ margin: "0 0 6px" }}>⚠ {sel.disagreement}</p>}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <input
                   type="text" value={draft} onChange={(e) => setDraft(e.target.value)}
@@ -334,12 +314,12 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
           )}
 
           {page ? (
-            <div className="srcimg">
+            <div className={`srcimg${zoomed ? " zoomed" : ""}`}>
               <img
                 ref={imgRef} src={page.imageUrl} alt={`Stránka ${page.pageNum}`}
                 onLoad={(e) => setImgW((e.target as HTMLImageElement).clientWidth)}
-                style={{ cursor: "zoom-in" }}
-                onClick={() => window.open(page.imageUrl, "_blank", "noopener")}
+                style={{ cursor: zoomed ? "zoom-out" : "zoom-in" }}
+                onClick={() => setZoomed((z) => !z)}
               />
               {sel?.bbox && scale > 0 && (
                 <div

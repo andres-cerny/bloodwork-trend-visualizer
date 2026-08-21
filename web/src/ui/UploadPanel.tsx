@@ -198,9 +198,11 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
     <div className="card">
       <h2>Zkusit vlastní PDF</h2>
       <p className="sub">
-        Soubor se zpracuje ve vašem prohlížeči a nikam se neukládá — po zavření
-        stránky po něm nezůstane stopa. Na server jdou jen obrázky stránek
-        k přepisu. Limit ukázky: {maxPages} stran.
+        PDF se čte ve vašem prohlížeči a neukládá se. Obrázky jednotlivých stránek
+        — <strong>včetně hlavičky se jménem a rodným číslem</strong> — se posílají
+        k přepisu na Anthropic API a procházejí serverem této ukázky. Nikde se
+        neukládají a po zavření stránky po nich tady nezůstane stopa.
+        Limit ukázky: {maxPages} stran.
       </p>
 
       {/* A missing site key is a deployment condition, not a user error. The

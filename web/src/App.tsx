@@ -7,7 +7,7 @@ import { buildChatContext, getStatus, type Budget } from "./lib/api";
 import type { AnalyteDef, LabReport, Measurement } from "./lib/models";
 import { Registry } from "./lib/registry";
 import { buildTrends } from "./lib/trends";
-import { checkImplausible } from "./lib/implausible";
+import { reviewOf } from "./lib/review";
 import { czDate } from "./lib/czech";
 import ChatPanel from "./ui/ChatPanel";
 import MappingTab from "./ui/MappingTab";
@@ -76,16 +76,18 @@ export default function App() {
         ? buildTrends(
             reports,
             (cid) => registry.displayName(cid),
-            // A reading flagged as probably misread is held out of the plotted
-            // series rather than drawn as a real result.
-            (m) =>
-              checkImplausible(
-                m,
-                curatedRange(m.canonicalId) ??
-                  (m.refRangeLow !== null && m.refRangeHigh !== null
-                    ? { low: m.refRangeLow, high: m.refRangeHigh }
-                    : null),
-              )?.reason ?? null,
+            // A reading believed wrong is held out of the series; one that is
+            // merely unconfirmed is plotted and marked. Both come from the
+            // same authority the verification table uses, so a doubt cannot be
+            // shown on one screen and dropped on the other.
+            (m) => {
+              const r = reviewOf(m, curatedRange);
+              return r.level === "withheld" ? r.reason : null;
+            },
+            (m) => {
+              const r = reviewOf(m, curatedRange);
+              return r.level === "unconfirmed" ? r.reason : null;
+            },
           )
         : new Map(),
     [reports, registry, registryVersion, curatedRange],
@@ -121,10 +123,14 @@ export default function App() {
   const chatContext = useMemo(() => buildChatContext(reports, trends), [reports, trends]);
   // Analytes excluded from every trend. Without saying so, "Všechny (20)" reads
   // as the complete picture while two measurements are quietly missing.
-  const unmappedCount = useMemo(
-    () => new Set(
-      reports.flatMap((r) => r.measurements.filter((m) => m.canonicalId === null).map((m) => m.rawAnalyteName)),
-    ).size,
+  const unmappedNames = useMemo(
+    () => [
+      ...new Set(
+        reports.flatMap((r) =>
+          r.measurements.filter((m) => m.canonicalId === null).map((m) => m.rawAnalyteName),
+        ),
+      ),
+    ],
     [reports],
   );
   const frozen = budget?.frozen ?? false;
@@ -156,7 +162,7 @@ export default function App() {
 
       {/* Who this is, on every tab. With two patients' reports loaded, nothing
           on a trend screen otherwise says whose liver enzymes are shown. */}
-      <div className="patient-bar">
+      <div className="patient-bar sticky">
         <span>
           <strong>{patient ?? "Neznámý pacient"}</strong>
           {patientId && <span className="muted"> · {patientId}</span>}
@@ -187,7 +193,7 @@ export default function App() {
         <p className="muted">Načítám…</p>
       ) : (
         <>
-          {tab === "trends" && <TrendsTab trends={trends} unmappedCount={unmappedCount} />}
+          {tab === "trends" && <TrendsTab trends={trends} unmappedNames={unmappedNames} />}
           {tab === "summary" && <SummaryTab trends={trends} />}
           {tab === "verify" && (
             <VerifyTab

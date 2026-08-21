@@ -7,7 +7,7 @@
  * recent numeric results. Never says what a change *means*.
  */
 import type { Flag } from "./models";
-import { czDate } from "./czech";
+import { czDate, prettyUnit } from "./czech";
 import { latestTwo, type Trend, type TrendPoint } from "./trends";
 
 /**
@@ -89,7 +89,7 @@ export function summarizeTrend(trend: Trend): SummaryRecord | null {
   const ov = older.value as number;
   const nv = newer.value as number;
 
-  const unit = (trend.unit || "").trim();
+  const unit = prettyUnit(trend.unit);
   const unitSfx = unit ? ` ${unit}` : "";
   const delta = nv - ov;
   // magnitude threshold: 1% of the older value (or tiny absolute) counts
