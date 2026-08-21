@@ -68,11 +68,29 @@ text-layer extraction for digital PDFs with a vision fallback for scans, and a
 mapping review showing where each unmapped value came from and what data
 already sits under each candidate.
 
-**Not done, because this environment could not do it:**
+**Verified on macOS, 2026-08-21** — the three items below were closed:
 
-1. **No real Claude calls have ever been made.** There was no
-   `ANTHROPIC_API_KEY` in the build environment. Every test so far exercises
-   the deterministic layer only. *The end-to-end extraction path is unproven.*
+1. ~~No real Claude calls~~ → **the live suite passes, 17/17, for $0.086.**
+   Extraction returns exactly the printed characters on every fixture, the
+   vision fallback reads a page with no text layer, and no value is returned
+   that is not printed on the page.
+2. ~~Never tested against a real lab PDF~~ → **run against all 15 of the real
+   Czech reports in `samples/`.** Row reconstruction produces clean
+   measurement rows in every one of the formats present (SPADIA and three
+   others), with **zero suspicious merges**. Four representative formats went
+   through full extraction with the two-model cross-check: **zero values
+   returned that were not printed on the page**, and the awkward real-world
+   details parsed correctly — the modifier-caret unit `10˄9/l`, `bezrozm.`,
+   open-ended ranges like `< 0,84`, decimal commas throughout.
+3. Deploy — see below.
+
+Row reconstruction can be re-checked against real PDFs at **no API cost**;
+only full extraction spends. Keep that split when adding coverage.
+
+**Original list, for context:**
+
+1. **No real Claude calls had been made** when this was written. There was no
+   `ANTHROPIC_API_KEY` in the build environment.
 2. **Never deployed.** `wrangler whoami` reported "not authenticated", no
    Cloudflare credentials were present in the environment, and
    `developers.cloudflare.com` is blocked by the egress proxy — so the
