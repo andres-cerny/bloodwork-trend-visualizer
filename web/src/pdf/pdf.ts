@@ -75,9 +75,18 @@ export async function pageAssets(doc: pdfjsLib.PDFDocumentProxy, pageNum: number
     });
   }
 
-  // A lab page with a real text layer yields dozens of positioned items; a
-  // scan yields none or a handful of stray artefacts.
-  const hasTextLayer = rawItems.length >= 20;
+  // Decide the path *before* choosing a render resolution, and decide it on
+  // the same test the caller will use. Clustering happens here in PDF units
+  // purely to answer "are there rows?" — the scaled rows are rebuilt below.
+  //
+  // Getting this wrong is expensive in a quiet way: a looser test here than
+  // the one that routes to vision means a scan gets rendered at display
+  // resolution and then transcribed from that low-res image.
+  const probeWords = rawItems.map((it) => ({
+    text: it.text,
+    box: [it.x, -it.y - it.h, it.x + it.w, -it.y] as Box,
+  }));
+  const hasTextLayer = rawItems.length >= 20 && buildRows(probeWords).length >= 5;
 
   // When the text layer carries the data, the image is only ever shown to a
   // human in the verification tab — so render it for a screen, not for a
@@ -123,6 +132,6 @@ export async function pageAssets(doc: pdfjsLib.PDFDocumentProxy, pageNum: number
     textLayer: parts.join(" "),
     words,
     rows,
-    hasTextLayer: hasTextLayer && rows.length >= 5,
+    hasTextLayer,
   };
 }
