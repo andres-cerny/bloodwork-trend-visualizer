@@ -11,6 +11,7 @@ import { ApiError, type Budget, extract, hasSession, startSession } from "../lib
 import { type LabReport, type Measurement } from "../lib/models";
 import { reconcile } from "../lib/reconcile";
 import { type Registry } from "../lib/registry";
+import { count, plural } from "../lib/czech";
 
 declare global {
   interface Window {
@@ -35,6 +36,10 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
   const [ready, setReady] = useState(hasSession());
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Notes are outcomes worth mentioning (a page limit, a scanned page), not
+  // failures — showing them in the error colour makes a working upload look
+  // broken.
+  const [notes, setNotes] = useState<string[]>([]);
 
   useEffect(() => {
     if (ready || !SITE_KEY || !boxRef.current) return;
@@ -66,6 +71,7 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
 
   async function handleFile(file: File) {
     setError(null);
+    setNotes([]);
     try {
       // pdf.js is ~1.4 MB and only the upload path needs it, so it is pulled
       // in on first use rather than shipped in the landing bundle.
@@ -79,15 +85,36 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
       let reportDate: string | null = null;
       let labName: string | null = null;
 
+      const failedPages: number[] = [];
+
       for (let p = 1; p <= pageCount; p++) {
         setProgress(`Zpracovávám stránku ${p} z ${pageCount}…`);
         const assets = await pageAssets(doc, p);
 
         // Digital PDF: send the reconstructed rows, not the image. The model
         // assigns columns; the characters come from the file.
-        const res = assets.hasTextLayer
-          ? await extract(null, null, null, rowsAsText(assets.rows))
-          : await extract(assets.imageBase64, assets.mediaType, assets.textLayer, null);
+        let res;
+        try {
+          res = assets.hasTextLayer
+            ? await extract(null, null, null, rowsAsText(assets.rows))
+            : await extract(assets.imageBase64, assets.mediaType, assets.textLayer, null);
+        } catch (e) {
+          // A page that fails is skipped and reported, not allowed to sink the
+          // whole report — same behaviour as the local pipeline. A refused
+          // session or an exhausted budget is different: every later page
+          // would fail identically, so stop.
+          if (e instanceof ApiError && (e.code === "budget_exhausted" || e.code === "session_invalid")) {
+            throw e;
+          }
+          failedPages.push(p);
+          pages.push({
+            pageNum: p,
+            imageUrl: assets.imageUrl,
+            imageWidth: assets.imageWidth,
+            imageHeight: assets.imageHeight,
+          });
+          continue;
+        }
         onBudget(res.budget);
         if (res.mode === "vision") sawScan = true;
 
@@ -123,14 +150,25 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         });
       }
 
-      const notes: string[] = [];
+      const out: string[] = [];
       if (doc.numPages > maxPages)
-        notes.push(`Zpracovány první ${maxPages} strany z ${doc.numPages} — limit ukázky.`);
-      if (sawScan)
-        notes.push("Část stran nemá textovou vrstvu (sken) — přepsány z obrázku.");
+        out.push(
+          `Zpracováno prvních ${count(maxPages, "strana", "strany", "stran")} ` +
+            `z ${doc.numPages} — limit ukázky.`,
+        );
+      if (sawScan) out.push("Některé strany nemají textovou vrstvu (sken) — přepsány z obrázku.");
+      if (failedPages.length)
+        out.push(
+          `Nepodařilo se přečíst ${count(failedPages.length, "stranu", "strany", "stran")} ` +
+            `(${failedPages.join(", ")}) — ostatní jsou zpracované.`,
+        );
       if (unverified)
-        notes.push(`${unverified} hodnot nesouhlasí s textem na stránce — označeno k ověření.`);
-      if (notes.length) setError(notes.join(" "));
+        out.push(
+          `${count(unverified, "hodnota", "hodnoty", "hodnot")} ` +
+            `${plural(unverified, "nesouhlasí", "nesouhlasí", "nesouhlasí")} s textem na stránce ` +
+            `— ${plural(unverified, "označena", "označeny", "označeno")} k ověření.`,
+        );
+      setNotes(out);
       onReport({
         id: `upload-${Date.now()}`,
         sourceFile: file.name,
@@ -178,6 +216,11 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         />
       )}
       {progress && <p className="muted" style={{ marginBottom: 0 }}>{progress}</p>}
+      {notes.map((n, i) => (
+        <p key={i} className="muted" style={{ marginBottom: 0 }}>
+          {n}
+        </p>
+      ))}
       {error && <p className="err" style={{ marginBottom: 0 }}>{error}</p>}
     </div>
   );
