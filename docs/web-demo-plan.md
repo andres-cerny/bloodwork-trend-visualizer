@@ -3,8 +3,9 @@
 Plan for publishing the bloodwork visualizer as a link-shareable demo that works
 on phone and desktop, hosted on Cloudflare with no custom domain.
 
-Status: **proposed** — not yet started. `main` is untouched; this document and
-all subsequent work live on `claude/web-app-demo-hosting-ymbgkc`.
+Status: **built**. Phases 1–5 are implemented on `claude/web-app-demo-hosting-ymbgkc`;
+phase 6 (deploy) needs Cloudflare credentials — see [deploy.md](deploy.md).
+`main` is untouched.
 
 ## Goal
 

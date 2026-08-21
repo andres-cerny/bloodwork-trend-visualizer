@@ -73,6 +73,42 @@ Processing shows live progress and a per-report cost/time readout when done;
 already-processed files are detected (by content hash) and skipped rather than
 re-billed.
 
+## Web demo (Cloudflare)
+
+A shareable version of this tool runs as a static SPA plus one Worker — see
+**[docs/deploy.md](docs/deploy.md)** to deploy it and
+**[docs/web-demo-plan.md](docs/web-demo-plan.md)** for the design.
+
+```sh
+npm install
+npm run dev        # SPA against the pre-baked demo data
+npm test           # parity tests for the TypeScript port
+npm run deploy     # build + push to Cloudflare
+```
+
+The site opens on a **pre-baked synthetic dataset** — no API calls, no real
+patient — and offers live upload on top of it, gated by Cloudflare Turnstile.
+Uploaded PDFs are parsed in the browser and never written to a server, so
+closing the tab genuinely ends the session.
+
+Extraction and chat use Claude exactly as the local tool does (Sonnet 5 and
+Opus 4.8 cross-checking each other). The key lives as a Worker secret, and a
+KV-backed ledger prices every call and **freezes the AI features once total
+spend hits a configured ceiling** (default $20) — at which point the pre-baked
+demo keeps working.
+
+The deterministic core (`normalize`, `trends`, `summary`) is ported to
+TypeScript in `web/src/lib/` so that correcting a value in the verification tab
+re-derives its flag, trend and summary live. `web/tests/normalize.test.ts`
+mirrors `tests/test_normalize.py` case for case.
+
+Regenerate the demo data, or swap in your own (anonymized and redacted):
+
+```sh
+python3 -m scripts.make_demo_data                      # synthetic
+python3 -m scripts.export_web_data --name "Jan Ukázka" # your processed reports
+```
+
 ## Tests
 
 ```sh
