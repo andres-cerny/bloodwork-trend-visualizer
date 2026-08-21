@@ -15,7 +15,7 @@ import Flag from "./Flag";
 import type { LabReport, Measurement } from "../lib/models";
 import { isFlagged, normalizeMeasurement } from "../lib/normalize";
 import { checkCorrection } from "../lib/correction";
-import { czDate } from "../lib/czech";
+import { czDate, prettyUnit } from "../lib/czech";
 import { checkImplausible } from "../lib/implausible";
 
 interface Props {
@@ -188,7 +188,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
           </select>
           <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.86rem" }}>
             <input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />
-            jen sporné řádky ({flaggedCount})
+            jen řádky k ověření ({flaggedCount})
           </label>
         </div>
         <p className="sub" style={{ marginTop: 8, marginBottom: 0 }}>
@@ -236,17 +236,24 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                         {m.disagreement && <span className="chip alert">neshoda</span>}
                         {m.confidence === "low" && <span className="chip alert">nízká jistota</span>}
                         {m.corrected && <span className="chip">ručně opraveno</span>}
+                        {/* Every filtered row must show why it is listed;
+                            otherwise the reader is told a row needs checking
+                            and given nothing to look at. */}
+                        {m.value === null && m.valueRaw.trim() !== "" && !m.disagreement &&
+                          m.confidence !== "low" && !implausibleOf(m) && (
+                            <span className="chip">nečíselný výsledek</span>
+                          )}
                       </span>
                     </td>
                     <td className="num">
                       {m.valueRaw}{" "}
-                      <span className="muted">{m.unitRaw.trim() === "-" ? "" : m.unitRaw}</span>
+                      <span className="muted">{prettyUnit(m.unitRaw)}</span>
                     </td>
                     <td><Flag flag={m.flag} /></td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={3} className="muted">Žádné sporné řádky — vše prošlo.</td></tr>
+                  <tr><td colSpan={3} className="muted">Žádné řádky k ověření — vše prošlo.</td></tr>
                 )}
               </tbody>
             </table>

@@ -82,6 +82,8 @@ export interface Candidate {
   valueOk: boolean | null;
   /** False when the printed material differs (urine vs serum, say). */
   materialMatch: boolean | null;
+  /** True when the names are too dissimilar for this to be the same analyte. */
+  nameWeak: boolean;
   /** Comparison of reference intervals — the strongest signal. */
   rangeMatch: boolean | null;
   candidateRange: Range | null;
@@ -209,6 +211,11 @@ function similarity(a: string, b: string): number {
 
 const unitKey = (u: string | null | undefined) => (u ?? "").toLowerCase().replace(/\s+/g, "");
 
+/** Below this the names are too different to present as a clean suggestion. */
+const NAME_SIM_FLOOR = 0.45;
+/** Below this it is not the same analyte under any reading — do not offer it. */
+const NAME_SIM_CUTOFF = 0.28;
+
 export function suggestMappings(
   analyte: UnmappedAnalyte,
   registry: Registry,
@@ -287,6 +294,16 @@ export function suggestMappings(
       score += materialMatch ? 0.05 : -0.4;
     }
 
+    // Name similarity is a necessary condition, not just another contributor.
+    //
+    // Unit and interval agreement can otherwise outvote a completely unrelated
+    // name: homocysteine (5-15 µmol/l) and total bilirubin (3-21 µmol/l) share
+    // a unit and overlap substantially, which scored total bilirubin as a
+    // clean suggestion for homocysteine with no warning at all. Two clicks and
+    // one analyte's history becomes another's, looking entirely believable.
+    const nameWeak = nameSim < NAME_SIM_FLOOR;
+    if (nameSim < NAME_SIM_CUTOFF) continue;
+
     // Select on name similarity, rank on the full score.
     //
     // Filtering on the final score would hide contradicted candidates
@@ -299,6 +316,7 @@ export function suggestMappings(
         displayName: a.displayNameCs,
         score,
         nameSim,
+        nameWeak,
         unitMatch,
         valueOk,
         materialMatch,

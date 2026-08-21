@@ -19,7 +19,7 @@ import {
   type UnmappedAnalyte,
 } from "../lib/mapping";
 import { czNum } from "../lib/summary";
-import { count, czDate } from "../lib/czech";
+import { count, czDate, prettyUnit } from "../lib/czech";
 import type { Registry } from "../lib/registry";
 
 interface Props {
@@ -39,6 +39,12 @@ function Evidence({ c, incomingUnit }: { c: Candidate; incomingUnit: string }) {
   const o = c.observed;
   return (
     <ul className="evidence">
+      {c.nameWeak && (
+        <li>
+          <span className="ev-label">Název</span>
+          <span className="ev-val bad">✘ jiný název — pravděpodobně jiné vyšetření</span>
+        </li>
+      )}
       <li>
         <span className="ev-label">Jednotka</span>
         <span className={`ev-val ${c.unitMatch === false ? "bad" : ""}`}>
@@ -75,9 +81,9 @@ function Evidence({ c, incomingUnit }: { c: Candidate; incomingUnit: string }) {
   );
 }
 
-/** A candidate contradicted by unit, material or magnitude is not a near miss. */
+/** A candidate contradicted by name, unit, material or magnitude. */
 function isImplausible(c: Candidate): boolean {
-  return c.unitMatch === false || c.materialMatch === false || c.valueOk === false;
+  return c.nameWeak || c.unitMatch === false || c.materialMatch === false || c.valueOk === false;
 }
 
 function ExistingData({ c }: { c: Candidate }) {
@@ -100,7 +106,7 @@ function ExistingData({ c }: { c: Candidate }) {
             ({o.firstDate === o.lastDate ? o.firstDate : `${o.firstDate} → ${o.lastDate}`})
           </>
         )}
-        {o.unit && <> v jednotce <strong>{o.unit}</strong></>}
+        {o.unit && <> v jednotce <strong>{prettyUnit(o.unit)}</strong></>}
         {o.min !== null && o.max !== null && (
           <>
             , rozsah <strong>{czNum(o.min)}–{czNum(o.max)}</strong>
@@ -120,15 +126,15 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
   if (unmapped.length === 0)
     return (
       <div className="card">
-        <h2>Namapování analytů</h2>
-        <p className="muted">Všechny analyty jsou namapované — není co řešit.</p>
+        <h2>Přiřazení názvů analytů</h2>
+        <p className="muted">Všechny analyty jsou přiřazené — není co řešit.</p>
       </div>
     );
 
   return (
     <>
       <div className="card">
-        <h2>Namapování analytů</h2>
+        <h2>Přiřazení názvů analytů</h2>
         <p className="sub">
           Tyto názvy zatím neznáme, takže se neobjeví v trendech. U každého vidíte,
           kde přesně se v dokumentech vyskytl a co tam bylo naměřeno, a u každého
@@ -144,7 +150,7 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
           <div className="card" key={a.rawName}>
             <h3 style={{ marginBottom: 4 }}>{a.rawName}</h3>
             <p className="muted" style={{ margin: "0 0 10px" }}>
-              {a.unitRaw && a.unitRaw.trim() !== "-" ? a.unitRaw : "bez jednotky"} ·{" "}
+              {prettyUnit(a.unitRaw) || "bez jednotky"} ·{" "}
               {count(a.occurrences.length, "výskyt", "výskyty", "výskytů")} v dokumentech
             </p>
 
@@ -163,7 +169,7 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
                     <tr key={i}>
                       <td>{czDate(o.date)}<span className="muted"> · s. {o.page}</span></td>
                       <td className="num">
-                        {o.valueRaw} <span className="muted">{a.unitRaw}</span>
+                        {o.valueRaw} <span className="muted">{prettyUnit(a.unitRaw)}</span>
                       </td>
                       <td>
                         <button
@@ -179,7 +185,7 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
               </table>
             </div>
 
-            <h4 className="cand-head">Namapovat na</h4>
+            <h4 className="cand-head">Přiřadit k</h4>
             {cands.length === 0 ? (
               <p className="muted">Žádný dostatečně podobný analyt v registru.</p>
             ) : (
@@ -201,7 +207,7 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
                           className={bad ? "btn" : "btn primary"}
                           onClick={() => onMap(a.rawName, c.canonicalId)}
                         >
-                          Namapovat{bad ? " přesto" : ""}
+                          Přiřadit{bad ? " přesto" : ""}
                         </button>
                       </div>
                       <ExistingData c={c} />
@@ -213,11 +219,11 @@ export default function MappingTab({ reports, registry, onMap, onShowSource }: P
             )}
 
             <button className="btn linkish" onClick={() => setOpen(isOpen ? null : a.rawName)}>
-              {isOpen ? "Skrýt" : "Nechat nenamapované — proč?"}
+              {isOpen ? "Skrýt" : "Proč to nechat bez přiřazení?"}
             </button>
             {isOpen && (
               <p className="muted" style={{ marginBottom: 0 }}>
-                Nenamapovaný analyt se nikam neztratí — zůstane v Ověření u svého
+                Nepřiřazený analyt se nikam neztratí — zůstane v Ověření u svého
                 dokumentu, jen se nezobrazí v trendech, protože ho nelze spolehlivě
                 porovnat mezi odběry.
               </p>

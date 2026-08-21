@@ -169,10 +169,14 @@ describe("suggestMappings", () => {
   });
 
   it("accepts values within the same order of magnitude", () => {
+    // A spelling variant, which is what fuzzy matching is for. A genuine
+    // different-root synonym like "Glykémie" shares almost no characters with
+    // "Glukóza" and is handled by the registry's synonym list instead, where
+    // it matches exactly and never reaches this ranking at all.
     const reports = [
       report("r1", "2024-01-01", [
         m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
-        m("Glykémie", "5,60", "mmol/l", "(4,11-5,60)", null),
+        m("Glukosa", "5,60", "mmol/l", "(4,11-5,60)", null),
       ]),
     ];
     const [u] = findUnmapped(reports);
@@ -201,7 +205,7 @@ describe("suggestMappings", () => {
     const reports = [
       report("r1", "2024-01-01", [
         m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
-        m("S_Glykémie", "5,30", "mmol/l", "(4,11-5,60)", null),
+        m("S_Glukosa", "5,30", "mmol/l", "(4,11-5,60)", null),
       ]),
     ];
     const [u] = findUnmapped(reports);
@@ -221,5 +225,45 @@ describe("materialPrefix", () => {
   it("returns null when no material is printed", () => {
     expect(materialPrefix("Glukóza")).toBeNull();
     expect(materialPrefix("")).toBeNull();
+  });
+});
+
+describe("name similarity is a necessary condition", () => {
+  it("marks a same-unit, overlapping-range candidate with an unrelated name", () => {
+    // Homocysteine 5–15 µmol/l vs total bilirubin 3–21 µmol/l: same unit,
+    // ranges overlap. Without a name floor those two signals outvote the name
+    // and bilirubin is offered as a clean suggestion for homocysteine.
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Bilirubin celkový", "12", "µmol/l", "(3-21)", "bilirubin_celkovy"),
+        m("S_Homocystein tot.", "11,2", "µmol/l", "(5,0-15,0)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const cands = suggestMappings(
+      u,
+      new Registry([def("bilirubin_celkovy", "Bilirubin celkový", "µmol/l")]),
+      observedStats(reports),
+      5,
+    );
+    const bili = cands.find((c) => c.canonicalId === "bilirubin_celkovy");
+    if (bili) {
+      expect(bili.nameWeak).toBe(true);
+      expect(bili.unitMatch).toBe(true); // the signals that misled it
+      expect(bili.rangeMatch).toBe(true);
+    }
+  });
+
+  it("does not mark a genuine synonym as weak", () => {
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
+        m("S_Glukosa", "5,30", "mmol/l", "(4,11-5,60)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("glukoza", "Glukóza", "mmol/l")]),
+      observedStats(reports), 5).find((x) => x.canonicalId === "glukoza");
+    expect(c?.nameWeak).toBe(false);
   });
 });

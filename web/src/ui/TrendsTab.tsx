@@ -3,7 +3,7 @@ import Chart from "./Chart";
 import Flag from "./Flag";
 import { czExact, czNum } from "../lib/summary";
 import { numericPoints, suspectPoints, type Trend } from "../lib/trends";
-import { count, czDate, plural } from "../lib/czech";
+import { count, czDate, plural, prettyUnit } from "../lib/czech";
 
 /** Out-of-range latest result first — the rows a doctor scans for. */
 function sortTrends(trends: Trend[]): Trend[] {
@@ -43,7 +43,7 @@ export default function TrendsTab({
             Pozor: {count(unmappedCount, "analyt se", "analyty se", "analytů se")}{" "}
             {plural(unmappedCount, "nezobrazuje", "nezobrazují", "nezobrazuje")} — zatím
             {plural(unmappedCount, " nemá", " nemají", " nemá")} přiřazený název. Najdete
-            {plural(unmappedCount, " ho", " je", " je")} v záložce <strong>Namapování</strong>.
+            {plural(unmappedCount, " ho", " je", " je")} v záložce <strong>Přiřazení názvů</strong>.
           </p>
         )}
         <label htmlFor="analyte" className="sub" style={{ display: "block" }}>
@@ -64,7 +64,7 @@ export default function TrendsTab({
       {shown.map((t) => (
         <div className="card" key={t.canonicalId}>
           <h3>
-            {t.displayName} {t.unit && <span className="muted">({t.unit})</span>}
+            {t.displayName} {t.unit && <span className="muted">({prettyUnit(t.unit)})</span>}
           </h3>
 
           {/* A reading held out of the series has to be visible here, not only
@@ -74,7 +74,7 @@ export default function TrendsTab({
           {suspectPoints(t).map((p, i) => (
             <p key={i} className="held-back">
               ⚠ {czDate(p.date)}: <strong>{czExact(p.value, p.valueRaw)}</strong>{" "}
-              {t.unit} není v grafu — hodnota čeká na ověření v záložce{" "}
+              {prettyUnit(t.unit)} není v grafu — hodnota čeká na ověření v záložce{" "}
               <strong>Ověření</strong>.
             </p>
           ))}

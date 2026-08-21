@@ -8,6 +8,7 @@ import type { AnalyteDef, LabReport, Measurement } from "./lib/models";
 import { Registry } from "./lib/registry";
 import { buildTrends } from "./lib/trends";
 import { checkImplausible } from "./lib/implausible";
+import { czDate } from "./lib/czech";
 import ChatPanel from "./ui/ChatPanel";
 import MappingTab from "./ui/MappingTab";
 import SummaryTab from "./ui/SummaryTab";
@@ -20,7 +21,7 @@ const TABS: Array<[TabId, string]> = [
   ["trends", "📈 Trendy"],
   ["summary", "📝 Souhrn změn"],
   ["verify", "🔍 Ověření"],
-  ["mapping", "🗂️ Namapování"],
+  ["mapping", "🗂️ Přiřazení názvů"],
 ];
 
 export default function App() {
@@ -128,6 +129,14 @@ export default function App() {
   );
   const frozen = budget?.frozen ?? false;
   const patient = reports.find((r) => r.patientName)?.patientName;
+  const patientId = reports.find((r) => r.patientId)?.patientId;
+  const dateRange = useMemo(() => {
+    const dates = reports.map((r) => r.reportDate).filter((d): d is string => !!d).sort();
+    if (dates.length === 0) return null;
+    const first = czDate(dates[0]);
+    const last = czDate(dates[dates.length - 1]);
+    return first === last ? first : `${first} – ${last}`;
+  }, [reports]);
 
   return (
     <div className="wrap">
@@ -145,19 +154,34 @@ export default function App() {
         </div>
       )}
 
-      <div className="banner">
-        Ukázková data — <strong>smyšlený pacient{patient ? ` (${patient})` : ""}</strong>,
-        žádné reálné zdravotní údaje. Vlastní PDF můžete vyzkoušet níže; zpracuje se
-        ve vašem prohlížeči a po zavření stránky po něm nezůstane stopa.
+      {/* Who this is, on every tab. With two patients' reports loaded, nothing
+          on a trend screen otherwise says whose liver enzymes are shown. */}
+      <div className="patient-bar">
+        <span>
+          <strong>{patient ?? "Neznámý pacient"}</strong>
+          {patientId && <span className="muted"> · {patientId}</span>}
+        </span>
+        {dateRange && <span className="muted">{dateRange}</span>}
       </div>
 
-      <nav className="tabs" role="tablist">
-        {TABS.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
-            {label}
-          </button>
-        ))}
-      </nav>
+      <div className="banner">
+        Ukázková data — <strong>smyšlený pacient</strong>, žádné reálné zdravotní údaje.
+        <br />
+        Vlastní PDF se čte ve vašem prohlížeči a nikam se neukládá. <strong>Obrázky
+        stránek — včetně hlavičky se jménem a rodným číslem — se ale posílají ke
+        zpracování na Anthropic API</strong> a projdou serverem této ukázky. Po zavření
+        stránky po nich tady nezůstane stopa.
+      </div>
+
+      <div className="tabs-wrap">
+        <nav className="tabs" role="tablist">
+          {TABS.map(([id, label]) => (
+            <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
 
       {!registry ? (
         <p className="muted">Načítám…</p>
