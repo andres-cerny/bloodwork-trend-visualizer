@@ -1,188 +1,182 @@
 # Web demo hosting plan — Cloudflare
 
-Plan for turning the local Streamlit tool into a link-shareable web demo that
-works on phone and desktop, hosted on Cloudflare with no custom domain.
+Plan for publishing the bloodwork visualizer as a link-shareable demo that works
+on phone and desktop, hosted on Cloudflare with no custom domain.
 
 Status: **proposed** — not yet started. `main` is untouched; this document and
 all subsequent work live on `claude/web-app-demo-hosting-ymbgkc`.
 
 ## Goal
 
-A URL (`*.pages.dev` / `*.workers.dev`) that can be sent to a doctor, opened on
-a phone, and used to see the product's story end to end: upload lab PDFs, watch
-them get transcribed and verified, explore trends, ask the chat about them.
-When the tab closes, the data is gone.
+A URL (`*.workers.dev`) that can be sent to a doctor, opened on a phone, and
+used to see the product's story end to end: transcribed lab values, the
+verification view that proves the numbers are right, trends over time, a plain
+Czech summary of what changed, and a chat to ask about it.
 
-## Constraints
+## Shape
 
-| Constraint | Consequence |
-| --- | --- |
-| No custom domain | Ship on the platform-provided subdomain. |
-| Uploaded PDFs vanish on close | No server-side persistence at all. |
-| Chat must not cost money when strangers use it | Free-tier model for ungated visitors. |
-| Demo, not production | No auth system, no database, no audit trail. |
+**Everything expensive happens offline, on your machine, before deploy.** You
+run the existing Python pipeline over your PDFs; it emits JSON reports, page
+images and row bounding boxes. Those ship as static assets.
 
-## Assumptions
+The consequences are worth stating plainly, because they remove most of the
+original plan:
 
-These resolve the questions left open in discussion. Each is a default that can
-be flipped without reshaping the plan.
+- **No Anthropic key in the deployment.** Not in the browser bundle, not as a
+  Worker secret. Extraction already happened.
+- **No runtime extraction cost.** A stranger clicking around costs nothing,
+  because there is nothing to bill.
+- **No uploads, no storage, no access code, no KV budget ceiling.** All of that
+  existed to make live upload safe. There is no live upload.
+- **No pdf.js.** Page images are pre-rendered and row bounding boxes are
+  pre-computed, so the browser draws a highlight rectangle over a PNG.
 
-1. **Live upload is gated behind an access code.** Ungated visitors get the
-   pre-baked demo dataset. The code is the same one that unlocks Claude-quality
-   chat, so it is one mechanism, not two.
-2. **A daily token ceiling is enforced in Workers KV.** Invisible to trusted
-   users; converts the worst case from an unbounded Anthropic bill into a
-   "demo limit reached" message.
-3. **The pre-baked dataset is anonymized before it ships.** See
-   [Demo dataset](#phase-4--demo-dataset-and-gate).
-4. **UI stays Czech.** Same copy as the Streamlit app.
+The only runtime API call in the entire product is the chat, on a free-tier
+model whose key lives as a Worker secret and which cannot bill you.
 
-## Target architecture
-
-Nothing touches a server disk. The Worker is a keyholder and a rate limiter,
-never a store.
+## Architecture
 
 ```
-Browser                                  Cloudflare Worker            Anthropic
--------                                  -----------------            ---------
-pdf.js renders page N at ~220 DPI
-  → JPEG, downscaled for the model
-  → POST /api/extract  ─────────────────▶ inject API key
-                                          check KV daily budget
-                                          fan out to Sonnet 5 ────────▶
-                                                  + Opus 4.8 ─────────▶
-                        ◀───────────────  union rows, mark disagreement
-normalize.ts parses decimals/units
-  recomputes low/normal/high flags
-  → state in memory + sessionStorage
-  → closing the tab ends it
+BUILD TIME (your machine, existing Python)      RUNTIME (public, static)
+------------------------------------------      ------------------------
+PDFs
+  → src/pipeline.py  (Sonnet 5 + Opus 4.8)      Worker with static assets
+  → src/normalize.py (values, units, flags)       ├─ SPA  (the four tabs)
+  → src/locate.py    (row bboxes, px coords)      └─ /api/chat → free model
+  → anonymize + redact                                          (Worker secret)
+  → JSON + page PNGs  ──────────────────────▶   fetched as static JSON
 ```
 
-The privacy claim this buys is stronger than the current one and it is literally
-true: the PDF never leaves the browser as a file. Only rendered page images go
-out, to Anthropic, for transcription.
+`row_bbox` in `src/locate.py` already returns pixel coordinates in image space
+(it scales PDF points by `RENDER_DPI / 72`), so the boxes map 1:1 onto the
+cached PNGs with no further work at runtime.
 
-### Why the browser does the rendering
+### Hosting
 
-Cloudflare Workers cannot run PyMuPDF — the runtime is JS/Wasm, not CPython with
-native extensions. Moving page rendering to pdf.js removes the dependency
-entirely rather than working around it, and it is what makes the zero-storage
-design possible.
+A single Worker with the static-assets binding serves the built SPA and the one
+`/api/chat` route from one deployment. Free plan: 100k requests/day on Workers,
+10,000 Neurons/day on Workers AI.
 
-### Hosting shape
+## Anonymization — hard prerequisite
 
-A single Worker with the static-assets binding serves the built SPA and the
-`/api/*` routes from one deployment. (Pages + Functions is equivalent; the
-single Worker is the currently recommended path and keeps one wrangler config.)
+The dataset **is** the demo now, and it is fully public with no gate in front of
+it. Nothing ships until this is done.
 
-Free plan covers this: 100k requests/day on Workers, 10,000 Neurons/day on
-Workers AI, which hard-fails rather than bills when exhausted.
+**1. The JSON.** Substitute patient names, synthesize a valid-format rodné
+číslo, shift all dates by a constant offset. Analytes, values, units, reference
+ranges, flags and model disagreements stay exactly as they are — everything a
+doctor evaluates is preserved.
+
+**2. The page images — the easy one to miss.** The rendered PNGs are pictures of
+the original lab reports, and the printed header carries the patient's name and
+rodné číslo. Anonymizing the JSON does nothing about that; the identifiers are
+visible in the verification tab, which is the tab we most want the doctor to
+look at.
+
+Fix: redact the identifier region of each page image at build time. PyMuPDF
+already gives us the machinery — `search_for` locates the printed name and
+rodné číslo, and we paint over those rectangles before the PNG is written. A
+build-time check should refuse to emit any image whose source page still
+matches a known identifier, so this cannot silently regress.
 
 ## Port inventory
 
-The deterministic core is the trust story — it is the reason a misread decimal
-cannot silently become a trend line. It ports as pure functions with its tests.
+Only what drives *interaction* needs to run in the browser. Everything static is
+precomputed.
 
-| Python | Target | Notes |
+| Python | Runtime target | Why |
 | --- | --- | --- |
-| `src/normalize.py` | `web/src/lib/normalize.ts` | Decimal/unit/range parsing, flag recomputation. Pure. Port tests for parity. |
-| `src/matching.py` | `web/src/lib/matching.ts` | `suggest_mappings` — fuzzy name + unit compatibility + value plausibility. Pure, zero-API. |
-| `src/trends.py` | `web/src/lib/trends.ts` | `build_trends`, `latest_two`. Small and pure. |
-| `src/summary.py` | `web/src/lib/summary.ts` | Rule-based Czech summary. Pure. |
+| `src/normalize.py` | `web/src/lib/normalize.ts` | Live re-derivation when a value is corrected in the verify tab. Correcting a misread decimal and watching the flag, trend and summary all update is the demo's strongest moment. |
+| `src/trends.py` | `web/src/lib/trends.ts` | Rebuilds series on date filtering and on accepting a mapping. Tiny and pure. |
+| `src/summary.py` | `web/src/lib/summary.ts` | So the summary responds to corrections rather than sitting frozen. Deterministic Czech templates. |
 | `src/models.py` | `web/src/lib/models.ts` | Dataclasses → interfaces. The `*_raw` vs derived split must survive the port intact. |
-| `src/locate.py` | `web/src/pdf/locate.ts` | **Rewrite**, not port: PyMuPDF text layer → pdf.js `getTextContent()`. Same bbox concept. |
-| `src/extract.py` | split | Prompt + schema → Worker. Two-model union, retry, completeness check → Worker. Page loop → browser. |
-| `src/ingest.py`, `pipeline.py`, `process.py`, `storage.py` | dropped | Replaced by the in-browser session store. |
+| `src/matching.py` | **precomputed** | The analyte set is fixed, so ranked suggestions and their evidence are emitted at build time. Accepting one is an in-memory state change. |
+| `src/locate.py` | **precomputed** | Bboxes emitted as pixel coords in the JSON. No pdf.js. |
+| `src/extract.py`, `ingest.py`, `pipeline.py`, `process.py`, `storage.py` | **build time only** | Unchanged. They run on your machine and never ship. |
 | `app.py` | `web/src/ui/*` | 37KB of Streamlit → components. Altair → a JS charting layer. |
-| `scripts/seed_registry.py` | keep in Python | Build-time step; emits a JSON asset. |
 
-Roughly 25KB of pure logic to port, all of it already unit-tested.
+About 17KB of pure, already-unit-tested logic to port. The tests port with it,
+so parity is asserted rather than assumed.
+
+## Chat
+
+New subsystem — nothing in the repo today.
+
+**Model: Cloudflare Workers AI free tier.** On-platform, no extra credentials,
+10,000 Neurons/day, and it hard-fails rather than billing when exhausted. Key
+lives as a Worker secret, never in the browser.
+
+**Design note: prefer context injection over tool-calling.** Free-tier models
+handle multi-step tool use poorly, and a chat that fumbles its tool calls in
+front of a doctor is worse than no chat. The dataset is small and already
+structured, so inject the relevant normalized values directly into the prompt
+and constrain the model to quoting only numbers it was given. Same guarantee the
+tool-calling design was reaching for, more reliably, on a weaker model.
+
+**Open risk: Czech quality.** This is a Czech demo for a Czech doctor, and
+free-tier models are visibly weaker in Czech than in English. Build the chat
+behind a thin provider interface and evaluate Workers AI's Czech on real
+questions about this dataset. If it disappoints, the interface lets us swap to
+another free tier (Google AI Studio's Gemini free tier is the obvious
+alternative — separate key, still a Worker secret, still no billing) without
+touching the UI.
+
+**Light per-IP throttle.** Not for cost — cost is structurally zero — but so one
+abuser cannot burn the daily Neuron allowance an hour before you demo.
 
 ## Phases
 
-### Phase 0 — spike
+### Phase 1 — anonymized dataset
 
-Prove the risky part before committing to the port. Build a throwaway page that
-renders one PDF with pdf.js and sends one page through Claude vision via a
-minimal Worker.
+Build script: run the pipeline, anonymize the JSON, redact the page images, emit
+static assets plus the precomputed mapping suggestions and row bboxes. Includes
+the regression check that refuses to emit an image still showing an identifier.
 
-Answers: does in-browser rendering match PyMuPDF's output quality closely enough
-that extraction accuracy holds, and what does a 37-page report cost in time and
-memory **on an actual phone**.
+Nothing else starts until the output of this phase is clean.
 
-Exit criteria: one page round-trips with rows matching the Python pipeline's
-output for the same page; phone memory profile is known.
+### Phase 2 — port the deterministic core
 
-### Phase 1 — port the deterministic core
+`normalize`, `trends`, `summary`, `models` to TypeScript with their test suites.
+Finished when the TS tests pass with the same assertions as the Python ones.
 
-`normalize`, `matching`, `trends`, `summary`, `models` to TypeScript, with the
-existing test suites ported alongside. Parity is provable: same inputs, same
-outputs as the Python tests assert today.
-
-No UI, no network. This phase is finished when the TS tests pass.
-
-### Phase 2 — extraction pipeline
-
-Worker routes (`/api/extract`), KV budget counter, two-model union with
-disagreement marking, retry/backoff, per-page fan-out from the browser with live
-progress. Port `locate.ts` against pdf.js here since verification depends on it.
+No UI, no network.
 
 ### Phase 3 — the UI
 
 Four tabs, responsive, mobile-first:
 
-- **Trendy** — per-analyte charts with reference bands.
-- **Souhrn změn** — rule-based Czech summary.
-- **Ověření** — extracted table beside the source page image, row click crops
-  and highlights the source region, "jen sporné řádky" filter, inline
-  correction. This is the tab that most justifies leaving Streamlit: it is a
-  side-by-side layout that Streamlit handles badly on a phone.
-- **Namapování analytů** — ranked suggestions with their evidence, one-click
-  accept, remembered for later reports.
+- **Trendy** — per-analyte charts with reference bands, date filtering.
+- **Souhrn změn** — rule-based Czech summary, recomputed from current state.
+- **Ověření** — extracted table beside the source page image; selecting a row
+  highlights its bbox on the PNG; "jen sporné řádky" filter; inline correction
+  that re-runs `normalize.ts` live. This is the tab that most justifies leaving
+  Streamlit — a side-by-side layout Streamlit handles badly on a phone.
+- **Namapování analytů** — precomputed ranked suggestions with their evidence,
+  one-click accept, trends rebuild on accept.
 
-### Phase 4 — demo dataset and gate
+Corrections and accepted mappings live in memory only. They demonstrate the
+feature and reset on reload, which is correct for a demo.
 
-**Anonymize before anything ships.** The current `data/` and `samples/` contents
-are real patient data — real names, real rodné číslo — which is exactly why they
-are git-ignored today. Baking them into a deploy means committing them and
-serving them from a public URL.
+### Phase 4 — chat
 
-The anonymization: substitute names, synthesize valid-format rodné číslo, shift
-dates by a constant offset. Analytes, values, units, ranges, flags, model
-disagreements and page images stay as they are — everything a doctor evaluates
-is preserved, and the demo stops carrying a real person's medical history.
+Worker route, provider interface, context injection, Czech quality evaluation,
+per-IP throttle.
 
-Then the gate: access code check, pre-baked dataset for ungated visitors, live
-upload for code holders.
+### Phase 5 — deploy
 
-### Phase 5 — chat
-
-New subsystem — nothing in the repo today. Tool-calling over the already
-extracted, already normalized data, so every number the chat states is read from
-the deterministic layer rather than generated.
-
-- Code holders → Claude.
-- Ungated → Workers AI free tier.
-
-Same tool definitions behind both; only the model swaps. Czech output from the
-free model will be visibly weaker, which is the reason for the tiering.
-
-### Phase 6 — deploy
-
-Wrangler config, build pipeline, secrets, deploy, verify on a real phone and a
-real desktop.
+Wrangler config, build pipeline, the Workers AI binding, deploy, verify on a
+real phone and a real desktop.
 
 ## Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| Mobile memory on long reports at 220 DPI | Sequential rendering, concurrency cap, downscale for the model, JPEG not PNG. Measured in Phase 0. |
-| pdf.js rendering differs enough to hurt extraction accuracy | Phase 0 compares against the Python pipeline on the same pages before any port work starts. |
-| Port drift in the deterministic core | Ported tests are the contract; parity is asserted, not assumed. |
-| Free-tier chat quality undercuts the demo | Tiering — the doctor sees Claude. |
-| Link leaks and upload is abused | Access code plus KV daily ceiling. |
+| Patient identifiers surviving into the public build | Redaction plus a build-time check that fails the build, not a manual review step. |
+| Free-tier chat's Czech is too weak | Provider interface; evaluate before deploy; swap tiers if needed. |
+| Port drift in the deterministic core | Ported tests are the contract. |
+| Demo looks static / canned | Live correction re-derivation and mapping acceptance are genuinely interactive, and they are the parts a doctor cares about. |
 
 ## Out of scope
 
-Real auth, a database, multi-user accounts, cross-session persistence,
-production security hardening, custom domain. This is a demo.
+Live upload, auth, a database, cross-session persistence, custom domain,
+production security hardening. This is a demo.
