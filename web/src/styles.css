@@ -277,3 +277,52 @@ button.btn.linkish { background: none; border: none; padding: 4px 0;
 .srcimg.zoomed { overflow: auto; max-height: 70vh; }
 .srcimg.zoomed .srcimg-inner { width: max-content; }
 .srcimg.zoomed img { width: auto; max-width: none; }
+
+/* Clearing and confirming ------------------------------------------------- */
+
+/* Destructive, so it is named in the critical colour — but it is a link, not a
+   button competing with the tab strip directly beneath it. */
+button.btn.linkish.danger { color: var(--status-critical); }
+.patient-bar .clear-all { flex: 0 0 auto; }
+
+.empty-state { text-align: center; }
+.empty-state h2 { margin-bottom: 4px; }
+
+/* A confirmation that has to be answered. Fixed rather than absolute: the
+   patient bar is sticky at z-index 5 and would otherwise sit on top of the
+   dialog asking whether to replace it. */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--ink-1) 42%, transparent);
+}
+.modal {
+  background: var(--surface-1); color: var(--ink-1);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; max-width: 460px; width: 100%;
+  /* A long identity list must scroll inside the dialog, not push the actions
+     off a phone screen where they cannot be reached. */
+  max-height: 86vh; overflow-y: auto;
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--ink-1) 28%, transparent);
+}
+.modal h2 { font-size: 1rem; margin: 0 0 8px; }
+.modal p { font-size: 0.89rem; margin: 0 0 10px; }
+
+/* The two identities being compared, one above the other so the digits that
+   differ line up vertically and can actually be read against each other. */
+.idcmp { margin: 0 0 12px; display: grid; gap: 4px; }
+.idcmp > div { display: flex; gap: 8px; align-items: baseline; }
+.idcmp dt { flex: 0 0 76px; color: var(--ink-muted); font-size: 0.8rem; }
+.idcmp dd { margin: 0; font-size: 0.89rem; word-break: break-word; }
+
+.modal-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.modal-actions .btn { flex: 0 1 auto; }
+
+/* Three answers do not fit one phone row, and wrapping leaves the last one
+   stranded on a line of its own. Stacked full-width instead, with the safe
+   answer at the bottom where the thumb already is. */
+@media (max-width: 460px) {
+  .modal-actions { flex-direction: column; }
+  .modal-actions .btn { width: 100%; }
+}

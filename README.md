@@ -92,6 +92,15 @@ patient — and offers live upload on top of it, gated by Cloudflare Turnstile.
 Uploaded PDFs are parsed in the browser and never written to a server, so
 closing the tab genuinely ends the session.
 
+An upload **merges into whatever is already loaded**, which is right for
+several draws from one patient and wrong across two people. So the app reads
+the patient name and rodné číslo off the uploaded report and compares them with
+what is on screen; anything but a positive match stops and asks, offering
+*replace*, *add anyway* or *discard*; if two patients do end up loaded, the
+patient bar says so. **Vymazat vše** in the patient bar clears
+everything — the sample data can be loaded back with one click, an upload
+cannot. Details in [docs/web-demo-plan.md](docs/web-demo-plan.md#whose-data-is-on-screen).
+
 Extraction and chat use Claude exactly as the local tool does (Sonnet 5 and
 Opus 4.8 cross-checking each other). For **digital PDFs the page image is
 never sent**: pdf.js reconstructs the printed rows from the text layer's own

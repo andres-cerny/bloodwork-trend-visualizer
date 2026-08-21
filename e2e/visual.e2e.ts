@@ -344,3 +344,126 @@ describe("mapping explains itself", () => {
     await page.close();
   });
 });
+
+describe("clearing the loaded data", () => {
+  /**
+   * The demo ships a synthetic patient and an upload merges into it, so
+   * without a way to clear, the first thing a doctor sees after uploading is
+   * their patient's results filed under a fictional name and drawn on one line
+   * with a stranger's. These assert the way out of that.
+   *
+   * The identity check that *prevents* the merge cannot be driven here — it
+   * needs a Turnstile pass and a real extraction — so it is covered by
+   * `web/tests/identity.test.ts` instead. What is asserted below is everything
+   * the browser can reach without a key.
+   */
+  it("removes every report, and the tabs and chat with them", async () => {
+    const page = await open(DESKTOP);
+    expect(await textOf(page, ".patient-bar")).toContain("Jan Ukázka");
+
+    await page.getByRole("button", { name: "Vymazat vše" }).click();
+    await page.getByRole("alertdialog").waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "Vymazat", exact: true }).click();
+    await page.waitForTimeout(300);
+
+    expect(await page.locator(".empty-state").count()).toBe(1);
+    // Four empty tabs and an empty chat box read as a broken app.
+    expect(await page.getByRole("tab").count()).toBe(0);
+    expect(await page.locator(".chat-log").count()).toBe(0);
+    expect(await page.locator(".patient-bar").count()).toBe(0);
+    // The upload card is the one thing that must survive: it is how anything
+    // gets loaded again.
+    expect(await page.locator(".card", { hasText: "Zkusit vlastní PDF" }).count()).toBe(1);
+    expect((page as any).__errors).toEqual([]);
+    await page.close();
+  });
+
+  it("keeps the data when the confirmation is declined", async () => {
+    const page = await open(DESKTOP);
+    await page.getByRole("button", { name: "Vymazat vše" }).click();
+    await page.getByRole("button", { name: "Zrušit" }).click();
+    await page.waitForTimeout(200);
+    expect(await page.getByRole("alertdialog").count()).toBe(0);
+    expect(await textOf(page, ".patient-bar")).toContain("Jan Ukázka");
+    await page.close();
+  });
+
+  it("dismisses the confirmation on Escape without clearing", async () => {
+    const page = await open(DESKTOP);
+    await page.getByRole("button", { name: "Vymazat vše" }).click();
+    await page.getByRole("alertdialog").waitFor({ state: "visible" });
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    expect(await page.getByRole("alertdialog").count()).toBe(0);
+    expect(await textOf(page, ".patient-bar")).toContain("Jan Ukázka");
+    await page.close();
+  });
+
+  it("brings the demo data back, charts and all", async () => {
+    const page = await open(DESKTOP);
+    await page.getByRole("button", { name: "Vymazat vše" }).click();
+    await page.getByRole("button", { name: "Vymazat", exact: true }).click();
+    await page.waitForTimeout(300);
+
+    await page.getByRole("button", { name: "Načíst ukázková data" }).click();
+    await page.waitForTimeout(400);
+    expect(await textOf(page, ".patient-bar")).toContain("Jan Ukázka");
+    expect(await page.getByRole("tab").count()).toBe(4);
+    // Not just the header: the derived views have to rebuild too.
+    expect(await page.locator("svg circle").count()).toBeGreaterThan(1);
+    expect((page as any).__errors).toEqual([]);
+    await page.close();
+  });
+
+  it("drops a correction made before clearing", async () => {
+    // Clearing has to reset the derived state, not just the report list. A
+    // correction surviving a clear would reappear on data it was never made
+    // against — the restored demo would silently be the edited one.
+    const page = await open(DESKTOP);
+    const reviewCount = () =>
+      page.locator("label", { hasText: "jen řádky k ověření" }).innerText();
+
+    await tab(page, "🔍 Ověření").click();
+    await page.waitForTimeout(300);
+    const before = await reviewCount();
+
+    await page.selectOption("select", { index: 1 });
+    await page.waitForTimeout(300);
+    await page.locator("tr.row-pick").first().click();
+    await page.waitForTimeout(300);
+    await page.locator('input[aria-label="Opravit hodnotu"]').fill("4,45");
+    await page.getByRole("button", { name: "Opravit" }).click();
+    await page.waitForTimeout(400);
+    expect(await reviewCount(), "the correction should have landed").not.toBe(before);
+
+    await page.getByRole("button", { name: "Vymazat vše" }).click();
+    await page.getByRole("button", { name: "Vymazat", exact: true }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Načíst ukázková data" }).click();
+    await page.waitForTimeout(400);
+
+    await tab(page, "🔍 Ověření").click();
+    await page.waitForTimeout(300);
+    expect(await page.getByRole("button", { name: /Vrátit původní/ }).count()).toBe(0);
+    expect(await reviewCount(), "restored data should be the shipped data").toBe(before);
+    await page.close();
+  });
+
+  it("never scrolls sideways with the dialog open, on a phone", async () => {
+    const page = await open(MOBILE);
+    await page.getByRole("button", { name: "Vymazat vše" }).click();
+    await page.getByRole("alertdialog").waitFor({ state: "visible" });
+    await page.waitForTimeout(200);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    // Both answers have to be reachable, not pushed off the bottom.
+    for (const name of ["Vymazat", "Zrušit"]) {
+      const box = await page.getByRole("button", { name, exact: true }).boundingBox();
+      expect(box, name).not.toBeNull();
+      expect(box!.y + box!.height, name).toBeLessThanOrEqual(MOBILE.height);
+    }
+    await page.close();
+  });
+});

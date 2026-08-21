@@ -12,6 +12,8 @@ import { type LabReport, type Measurement } from "../lib/models";
 import { reconcile } from "../lib/reconcile";
 import { type Registry } from "../lib/registry";
 import { count, plural } from "../lib/czech";
+import { checkIdentity, describeIdentity, type IdentityWarning } from "../lib/identity";
+import Modal from "./Modal";
 
 declare global {
   interface Window {
@@ -26,12 +28,25 @@ interface Props {
   registry: Registry;
   frozen: boolean;
   maxPages: number;
+  /** Everything currently on screen — what an upload is checked against. */
+  reports: LabReport[];
   onReport: (report: LabReport) => void;
+  /** Discard what is loaded and keep only this report. */
+  onReplaceAll: (report: LabReport) => void;
   onBudget: (b: Budget) => void;
   onUnlock: () => void;
 }
 
-export default function UploadPanel({ registry, frozen, maxPages, onReport, onBudget, onUnlock }: Props) {
+export default function UploadPanel({
+  registry,
+  frozen,
+  maxPages,
+  reports,
+  onReport,
+  onReplaceAll,
+  onBudget,
+  onUnlock,
+}: Props) {
   const boxRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(hasSession());
   const [progress, setProgress] = useState<string | null>(null);
@@ -40,6 +55,9 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
   // failures — showing them in the error colour makes a working upload look
   // broken.
   const [notes, setNotes] = useState<string[]>([]);
+  // An extracted report held back because it may not belong to the patient on
+  // screen. Nothing reaches the trends until the reader answers.
+  const [pending, setPending] = useState<{ report: LabReport; check: IdentityWarning } | null>(null);
 
   useEffect(() => {
     if (ready || !SITE_KEY || !boxRef.current) return;
@@ -84,6 +102,10 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
       let sawScan = false;
       let reportDate: string | null = null;
       let labName: string | null = null;
+      // Read off the page header. Kept, rather than discarded as it used to
+      // be, because it is the only thing that can tell whose report this is.
+      let patientName: string | null = null;
+      let patientId: string | null = null;
 
       const failedPages: number[] = [];
 
@@ -121,6 +143,8 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         for (const read of res.reads) {
           reportDate = reportDate ?? read.report_date ?? null;
           labName = labName ?? read.lab_name ?? null;
+          patientName = patientName ?? read.patient_name ?? null;
+          patientId = patientId ?? read.patient_id ?? null;
         }
         for (const m of reconcile(res.reads)) {
           // Provenance: on the text path a transcribed value must literally
@@ -169,16 +193,23 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
             `— ${plural(unverified, "označena", "označeny", "označeno")} k ověření.`,
         );
       setNotes(out);
-      onReport({
+
+      const report: LabReport = {
         id: `upload-${Date.now()}`,
         sourceFile: file.name,
         reportDate,
         labName,
-        patientName: null,
-        patientId: null,
+        patientName,
+        patientId,
         pages,
         measurements,
-      });
+      };
+      // The identity is only knowable after extraction, so this gate sits at
+      // the end rather than the start: the transcription is already paid for,
+      // and what is being decided is whether it may join the trends.
+      const check = checkIdentity(report, reports);
+      if (check.kind === "ok") onReport(report);
+      else setPending({ report, check });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${e}`);
     } finally {
@@ -186,15 +217,72 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
     }
   }
 
+  // Rendered alongside both branches below. A report can finish extracting on
+  // the very page that exhausts the budget; if the dialog lived only in the
+  // unfrozen return, that report would vanish without the reader ever being
+  // asked about it.
+  const dialog = pending && (
+    <Modal
+      title={pending.check.kind === "mismatch" ? "Jiný pacient?" : "Pacienta nelze ověřit"}
+      onDismiss={() => setPending(null)}
+      actions={[
+        {
+          label: "Nahradit načtená data",
+          primary: true,
+          onClick: () => {
+            onReplaceAll(pending.report);
+            setPending(null);
+          },
+        },
+        {
+          label: "Přidat i tak",
+          onClick: () => {
+            onReport(pending.report);
+            setPending(null);
+          },
+        },
+        { label: "Zahodit", dismiss: true, onClick: () => setPending(null) },
+      ]}
+    >
+      <p>
+        {pending.check.kind === "mismatch"
+          ? pending.check.by === "id"
+            ? "Rodné číslo v nahraném PDF neodpovídá datům, která jsou teď načtená."
+            : "Jméno pacienta v nahraném PDF neodpovídá datům, která jsou teď načtená."
+          : "Z nahraného PDF se nepodařilo přečíst jméno ani rodné číslo, takže nelze ověřit, že jde o stejného pacienta."}{" "}
+        Hodnoty dvou různých lidí by se v grafech spojily do jedné křivky.
+      </p>
+      <dl className="idcmp">
+        <div>
+          <dt>Načteno</dt>
+          <dd>{pending.check.loaded.map(describeIdentity).join(" / ") || "neuvedeno"}</dd>
+        </div>
+        <div>
+          <dt>Nahráno</dt>
+          <dd>{describeIdentity(pending.check.incoming)}</dd>
+        </div>
+      </dl>
+      <p className="muted" style={{ marginBottom: 0 }}>
+        Přepis je hotový — „Zahodit“ ho jen nepustí do grafů, nic dalšího se
+        neposílá.
+      </p>
+    </Modal>
+  );
+
   if (frozen)
     return (
-      <div className="card">
-        <h2>Zkusit vlastní PDF</h2>
-        <p className="muted">Rozpočet dema na AI funkce je vyčerpán — nahrávání je dočasně vypnuté.</p>
-      </div>
+      <>
+        {dialog}
+        <div className="card">
+          <h2>Zkusit vlastní PDF</h2>
+          <p className="muted">Rozpočet dema na AI funkce je vyčerpán — nahrávání je dočasně vypnuté.</p>
+        </div>
+      </>
     );
 
   return (
+    <>
+    {dialog}
     <div className="card">
       <h2>Zkusit vlastní PDF</h2>
       <p className="sub">
@@ -234,5 +322,6 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
       ))}
       {error && <p className="err" style={{ marginBottom: 0 }}>{error}</p>}
     </div>
+    </>
   );
 }

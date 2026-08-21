@@ -79,6 +79,55 @@ row-by-row, disagreements flagged into the verification tab. That design
 matters *more* with weaker models, not less — a weak model degrades into "more
 rows to review" rather than into silent wrongness.
 
+### Whose data is on screen
+
+Uploads merge into whatever is already loaded — `buildTrends` runs over every
+loaded report, so two reports for one patient become one series per analyte.
+That is the whole point across several draws, and a fabrication across two
+people: a chart mixing two patients' ALT is not a display bug, it is a
+clinical claim about someone that is not true. The demo ships a synthetic
+patient, so the *default* state of the app is one where the very next upload
+would do exactly that.
+
+Two things guard it.
+
+**An identity check on every upload** (`web/src/lib/identity.ts`). The
+extractor already returns `patient_name` and `patient_id` off the page header;
+the upload path keeps them instead of discarding them, and compares them with
+every distinct identity already loaded:
+
+| Situation | What decides |
+|---|---|
+| Both sides have a usable rodné číslo | It does — a matching name never overturns a differing one |
+| One side does not | The name, with diacritics, case, word order and titles normalized away |
+| Neither comparison is possible | Nothing: the outcome is "unverifiable", not "same" |
+
+Only a positive match is silent. A mismatch **and** an identity that could not
+be read both stop and ask, offering *replace what is loaded*, *add anyway*, or
+*discard*. Treating "could not read it" as a pass would defeat the check on
+exactly the documents most likely to need it — scans, whose headers transcribe
+worst.
+
+Two deliberate choices in that table. A rodné číslo that is not 9 or 10 digits
+is treated as unreadable rather than compared, because an OCR slip that drops a
+digit would otherwise read as a *different patient* and train the reader to
+click through the warning. And a match against any one loaded identity passes,
+so once someone has deliberately accepted two patients on screen, further
+draws for either of them do not nag.
+
+The check necessarily runs **after** extraction — the identity is not knowable
+until the page has been read — so what it gates is whether a paid-for
+transcription may join the trends, not whether to spend the money.
+
+**A way out** — `Vymazat vše` in the patient bar drops every loaded report, the
+corrections made against them, and the analyte-name synonyms accepted during
+the session (a mapping decision made for one patient must not apply to the
+next). The sample data reloads with one click; an upload would have to be
+extracted again, and the confirmation says so. With nothing loaded the app
+shows an empty state and the upload card rather than four empty tabs, and the
+"smyšlený pacient" reassurance disappears from the banner — it must not sit
+above a real patient's results once the demo data has been replaced.
+
 ### Abuse gate
 
 **Cloudflare Turnstile** (free, unlimited) in front of upload. The Worker

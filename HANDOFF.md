@@ -10,21 +10,23 @@ fetched since, will not have the branch at all — so start here:
 
 ```sh
 git fetch origin
-git switch claude/web-app-demo-hosting-ymbgkc
+git switch claude/doctor-demo-bloodwork-trends-j55bb5
 npm install
 ```
 
 If `git switch` reports the branch does not exist, the fetch did not run or
 did not reach the remote — re-run `git fetch origin` and check
-`git branch -r` lists `origin/claude/web-app-demo-hosting-ymbgkc`.
+`git branch -r` lists `origin/claude/doctor-demo-bloodwork-trends-j55bb5`.
 
-`main` is untouched at `242bd53`, so switching back and forth costs nothing.
+`claude/web-app-demo-hosting-ymbgkc` is the earlier branch this continues from;
+everything on it is included here, so you only need this one. `main` is
+untouched at `242bd53`, so switching back and forth costs nothing.
 Stash local changes first if `git status` is not clean.
 
 Then confirm the tree is healthy before changing anything:
 
 ```sh
-npm test               # 197 unit tests
+npm test               # 225 unit tests
 python3 tests/test_parity.py   # 58 cross-language parity cases
 ```
 
@@ -35,7 +37,7 @@ is wrong — Node 22 and Python 3.11 are what this was built and tested against
 ## What this is
 
 A Cloudflare-hosted demo of the bloodwork visualizer, built on the branch
-`claude/web-app-demo-hosting-ymbgkc`. `main` is untouched. It is a React SPA
+`claude/doctor-demo-bloodwork-trends-j55bb5`. `main` is untouched. It is a React SPA
 plus one Worker: the site opens on a pre-baked synthetic dataset, and visitors
 can upload their own PDF behind a Cloudflare Turnstile check.
 
@@ -43,7 +45,7 @@ Design doc: `docs/web-demo-plan.md`. Deploy steps: `docs/deploy.md`.
 
 ## State
 
-Built and tested — **197 unit tests** (`npm test`), plus 14 browser tests and
+Built and tested — **225 unit tests** (`npm test`), plus 20 browser tests and
 17 live-extraction tests that need a browser or an API key (see *Tests only you
 can run* below):
 
@@ -59,14 +61,16 @@ can run* below):
 | Session tokens | `worker/tests/auth.test.ts` | Forgery, wrong secret, expiry |
 | Spend ledger | `worker/tests/budget.test.ts` | Shard accumulation, freeze boundary, cache-token pricing |
 | Misread detection | `web/tests/implausible.test.ts` | A decimal slip caught; a real extreme left alone |
+| Patient identity | `web/tests/identity.test.ts` | Rodné číslo and name matching, and every way the comparison can fail |
 | Mapping evidence | `web/tests/mapping.test.ts` | Value plausibility, material mismatch, provenance |
 | Cross-language parity | `tests/test_parity.py` + `web/tests/parity.test.ts` | **Both** read `tests/parity_cases.json` |
 | Strategy benchmark | `web/tests/bench/plausibility.bench.test.ts` | Scores the plausibility detectors against each other |
 
 Also built: the SPA with all four tabs, chat, Turnstile-gated upload,
-text-layer extraction for digital PDFs with a vision fallback for scans, and a
+text-layer extraction for digital PDFs with a vision fallback for scans, a
 mapping review showing where each unmapped value came from and what data
-already sits under each candidate.
+already sits under each candidate, and the patient-identity guard on upload
+described under *Two patients must never share a chart* below.
 
 **Not done, because this environment could not do it:**
 
@@ -111,7 +115,11 @@ covers the defects that passed every unit test in the project:
 - chart points are spaced by real elapsed time, not by index;
 - correcting a value re-derives the flag, the review count and the chart, and
   undo restores the original reading *and* its warning;
-- no page scrolls sideways on any tab at either width.
+- `Vymazat vše` empties the app, takes the tabs and the chat with it, leaves
+  the upload card reachable, and drops corrections made before it — the
+  restored sample data is the shipped data, not the edited data;
+- no page scrolls sideways on any tab at either width, including with a
+  confirmation dialog open on a phone.
 
 Needs Chromium. If Playwright cannot find one: `npx playwright install
 chromium`, or point `CHROMIUM_PATH` at an existing binary.
@@ -203,6 +211,62 @@ The benchmark comparing the strategies is
 `web/tests/bench/plausibility.bench.test.ts` — run it after changing any of
 this. On its current cases: observed values 8/15 with 7 false accepts, printed
 intervals 12/15, the curated table 15/15.
+
+## Two patients must never share a chart
+
+The demo opens on a synthetic patient and an upload **merges into what is
+loaded** — `buildTrends` runs over every loaded report. Across several draws
+from one person that is the entire feature; across two people it draws one line
+through two patients' ALT and states something about nobody. Left alone, the
+first thing a doctor would have seen after uploading is their patient's results
+filed under "Jan Ukázka".
+
+Two guards, both new:
+
+**`web/src/lib/identity.ts`** compares the uploaded report against every
+distinct identity already on screen. `patient_name` and `patient_id` were
+always in the extractor's schema; the upload path used to hardcode them to
+`null` and now keeps them. Rodné číslo decides when both sides have a usable
+one (9 or 10 digits — anything else is a misread and is *not* compared, or a
+dropped digit would read as a different patient); otherwise the name, with
+diacritics, case, word order and titles normalized away. Only a positive match
+is silent. A mismatch and an identity that could not be read *both* stop and
+ask — replace, add anyway, or discard — because treating "could not read it" as
+a pass would disable the check on exactly the documents that need it most.
+
+**`Vymazat vše`** in the patient bar drops every report, the corrections made
+against them, and the synonyms accepted in the mapping tab. Sample data comes
+back with one click; an upload would need re-extracting, and the confirmation
+says so.
+
+The patient bar itself was also wrong in a way this made reachable: it found
+the name and the rodné číslo with two independent `find` calls, so with two
+patients loaded it could pair one patient's name with the other's number. Both
+now come from one report, and a bar showing more than one identity says so —
+"2 pacienti v jednom grafu" — rather than leaving the reader to notice.
+
+Two consequences worth knowing before you demo:
+
+- **An uploaded patient's real name and rodné číslo now render in the sticky
+  patient bar**, where before the bar always said "Jan Ukázka". That is
+  necessary — the bar's job is to say whose results these are — but it means
+  screen-sharing the app with a real report loaded puts an identifier on
+  screen. It is also what the mismatch dialog shows, deliberately: a warning
+  the reader cannot check is a warning they will learn to click through.
+- The "smyšlený pacient, žádné reálné zdravotní údaje" line now disappears from
+  the banner once the sample data is gone. It must not sit above a real
+  patient's results.
+
+**What is not proven:** the dialog has never been triggered by a real upload,
+because that needs a Turnstile pass and a live extraction. The decision logic
+has 28 unit tests (`web/tests/identity.test.ts`) and the clear/restore flow has
+6 browser tests, but the wiring between them — that a real lab PDF yields a
+`patient_id` the check can actually use — is on the list below. **Add it to the
+first real-PDF session:** upload one report, then upload a different patient's,
+and confirm the dialog appears and each of its three answers does what it says.
+If real reports come back with `patient_id: null` more often than not, the
+check silently degrades to "unverifiable" on every upload, which is safe but
+noisy — that is the outcome to watch for.
 
 ## A clinician reviewed the UI
 
@@ -297,10 +361,15 @@ curl http://localhost:8787/api/status
 ### The loop
 
 1. `npx wrangler dev`, open the site, upload a real lab PDF.
-2. Watch the verification tab. Every row that came out wrong is a bug with a
+2. Check the patient bar first: it should now carry the real name and rodné
+   číslo off the page header. If it says "Neznámý pacient", the header did not
+   transcribe and the identity check has nothing to work with — see *Two
+   patients must never share a chart*.
+3. Watch the verification tab. Every row that came out wrong is a bug with a
    reproducible cause — find which stage lost it.
-3. Add a fixture that reproduces it (below), fix, re-run `npm test`.
-4. Repeat with a different lab's layout.
+4. Add a fixture that reproduces it (below), fix, re-run `npm test`.
+5. Repeat with a different lab's layout — and with a *different patient's*
+   report, to trigger the mismatch dialog and exercise its three answers.
 
 ### Where things go wrong, in order of likelihood
 
