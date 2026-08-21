@@ -38,6 +38,41 @@ const SINGLE = process.env.LIVE_SINGLE_MODEL === "1";
 const MODELS = SINGLE ? [MODEL_PRIMARY] : [MODEL_PRIMARY, MODEL_ESCALATION];
 
 const FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../web/tests/fixtures");
+const REPO = join(dirname(fileURLToPath(import.meta.url)), "../..");
+
+/**
+ * A Python that can actually render a PDF page.
+ *
+ * Only the vision-fallback test needs one, and only to rasterise a fixture the
+ * way the browser would. Hard-coding `python3` made that test fail on any
+ * machine whose default Python lacks PyMuPDF — which is most of them, since
+ * the system Python is usually externally managed and cannot install it.
+ * Resolved once, and reported as skipped rather than failed when absent: a
+ * missing local dependency is not an extraction defect.
+ *
+ * Probed with `import pymupdf`, not `import fitz`: the legacy alias prints a
+ * deprecation warning to *stdout*, which silently corrupted the rendered
+ * image when stdout was used to carry it.
+ */
+function pythonWithFitz(): string | null {
+  const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
+  const candidates = [
+    process.env.PYTHON_BIN,
+    join(REPO, ".venv-mac/bin/python"),
+    join(REPO, ".venv/bin/python"),
+    "python3.11",
+    "python3",
+  ].filter(Boolean) as string[];
+  for (const bin of candidates) {
+    try {
+      execFileSync(bin, ["-c", "import pymupdf"], { stdio: "ignore" });
+      return bin;
+    } catch {
+      /* try the next one */
+    }
+  }
+  return null;
+}
 
 let spentUsd = 0;
 const spend = (model: string, u: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }) => {
@@ -157,20 +192,46 @@ describeLive("live extraction — text-layer path", () => {
 });
 
 describeLive("live extraction — vision fallback (scanned page)", () => {
-  it("transcribes a page that has no text layer", async () => {
+  it("transcribes a page that has no text layer", async (ctx) => {
+    const python = pythonWithFitz();
+    if (!python) {
+      ctx.skip(
+        "no Python with PyMuPDF found — needed only to rasterise the fixture. " +
+          "Create one with: python3.11 -m venv .venv-mac && .venv-mac/bin/pip install pymupdf",
+      );
+      return;
+    }
+
     const words = await pageWords(SCAN_FIXTURE.file);
     expect(words.length, "fixture should have no usable text layer").toBeLessThan(20);
 
     // Render it the way the browser does before sending to vision.
+    //
+    // Written to a file rather than piped through stdout. PyMuPDF's legacy
+    // `fitz` alias prints a deprecation warning to stdout, which prepended
+    // itself to the image data and produced a 400 from the API that looked
+    // like a malformed request rather than what it was.
     const { execFileSync } = await import("node:child_process");
-    const b64 = execFileSync("python3", [
-      "-c",
-      `import fitz,base64,sys
-d=fitz.open(sys.argv[1]); p=d[0]
-pix=p.get_pixmap(matrix=fitz.Matrix(220/72,220/72))
-sys.stdout.write(base64.b64encode(pix.tobytes("jpeg")).decode())`,
-      join(FIXTURE_DIR, SCAN_FIXTURE.file),
-    ]).toString();
+    const { mkdtempSync, readFileSync: readFile, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+
+    const scratch = mkdtempSync(join(tmpdir(), "bloodwork-live-"));
+    const outPath = join(scratch, "page.b64");
+    try {
+      execFileSync(python, [
+        "-c",
+        `import pymupdf, base64, sys
+doc = pymupdf.open(sys.argv[1])
+pix = doc[0].get_pixmap(matrix=pymupdf.Matrix(220/72, 220/72))
+open(sys.argv[2], "w").write(base64.b64encode(pix.tobytes("jpeg")).decode())`,
+        join(FIXTURE_DIR, SCAN_FIXTURE.file),
+        outPath,
+      ]);
+      var b64 = readFile(outPath, "utf-8").trim();
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+    expect(/^[A-Za-z0-9+/=]+$/.test(b64), "rendered image is not clean base64").toBe(true);
 
     const r = await extractPage(KEY, MODEL_PRIMARY, b64, "image/jpeg", null);
     spend(MODEL_PRIMARY, r.usage);

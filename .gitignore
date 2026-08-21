@@ -26,3 +26,6 @@ dist/
 data/
 samples/*.pdf
 web/public/demo/real/
+
+# macOS venv (the checked-in .venv layout is Windows-only)
+.venv-mac/
