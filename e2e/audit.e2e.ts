@@ -121,6 +121,16 @@ async function addAnalyte(page: Page, query: string) {
   await page.waitForTimeout(300);
 }
 
+/*
+ * No screen here is for the patient card. It renders above the tab strip,
+ * outside every tab panel, so all eleven screens below already carry it — at
+ * four widths in both palettes — and it has no state of its own to reach. A
+ * screen for it would audit the same boxes a twelfth time.
+ *
+ * The one state that is *not* covered is a report with no name and a single
+ * draw, which the shipped demo cannot produce; that lives in
+ * `web/tests/patientSummary.test.ts` instead.
+ */
 const SCREENS: Screen[] = [
   {
     name: "trends (empty)",

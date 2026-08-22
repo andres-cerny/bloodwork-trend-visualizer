@@ -97,6 +97,76 @@ describe("the app loads and renders", () => {
   });
 });
 
+describe("the opening card says who this is and what changed", () => {
+  /*
+   * The app opens on an empty Trends tab, so before this card the reader had
+   * to pick an analyte before the app told them anything — and the only
+   * patient context was one line in the top bar. Asserted in the browser
+   * rather than in a unit test because the risk is that the card renders as an
+   * empty shell: `patientOverview` can be perfect while the component drops
+   * the sentences on the floor.
+   */
+  it("names the patient, decodes the rodné číslo and dates the follow-up", async () => {
+    const page = await open(DESKTOP);
+    const card = ".patient-card";
+    expect(await page.locator(card).count(), "no patient card").toBe(1);
+
+    const text = await textOf(page, card);
+    expect(text).toContain("Jan Ukázka");
+    expect(text).toContain("800101/0006");
+    // Decoded from the rodné číslo — 1. 1. 1980, and 46 at the last draw.
+    expect(text).toContain("nar. 1. 1. 1980");
+    expect(text).toContain("46 let");
+    // Ten draws over four years and two months, ending 14. 4. 2026.
+    expect(text).toContain("10 odběrů");
+    expect(text).toContain("4 roky a 2 měsíce");
+    expect(text).toContain("14. 4. 2026");
+    await page.close();
+  });
+
+  it("carries real prose about the series, not an empty shell", async () => {
+    const page = await open(DESKTOP);
+    const prose = (await page.locator(".pc-prose").first().innerText()).trim();
+    expect(prose.length, "the summary paragraph is empty").toBeGreaterThan(80);
+    // Two to three sentences, and they say something.
+    expect(prose.split(/\.\s|\.$/).filter(Boolean).length).toBeGreaterThanOrEqual(2);
+    expect(prose).toContain("Mimo referenční rozmezí");
+    // The whole-series fact, not the last-step one: GGT runs +103 % across the
+    // ten draws and a few percent between the last two.
+    expect(prose).toContain("napříč celou sérií");
+    expect(prose).toMatch(/\+\d+ %/);
+    await page.close();
+  });
+
+  it("does NOT narrate a reading it has withheld", async () => {
+    // Same defect as plotting the misread glucose, one screen earlier: the
+    // demo prints 4,45 and carries 44,5. It may not reach the first paragraph
+    // a doctor reads.
+    const page = await open(DESKTOP);
+    const prose = (await page.locator(".pc-prose").first().innerText()).trim();
+    expect(prose, "a withheld value reached the summary").not.toContain("44,5");
+    await page.close();
+  });
+
+  it("is above the tab strip, at every width", async () => {
+    for (const vp of [MOBILE, DESKTOP]) {
+      const page = await open(vp);
+      const geometry = await page.evaluate(() => {
+        const card = document.querySelector(".patient-card")!.getBoundingClientRect();
+        const tabs = document.querySelector(".tabs-wrap")!.getBoundingClientRect();
+        return { cardTop: card.top, tabsTop: tabs.top, cardRight: card.right, w: window.innerWidth };
+      });
+      expect(geometry.cardTop, `${vp.width}px: card is not above the tabs`).toBeLessThan(
+        geometry.tabsTop,
+      );
+      expect(geometry.cardRight, `${vp.width}px: card runs off screen`).toBeLessThanOrEqual(
+        geometry.w + 1,
+      );
+      await page.close();
+    }
+  });
+});
+
 describe("trends visualise correctly", () => {
   it("draws a chart with one point per numeric result", async () => {
     const page = await open(DESKTOP);

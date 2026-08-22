@@ -55,6 +55,58 @@ to the bare bounding box it ran wider than its container, and the
 reference-range column — the thing being checked — sat off-screen behind a
 scrollbar nobody notices.
 
+## The app opens on the patient, not on an empty tab
+
+The first screen used to be the Trends tab with nothing plotted, and the only
+patient context anywhere was one line in the top bar. A doctor had to choose an
+analyte before the app told them anything at all.
+
+`web/src/ui/PatientCard.tsx` now sits **above the tab strip**, so it is outside
+the panels and true of every tab: name and rodné číslo, the birth date and age
+decoded from that number, how long the follow-up has run, how many draws — and
+two or three generated Czech sentences about the whole series.
+
+- **It reads `seriesShape`, not the last pair.** That is the point of it. On
+  the demo it renders GGT at +103 % and triacylglycerols at +85 % across the
+  whole series, and says so explicitly — "napříč celou sérií, ne jen mezi
+  posledními dvěma odběry". Only the two largest moves per direction are named,
+  so ALT's +67 % is ranked out; the sentence is a lead, not an inventory.
+- **A withheld reading can never reach it, and never reads as a clean
+  result.** Everything is computed through `numericPoints`, asserted in
+  `patientSummary.test.ts` with the misread glucose placed at the *end* of the
+  series — the position where forgetting would actually show.
+
+  Filtering alone was not enough, and getting this wrong was the worst defect
+  in the first version: with the latest draw's only abnormal reading withheld,
+  the card announced "žádná hodnota mimo referenční rozmezí" — an all-clear the
+  app had no evidence for, in the first paragraph on every tab. Withheld
+  readings are now named ("2 hodnoty k ověření: …") and the all-clear is
+  qualified to "žádná **ověřená** hodnota". `constraints.md` requires exactly
+  this: a doubt must reach the screen the patient is shown.
+
+  This is checked by unit test only. The shipped demo's misread sits at draw
+  two of ten and is normal at the last draw, so no browser test built on the
+  demo data can exercise it — removing the filter entirely leaves the whole e2e
+  suite green. Worth knowing before trusting a green run here.
+- **"Mimo rozmezí" means measured at that draw**, not "the last time we looked".
+  An analyte measured once in 2022 and never since was being reported as out of
+  range "k poslednímu odběru 14. 4. 2026", which is a false sentence about a day
+  on which nothing was measured. The demo hides it — all ten reports carry all
+  twenty-two analytes — so this only ever appears on a real upload.
+- **A rise and a fall get a sentence each.** They share no noun in Czech, and
+  taking only the largest move meant a haemoglobin falling out of range vanished
+  whenever something else was rising faster. That is the single worst thing this
+  paragraph could omit.
+- **It degrades by omission.** No rodné číslo means no birth date and no age
+  rendered, not a dash; one draw means no follow-up span and a sentence saying
+  the comparison does not exist yet, rather than a card claiming nothing
+  changed. Age is labelled "v době odběru", because on a report set that ends
+  years ago a bare number reads as the patient's age today.
+
+The auditor needs no new screen for it: it renders above the tab strip, so
+every screen already in `SCREENS` measures it at all four widths in both
+palettes.
+
 ## The summary is grouped, and every line is a link
 
 Twenty analytes as one flat list buried the four a doctor opened it for. It is
@@ -142,6 +194,20 @@ series colour, run the validator rather than eyeballing it.
   "Triacylglyceroly vzrostlo" should be "vzrostly". Dropping the verb removes
   the agreement problem; gendering the registry would be large and fragile.
   `web/tests/summary.test.ts` asserts no verb appears.
+- **The opening card goes one step further: a registry name may only appear in
+  the nominative.** A verb would have to agree with the analyte's gender, and a
+  *preposition* would have to decline it — "u cholesterolu celkového", not "u
+  Cholesterol celkový". So `web/src/lib/patientSummary.ts` writes verbless
+  sentences in which analyte names occur only as items of a colon-introduced
+  list or inside brackets, and every other word is one the module owns and
+  whose agreement is therefore fixed at authoring time.
+  `web/tests/patientSummary.test.ts` asserts both halves, the second by
+  checking what precedes every occurrence of a name — over a fixture set that
+  reaches **every** sentence template. The first version of that guard ran only
+  over an all-rising fixture, so three of the templates went unchecked,
+  including the one the demo actually renders; and it accepted `a ` as a
+  preceding token, which any word ending in -a satisfies — including the
+  prepositions *na* and *za*, the exact case it existed to catch.
 - **Plurals take three forms** (1, 2–4, 5+). `web/src/lib/czech.ts` handles
   agreement; "5 strany" instead of "5 stran" is immediately visible to a native
   reader.
@@ -265,10 +331,12 @@ clinic sees this:
   `<1,0` render as "pod rozmezím", but a low CRP is a good result. Fixing it
   needs a per-analyte flag for whether the lower bound is clinical or a
   detection limit.
-- **The summary compares only the last two draws.** With ten demo draws this
-  is now plain to see: ALT climbing 0,61 → 1,02 across two and a half years,
-  with GGT alongside, is the arresting fact; the prose says "+5 %". The demo
-  data deliberately ends on a rising point so it does not also invert the sign,
-  but the missing shape is the real gap.
+- **The *Souhrn změn* tab still compares only the last two draws.** With ten
+  demo draws this is plain to see: ALT climbing 0,61 → 1,02 across four years,
+  with GGT alongside, is the arresting fact; that tab's prose says "+5 %". The
+  demo data deliberately ends on a rising point so it does not also invert the
+  sign. The opening card now answers the whole-series question — `seriesShape`
+  feeding `patientSummary.ts` — but the tab itself has not been rewritten, so
+  the two describe the same analyte at two different scales.
 - **In-range analytes rank by percent change**, which inside a wide interval is
   usually assay noise.

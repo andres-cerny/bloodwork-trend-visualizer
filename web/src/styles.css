@@ -394,6 +394,64 @@ nav.tabs button[aria-selected="true"] {
 /* A card holding one control does not need a card's padding. */
 .card.toolbar-card { padding: 11px 14px; }
 
+/*
+ * The opening card: who this is, and what the series says.
+ *
+ * It sits above the tab strip, so it is what the reader lands on before
+ * choosing a question. The accent edge is a line, not type, so it takes the
+ * signal token; every piece of text in here takes an ink token.
+ *
+ * Nothing in the card is a fixed-width column. The identity line, the stats
+ * and the prose all wrap, because a Czech analyte name is long, a patient name
+ * is unbounded and this has to survive 390px.
+ */
+.patient-card {
+  border-left: 3px solid var(--accent);
+  padding: 15px 18px 16px;
+}
+.pc-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px 12px; flex-wrap: wrap;
+}
+.pc-who { min-width: 0; }
+.patient-card h2 {
+  font-size: 1.18rem; margin: 0; letter-spacing: -0.015em; line-height: 1.25;
+}
+.pc-meta {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+  margin: 5px 0 0; font-size: 0.84rem; color: var(--ink-2);
+}
+.pc-meta .pc-rc { font-variant-numeric: tabular-nums; }
+/* The one exception to "type takes an ink token": a decorative separator that
+   is aria-hidden and carries no information, matching .patient-bar .dot. Every
+   glyph a reader has to *read* in here is on an ink token. */
+.pc-meta .sep { color: var(--border-strong); }
+/* "v době odběru" qualifies the age without competing with it. */
+.pc-meta .pc-qual { color: var(--ink-muted); font-size: 0.94em; }
+.pc-flag { margin-right: 0; white-space: normal; }
+
+.pc-stats {
+  display: flex; flex-wrap: wrap; gap: 10px 28px;
+  margin: 13px 0 0; padding: 12px 0 0;
+  border-top: 1px solid var(--border);
+}
+.pc-stats > div { min-width: 0; }
+.pc-stats dt {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-muted); font-weight: 650;
+}
+.pc-stats dd {
+  margin: 2px 0 0; font-size: 0.9rem; color: var(--ink-1); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The substance. Capped in ch so a wide monitor does not give it a 200-character
+   measure, which is the width at which a reader loses the line they were on. */
+.pc-prose {
+  margin: 13px 0 0; font-size: 0.93rem; line-height: 1.55;
+  color: var(--ink-1); max-width: 74ch;
+}
+
 .section-title {
   font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--ink-muted); font-weight: 650; margin: 20px 0 9px;

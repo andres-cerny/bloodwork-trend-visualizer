@@ -23,6 +23,7 @@ import { reviewOf } from "./lib/review";
 import { czDate } from "./lib/czech";
 import ChatPanel from "./ui/ChatPanel";
 import MappingTab from "./ui/MappingTab";
+import PatientCard from "./ui/PatientCard";
 import Sidebar from "./ui/Sidebar";
 import ThemeSwitch from "./ui/ThemeSwitch";
 import SummaryTab from "./ui/SummaryTab";
@@ -435,6 +436,14 @@ export default function App() {
         />
 
         <main className="main">
+          {/* Above the tab strip, so it is read before a question is chosen.
+              The app used to open on an empty Trends tab: the reader had to
+              pick an analyte before it told them anything, and the only
+              patient context was one line in the top bar. Outside the panels
+              on purpose — it is true of every tab, and a chart screenshotted
+              from any of them should have it above. */}
+          {hasData && registry && <PatientCard reports={reports} trends={trends} />}
+
           {/* No tabs with nothing loaded: every one of them leads to an empty
               screen, and offering four ways to see nothing is not a choice. */}
           {hasData && (
