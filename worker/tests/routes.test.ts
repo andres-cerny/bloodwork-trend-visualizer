@@ -220,15 +220,17 @@ describe("spend ledger", () => {
     const s = await mintSession(SECRET, 600, 12);
     const res = await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
     const body = (await res.json()) as any;
-    // 2k in + 1k out on Sonnet ($3/$15) and Opus ($5/$25) = 0.021 + 0.035
-    expect(body.costUsd).toBeCloseTo(0.056, 3);
-    expect(body.budget.spentUsd).toBeCloseTo(0.056, 3);
+    // 2k in + 1k out on Sonnet 5 ($3/$15) = 0.021, and on Haiku 4.5 ($1/$5)
+    // = 0.007. The second reader moved from Opus 4.8 to Haiku 4.5, which is
+    // why this is 0.028 rather than the 0.056 it used to be.
+    expect(body.costUsd).toBeCloseTo(0.028, 3);
+    expect(body.budget.spentUsd).toBeCloseTo(0.028, 3);
   });
 
   it("freezes both AI routes once the ceiling is reached", async () => {
-    // One extraction costs $0.056, so a $0.05 ceiling is crossed by the first
+    // One extraction costs $0.028, so a $0.02 ceiling is crossed by the first
     // call — the guard is checked before a call, not mid-flight.
-    const env = makeEnv({ BUDGET_USD_LIMIT: "0.05" });
+    const env = makeEnv({ BUDGET_USD_LIMIT: "0.02" });
     const s = await mintSession(SECRET, 600, 12);
 
     // First call starts under the ceiling and is allowed through.
@@ -249,7 +251,7 @@ describe("spend ledger", () => {
   });
 
   it("makes no Claude call at all once frozen", async () => {
-    const env = makeEnv({ BUDGET_USD_LIMIT: "0.05" });
+    const env = makeEnv({ BUDGET_USD_LIMIT: "0.02" });
     const s = await mintSession(SECRET, 600, 12);
     await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
     calls = [];

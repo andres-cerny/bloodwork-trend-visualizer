@@ -114,9 +114,11 @@ describe("tight line spacing", () => {
     const rows = buildRows(await pageWords("tight_rows.pdf"));
     const text = rowsAsText(rows);
     for (const name of ["S_Sodík", "S_Draslík", "S_Chloridy", "S_Vápník"]) {
-      const line = text.split("\n").find((l) => l.startsWith(name));
+      // Lines now carry a "<index>\t" prefix, so the analyte starts the first
+      // *cell* rather than the line.
+      const line = text.split("\n").find((l) => l.slice(l.indexOf("\t") + 1).startsWith(name));
       expect(line, `${name} should be on its own line`).toBeDefined();
-      expect(line!.split(" | ")).toHaveLength(4);
+      expect(line!.slice(line!.indexOf("\t") + 1).split(" | ")).toHaveLength(4);
     }
   });
 });

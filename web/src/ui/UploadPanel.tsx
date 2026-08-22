@@ -6,11 +6,16 @@
  *
  * Several PDFs can be selected or dropped at once, and more can be added while
  * the first ones are still running — they join a queue. The queue is worked
- * strictly one file at a time, and each file one page at a time, for the same
- * reason the page loop is sequential: a phone rendering a long report at 220
- * DPI concurrently is the fastest way to run it out of memory. Sequential also
- * keeps the session's page allowance spending in an order the reader can
- * follow, so when it runs out it is clear which document got the last page.
+ * strictly one **file** at a time, which keeps the session's page allowance
+ * spending in an order the reader can follow: when it runs out, it is clear
+ * which document got the last page.
+ *
+ * Within a file, **pages run concurrently** (see `CONCURRENCY` below). They used
+ * to be sequential, on the reasoning that a phone rendering a long report at
+ * 220 DPI concurrently is the fastest way to run it out of memory. That reason
+ * had expired: the common path is the text layer, which renders at 110 DPI for
+ * human display only, and sequential pages made a ten-file batch cost over ten
+ * minutes — the measurements are in docs/extraction-speed.md.
  */
 import { useEffect, useRef, useState } from "react";
 import {
@@ -98,7 +103,8 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
     const { registry, maxPages, onReport, onBudget } = propsRef.current;
     // pdf.js is ~1.4 MB and only the upload path needs it, so it is pulled in
     // on first use rather than shipped in the landing bundle.
-    const { isPrintedOnPage, loadPdf, pageAssets, rowBoxFor, rowsAsText } = await import("../pdf/pdf");
+    const { isPrintedOnPage, loadPdf, pageAssets, rowBoxFor, rowsAsText, rowTextAt } =
+      await import("../pdf/pdf");
     const doc = await loadPdf(job.file);
     const pageCount = Math.min(doc.numPages, maxPages);
     const measurements: Measurement[] = [];
@@ -111,37 +117,111 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
 
     job.total = pageCount;
 
-    for (let p = 1; p <= pageCount; p++) {
-      job.page = p;
-      publish();
-      const assets = await pageAssets(doc, p);
+    // Pages are independent, so they are read concurrently. Serially, a report
+    // cost the sum of its pages' round-trips — measured at ~20-40 s each, which
+    // put a ten-file batch at well over ten minutes of spinner. Now it costs
+    // roughly the slowest wave.
+    //
+    // The bound is not arbitrary, and it is measured rather than guessed. An
+    // unbounded fan-out would convert model latency into 429s and retry
+    // backoff, which is slower than not fanning out at all; each page also
+    // renders a canvas, this demo's largest memory cost on a phone.
+    //
+    // A ten-file batch (21 text pages, both readers) measured 85.4 s at 4 and
+    // 43.6 s at 8, with per-page latency unchanged and no failed calls — so
+    // rate limiting is not the ceiling at 8 and the gain is close to linear.
+    // Raise it further only with a measurement; lower it if phone memory
+    // becomes the binding constraint instead.
+    const CONCURRENCY = 8;
 
-      // Digital PDF: send the reconstructed rows, not the image. The model
-      // assigns columns; the characters come from the file.
-      let res;
-      try {
-        res = assets.hasTextLayer
-          ? await extract(null, null, null, rowsAsText(assets.rows))
-          : await extract(assets.imageBase64, assets.mediaType, assets.textLayer, null);
-      } catch (e) {
-        // A page that fails is skipped and reported, not allowed to sink the
-        // whole report — same behaviour as the local pipeline.
-        if (isFatalApiError(e)) throw e;
-        failedPages.push(p);
-        pages.push({
+    interface PageOutcome {
+      pageNum: number;
+      assets: Awaited<ReturnType<typeof pageAssets>>;
+      res: Awaited<ReturnType<typeof extract>> | null;
+    }
+    // Indexed by page, not appended: workers finish out of order and the
+    // assembled report has to read in page order.
+    const outcomes: Array<PageOutcome | undefined> = new Array(pageCount);
+    // Interpreted once, as each page lands, so publishing a partial report is
+    // a concatenation rather than a re-parse of everything read so far.
+    const interpreted: Array<PageResult | undefined> = new Array(pageCount);
+    let claimed = 0;
+    let finished = 0;
+    let fatal: unknown = null;
+
+    const worker = async () => {
+      for (;;) {
+        // A fatal error means every later page would fail identically, so
+        // stop claiming work; pages already in flight are allowed to land.
+        if (fatal) return;
+        const i = claimed++;
+        if (i >= pageCount) return;
+        const p = i + 1;
+        const assets = await pageAssets(doc, p);
+
+        // Digital PDF: send the reconstructed rows, not the image. The model
+        // assigns columns; the characters come from the file.
+        let res: Awaited<ReturnType<typeof extract>> | null = null;
+        try {
+          res = assets.hasTextLayer
+            ? await extract(null, null, null, rowsAsText(assets.rows))
+            : await extract(assets.imageBase64, assets.mediaType, assets.textLayer, null);
+        } catch (e) {
+          // A page that fails is skipped and reported, not allowed to sink the
+          // whole report — same behaviour as the local pipeline.
+          if (isFatalApiError(e)) {
+            fatal = e;
+            return;
+          }
+          failedPages.push(p);
+        }
+        outcomes[i] = { pageNum: p, assets, res };
+        interpreted[i] = interpret(outcomes[i]!);
+        // Show the rows now rather than at the end of the file.
+        publishReport(false);
+        // Progress now counts pages *completed*, since there is no single
+        // "current" page once several are in flight.
+        job.page = ++finished;
+        publish();
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pageCount) }, worker));
+    if (fatal) throw fatal;
+    failedPages.sort((a, b) => a - b);
+
+    // Everything below turns landed pages into rows. It is unchanged in *what*
+    // it does from the serial version — only when it runs.
+    interface PageResult {
+      page: { pageNum: number; imageUrl: string; imageWidth: number; imageHeight: number };
+      measurements: Measurement[];
+      unverified: number;
+      sawScan: boolean;
+      reportDate: string | null;
+      labName: string | null;
+    }
+
+    /** Interpret one landed page. Pure, and run exactly once per page. */
+    function interpret(outcome: PageOutcome): PageResult {
+      const { pageNum: p, assets, res } = outcome;
+      const out: PageResult = {
+        page: {
           pageNum: p,
           imageUrl: assets.imageUrl,
           imageWidth: assets.imageWidth,
           imageHeight: assets.imageHeight,
-        });
-        continue;
-      }
-      onBudget(res.budget);
-      if (res.mode === "vision") sawScan = true;
+        },
+        measurements: [],
+        unverified: 0,
+        sawScan: res?.mode === "vision",
+        reportDate: null,
+        labName: null,
+      };
+      if (!res) return out;
 
       for (const read of res.reads) {
-        reportDate = reportDate ?? read.report_date ?? null;
-        labName = labName ?? read.lab_name ?? null;
+        out.reportDate = out.reportDate ?? read.report_date ?? null;
+        out.labName = out.labName ?? read.lab_name ?? null;
       }
       for (const m of reconcile(res.reads)) {
         // Provenance: on the text path a transcribed value must literally
@@ -152,10 +232,14 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         if (assets.hasTextLayer && !isPrintedOnPage(m.valueRaw, assets.rows)) {
           disagreement = `hodnota "${m.valueRaw}" není na stránce vytištěna`;
           confidence = "low";
-          unverified += 1;
+          out.unverified += 1;
         }
-        measurements.push({
+        out.measurements.push({
           ...m,
+          // On the text path the model returns a row index, not the row: the
+          // snippet shown in the verification tab is rebuilt from the page's
+          // own text, so it is the printed row by construction.
+          sourceSnippet: rowTextAt(m.rowIndex, assets.rows) || m.sourceSnippet,
           sourcePage: p,
           confidence,
           disagreement,
@@ -163,47 +247,82 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
           bbox: rowBoxFor(m.rawAnalyteName, assets.rows),
         });
       }
-      pages.push({
-        pageNum: p,
-        imageUrl: assets.imageUrl,
-        imageWidth: assets.imageWidth,
-        imageHeight: assets.imageHeight,
+      return out;
+    }
+
+    /**
+     * Publish what has been read so far.
+     *
+     * Called once per page that lands, not once at the end. A ten-file batch
+     * takes ~44 s but the first page is ready at ~6 s, and a table that starts
+     * filling in at six seconds reads as finished long before a spinner that
+     * ends at the same moment. `onReport` upserts by id, so each call replaces
+     * the previous partial rather than adding a second report.
+     *
+     * Interpretation happens once per page in `interpret`; this only
+     * concatenates, so publishing on every page stays cheap.
+     */
+    function publishReport(done: boolean) {
+      const measurements: Measurement[] = [];
+      const pages: PageResult["page"][] = [];
+      let unverified = 0;
+      let sawScan = false;
+      let reportDate: string | null = null;
+      let labName: string | null = null;
+
+      for (const r of interpreted) {
+        if (!r) continue;
+        pages.push(r.page);
+        measurements.push(...r.measurements);
+        unverified += r.unverified;
+        sawScan = sawScan || r.sawScan;
+        reportDate = reportDate ?? r.reportDate;
+        labName = labName ?? r.labName;
+      }
+
+      // Notes describe a finished read — how many pages failed, how much needs
+      // review — so they would be wrong and alarming while pages are still
+      // arriving. They land with the final publish.
+      if (done) {
+        const notes: string[] = [];
+        if (doc.numPages > maxPages)
+          notes.push(
+            `Zpracováno prvních ${count(maxPages, "strana", "strany", "stran")} ` +
+              `z ${doc.numPages} — limit ukázky.`,
+          );
+        if (sawScan)
+          notes.push("Některé strany nemají textovou vrstvu (sken) — přepsány z obrázku.");
+        if (failedPages.length)
+          notes.push(
+            `Nepodařilo se přečíst ${count(failedPages.length, "stranu", "strany", "stran")} ` +
+              `(${failedPages.join(", ")}) — ostatní jsou zpracované.`,
+          );
+        if (unverified)
+          notes.push(
+            `${count(unverified, "hodnota", "hodnoty", "hodnot")} ` +
+              `${plural(unverified, "nesouhlasí", "nesouhlasí", "nesouhlasí")} s textem na stránce ` +
+              `— ${plural(unverified, "označena", "označeny", "označeno")} k ověření.`,
+          );
+        job.notes = notes;
+      }
+
+      onReport({
+        // The job id, not a timestamp. `upload-${Date.now()}` collided when a
+        // queue finished two files inside the same millisecond, and two reports
+        // sharing an id break the rail's list and the verification picker.
+        id: `upload-${job.id}`,
+        sourceFile: job.file.name,
+        reportDate,
+        labName,
+        patientName: null,
+        patientId: null,
+        pages,
+        measurements,
       });
     }
 
-    const out: string[] = [];
-    if (doc.numPages > maxPages)
-      out.push(
-        `Zpracováno prvních ${count(maxPages, "strana", "strany", "stran")} ` +
-          `z ${doc.numPages} — limit ukázky.`,
-      );
-    if (sawScan) out.push("Některé strany nemají textovou vrstvu (sken) — přepsány z obrázku.");
-    if (failedPages.length)
-      out.push(
-        `Nepodařilo se přečíst ${count(failedPages.length, "stranu", "strany", "stran")} ` +
-          `(${failedPages.join(", ")}) — ostatní jsou zpracované.`,
-      );
-    if (unverified)
-      out.push(
-        `${count(unverified, "hodnota", "hodnoty", "hodnot")} ` +
-          `${plural(unverified, "nesouhlasí", "nesouhlasí", "nesouhlasí")} s textem na stránce ` +
-          `— ${plural(unverified, "označena", "označeny", "označeno")} k ověření.`,
-      );
-    job.notes = out;
-
-    onReport({
-      // The job id, not a timestamp. `upload-${Date.now()}` collided when a
-      // queue finished two files inside the same millisecond, and two reports
-      // sharing an id break the rail's list and the verification picker.
-      id: `upload-${job.id}`,
-      sourceFile: job.file.name,
-      reportDate,
-      labName,
-      patientName: null,
-      patientId: null,
-      pages,
-      measurements,
-    });
+    // Everything has landed: publish once more, this time with the notes.
+    publishReport(true);
   }
 
   /** Work the queue until it is empty or something fatal stops it. */

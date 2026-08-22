@@ -20,6 +20,8 @@ export interface RawRead {
     unit_raw?: string;
     ref_range_raw?: string;
     source_snippet?: string;
+    /** Text path: the index of the printed row this came from. */
+    row_index?: number;
     confidence?: "high" | "medium" | "low";
   }>;
 }
@@ -48,6 +50,9 @@ export function reconcile(reads: RawRead[]): Measurement[] {
             unitRaw: raw.unit_raw ?? "",
             refRangeRaw: raw.ref_range_raw ?? "",
             sourceSnippet: raw.source_snippet ?? "",
+            // Carried through so the caller can resolve it against its own
+            // rows; on the text path the model no longer sends any text here.
+            rowIndex: raw.row_index,
             confidence: raw.confidence ?? "high",
             extractedBy: read.model,
           }),

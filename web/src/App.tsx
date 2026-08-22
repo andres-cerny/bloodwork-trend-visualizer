@@ -421,7 +421,18 @@ export default function App() {
           maxPages={maxPages}
           demoLoaded={demoLoaded}
           canRestoreDemo={demoReports.current.length > 0}
-          onReport={(r) => setReports((prev) => [...prev, r])}
+          // Upsert, not append. A report is now published *while* it is being
+          // read — once per page that lands — so the same id arrives several
+          // times and each arrival must replace the last rather than stack up.
+          onReport={(r) =>
+            setReports((prev) => {
+              const at = prev.findIndex((p) => p.id === r.id);
+              if (at < 0) return [...prev, r];
+              const next = [...prev];
+              next[at] = r;
+              return next;
+            })
+          }
           onBudget={setBudget}
           onUnlock={() => setUnlocked(true)}
           onRemove={(id) => setReports((prev) => prev.filter((r) => r.id !== id))}

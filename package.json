@@ -14,7 +14,15 @@
     "test:e2e": "npm run build && vitest run --config vitest.handoff.config.ts e2e/visual.e2e.ts",
     "test:audit": "npm run build && vitest run --config vitest.handoff.config.ts e2e/audit.e2e.ts",
     "test:handoff": "npm run test:e2e && npm run test:live",
-    "check:bundle": "node scripts/check-bundle.mjs"
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "bench:stage0": "vitest run --config bench/vitest.config.ts bench/stage0.bench.ts",
+    "bench:latency": "vitest run --config bench/vitest.config.ts bench/latency.bench.ts",
+    "bench:accuracy": "vitest run --config bench/vitest.config.ts bench/accuracy.bench.ts",
+    "bench:colmap": "vitest run --config bench/vitest.config.ts bench/columnmap_eval.bench.ts",
+    "bench:x": "vitest run --config bench/vitest.config.ts bench/xcolumns.bench.ts",
+    "bench:batch": "vitest run --config bench/vitest.config.ts bench/batch.bench.ts",
+    "bench:triage": "vitest run --config bench/vitest.config.ts bench/triage.bench.ts",
+    "bench:docling": "vitest run --config bench/vitest.config.ts bench/docling_eval.bench.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

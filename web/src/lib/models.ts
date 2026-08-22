@@ -19,6 +19,8 @@ export interface Measurement {
   unitRaw: string;
   refRangeRaw: string;
   sourceSnippet: string;
+  /** Text path only: index into the page's reconstructed rows. */
+  rowIndex?: number;
   sourcePage: number;
   confidence: Confidence;
 

@@ -17,10 +17,22 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 export const MODEL_PRIMARY = "claude-sonnet-5";
-export const MODEL_ESCALATION = "claude-opus-4-8";
+/**
+ * The second reader. Haiku 4.5 rather than Opus 4.8, and the reason is accuracy
+ * rather than cost: benchmarking found Sonnet 5 silently *normalising* units —
+ * returning "10^9/l" where the page does not print it, in defiance of the
+ * prompt's own `nepřeváděj jednotky` — while Haiku 4.5 and Opus 4.8 did not, on
+ * the same pages. A second reader that does not share the first one's failure
+ * is what makes the disagreement flag worth anything.
+ *
+ * Haiku is also ~2.6x cheaper than Opus and does not slow the page down: at
+ * concurrency 8 a ten-file batch measured 43.6 s with Haiku against 89.7 s for
+ * an Opus escalation path. See docs/extraction-speed.md.
+ */
+export const MODEL_ESCALATION = "claude-haiku-4-5";
 export const MODEL_CHAT = "claude-sonnet-5";
 
-const SYSTEM_EXTRACT =
+export const SYSTEM_EXTRACT =
   "Jsi přesný přepisovač českých laboratorních výsledků z obrázku. " +
   "Tvým jediným úkolem je VĚRNĚ PŘEPSAT to, co je vytištěno — nic nepočítej, " +
   "nepřeváděj jednotky, needituj čísla. Zachovej desetinnou čárku přesně tak, " +
@@ -40,7 +52,7 @@ const SYSTEM_EXTRACT =
  * the client verifies every returned value against the printed page and
  * rejects anything that is not there.
  */
-const SYSTEM_EXTRACT_TEXT =
+export const SYSTEM_EXTRACT_TEXT =
   "Jsi přesný extraktor českých laboratorních výsledků. Dostaneš řádky " +
   "vytištěné na stránce, tak jak jsou v PDF, buňky oddělené znakem '|'. " +
   "Tvým úkolem je rozhodnout, které řádky jsou naměřené výsledky, a přiřadit " +
@@ -49,14 +61,24 @@ const SYSTEM_EXTRACT_TEXT =
   "(včetně desetinné čárky, '<', '>' a značek jako '!'). Nic nepočítej ani " +
   "nepřeváděj. Pokud některý sloupec na řádku chybí, vrať prázdný řetězec. " +
   "Hlavičky, patičky a informace o pacientovi mezi výsledky nezahrnuj. " +
-  "Confidence nastav 'low', pokud si přiřazením sloupců nejsi jistý.";
+  "Confidence nastav 'low', pokud si přiřazením sloupců nejsi jistý. " +
+  // Without this the model copies the *input's* cell delimiter into the field:
+  // an interval printed in "od"/"do" columns came back as "0,17 | 0,78", which
+  // does not parse and silently became flag "unknown". The instruction to copy
+  // cells exactly is what made it literal about the separator too.
+  "Pokud je referenční interval vytištěn ve dvou sloupcích (např. 'od' a " +
+  "'do'), spoj obě čísla do jednoho pole ve tvaru '0,17 - 0,78'; nikdy " +
+  "nepoužívej oddělovač '|' z vstupu. " +
+  "Každý řádek vstupu začíná pořadovým číslem a tabulátorem. U každého " +
+  "výsledku vrať v poli 'row_index' číslo řádku, ze kterého pochází; " +
+  "samotné číslo řádku neopisuj do žádného jiného pole.";
 
-const TEXT_LAYER_HINT =
+export const TEXT_LAYER_HINT =
   "Nápověda — textová vrstva PDF (pořadí může být zpřeházené, " +
   "obrázek je závazný pro přiřazení sloupců; text použij jen k " +
   "ověření číslic):\n\n";
 
-const TOOL = {
+export const TOOL = {
   name: "record_lab_results",
   description: "Zaznamenej přepsané laboratorní výsledky z jedné stránky.",
   input_schema: {
@@ -108,6 +130,31 @@ const TOOL = {
     ],
   },
 } as const;
+
+/**
+ * The text path's tool: `source_snippet` swapped for a `row_index` integer.
+ *
+ * The deployed schema made the model echo the whole printed row back for every
+ * measurement — a 45-row page re-emitting 45 rows, for one line of display in
+ * the verification tab. Since latency is almost exactly output tokens divided
+ * by a per-model rate (r² = 0.993 over 46 measured calls), that echo *was* the
+ * wait: dropping it cut a dense Sonnet page from 30.2 s to 19.8 s.
+ *
+ * The row already came from the client, so an index points at it exactly —
+ * a stricter anchor than matching a fuzzy string back against the page.
+ */
+const TOOL_TEXT = (() => {
+  const tool = JSON.parse(JSON.stringify(TOOL)) as any;
+  const item = tool.input_schema.properties.measurements.items;
+  delete item.properties.source_snippet;
+  item.required = item.required.filter((k: string) => k !== "source_snippet");
+  item.properties.row_index = {
+    type: "integer",
+    description: "Pořadové číslo řádku vstupu, ze kterého tento výsledek pochází.",
+  };
+  item.required.push("row_index");
+  return tool as Anthropic.Tool;
+})();
 
 export interface Usage {
   inputTokens: number;
@@ -205,8 +252,13 @@ export async function extractPageText(
   const message = await clientFor(apiKey).messages.create({
     model,
     max_tokens: 8000,
+    // No `effort` here, deliberately. Lowering it measured a 0.7% latency gain
+    // — indistinguishable from noise, because latency on this call is almost
+    // entirely output tokens — and Haiku 4.5, the second reader, rejects the
+    // parameter outright with a 400. A knob worth nothing that breaks one of
+    // the two readers is not worth carrying.
     system: cachedSystem(SYSTEM_EXTRACT_TEXT),
-    tools: [TOOL as unknown as Anthropic.Tool],
+    tools: [TOOL_TEXT],
     tool_choice: { type: "tool", name: TOOL.name },
     messages: [
       { role: "user", content: `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}` },

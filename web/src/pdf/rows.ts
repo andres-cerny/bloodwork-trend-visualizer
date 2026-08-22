@@ -151,9 +151,28 @@ function splitSideBySideTables(rows: TextRow[]): TextRow[] {
   return rows;
 }
 
-/** Rows rendered for the model: one printed row per line, cells pipe-separated. */
+/**
+ * Rows rendered for the model: one printed row per line, cells pipe-separated,
+ * each line prefixed with its index and a tab.
+ *
+ * The index is what the model points back with (`row_index`) instead of
+ * echoing the whole row. That costs ~114 input tokens on a dense page and saves
+ * far more output than it costs — and output is what the wait is made of.
+ */
 export function rowsAsText(rows: TextRow[]): string {
-  return rows.map((r) => r.cells.join(" | ")).join("\n");
+  return rows.map((r, i) => `${i}\t${r.cells.join(" | ")}`).join("\n");
+}
+
+/**
+ * The printed row a `row_index` refers to, for the verification tab.
+ *
+ * Reconstructed locally rather than transcribed, so the snippet shown beside
+ * the page image is the page's own text by construction. An index that points
+ * off the end returns "" and the caller falls back to the analyte name.
+ */
+export function rowTextAt(index: number | undefined, rows: TextRow[]): string {
+  if (index === undefined || index < 0 || index >= rows.length) return "";
+  return rows[index].cells.join(" ");
 }
 
 /**

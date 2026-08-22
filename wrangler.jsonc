@@ -23,7 +23,7 @@
     // /api/extract and /api/chat refuse; the pre-baked demo keeps working.
     "BUDGET_USD_LIMIT": "20",
     // Pages one Turnstile challenge is good for.
-    "MAX_PAGES_PER_SESSION": "12",
+    "MAX_PAGES_PER_SESSION": "40",
     "SESSION_TTL_SECONDS": "1800",
     // "1" disables the Opus cross-check and halves upload cost.
     "SINGLE_MODEL": "0"

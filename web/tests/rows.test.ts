@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Box } from "../src/lib/models";
-import { buildRows, isPrintedOnPage, rowBoxFor, rowsAsText } from "../src/pdf/rows";
+import { buildRows, isPrintedOnPage, rowBoxFor, rowsAsText, rowTextAt } from "../src/pdf/rows";
 
 /** Build a word at a column x and row y, as pdf.js would report it. */
 const w = (text: string, x: number, y: number, h = 12): { text: string; box: Box } => ({
@@ -46,10 +46,35 @@ describe("buildRows", () => {
 });
 
 describe("rowsAsText", () => {
-  it("renders one printed row per line with pipe-separated cells", () => {
+  it("renders one printed row per line, indexed, with pipe-separated cells", () => {
     expect(rowsAsText(buildRows(PAGE)).split("\n")[1]).toBe(
-      "S_Cholesterol | 4,80 | mmol/l | (2,90-5,00)",
+      "1\tS_Cholesterol | 4,80 | mmol/l | (2,90-5,00)",
     );
+  });
+
+  it("numbers every line from zero, contiguously", () => {
+    const lines = rowsAsText(buildRows(PAGE)).split("\n");
+    lines.forEach((line, i) => expect(line.startsWith(`${i}\t`), line).toBe(true));
+  });
+});
+
+describe("rowTextAt — the round trip the row_index anchor depends on", () => {
+  const rows = buildRows(PAGE);
+
+  it("resolves an index back to the printed row", () => {
+    // What the model returns as row_index must land on the row it read, or the
+    // verification tab shows the wrong line beside the page image.
+    const lines = rowsAsText(rows).split("\n");
+    lines.forEach((line, i) => {
+      const printed = line.slice(line.indexOf("\t") + 1).split(" | ").join(" ");
+      expect(rowTextAt(i, rows)).toBe(printed);
+    });
+  });
+
+  it("returns nothing for an index off either end, rather than throwing", () => {
+    expect(rowTextAt(-1, rows)).toBe("");
+    expect(rowTextAt(rows.length, rows)).toBe("");
+    expect(rowTextAt(undefined, rows)).toBe("");
   });
 });
 

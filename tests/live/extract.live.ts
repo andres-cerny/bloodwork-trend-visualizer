@@ -8,8 +8,9 @@
  *
  *   ANTHROPIC_API_KEY=sk-ant-... npm run test:live
  *
- * It costs real money — roughly $0.20 for the whole file with both models, and
- * it prints what it spent. LIVE_MAX_USD is a hard stop: the run aborts rather
+ * It costs real money — roughly $0.05 for the whole file with both models, and
+ * it prints what it spent. (It was ~$0.20 before the extraction schema stopped
+ * making the model echo every printed row back; see docs/extraction-speed.md.) LIVE_MAX_USD is a hard stop: the run aborts rather
  * than continuing past it.
  *
  * The assertions are exact rather than fuzzy, because the fixtures are

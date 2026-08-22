@@ -32,3 +32,6 @@ web/public/demo/real/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Benchmark outputs — derived from real lab PDFs, same rule as data/
+bench/results/
