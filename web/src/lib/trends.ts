@@ -117,3 +117,98 @@ export function unconfirmedPoints(t: Trend): TrendPoint[] {
 export function hasDoubt(t: Trend): boolean {
   return t.points.some((p) => p.suspect !== null || p.unconfirmed !== null);
 }
+
+/**
+ * The shape of a whole series, not just its last step.
+ *
+ * `latestTwo` answers "what changed since the previous draw", which is the
+ * right question for the summary list and the wrong one for a patient with ten
+ * draws over four years: ALT climbing 0,61 → 1,02 across two and a half years
+ * is the arresting fact, and comparing only the last pair reports "+5 %". This
+ * is the view that can see the climb.
+ *
+ * Everything here is computed from `numericPoints`, so a reading the app has
+ * itself withheld can never contribute to a described trend.
+ */
+export interface SeriesShape {
+  first: TrendPoint;
+  last: TrendPoint;
+  /** Numeric, non-withheld points only. */
+  count: number;
+  spanDays: number;
+  change: number;
+  /** Fraction, not percent. Null when the first value is zero. */
+  relChange: number | null;
+  direction: "rising" | "falling" | "flat";
+  /** Points sitting outside their own printed reference range. */
+  outOfRangeCount: number;
+  /** Out of range now, and in range at the first draw. */
+  newlyOut: boolean;
+  /** Consecutive out-of-range draws ending at the most recent one. */
+  outStreak: number;
+  /**
+   * Moving one way throughout, allowing steps below the noise threshold.
+   *
+   * A steady drift and the same total change arrived at by bouncing are
+   * different clinical facts, and only one of them is worth a sentence.
+   */
+  monotone: boolean;
+}
+
+const OUT = (p: TrendPoint) => p.flag === "high" || p.flag === "low";
+
+/** Whole days between two ISO dates, or 0 if either will not parse. */
+export function daysBetween(fromIso: string, toIso: string): number {
+  const a = Date.parse(`${fromIso}T00:00:00Z`);
+  const b = Date.parse(`${toIso}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** Null when fewer than two numeric points exist — one draw is not a shape. */
+export function seriesShape(trend: Trend): SeriesShape | null {
+  const pts = numericPoints(trend);
+  if (pts.length < 2) return null;
+
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  const fv = first.value as number;
+  const lv = last.value as number;
+  const change = lv - fv;
+
+  // Same convention the per-step summary uses, so "prakticky beze změny" means
+  // the same thing in both places.
+  const eps = Math.max(Math.abs(fv) * 0.01, 1e-9);
+  const direction = change > eps ? "rising" : change < -eps ? "falling" : "flat";
+
+  let monotone = true;
+  let sign = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const step = (pts[i].value as number) - (pts[i - 1].value as number);
+    const stepEps = Math.max(Math.abs(pts[i - 1].value as number) * 0.01, 1e-9);
+    if (Math.abs(step) <= stepEps) continue; // noise, not a reversal
+    const s = step > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (s !== sign) {
+      monotone = false;
+      break;
+    }
+  }
+
+  let outStreak = 0;
+  for (let i = pts.length - 1; i >= 0 && OUT(pts[i]); i--) outStreak++;
+
+  return {
+    first,
+    last,
+    count: pts.length,
+    spanDays: daysBetween(first.date, last.date),
+    change,
+    relChange: fv ? change / fv : null,
+    direction,
+    outOfRangeCount: pts.filter(OUT).length,
+    newlyOut: OUT(last) && !OUT(first),
+    outStreak,
+    monotone,
+  };
+}
