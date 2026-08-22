@@ -13,7 +13,7 @@ import { writeFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
 import { audit, report, type Flaw } from "./lib/audit";
-import { DESKTOP, MOBILE, TABLET, WIDE, errorsOn, setTheme, startApp, type Harness } from "./lib/harness";
+import { DESKTOP, MOBILE, SMALL, TABLET, WIDE, errorsOn, setTheme, startApp, type Harness } from "./lib/harness";
 
 let app: Harness;
 
@@ -151,6 +151,26 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    /*
+     * The picker opened over a trend that is already on screen — which is not
+     * the same screen as the one above, and is the one a reader is actually
+     * on when they add their second analyte.
+     *
+     * A chart puts "Vyčistit" in the toolbar, and on a phone that wraps the ＋
+     * button onto its own line at the *left* of the card. The list used to be
+     * anchored to the button and hung leftwards from it, so it opened 173px off
+     * the left edge of a 390px screen with its search field unreachable. The
+     * screen above cannot catch that: with nothing plotted the toolbar does not
+     * wrap, the button stays at the right, and the list lands on screen.
+     */
+    name: "trends (picker open over a chart)",
+    go: async (page) => {
+      await addAnalyte(page, "chole");
+      await page.getByRole("button", { name: /Přidat parametr/ }).click();
+      await page.waitForTimeout(250);
+    },
+  },
+  {
     name: "summary",
     go: async (page) => {
       await tab(page, "📝 Souhrn změn").click();
@@ -245,6 +265,11 @@ const SCREENS: Screen[] = [
 ];
 
 const VIEWPORTS: Array<[string, { width: number; height: number }]> = [
+  // Two phone widths, because the narrower one is where the defects are. A
+  // 310px minimum on a grid track sat inside a 14px-padded column fits at
+  // 390px and shoves the entire page 10px sideways at 360px — the mapping
+  // screen audited clean for as long as 390 was the narrowest thing measured.
+  ["small 360", SMALL],
   ["mobile 390", MOBILE],
   ["tablet 834", TABLET],
   ["desktop 1200", DESKTOP],

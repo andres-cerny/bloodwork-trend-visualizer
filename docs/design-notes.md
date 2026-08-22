@@ -162,6 +162,21 @@ The empty screen still names the out-of-range analytes as one-click chips.
 "Nothing here, go and choose" is honest but unhelpful, and what a doctor came
 for is usually one of those four.
 
+**The list is anchored to the toolbar card, not to the ＋ button.** `right: 0`
+hangs a dropdown leftwards from its containing block, and the button is a 133px
+box: once one chart is on screen the toolbar carries "Vyčistit" too, which on a
+phone wraps the button onto its own line at the *left* of the card — so the
+list opened from x=162 and ran to −173px, with the search field and the first
+half of every parameter name off the left edge of a 390px screen. Measuring the
+right edge from the card instead puts it 15px inside the viewport at every
+width, while the list is at most 86vw, so it cannot leave the screen; on a
+desktop the button sits at the card's right edge anyway and nothing moves.
+`.map-actions` had already made this move for the mapping picker, and the two
+are now the same pattern — **anchor a dropdown to the row, never to the
+control**. Guarded by the auditor screen *trends (picker open over a chart)*,
+which is a different screen from *trends (picker open)* for exactly this
+reason: with nothing plotted the toolbar does not wrap and the bug is invisible.
+
 ## The hover readout is on the chart, not under it
 
 Pointing at a measurement shows a small box with the draw date, the value with
@@ -340,12 +355,28 @@ It is now built around the decision:
 
 ## The layout auditor
 
-`e2e/audit.e2e.ts` walks every screen at four widths in both palettes — 81
+`e2e/audit.e2e.ts` walks every screen at five widths in both palettes — 119
 combinations — and checks six invariants against the rendered boxes: no
 sideways page scroll, nothing outside the viewport, no text clipped without an
 ellipsis, 4.5:1 contrast on every piece of type, no control below the 24×24
 target floor, and no control whose centre is claimed by something painted over
 it.
+
+**Two of those widths are phones, and the narrower one is the one that finds
+things.** For a long time 390px was the narrowest measured, and 360px — what an
+Android has been since the Galaxy S line settled on it — went unaudited. The
+mapping screen, the most consequential in the app, scrolled 10px sideways there
+while auditing clean at 390: a `minmax(310px, 1fr)` track keeps its 310px floor
+when the container is narrower, and that card is ~296px wide at 360.
+
+The lesson generalises past the one track. **A minimum width propagates all the
+way up**, so any grid or flex ancestor that has not had its own automatic
+minimum removed hands it on — which is why the occurrence table pushed the same
+screen sideways from inside its own `overflow-x` container, and why the fix is
+`minmax(0, 1fr)` plus `min-width: 0` on the containers rather than a smaller
+number on the child. Reaching for `min(310px, 100%)` fixes only the *used*
+width: a percentage is indefinite during intrinsic sizing, so the floor is still
+there for anything sized from min-content.
 
 It knows nothing about this app, so a new screen is audited by being added to
 the list of screens, and a new invariant is enforced everywhere at once. Its

@@ -16,11 +16,58 @@ Target: the batch finishes in under a minute, with no loss of accuracy.
 
 ## The headline
 
-| | as deployed | now |
+| | before | now |
 |---|---|---|
-| ten files, 21 text pages | **~14 minutes** (est.) | **43.6 s measured** |
-| first rows available | after everything | **6.5 s** |
-| cost for the batch | ~$1.70 | **$1.07** (both readers kept) |
+| ten files, live in a browser | ~14 minutes (est.) | **182 s measured, then rebuilt — see below** |
+| first rows on screen | after everything | **~6 s** |
+| cost for the batch | ~$1.70 | **$1.82 measured** (both readers kept) |
+
+### The benchmark measured a shape the app did not have
+
+Worth stating plainly because it is the biggest methodological error in this
+work. The pooled batch benchmark put all 21 pages into **one** queue at
+concurrency 8 and measured 43.6 s. The app did not do that: `runQueue` took
+**one file at a time**, and the page bound of 8 applied *within* a file. Real
+reports are two or three pages, so the bound was never more than three deep and
+a ten-file upload measured **182 s** live — four times the prediction.
+
+Nothing was wrong with the arms, the fit, or the accuracy work. The instrument
+simply did not have the same shape as the thing, which is the same class of
+mistake as the duplicate-analyte scorer bug earlier in this document, and it is
+why every number in the table above now comes from a browser rather than from a
+harness.
+
+### How far concurrency actually goes
+
+Measured on the real corpus, both readers, no failed calls at any point:
+
+| files | pages | concurrency | calls in flight | batch |
+|---|---|---|---|---|
+| 10 | 21 | 4 | 8 | 85.4 s |
+| 10 | 21 | 8 | 16 | 43.6 s |
+| 10 | 21 | 16 | 32 | **28.9 s** |
+| 10 | 21 | 32 | 64 | 24.4 s |
+| **30** | **66** | **72** | **144** | **27.8 s** |
+
+There is no rate-limit wall anywhere near here — per-page latency stayed at
+~18 s p50 throughout, and 144 simultaneous calls produced not one 429. So the
+binding constraint is not throughput at all: **once every page is in flight the
+batch simply *is* the slowest page**, whether that is ten files or thirty.
+Thirty files cost $3.32, which makes spend, not speed, the thing that limits
+how big a drop the demo should accept.
+
+Shipped as 64 in-flight requests across up to 24 open files, with
+`MAX_PAGES_PER_SESSION` at 100 so a thirty-file drop is not cut off at file
+seventeen. The reason the request bound is not higher is memory rather than
+throughput: each in-flight page holds a rendered canvas, and that has only been
+verified on a desktop browser.
+
+**The fix moved the bound rather than raising it.** `web/src/lib/inflight.ts`
+holds one counting semaphore for the whole upload panel; several files are open
+at once (`fileConcurrency`), and every page request — whichever file it belongs
+to — queues on that single limit. Ten one-page files and one ten-page file now
+saturate the same ceiling. Only the request holds a slot, so a waiting file
+renders its next page while it waits rather than after.
 
 Two changes get essentially all of it, and neither is a model swap.
 
@@ -234,9 +281,16 @@ being trusted on real data it was shown to fire on the exact historical defect
 
 ## What shipped
 
-A5, adopted: **`row_index` anchor, Sonnet 5 + Haiku 4.5, pages read 8 at a
-time, rows published as each page lands.** `MAX_PAGES_PER_SESSION` raised from
-12 to 40 so a ten-file batch fits.
+A5, adopted: **`row_index` anchor, Sonnet 5 + Haiku 4.5, a global limit of 8
+concurrent requests shared across up to 4 files at once, and rows published as
+each page lands.** `MAX_PAGES_PER_SESSION` raised from 12 to 40 so a ten-file
+batch fits, and `BUDGET_USD_LIMIT` from 20 to 40.
+
+Confirmed live, which had never been done before: **Turnstile passes in
+production** — it minted a session and accepted a ten-file upload without a
+human click, closing the oldest open question about this deployment. Streaming
+is visibly working (the document rail filled while files were still being
+read), and the vision fallback fired correctly on the three scanned pages.
 
 Two things the live test caught that no amount of benchmarking would have:
 

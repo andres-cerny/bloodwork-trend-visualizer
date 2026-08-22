@@ -35,3 +35,6 @@ web/public/demo/real/
 
 # Benchmark outputs — derived from real lab PDFs, same rule as data/
 bench/results/
+
+# Playwright MCP scratch (snapshots, console logs from browser sessions)
+.playwright-mcp/

@@ -78,6 +78,12 @@ re-billed.
 A shareable version of this tool runs as a static SPA plus one Worker.
 **Live: https://bloodwork-demo.andres-cerny.workers.dev**
 
+Uploads are read **concurrently** — several files at once, sharing one global
+limit of 8 in-flight extraction requests — and rows appear in the UI as each
+page lands rather than when the whole file finishes. The reasoning, the
+measurements, and the things that turned out not to matter are in
+[docs/extraction-speed.md](docs/extraction-speed.md).
+
 ```sh
 npm install
 npm run dev          # SPA against the pre-baked demo data — no key needed

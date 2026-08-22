@@ -31,6 +31,15 @@ const MAX_USD = parseFloat(process.env.BENCH_MAX_USD ?? "30");
 const CONCURRENCY = parseInt(process.env.BENCH_CONCURRENCY ?? "4", 10);
 /** The scenario: a doctor drops ten files in. */
 const FILES = parseInt(process.env.BENCH_FILES ?? "10", 10);
+/**
+ * Repeat the corpus to simulate a bigger drop than the sample set contains.
+ *
+ * Only 15 real PDFs exist, so a 30-file scenario reuses them. That is fine for
+ * the question this answers — where rate limiting starts — because the API
+ * neither knows nor cares that two requests carry the same page. It would NOT
+ * be fine for an accuracy measurement, which is why nothing here scores rows.
+ */
+const REPEAT = parseInt(process.env.BENCH_REPEAT ?? "1", 10);
 
 interface Scenario {
   id: string;
@@ -121,7 +130,16 @@ it("stage 3 — ten files, bounded concurrency, real API", async () => {
       work.push({ key: `${doc.file}#${p.pageNum}`, rows: p.rows });
     }
   }
-  console.log(`${FILES} files -> ${work.length} text-layer pages, concurrency ${CONCURRENCY}\n`);
+  if (REPEAT > 1) {
+    const once = [...work];
+    for (let r = 1; r < REPEAT; r++) {
+      for (const w of once) work.push({ key: `${w.key}~r${r}`, rows: w.rows });
+    }
+  }
+  console.log(
+    `${FILES * REPEAT} files -> ${work.length} text-layer pages, ` +
+      `concurrency ${CONCURRENCY} (${CONCURRENCY * 2} calls in flight)\n`,
+  );
 
   const records: any[] = [];
   let spent = 0;

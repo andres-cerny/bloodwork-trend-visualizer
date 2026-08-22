@@ -746,7 +746,24 @@ ul.summary li:last-child { border-bottom: none; }
  * occurrence table and the escape hatch are plain controls that expand in
  * place, because reaching for them is the exception.
  */
-.map-card { display: grid; gap: 0; }
+/*
+ * minmax(0, 1fr) and min-width: 0 — the same pair, for the same reason, as
+ * `.grid2` above.
+ *
+ * An implicit grid track has an automatic minimum of min-content, and so does
+ * every grid item, so the occurrence table's 342px min-content climbed out of
+ * its own `.scroll-x` container — a scroll box zeroes the automatic minimum of
+ * *itself*, not of the `<details>` two levels up that actually is the grid item
+ * — and set a floor under the whole card. The mapping screen then scrolled
+ * sideways on a phone, but only with the disclosures open: closed, the table is
+ * hidden with `content-visibility` and contributes nothing, which is why the
+ * plain mapping screen looked clean while "everything expanded" did not.
+ *
+ * Any wide thing dropped into this card inherits the same trap, so the floor is
+ * removed here once rather than per-child.
+ */
+.map-card { display: grid; gap: 0; grid-template-columns: minmax(0, 1fr); }
+.map-card > * { min-width: 0; }
 .map-head h3 {
   margin: 0 0 3px; font-size: 1.02rem; letter-spacing: -0.01em;
   overflow-wrap: anywhere;
@@ -754,7 +771,13 @@ ul.summary li:last-child { border-bottom: none; }
 .map-meta { margin: 0 0 4px; }
 .count-chip { white-space: nowrap; align-self: flex-start; }
 
-ul.cand-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 9px; }
+/* Same grid, same floor to remove: a candidate card holds the evidence list
+   and the escape hatch, and neither may set a minimum width for the screen. */
+ul.cand-list {
+  list-style: none; padding: 0; margin: 10px 0 0;
+  display: grid; gap: 9px; grid-template-columns: minmax(0, 1fr);
+}
+ul.cand-list > * { min-width: 0; }
 
 .cand-card {
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -779,12 +802,31 @@ ul.cand-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; ga
 ul.signals {
   list-style: none; padding: 0; margin: 11px 0 0;
   display: grid; gap: 5px 26px;
-  /* Two columns at most. Three fitted at 1280px and made the labels ragged
-     across the card, which is the opposite of what a table of evidence is
-     for — the eye should be able to run down the marks. */
-  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  /*
+   * One column, and a media query for the second — not `repeat(auto-fit,
+   * minmax(310px, 1fr))`.
+   *
+   * A minmax minimum is a floor the track keeps even when its container is
+   * narrower, so that 310px sat under every ancestor as a minimum width: on a
+   * phone the track stayed 310px inside a ~296px card and shoved the whole
+   * mapping screen — the most consequential in the app — 10px sideways. It fit
+   * at 390px and broke at 360px, which is how it survived.
+   *
+   * `min(310px, 100%)` is the usual reach for this and only half a fix, which
+   * is worth knowing before reaching for it: a percentage is indefinite during
+   * intrinsic sizing, so the minimum still contributes a full 310px to
+   * min-content and any ancestor sized from min-content still gets the floor.
+   *
+   * `minmax(0, 1fr)` has no intrinsic floor at all, which is the property
+   * actually wanted. The breakpoint reproduces where auto-fit used to switch
+   * (a card needs 2×310 + 26 of gap, which is about a 740px viewport at every
+   * layout), and two columns stay the maximum by construction — three fitted
+   * at 1280px and made the labels ragged across the card, where the eye should
+   * be able to run down the marks.
+   */
+  grid-template-columns: minmax(0, 1fr);
 }
-@media (min-width: 1100px) {
+@media (min-width: 740px) {
   ul.signals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Fixed label column so every detail starts on the same line, and a wrapped
@@ -995,7 +1037,28 @@ ul.held-list li {
 
 /* Analyte picker ----------------------------------------------------------- */
 
-.picker-wrap { position: relative; }
+/*
+ * Anchored to the toolbar card, not to the button that opens it.
+ *
+ * `right: 0` hangs the list leftwards from whatever box contains it, and the
+ * ＋ button is a 133px box. On a phone the toolbar wraps the moment a chart is
+ * on screen — "Zobrazeno 2 z 20" and "Vyčistit" take the first line and the
+ * button drops to the *left* of the second — so the list opened from x=162 and
+ * ran to −173px: the search field and the first half of every parameter name
+ * were off the left edge of the screen with no way to reach them. That is the
+ * ordinary flow of adding a second analyte, on the width the app was drawn at.
+ *
+ * The card spans the reading column, so a right edge measured from it is
+ * always 15px in from the viewport while the list is at most 86vw — it cannot
+ * leave the screen at any width. `.map-actions` already made exactly this move
+ * for the mapping picker ("anchored to the row, not to the button"); this is
+ * the same fix on the other one, and on a desktop the button sits at the card's
+ * right edge anyway, so the list lands where it always did.
+ *
+ * .picker-wrap therefore must NOT be positioned — it is the containing block
+ * this is being taken away from.
+ */
+.card.toolbar-card { position: relative; }
 .picker {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 25;
   width: min(340px, 86vw);

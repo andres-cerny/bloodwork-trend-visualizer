@@ -21,9 +21,9 @@
   "vars": {
     // Hard ceiling on total Claude spend for the whole site. Once reached,
     // /api/extract and /api/chat refuse; the pre-baked demo keeps working.
-    "BUDGET_USD_LIMIT": "20",
+    "BUDGET_USD_LIMIT": "40",
     // Pages one Turnstile challenge is good for.
-    "MAX_PAGES_PER_SESSION": "40",
+    "MAX_PAGES_PER_SESSION": "100",
     "SESSION_TTL_SECONDS": "1800",
     // "1" disables the Opus cross-check and halves upload cost.
     "SINGLE_MODEL": "0"

@@ -30,7 +30,53 @@ import { type LabReport, type Measurement } from "../lib/models";
 import { reconcile } from "../lib/reconcile";
 import { type Registry } from "../lib/registry";
 import { count, plural } from "../lib/czech";
+import { createLimiter } from "../lib/inflight";
 import { type Job, makeJob, runQueue } from "../lib/uploadQueue";
+
+/**
+ * How many extraction requests may be in flight across the whole upload,
+ * whatever the pages are spread over.
+ *
+ * Measured, not guessed. A ten-file batch of 2-3 page reports took 182 s live
+ * when files ran one at a time — the per-file bound of 8 was never more than
+ * three deep, because the bound was sized for a long report and the real
+ * corpus is many short ones. Bounding the total instead keeps the ceiling
+ * meaningful either way.
+ *
+ * Measured on the real corpus, both readers, ten files (21 pages):
+ *
+ *     concurrency  4 -> 85.4 s      8 -> 43.6 s
+ *                 16 -> 28.9 s     32 -> 24.4 s
+ *
+ * and then thirty files (66 pages, 144 calls in flight) -> **27.8 s**, with
+ * per-page latency unchanged and not one failed call. There is no rate-limit
+ * wall anywhere near here, so the binding constraint is simply how long one
+ * page takes: once every page is in flight, the batch *is* the slowest page,
+ * whether that is ten files or thirty.
+ *
+ * 64 therefore covers a thirty-file drop with headroom, and the only reason it
+ * is not higher is that each in-flight page also holds a rendered canvas —
+ * memory, not throughput, is what would break first, and that has only been
+ * verified on a desktop browser.
+ */
+const PAGE_REQUESTS_IN_FLIGHT = 64;
+
+/**
+ * How many files are open at once.
+ *
+ * Only needs to be large enough that short files cannot leave the request
+ * budget idle; the requests themselves are what `PAGE_REQUESTS_IN_FLIGHT`
+ * bounds. Real reports are two or three pages, so this has to be roughly a
+ * third of the request budget before the budget is actually reachable — at 4
+ * it was not, which is the whole reason a ten-file drop took 182 s.
+ *
+ * Not simply unbounded because each open file holds its rendered page images.
+ * Those are retained for the verification tab regardless, so opening more
+ * files at once changes *when* that memory is allocated rather than how much —
+ * but allocating it all in one burst is still the thing most likely to hurt a
+ * phone, and that has not been measured.
+ */
+const FILES_AT_ONCE = 24;
 
 declare global {
   interface Window {
@@ -69,6 +115,11 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
   propsRef.current = { registry, maxPages, onReport, onBudget };
 
   const publish = () => setJobs([...jobsRef.current]);
+
+  // One limiter for the whole panel, not one per file — that is the entire
+  // point. Kept in a ref so a re-render cannot hand a half-finished run a
+  // second, empty budget.
+  const limiterRef = useRef(createLimiter(PAGE_REQUESTS_IN_FLIGHT));
 
   useEffect(() => {
     if (ready || !SITE_KEY || !boxRef.current) return;
@@ -127,12 +178,12 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
     // backoff, which is slower than not fanning out at all; each page also
     // renders a canvas, this demo's largest memory cost on a phone.
     //
-    // A ten-file batch (21 text pages, both readers) measured 85.4 s at 4 and
-    // 43.6 s at 8, with per-page latency unchanged and no failed calls — so
-    // rate limiting is not the ceiling at 8 and the gain is close to linear.
-    // Raise it further only with a measurement; lower it if phone memory
-    // becomes the binding constraint instead.
-    const CONCURRENCY = 8;
+    // Within one file this only decides how many pages are *prepared* at once;
+    // the requests themselves queue on the panel-wide limiter, so this can be
+    // generous without oversubscribing the API. It is still bounded because
+    // each prepared page holds a rendered canvas, the largest memory cost on a
+    // phone.
+    const CONCURRENCY = PAGE_REQUESTS_IN_FLIGHT;
 
     interface PageOutcome {
       pageNum: number;
@@ -161,11 +212,17 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
 
         // Digital PDF: send the reconstructed rows, not the image. The model
         // assigns columns; the characters come from the file.
+        //
+        // Only the request holds a slot. Rendering the page happens outside
+        // the limiter, so a file waiting its turn has its next page ready the
+        // moment one frees up rather than starting the render then.
         let res: Awaited<ReturnType<typeof extract>> | null = null;
         try {
-          res = assets.hasTextLayer
-            ? await extract(null, null, null, rowsAsText(assets.rows))
-            : await extract(assets.imageBase64, assets.mediaType, assets.textLayer, null);
+          res = await limiterRef.current.run(() =>
+            assets.hasTextLayer
+              ? extract(null, null, null, rowsAsText(assets.rows))
+              : extract(assets.imageBase64, assets.mediaType, assets.textLayer, null),
+          );
         } catch (e) {
           // A page that fails is skipped and reported, not allowed to sink the
           // whole report — same behaviour as the local pipeline.
@@ -340,6 +397,7 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         message: (e) =>
           e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${e}`,
         publish,
+        fileConcurrency: FILES_AT_ONCE,
         skipReason: "Nezpracováno — předchozí soubor narazil na limit ukázky.",
       });
     } finally {

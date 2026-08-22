@@ -7,6 +7,17 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { chromium, type Browser, type Page } from "playwright";
 
+/*
+ * Phone widths, and there are two of them on purpose.
+ *
+ * MOBILE is the iPhone-class 390px the design was drawn at. SMALL is the
+ * 360px an Android has been since the Galaxy S line settled on it, and it is
+ * the width that finds things: a card with a 310px fixed grid track inside a
+ * 14px-padded column fits at 390 and pushes the whole page sideways at 360,
+ * so auditing only the wider phone reported a screen as clean that scrolled
+ * horizontally on the commonest handset there is.
+ */
+export const SMALL = { width: 360, height: 740 };
 export const MOBILE = { width: 390, height: 844 };
 export const TABLET = { width: 834, height: 1112 };
 export const DESKTOP = { width: 1200, height: 900 };
