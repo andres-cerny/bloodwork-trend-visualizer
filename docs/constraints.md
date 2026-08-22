@@ -93,6 +93,56 @@ It also clears the lookup index entry only when no remaining name still
 normalizes to that key, or unlearning one spelling would strand the others.
 `web/tests/registry.test.ts` covers both.
 
+## A derived value must refuse rather than approximate
+
+`web/src/lib/derived.ts` computes what the panel did not print — non-HDL, LDL
+by Friedewald, cholesterol/HDL, AST/ALT. Two rules make that safe, and both are
+enforced in code rather than trusted:
+
+- **Every input comes from the same draw**, keyed on report id. Pairing by
+  nearest date would combine a cholesterol from March with a triglyceride from
+  September, which is not a lipid panel but two halves of different ones.
+- **Friedewald is refused above 4,5 mmol/l of triglycerides.** Above that it is
+  not a worse estimate of LDL, it is a wrong one. The draw is dropped and the
+  series carries the reason. An unexpected unit is refused the same way rather
+  than silently converted.
+
+Nothing here invents a reference range — see the curated-interval warning
+above. Every derived point carries flag `unknown` with no bounds: offered as a
+number to look at, never judged normal or abnormal.
+
+`web/tests/derived.test.ts` covers both rules. Both were proven by
+reintroducing the fault.
+
+## The model may name a chart, never fill one
+
+`web/src/lib/chartSpec.ts` turns a request for a chart into a chart without the
+model handling a value. It emits identifiers, a date window and a chart type;
+everything plotted is read from the same trend map the Trendy tab renders from.
+A chart built this way is therefore *by construction* the same data as the
+chart in the tab, and there is no path by which an invented number reaches the
+screen.
+
+This is the same move `worker/claude.ts` already makes on the text path: the
+model assigns columns rather than recognising characters, because the
+characters come from the file.
+
+`parseChartSpec` is the only door, so it is the only place that has to be
+right. It reads four fields and drops everything else — a model that returns
+its own values, a title and a colour gets none of them through. **Do not widen
+it into a general validator**; anything it does not name cannot get through,
+and that is the property doing the work.
+
+Refusing is a first-class outcome: an unknown parameter, a window with fewer
+than two draws, a single measurement, or mixed units each say so and say what
+is available instead. An empty chart is worse than a refusal, because it looks
+like a finding.
+
+Note this reverses "prefer context injection over tool-calling" in
+`docs/web-demo-plan.md`. That guidance was about multi-step agentic tool use on
+weak models; this is single-step constrained output, and it is what *removes*
+the fabrication risk.
+
 ## Privacy — the one hard rule
 
 `data/`, `samples/*.pdf` and `web/public/demo/real/` are git-ignored because
