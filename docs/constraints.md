@@ -102,7 +102,7 @@ The shipped demo dataset is synthetic (`scripts/make_demo_data.py`) and safe to
 publish. To ship real reports instead:
 
 ```sh
-python3 -m scripts.export_web_data --name "Jan Ukázka" --id "800101/0011" --shift-days -37
+python3 -m scripts.export_web_data --name "Jan Ukázka" --id "800101/0006" --shift-days -37
 ```
 
 That replaces the identity in the JSON **and redacts the printed name and rodné

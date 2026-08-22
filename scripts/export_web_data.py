@@ -11,7 +11,7 @@ verification tab is exactly where a reader studies the page closely. So the
 identifiers are redacted from the PDF *before* it is rendered, and the export
 refuses to finish if any of them survive into the output.
 
-    python3 -m scripts.export_web_data --name "Jan Ukázka" --id "800101/0011"
+    python3 -m scripts.export_web_data --name "Jan Ukázka" --id "800101/0006"
 
 Everything it reads is git-ignored; everything it writes is publishable.
 """
@@ -142,7 +142,7 @@ def redact_and_render(pdf_path: Path, page_num: int, secrets: list[str], dest: P
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", default="Jan Ukázka", help="Replacement patient name.")
-    ap.add_argument("--id", dest="pid", default="800101/0011", help="Replacement rodné číslo.")
+    ap.add_argument("--id", dest="pid", default="800101/0006", help="Replacement rodné číslo.")
     ap.add_argument("--shift-days", type=int, default=0, help="Shift all sample dates by N days.")
     args = ap.parse_args()
 

@@ -46,7 +46,7 @@ RENDER_DPI = 220
 
 
 PATIENT_NAME = "Jan Ukázka"
-PATIENT_ID = "800101/0011"  # synthetic — not a real rodné číslo
+PATIENT_ID = "800101/0006"  # synthetic; satisfies mod 11 so the app can decode it
 LAB_NAME = "Laboratoř Demo s.r.o."
 
 # (printed name, unit, ref range, [value per report]) — ten sample draws.
