@@ -32,6 +32,38 @@ const TABS: Array<[TabId, string]> = [
   ["chat", "💬 Zeptat se"],
 ];
 
+/**
+ * One tab panel. Rendered whether or not it is the active tab; `hidden` is what
+ * takes it off the screen, so its subtree keeps its state while the reader is
+ * looking at something else.
+ *
+ * `hidden` rather than a CSS class because it also removes the panel from the
+ * accessibility tree and from sequential focus — a class that only sets
+ * `display: none` would need all three behaviours re-implemented, and a
+ * keyboard user tabbing into an invisible panel is the failure that follows
+ * from getting it wrong.
+ */
+function Panel({
+  id,
+  active,
+  children,
+}: {
+  id: TabId;
+  active: TabId;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      id={`tabpanel-${id}`}
+      role="tabpanel"
+      aria-labelledby={`tab-${id}`}
+      hidden={active !== id}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function App() {
   const [reports, setReports] = useState<LabReport[]>([]);
   const [registry, setRegistry] = useState<Registry | null>(null);
@@ -331,7 +363,7 @@ export default function App() {
                   key={id}
                   role="tab"
                   id={`tab-${id}`}
-                  aria-controls="tabpanel"
+                  aria-controls={`tabpanel-${id}`}
                   aria-selected={tab === id}
                   tabIndex={tab === id ? 0 : -1}
                   onClick={() => setTab(id)}
@@ -395,12 +427,21 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div id="tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
-              {tab === "trends" && <TrendsTab trends={trends} unmappedNames={unmappedNames} />}
-              {tab === "summary" && (
+            <>
+              {/* Every panel stays mounted and the inactive ones are hidden,
+                  rather than `tab === x && <Panel/>`. Unmounting took the
+                  panel's state with it: the charts you had opened, the chat you
+                  were having, a correction typed but not yet saved. Nine pieces
+                  of state across five tabs, all of it work the reader had done.
+                  Hiding is also what the tablist already promises — switching
+                  tabs is meant to change the view, not discard it. */}
+              <Panel id="trends" active={tab}>
+                <TrendsTab trends={trends} unmappedNames={unmappedNames} />
+              </Panel>
+              <Panel id="summary" active={tab}>
                 <SummaryTab trends={trends} onShowSource={showAnalyteSource} />
-              )}
-              {tab === "verify" && (
+              </Panel>
+              <Panel id="verify" active={tab}>
                 <VerifyTab
                   reports={reports}
                   onCorrect={correct}
@@ -408,8 +449,8 @@ export default function App() {
                   displayName={(cid) => registry.displayName(cid)}
                   curatedRange={curatedRange}
                 />
-              )}
-              {tab === "mapping" && (
+              </Panel>
+              <Panel id="mapping" active={tab}>
                 <MappingTab
                   reports={reports}
                   registry={registry}
@@ -417,8 +458,8 @@ export default function App() {
                   onUndoMap={undoMapping}
                   onShowSource={showSource}
                 />
-              )}
-              {tab === "chat" && (
+              </Panel>
+              <Panel id="chat" active={tab}>
                 <ChatPanel
                   dataContext={chatContext}
                   frozen={frozen}
@@ -426,7 +467,7 @@ export default function App() {
                   available={Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY)}
                   onBudget={setBudget}
                 />
-              )}
+              </Panel>
 
               <p className="muted" style={{ marginTop: 18 }}>
                 Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model pouze
@@ -438,7 +479,7 @@ export default function App() {
                   </>
                 )}
               </p>
-            </div>
+            </>
           )}
         </main>
       </div>

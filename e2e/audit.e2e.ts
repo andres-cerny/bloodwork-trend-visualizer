@@ -143,7 +143,13 @@ const SCREENS: Screen[] = [
       // collapsed disclosure is not audited — so open every one of them.
       const more = page.getByRole("button", { name: /Další návrhy/ });
       for (let i = 0; i < (await more.count()); i++) await more.nth(i).click();
-      const disclosures = page.locator("details:not([open]) > summary");
+      // Visible ones only. Every tab panel is mounted now, so an unscoped
+      // selector also finds the disclosures inside the hidden panels, and
+      // clicking one of those times out. The intent is unchanged: open
+      // everything the reader can actually see on this screen.
+      const disclosures = page
+        .locator("details:not([open]) > summary")
+        .filter({ visible: true });
       for (let i = (await disclosures.count()) - 1; i >= 0; i--) {
         await disclosures.nth(i).click();
       }

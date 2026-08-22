@@ -330,7 +330,16 @@ describe("the document rail", () => {
     // rail lists the loaded documents, and the reading area lists none of it.
     expect(await page.locator(".sidebar .reportlist li").count()).toBe(10);
     expect(await page.locator(".main .reportlist").count()).toBe(0);
-    expect(await page.locator(".main").getByText("Nahrát PDF").count()).toBe(0);
+    // Visible matches only. Every tab panel is mounted now, so a plain text
+    // match also reads the hidden ones — and the chat's locked message says
+    // "…v levém panelu Nahrát PDF", which is a pointer *to* the rail, not a
+    // copy of it in the reading area. Same distinction the auditor draws with
+    // checkVisibility().
+    expect(
+      await page.locator(".main").getByText("Nahrát PDF").filter({ visible: true }).count(),
+    ).toBe(0);
+    // The structural form of the same invariant, which prose cannot break.
+    expect(await page.locator(".main .drop").count()).toBe(0);
     await page.close();
   });
 });
@@ -509,6 +518,66 @@ describe("mapping leads with the decision", () => {
     expect((await textOf(page, ".held-card summary")).toLowerCase()).toContain(
       "ponechané bez přiřazení (1)",
     );
+    await page.close();
+  });
+});
+
+/**
+ * Changing tabs must not throw away what the reader has built up.
+ *
+ * Every panel used to be rendered as `tab === x && <Panel/>`, so switching
+ * unmounted the previous one and took its state with it — the charts you had
+ * opened, the conversation you were having, a correction typed but not saved.
+ * The panels now stay mounted and are hidden instead.
+ */
+describe("work survives a tab switch", () => {
+  it("keeps the opened charts when you leave the tab and come back", async () => {
+    const page = await open(DESKTOP);
+    await selectAnalyte(page, /Cholesterol celkový/);
+    await selectAnalyte(page, /ALT/);
+    expect(await page.locator(".trend-card").count(), "setup").toBe(2);
+
+    for (const name of ["💬 Zeptat se", "🔍 Ověření", "📝 Souhrn změn"]) {
+      await tab(page, name).click();
+      await page.waitForTimeout(200);
+    }
+    await tab(page, "📈 Trendy").click();
+    await page.waitForTimeout(300);
+
+    expect(
+      await page.locator(".trend-card").count(),
+      "the charts were discarded by switching tabs",
+    ).toBe(2);
+    await page.close();
+  });
+
+  it("keeps them when a rail click jumps to verification", async () => {
+    // Opening a report from the rail force-switches to Ověření, which used to
+    // wipe the trends tab as a side effect of showing a source page.
+    const page = await open(DESKTOP);
+    await selectAnalyte(page, /Cholesterol celkový/);
+    expect(await page.locator(".trend-card").count(), "setup").toBe(1);
+
+    await page.locator(".reportlist .rl-main").first().click();
+    await page.waitForTimeout(300);
+    expect(await tab(page, "🔍 Ověření").getAttribute("aria-selected")).toBe("true");
+
+    await tab(page, "📈 Trendy").click();
+    await page.waitForTimeout(300);
+    expect(await page.locator(".trend-card").count(), "rail click discarded the charts").toBe(1);
+    await page.close();
+  });
+
+  it("hides the inactive panels rather than leaving them on screen", async () => {
+    // The flip side: five mounted panels must not stack. `hidden` has to win
+    // over anything the stylesheet says about display.
+    const page = await open(DESKTOP);
+    const visible = await page.evaluate(() =>
+      [...document.querySelectorAll('[role="tabpanel"]')].filter((el) =>
+        (el as HTMLElement).checkVisibility(),
+      ).length,
+    );
+    expect(visible, "exactly one panel should be visible").toBe(1);
     await page.close();
   });
 });

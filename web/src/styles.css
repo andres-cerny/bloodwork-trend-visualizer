@@ -149,6 +149,15 @@
 
 * { box-sizing: border-box; }
 
+/*
+ * `hidden` must win. The tab panels stay mounted and rely on it to leave the
+ * screen, so any later rule that sets `display` on a panel — a grid, a flex
+ * row — would silently bring the inactive tabs back and stack all five on top
+ * of each other. The UA sheet's `display: none` loses to a class selector;
+ * this does not.
+ */
+[hidden] { display: none !important; }
+
 html, body { height: 100%; }
 
 body {
