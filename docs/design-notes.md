@@ -38,6 +38,40 @@ mixed their results into a fictional person's. It confirms first (an uploaded
 PDF is never stored — reloading it costs another extraction) and the demo set
 can be loaded back with one button.
 
+## Changing tabs changes the view, not what you have built
+
+Every panel is mounted; the inactive ones are `hidden`. Rendering them as
+`tab === x && <Panel/>` unmounted the previous one and took its state with it —
+the charts you had opened, the conversation you were having, a correction typed
+but not yet saved. Nine pieces of state across five tabs, all of it the
+reader's work, and clicking a document in the rail destroyed it too, because
+that force-switches to Ověření.
+
+`hidden` rather than a class: it takes the panel out of the accessibility tree
+and the tab order as well as out of view. The whole mechanism rests on it, so
+`[hidden]` is `!important` — a later rule setting `display` on a panel would
+otherwise stack all five silently.
+
+Two test selectors assumed one panel existed in the DOM and both broke on this,
+which is worth knowing before writing a third: a text match under `.main` now
+also reads the hidden panels, and "click every closed `<details>`" now finds
+ones that cannot be clicked. Match on visible elements.
+
+## Uploads are a queue, and a spent allowance stops it
+
+Several PDFs can be chosen or dropped at once, and more can be added while the
+first are running. The queue is worked one document at a time — a phone
+rendering a long report concurrently is how it runs out of memory — and its
+rules live in `lib/uploadQueue.ts` with no PDF or React in them, because
+ordering, isolation and "each file once" are exactly what is painful to check
+through a browser.
+
+What a queue changes is which failures matter. A page that will not parse is
+local to its document; a spent page allowance, an exhausted budget or a dead
+session defeat every remaining file, and retrying against them produces a wall
+of identical errors that reads as a broken app rather than as a limit. That
+distinction is `isFatalApiError` in `lib/api.ts`, next to the error it inspects.
+
 ## The verification highlight frames the row, it does not cover it
 
 The highlight was a 2px border with a red wash inside it. `box-sizing:
@@ -115,7 +149,7 @@ now out-of-range, then real moves inside the interval, then a collapsed
 verification: the next question about a surprising number is "where does that
 come from", and the answer is the printed row.
 
-## Trends open empty, and analytes are added by name
+## Trends open empty, and parameters are added by name
 
 The tab used to plot all twenty analytes on load. That is not a view of
 anything — it is twenty charts to scroll past to reach the one you came for. It
@@ -186,6 +220,22 @@ is marked. Blue↔red scores ΔE 23.8 (light) / 25.7 (dark).
 Status is never colour alone: an arrow glyph and a Czech label ride along, and
 the reference band means out-of-range is legible from position. If you add a
 series colour, run the validator rather than eyeballing it.
+
+## On screen it is a "parametr", in the code an analyte
+
+A laboratory measures *analytes*; a clinician reading the report says
+*parametr* or *laboratorní hodnota*. The screen uses the clinician's word,
+because they are the reader. `canonicalId`, `AnalyteDef`, `AnalytePicker` and
+`rawAnalyteName` keep the laboratory's, because the registry is a laboratory
+concept and renaming it would say nothing true.
+
+Two notes for anyone repeating this kind of rename. It was safe to do by
+substitution only because *analyt* and *parametr* share a declension — both
+masculine inanimate hard-stem — so every `count(n, …)` plural and every
+agreement around them carried over untouched. "Hodnota" is feminine, and the
+same change would have been a rewrite of the surrounding grammar. And the chat
+context header in `lib/api.ts` still says "Analyt": it is sent to the model
+rather than shown to anyone, and the agent chat was out of scope for that pass.
 
 ## Czech is a constraint, not a translation
 
@@ -338,5 +388,15 @@ clinic sees this:
   sign. The opening card now answers the whole-series question — `seriesShape`
   feeding `patientSummary.ts` — but the tab itself has not been rewritten, so
   the two describe the same analyte at two different scales.
-- **In-range analytes rank by percent change**, which inside a wide interval is
-  usually assay noise.
+- **In-range analytes rank by percent change** in the *Souhrn změn* tab, which
+  inside a wide interval is usually assay noise. The opening card no longer has
+  this problem — it names an in-range drift only when the series is monotone
+  and has moved at least 15 %, so a bouncing percentage cannot lead the
+  paragraph — but the tab itself is unchanged.
+- **The computed values are not reachable.** `lib/derived.ts` builds non-HDL,
+  LDL by Friedewald, cholesterol/HDL and AST/ALT, and the demo measures the
+  inputs for all four but never LDL itself — the number a doctor asks about.
+  `lib/chartSpec.ts` turns a described chart into a real one without letting a
+  model near a value. Both are tested and neither has a route to the screen:
+  they were built for the chat, which is deliberately unchanged. Wiring them in
+  means either bringing chat back or putting the controls in *Trendy*.

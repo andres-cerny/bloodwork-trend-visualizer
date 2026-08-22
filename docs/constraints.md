@@ -143,6 +143,53 @@ Note this reverses "prefer context injection over tool-calling" in
 weak models; this is single-step constrained output, and it is what *removes*
 the fabrication risk.
 
+## A filtered value is not a normal one
+
+`review.ts` withholds a reading the app believes is wrong, and every derived
+number, series and sentence is computed downstream of that filter. That is
+correct, and on its own it produced the worst defect of the redesign: with the
+latest draw's only abnormal reading withheld, the opening card announced
+*"žádná hodnota mimo referenční rozmezí"* — a clean bill of health, in the
+first paragraph on every tab, over a value the app had refused to believe.
+
+**Filtering decides what may be counted. It does not decide what may be
+claimed.** Anything that summarises has to carry the withheld set alongside the
+numbers and say so: the card names them and qualifies its all-clear to "žádná
+*ověřená* hodnota". If you add another summarising surface, it inherits this
+obligation.
+
+Related, and found the same way: "out of range now" must mean *measured at the
+most recent draw*, not "the last time we looked at it". Reporting a parameter
+last measured in 2022 as out of range "k poslednímu odběru 14. 4. 2026" is a
+false sentence about a day nothing was measured on. The shipped demo cannot
+show either bug, because all ten of its reports carry all twenty-two
+parameters; only a real upload does.
+
+`web/tests/patientSummary.test.ts` covers both, and a test had previously
+pinned the all-clear as correct behaviour.
+
+## A guard that only runs on the happy fixture is not a guard
+
+Three separate times in this codebase a test passed while the property it
+named was broken, and each looked fine in review:
+
+- the collapsed-rail check measured the one viewport width where collapsing
+  worked, and reported nothing at the width the app is actually read at;
+- the Czech no-verb and nominative checks ran over a fixture that reaches two
+  of five sentence templates, so the other three — including the one the demo
+  renders — were unchecked;
+- the nominative check also accepted `a ` as a preceding token, which any word
+  ending in -a satisfies, so the prepositions *na* and *za* passed the guard
+  written to catch exactly them.
+
+The habit that catches these is not more assertions, it is **reintroducing the
+fault and watching the test fail**. Every guard in this repository has been
+demonstrated failing at least once; a guard that has never been seen to fail is
+a guard nobody has tested. Where a fixture cannot reach a case at all — the
+withheld-reading path in the browser, because the demo's misread is not at the
+last draw — say so in the test file rather than letting a green run imply
+coverage it does not have.
+
 ## Privacy — the one hard rule
 
 `data/`, `samples/*.pdf` and `web/public/demo/real/` are git-ignored because

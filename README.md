@@ -81,7 +81,7 @@ A shareable version of this tool runs as a static SPA plus one Worker.
 ```sh
 npm install
 npm run dev          # SPA against the pre-baked demo data — no key needed
-npm test             # 213 unit tests (TS) — no key, no browser
+npm test             # 330 unit tests (TS) — no key, no browser
 npm run test:audit   # every screen × width × palette, checked for layout flaws
 npm run test:e2e     # the built app driven in a real browser
 npm run test:live    # real extraction through Claude (~$0.10, needs a key)
