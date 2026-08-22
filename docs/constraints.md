@@ -67,6 +67,32 @@ If you add a new kind of doubt, add it **there**, not at a call site. The bug
 this replaced was a misread flag reaching the chart while a model disagreement
 did not, so four readings the app had itself doubted were plotted silently.
 
+## Signal colours draw, ink colours are for type
+
+`web/src/styles.css` carries two tokens for what looks like one colour:
+`--accent` / `--accent-ink`, `--status-critical` / `--critical-ink`. The split
+is not cosmetic. The same blue that reads correctly as a 2px chart line on
+white is only 3.4:1 as 12px type on a tinted chip, so one token serving both
+jobs means every legibility fix dulls the graphics and every vivid graphic
+costs legibility.
+
+**Type takes the `-ink` token; lines, rings, bands and tints take the signal
+token.** This is a screen a doctor reads numbers from, so `npm run test:audit`
+fails on any piece of type below 4.5:1 — the rule that found `--ink-muted`
+sitting at 3.2–3.8:1 across the whole app.
+
+## The registry unlearns only what the UI taught
+
+`Registry.removeSynonym` walks back an accepted mapping, and refuses to remove
+a synonym that shipped with the registry: it deletes from `learned` first and
+returns `false` if the name was not there. A shipped synonym is not the user's
+to delete, because dropping it silently changes how every future report parses
+— the undo for one session's mistake would become a permanent parsing change.
+
+It also clears the lookup index entry only when no remaining name still
+normalizes to that key, or unlearning one spelling would strand the others.
+`web/tests/registry.test.ts` covers both.
+
 ## Privacy — the one hard rule
 
 `data/`, `samples/*.pdf` and `web/public/demo/real/` are git-ignored because

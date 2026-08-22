@@ -9,7 +9,17 @@ This document is kept as the record of *why* the design went the way it did —
 the alternatives weighed, and what each decision was protecting against. It is
 no longer a plan to work through. For what must not be broken see
 [constraints.md](constraints.md); for the UI see
-[design-notes.md](design-notes.md).
+[design-notes.md](design-notes.md); for how to deploy it see
+[deploy.md](deploy.md).
+
+> **One decision here was reversed, and it was the central one.** The plan
+> below plans for Cloudflare Workers AI's free tier, on the reasoning that a
+> demo nobody can bill is a demo you can hand to a stranger. What shipped calls
+> **Claude** — Sonnet 5 and Opus 4.8, the same two models the local pipeline
+> uses — from a Worker secret, bounded by a spend ceiling rather than by a free
+> tier. The passages arguing for free models are left as written, marked where
+> they no longer describe the system; see [After the plan: Claude, and a
+> ceiling instead of a free tier](#after-the-plan-claude-and-a-ceiling-instead-of-a-free-tier).
 
 ## Goal
 
@@ -27,14 +37,18 @@ images and row bounding boxes. Those ship as static assets.
 The consequences are worth stating plainly, because they remove most of the
 original plan:
 
-- **No Anthropic key in the deployment.** Not in the browser bundle, not as a
-  Worker secret. Extraction already happened.
-- **No runtime extraction cost.** A stranger clicking around costs nothing,
-  because there is nothing to bill.
+- **No key needed to browse.** Opening the site and clicking through the
+  pre-baked dataset reaches no model at all. *(Held.)*
+- **No cost for the demo itself.** A stranger clicking around costs nothing,
+  because there is nothing to bill. *(Held — the ceiling below governs upload
+  and chat only.)*
 - **No storage.** Uploaded PDFs are parsed in the browser and never written to
-  a server disk. Closing the tab ends the session.
-- **Live upload runs on free models only** (Workers AI), behind a Cloudflare
-  Turnstile check. Your Anthropic key is not in the deployment at any point.
+  a server disk. Closing the tab ends the session. *(Held.)*
+- ~~**Live upload runs on free models only** (Workers AI), behind a Cloudflare
+  Turnstile check. Your Anthropic key is not in the deployment at any point.~~
+  **Superseded.** Upload and chat call Claude with a key held as a Worker
+  secret, still behind Turnstile, and a KV spend ledger freezes both at
+  `BUDGET_USD_LIMIT` (default $20).
 
 The site opens on the pre-baked dataset — instant, flawless, zero risk — and
 "zkus vlastní PDF" is offered on top of it.
@@ -46,11 +60,14 @@ BUILD TIME (your machine, existing Python)      RUNTIME (public)
 ------------------------------------------      ----------------
 PDFs                                            Worker with static assets
   → src/pipeline.py  (Sonnet 5 + Opus 4.8)        ├─ SPA (the five tabs)
-  → src/normalize.py (values, units, flags)       ├─ /api/extract → Workers AI
-  → src/locate.py    (row bboxes, px coords)      │    (Turnstile-gated)
-  → anonymize + redact                            └─ /api/chat    → Workers AI
+  → src/normalize.py (values, units, flags)       ├─ /api/extract → Claude
+  → src/locate.py    (row bboxes, px coords)      │    (Turnstile-gated, metered)
+  → anonymize + redact                            └─ /api/chat    → Claude
   → JSON + page PNGs  ──────────────────────▶   fetched as static JSON
 ```
+
+As planned, both API routes read "Workers AI". See [the section at the
+end](#after-the-plan-claude-and-a-ceiling-instead-of-a-free-tier).
 
 ### Live upload
 
@@ -78,10 +95,12 @@ Opt-in, on top of the pre-baked set. Two extraction paths, chosen per document:
 The path is chosen per page at runtime from whether the page carries a usable
 text layer, so a mixed document works without configuration.
 
-The two-model cross-check survives: two different free models, unioned
-row-by-row, disagreements flagged into the verification tab. That design
-matters *more* with weaker models, not less — a weak model degrades into "more
-rows to review" rather than into silent wrongness.
+The two-model cross-check survives: two different models, unioned row-by-row,
+disagreements flagged into the verification tab. That design was reasoned about
+for *free* models, where it matters more rather than less — a weak model
+degrades into "more rows to review" rather than into silent wrongness. It
+shipped against Sonnet 5 and Opus 4.8, where the same property buys less but
+costs nothing extra to keep.
 
 ### Abuse gate
 
@@ -91,9 +110,10 @@ Turnstile token is single-use and a report is many pages, one successful
 verification mints a short-lived HMAC-signed session token covering a bounded
 page count — so the visitor solves one challenge, not one per page.
 
-A per-IP daily counter in KV backs it up. Not for cost (cost is structurally
-zero) but for availability: one abuser should not be able to burn the day's
-Neuron allowance an hour before you demo.
+A per-IP daily counter in KV backs it up. As planned this was for availability
+rather than cost — cost was to be structurally zero. With Claude behind the
+route it is now doing both jobs, and the spend ledger is the real backstop: one
+abuser should not be able to burn the budget an hour before you demo.
 
 `row_bbox` in `src/locate.py` already returns pixel coordinates in image space
 (it scales PDF points by `RENDER_DPI / 72`), so the boxes map 1:1 onto the
@@ -101,9 +121,11 @@ cached PNGs with no further work at runtime.
 
 ### Hosting
 
-A single Worker with the static-assets binding serves the built SPA and the one
-`/api/chat` route from one deployment. Free plan: 100k requests/day on Workers,
-10,000 Neurons/day on Workers AI.
+A single Worker with the static-assets binding serves the built SPA and the API
+routes from one deployment. Free plan: 100k requests/day on Workers — still
+true and still the binding constraint on serving. *(The 10,000 Neurons/day this
+paragraph also counted on is not in play: the AI routes call Claude, and what
+bounds them is the spend ceiling.)*
 
 ## Anonymization — hard prerequisite
 
@@ -150,10 +172,14 @@ so parity is asserted rather than assumed.
 
 New subsystem — nothing in the repo today.
 
-**Model: Cloudflare Workers AI free tier.** No Claude tier — your key stays out
-of the deployment entirely. On-platform, no extra credentials,
-10,000 Neurons/day, and it hard-fails rather than billing when exhausted. Key
-lives as a Worker secret, never in the browser.
+~~**Model: Cloudflare Workers AI free tier.** No Claude tier — your key stays
+out of the deployment entirely. On-platform, no extra credentials,
+10,000 Neurons/day, and it hard-fails rather than billing when exhausted.~~
+**Superseded — chat runs on Sonnet 5.** The "hard-fails rather than billing"
+property was the point of the free tier, and it is the property the spend
+ledger reproduces: at the ceiling the AI routes return 402 and the site falls
+back to the pre-baked demo. The key lives as a Worker secret, never in the
+browser — that part is unchanged.
 
 **Design note: prefer context injection over tool-calling.** Free-tier models
 handle multi-step tool use poorly, and a chat that fumbles its tool calls in
@@ -162,16 +188,15 @@ structured, so inject the relevant normalized values directly into the prompt
 and constrain the model to quoting only numbers it was given. Same guarantee the
 tool-calling design was reaching for, more reliably, on a weaker model.
 
-**Open risk: Czech quality.** This is a Czech demo for a Czech doctor, and
-free-tier models are visibly weaker in Czech than in English. Build the chat
-behind a thin provider interface and evaluate Workers AI's Czech on real
-questions about this dataset. If it disappoints, the interface lets us swap to
-another free tier (Google AI Studio's Gemini free tier is the obvious
-alternative — separate key, still a Worker secret, still no billing) without
-touching the UI.
+~~**Open risk: Czech quality.**~~ **Overtaken.** The plan was to evaluate
+Workers AI's Czech on real questions and swap tiers if it disappointed. No such
+evaluation is recorded in this repository — the Worker was built against Claude
+from its first commit, and the free tier was never measured. The risk was
+answered by not taking it.
 
-**Light per-IP throttle.** Not for cost — cost is structurally zero — but so one
-abuser cannot burn the daily Neuron allowance an hour before you demo.
+**Light per-IP throttle.** Planned when cost was structurally zero, to protect
+the daily allowance. It shipped alongside a server-side page allowance per
+session and the spend ledger, which is what actually bounds the loss.
 
 ## Phases
 
@@ -219,15 +244,15 @@ Worker route, provider interface, context injection, Czech quality evaluation.
 
 ### Phase 6 — deploy
 
-Wrangler config, build pipeline, Workers AI binding, Turnstile keys, deploy,
-verify on a real phone and a real desktop.
+Wrangler config, build pipeline, Turnstile keys, KV namespace for the ledger,
+three Worker secrets, deploy, verify on a real phone and a real desktop.
 
 ## Risks
 
 | Risk | Mitigation |
 | --- | --- |
 | Patient identifiers surviving into the public build | Redaction plus a build-time check that fails the build, not a manual review step. |
-| Free-tier chat's Czech is too weak | Provider interface; evaluate before deploy; swap tiers if needed. |
+| Free-tier chat's Czech is too weak | Avoided rather than measured — the Worker shipped on Claude. |
 | Port drift in the deterministic core | Ported tests are the contract. |
 | Demo looks static / canned | Live upload plus correction re-derivation and mapping acceptance. |
 | A model fabricates a value on upload | On the text path this is caught deterministically — a value not printed on the page is flagged, never trended. On the vision path the two-model cross-check flags disagreement, and the pre-baked set still carries the pitch. |
@@ -235,4 +260,52 @@ verify on a real phone and a real desktop.
 ## Out of scope
 
 Auth, a database, cross-session persistence, custom domain, production security
-hardening, Claude anywhere in the deployed runtime. This is a demo.
+hardening. This is a demo. ~~Claude anywhere in the deployed runtime~~ — this
+last one is what the next section is about.
+
+## After the plan: Claude, and a ceiling instead of a free tier
+
+The plan above is built on one load-bearing assumption: that the deployment
+must be **unbillable**, so that a link sent to a stranger cannot cost anything.
+Workers AI's free tier delivers that by construction — it stops serving rather
+than starts charging.
+
+**Be clear about what the record shows.** The Worker called Claude in the
+commit that first introduced it (`45d01f3`), and no Workers AI implementation
+or Czech evaluation was ever committed. This was not a measured reversal — the
+free tier was set aside before it was tried, and the plan's own mitigation for
+the Czech risk (build behind a provider interface, evaluate, swap if it
+disappoints) was skipped in favour of the swap itself.
+
+The reasoning that makes that defensible, offered as reasoning and not as
+evidence: the audience is a Czech doctor reading Czech lab reports, free-tier
+models are visibly weaker in Czech than in English, and the text-layer path
+asks the model to assign printed cells to columns. `isPrintedOnPage` means a
+weak model cannot fabricate a value, but nothing stops it mis-columning one,
+and every mis-columned row lands in the verification tab. Past some error rate
+"more rows to review" stops being graceful degradation and becomes the demo's
+whole story. **That error rate was never measured** — which is the honest gap
+here, and where the work would start if this ever needs to run unbillable
+again.
+
+What the reversal had to reconstruct is the unbillable property, since the free
+tier had been providing it by construction:
+
+- **A hard ceiling, not a rate limit.** `BUDGET_USD_LIMIT` (default $20) bounds
+  total spend for the whole site across all visitors for the life of the KV
+  namespace. Every call is priced from the token usage the API reports.
+- **Freezing degrades rather than breaks.** At the ceiling `/api/extract` and
+  `/api/chat` return 402 and the UI disables upload and chat. The pre-baked
+  demo keeps working, because serving it costs nothing — the same shape as the
+  free tier's "hard-fails rather than billing", reached differently.
+- **Everything gating the free-tier design was kept**: Turnstile in front of
+  upload, one challenge minting a short-lived HMAC session token, a
+  server-side page allowance spent per session, per-IP counters in KV.
+
+What the reversal cost: the key is now a Worker secret, so this is no longer a
+deployment you could hand to someone else to host unchanged, and the ceiling is
+a budget guard rather than an accounting system — KV is eventually consistent,
+so heavy parallel load can overshoot it slightly. Both were judged acceptable
+for a demo. Neither would be for a product.
+
+Operationally this all lives in [deploy.md](deploy.md).

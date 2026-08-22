@@ -1,7 +1,10 @@
 # Deploying the web demo
 
-One Worker serves the built SPA and the three API routes. Free plan throughout;
-no custom domain — you get a `*.workers.dev` URL to send people.
+One Worker serves the built SPA and the four API routes (`/api/status`,
+`/api/session`, `/api/extract`, `/api/chat`). Cloudflare's free plan throughout
+and no custom domain — you get a `*.workers.dev` URL to send people. Claude
+usage is the one thing that costs money, and [the spend ceiling](#the-spend-ceiling)
+bounds it.
 
 ## One-time setup
 
@@ -16,8 +19,9 @@ npx wrangler login
 npx wrangler kv namespace create BUDGET
 ```
 
-Paste the returned `id` into `wrangler.jsonc`, replacing
-`REPLACE_WITH_KV_NAMESPACE_ID`.
+Paste the returned `id` into the `BUDGET` binding in `wrangler.jsonc`. The one
+committed there belongs to the existing deployment — replace it only if you are
+standing up your own.
 
 ### 2. Turnstile keys
 
