@@ -26,6 +26,25 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Errors where retrying anything else is pointless: the session is gone, the
+ * spend ceiling is reached, or the page allowance is spent. Every remaining
+ * page of every remaining document would fail in exactly the same way.
+ *
+ * `page_limit` belongs here and was missing, which mattered little while
+ * uploads were one document at a time and matters a lot with a queue: a batch
+ * of five reports reaches the twelve-page allowance routinely, and without
+ * this each remaining page retried and failed identically. A wall of identical
+ * errors reads as a broken app; "the allowance is spent" reads as a limit.
+ *
+ * Anything else — a page that would not parse, a transient 5xx — is local to
+ * the page it happened on and must not sink the document, let alone the batch.
+ */
+const FATAL_CODES = new Set(["budget_exhausted", "session_invalid", "page_limit"]);
+
+export const isFatalApiError = (e: unknown): boolean =>
+  e instanceof ApiError && FATAL_CODES.has(e.code);
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, { method: "POST", headers: headers(), body: JSON.stringify(body) });
   const data = (await res.json().catch(() => ({}))) as any;

@@ -303,6 +303,34 @@ ul.reportlist {
 }
 .runlog .line { display: flex; gap: 7px; align-items: baseline; }
 .runlog .line.err { color: var(--critical-ink); }
+/*
+ * The upload queue: one row per file, with its own outcome underneath.
+ *
+ * A single shared progress line could not say which of five documents the
+ * "2 stránky se nepodařilo přečíst" belonged to, and with a queue that is the
+ * question the reader actually has.
+ */
+.joblist {
+  list-style: none; margin: 9px 0 0; padding: 0; display: grid; gap: 6px;
+}
+.joblist .job {
+  padding: 7px 9px; border-radius: var(--radius-sm);
+  background: var(--surface-3); font-size: 0.79rem; color: var(--ink-2);
+  display: grid; gap: 3px;
+}
+.joblist .job.failed { background: var(--status-critical-soft); }
+.joblist .job.skipped { opacity: 0.72; }
+.job-head { display: flex; gap: 7px; align-items: baseline; min-width: 0; }
+.job-mark { flex: none; }
+/* The rail is 316px and filenames are long; the name yields, not the state. */
+.job-name {
+  flex: 1 1 auto; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; color: var(--ink-1);
+}
+.job-state { flex: none; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.job-note { color: var(--ink-2); padding-left: 19px; }
+.job-note.err { color: var(--critical-ink); }
+
 .progressbar { height: 3px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .progressbar i {
   display: block; height: 100%; background: var(--series-1);
