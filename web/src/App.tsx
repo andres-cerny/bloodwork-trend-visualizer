@@ -2,11 +2,17 @@
  * App shell. All state is in memory — reload and the session is gone, which is
  * the privacy guarantee the demo makes rather than a limitation to work around.
  *
- * Layout: a permanent left rail for everything to do with *which* documents are
- * loaded (upload, the list, clearing them) and a reading area on the right for
+ * Layout: a left rail for everything to do with *which* documents are loaded
+ * (upload, the list, clearing them) and a reading area on the right for
  * everything to do with what they say. That split is the one the Streamlit
  * original had, and it is the right one — ingest is a side activity you return
  * to, not a card that sits at the bottom of every screen you read.
+ *
+ * The rail can be put away. Below 1080px it is an off-canvas drawer; above it,
+ * a column the reader can collapse to give the 316px to a wide table. Which of
+ * those two the toggle moves is decided by the width alone, and whether the
+ * column was left collapsed is remembered — the second display preference this
+ * app persists, after the theme. Nothing about a patient is stored anywhere.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildChatContext, getStatus, type Budget } from "./lib/api";
@@ -22,6 +28,63 @@ import ThemeSwitch from "./ui/ThemeSwitch";
 import SummaryTab from "./ui/SummaryTab";
 import TrendsTab from "./ui/TrendsTab";
 import VerifyTab from "./ui/VerifyTab";
+
+/**
+ * Whether the rail is a permanent column or an off-canvas drawer. Must stay in
+ * step with the breakpoint in styles.css: above it the rail owns a grid
+ * column, below it the rail is an overlay and this whole idea does not apply.
+ */
+const RAIL_COLUMN = "(min-width: 1080px)";
+
+/**
+ * Is the rail wide enough to be a column right now?
+ *
+ * The toggle has to know, because the same button answers two different
+ * questions at the two layouts, and `aria-expanded` has to be true of the one
+ * the reader can actually see.
+ */
+function useRailIsColumn(): boolean {
+  const [isColumn, setIsColumn] = useState(() => {
+    try {
+      return window.matchMedia(RAIL_COLUMN).matches;
+    } catch {
+      // No matchMedia: assume the desktop layout, which is the one the CSS
+      // gives by default.
+      return true;
+    }
+  });
+  useEffect(() => {
+    let mq: MediaQueryList;
+    try {
+      mq = window.matchMedia(RAIL_COLUMN);
+    } catch {
+      return;
+    }
+    const onChange = () => setIsColumn(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isColumn;
+}
+
+/**
+ * Whether the rail was last left collapsed, alongside the theme in
+ * localStorage. Like the theme it is a display preference and says nothing
+ * about a patient — and a reader who put the rail away to read a wide table
+ * did not ask to be given it back on every reload.
+ */
+const RAIL_KEY = "bloodwork-rail";
+
+function storedCollapsed(): boolean {
+  try {
+    return localStorage.getItem(RAIL_KEY) === "collapsed";
+  } catch {
+    // Private mode, or storage blocked. Expanded is the honest default: the
+    // rail is where uploading lives.
+    return false;
+  }
+}
 
 type TabId = "trends" | "summary" | "verify" | "mapping" | "chat";
 const TABS: Array<[TabId, string]> = [
@@ -72,7 +135,22 @@ export default function App() {
   const [maxPages, setMaxPages] = useState(12);
   const [unlocked, setUnlocked] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Two separate states for two separate layouts, deliberately not one.
+  // `drawer` is the overlay below 1080px; `railCollapsed` is the missing grid
+  // column above it. Sharing one flag meant a rail put away on a desktop came
+  // back as a drawer sitting open over a phone screen.
   const [drawer, setDrawer] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(storedCollapsed);
+  const railIsColumn = useRailIsColumn();
+  // Crossing the breakpoint retires the drawer. `drawer` is inert while the
+  // rail is a column, so a drawer opened on a phone survived a widen and then
+  // reappeared — already open, over the reading area, unasked for — the moment
+  // the window narrowed again. A tablet rotation was enough to trigger it.
+  useEffect(() => {
+    if (railIsColumn) setDrawer(false);
+  }, [railIsColumn]);
+  /** Is the rail on screen right now, whichever layout is in force? */
+  const railShown = railIsColumn ? !railCollapsed : drawer;
   // Bumped on every mapping acceptance: the Registry is mutable, so trends
   // need an explicit signal to rebuild.
   const [registryVersion, setRegistryVersion] = useState(0);
@@ -109,6 +187,14 @@ export default function App() {
         /* status is best-effort; the pre-baked demo works without it */
       });
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RAIL_KEY, railCollapsed ? "collapsed" : "open");
+    } catch {
+      /* preference just won't survive the reload */
+    }
+  }, [railCollapsed]);
 
   // Escape closes the drawer — it covers most of a phone screen, so getting
   // out of it must not depend on hitting the sliver of scrim beside it.
@@ -253,6 +339,16 @@ export default function App() {
     return first === last ? first : `${first} – ${last}`;
   }, [reports]);
 
+  /**
+   * The one control for "is the rail on screen". Which state it moves depends
+   * on the layout, and only on the layout — so neither can be left in a
+   * position the other has to undo.
+   */
+  const toggleRail = useCallback(() => {
+    if (railIsColumn) setRailCollapsed((c) => !c);
+    else setDrawer((d) => !d);
+  }, [railIsColumn]);
+
   const hasData = reports.length > 0;
   const demoLoaded =
     demoReports.current.length > 0 &&
@@ -263,11 +359,15 @@ export default function App() {
       <header className="topbar">
         <button
           className="drawer-toggle"
-          aria-expanded={drawer}
+          aria-expanded={railShown}
           aria-controls="rail"
-          onClick={() => setDrawer((d) => !d)}
+          title={railShown ? "Skrýt panel dokumentů" : "Otevřít panel dokumentů"}
+          onClick={toggleRail}
         >
-          ☰ <span>Dokumenty</span>
+          {/* Decorative: the accessible name stays the visible "Dokumenty", and
+              the open/closed state is carried by aria-expanded rather than by
+              renaming the control, which is what a disclosure button should do. */}
+          <span aria-hidden="true">☰</span> <span>Dokumenty</span>
         </button>
         <div className="brand">
           <span className="mark" aria-hidden="true">
@@ -302,7 +402,7 @@ export default function App() {
         <ThemeSwitch />
       </header>
 
-      <div className="shell">
+      <div className={`shell${railIsColumn && railCollapsed ? " rail-collapsed" : ""}`}>
         <button
           className={`scrim${drawer ? " open" : ""}`}
           aria-label="Zavřít panel dokumentů"
@@ -422,9 +522,20 @@ export default function App() {
                   Načíst ukázková data
                 </button>
               )}
-              <button className="btn drawer-toggle" onClick={() => setDrawer(true)}>
-                Otevřít panel dokumentů
-              </button>
+              {/* Only when the rail is actually away. With it on screen this
+                  pointed at something already visible, and above 1080px it
+                  used to be present-but-display:none, which is the same
+                  mistake spelled in CSS. */}
+              {!railShown && (
+                <button
+                  className="btn drawer-toggle"
+                  aria-expanded={railShown}
+                  aria-controls="rail"
+                  onClick={toggleRail}
+                >
+                  Otevřít panel dokumentů
+                </button>
+              )}
             </div>
           ) : (
             <>

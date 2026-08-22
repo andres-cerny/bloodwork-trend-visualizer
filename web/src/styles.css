@@ -2,9 +2,10 @@
  * Design system for the bloodwork demo.
  *
  * Layout is desktop-first — this is read on a clinic workstation, so the
- * ingest controls live in a permanent left rail and the reading area gets the
- * rest of the screen. Below 1080px the rail becomes an off-canvas drawer;
- * nothing is dropped, it just moves.
+ * ingest controls live in a left rail and the reading area gets the rest of
+ * the screen. Below 1080px the rail becomes an off-canvas drawer; above it, a
+ * column that can be collapsed away. Nothing is dropped either way, it just
+ * moves — or gives its width back.
  *
  * Palette values come from the dataviz reference palette and were validated
  * with its checker in both modes: series blue vs status red scores ΔE 23.8
@@ -56,6 +57,10 @@
   --shadow-lg: 0 18px 48px -18px rgba(20, 19, 15, 0.34);
 
   --rail: 316px;
+  /* Cap on the reading column, so a line of prose does not run the full
+     width of a workstation monitor. Collapsing the rail raises it by exactly
+     the rail's width — see .shell.rail-collapsed. */
+  --read-max: 1320px;
   --topbar: 56px;
 }
 
@@ -218,7 +223,7 @@ body {
 .main {
   min-width: 0;
   padding: 0 22px 72px;
-  max-width: 1320px;
+  max-width: var(--read-max);
 }
 
 /* Left rail ---------------------------------------------------------------- */
@@ -780,22 +785,60 @@ ul.held-list li {
 .muted { color: var(--ink-muted); font-size: 0.8rem; }
 .err { color: var(--critical-ink); font-size: 0.85rem; }
 
-/* Drawer (below the rail breakpoint) --------------------------------------- */
+/* Putting the rail away ---------------------------------------------------- */
 
-.drawer-toggle { display: none; }
+/*
+ * One control at every width, because from the reader's side it is one
+ * question — is the rail on screen or not. What it moves differs: below 1080px
+ * it slides the off-canvas drawer in and out, above it takes the rail's grid
+ * column away. It carries aria-expanded either way, so the answer is the same
+ * to a screen reader as it is to an eye.
+ */
+.drawer-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 11px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong); background: var(--surface-1);
+  color: var(--ink-1); font: inherit; font-size: 0.84rem; cursor: pointer;
+}
+.drawer-toggle:hover { background: var(--surface-3); }
 .scrim { display: none; }
 
-@media (max-width: 1079px) {
+/*
+ * Collapsed rail — only where the rail *is* a column.
+ *
+ * The track goes to zero rather than the rail merely being hidden inside a
+ * 316px gutter: reclaiming the width for the table or the chart is the entire
+ * point, and hiding it in place would leave the reading area exactly as narrow
+ * as before. Scoped to min-width so it cannot reach the drawer below the
+ * breakpoint, where a different rule already owns the same element — the two
+ * states are separate in the markup and must stay separate here.
+ */
+@media (min-width: 1080px) {
+  .shell { transition: grid-template-columns 180ms ease; }
+  .shell.rail-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  /* visibility, not display: a display:none rail stops being a grid item, and
+     the reading area drops into the zero-width first column. This also keeps
+     the rail on screen while the track animates, then takes it out of the
+     accessibility tree and the tab order when it lands. */
+  .shell.rail-collapsed > .sidebar { visibility: hidden; transition: visibility 180ms; }
+  /*
+   * Give the reclaimed width to the reader, or collapsing achieves nothing
+   * where it matters most. `.main` is capped so prose does not run the whole
+   * width of a monitor, but the cap alone meant that above ~1636px the rail
+   * disappeared and the table stayed exactly as wide — the content just slid
+   * left and the empty right margin doubled. On the 1920px workstation this is
+   * read on, the feature was measurably a no-op.
+   *
+   * Raising the cap by exactly the rail's width keeps the line-length argument
+   * intact and makes the gain the same 316px at every width.
+   */
+  .shell.rail-collapsed > .main { max-width: calc(var(--read-max) + var(--rail)); }
+}
+
+@media (max-width: 1079.98px) {
   .shell { grid-template-columns: minmax(0, 1fr); }
   .main { padding: 0 14px 72px; }
   .tabs-wrap { margin: 0 -14px 14px; padding: 9px 14px 8px; }
-
-  .drawer-toggle {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 7px 11px; border-radius: var(--radius-sm);
-    border: 1px solid var(--border-strong); background: var(--surface-1);
-    color: var(--ink-1); font: inherit; font-size: 0.84rem; cursor: pointer;
-  }
 
   .sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
@@ -852,7 +895,7 @@ ul.held-list li {
 
 /* Drawer header: only ever visible when the rail is an overlay. */
 .rail-head { display: none; }
-@media (max-width: 1079px) {
+@media (max-width: 1079.98px) {
   .rail-head {
     display: flex; align-items: center; justify-content: space-between;
     font-weight: 650; font-size: 0.9rem;

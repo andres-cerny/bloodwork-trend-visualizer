@@ -60,15 +60,48 @@ interface Screen {
   go: (page: Page) => Promise<void>;
   /** Rules this screen is genuinely allowed to break, with the reason. */
   skip?: string[];
+  /**
+   * Only audit at these widths.
+   *
+   * For screens that do not exist at every size. A collapsed rail is a
+   * desktop-only state — below the breakpoint the rail is a drawer and
+   * collapsing is a no-op — so without this the mobile and tablet runs were
+   * byte-identical to the plain trends screens, and the total advertised twice
+   * the coverage it had.
+   */
+  onlyWidths?: number[];
 }
 
-/** Below 1080px the rail is an off-canvas drawer; its controls need it open. */
+/** The one control for "is the rail on screen", wherever the width puts it. */
+const railToggle = (page: Page) => page.locator("header button.drawer-toggle");
+
+/**
+ * Bring the rail on screen, whatever it currently is.
+ *
+ * `aria-expanded` is the state, not visibility: above 1080px the toggle is on
+ * screen with the rail already showing, and clicking it there would put the
+ * rail away — which is the opposite of what every caller wants.
+ */
 async function openRail(page: Page) {
-  const toggle = page.locator("button.drawer-toggle").first();
-  if ((await toggle.count()) > 0 && (await toggle.isVisible())) {
-    await toggle.click();
-    await page.waitForTimeout(350);
-  }
+  const toggle = railToggle(page);
+  if ((await toggle.count()) === 0 || !(await toggle.isVisible())) return;
+  if ((await toggle.getAttribute("aria-expanded")) === "true") return;
+  await toggle.click();
+  await page.waitForTimeout(350);
+}
+
+/**
+ * Put the rail away.
+ *
+ * Below 1080px the rail is a drawer that starts closed, so there is nothing to
+ * collapse and this is a no-op — the screens below then audit as their plain
+ * selves at those widths, which is the truth about them there.
+ */
+async function collapseRail(page: Page) {
+  const toggle = railToggle(page);
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") return;
+  await toggle.click();
+  await page.waitForTimeout(350);
 }
 
 async function closeRail(page: Page) {
@@ -173,6 +206,23 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    name: "trends (rail collapsed)",
+    onlyWidths: [DESKTOP.width, WIDE.width],
+    go: async (page) => {
+      await collapseRail(page);
+    },
+  },
+  {
+    name: "trends (rail collapsed, chart open)",
+    onlyWidths: [DESKTOP.width, WIDE.width],
+    go: async (page) => {
+      // The chart is what the width was reclaimed *for*, so it is measured in
+      // the wider column rather than only in the default one.
+      await addAnalyte(page, "chole");
+      await collapseRail(page);
+    },
+  },
+  {
     name: "no patient loaded",
     go: async (page) => {
       await openRail(page);
@@ -195,6 +245,7 @@ for (const [vpName, viewport] of VIEWPORTS) {
   for (const theme of ["light", "dark"] as const) {
     describe(`${vpName} · ${theme}`, () => {
       for (const screen of SCREENS) {
+        if (screen.onlyWidths && !screen.onlyWidths.includes(viewport.width)) continue;
         it(`${screen.name} has no layout flaws`, async () => {
           const page = await app.open(viewport);
           await setTheme(page, theme);

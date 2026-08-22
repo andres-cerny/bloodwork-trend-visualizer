@@ -19,7 +19,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
-import { DESKTOP, MOBILE, startApp, type Harness } from "./lib/harness";
+import { DESKTOP, MOBILE, WIDE, startApp, type Harness } from "./lib/harness";
 
 let app: Harness;
 
@@ -315,6 +315,113 @@ describe("the document rail", () => {
     await page.getByRole("button", { name: "Načíst ukázková data" }).first().click();
     await page.waitForTimeout(300);
     expect(await textOf(page, ".patient-bar")).toContain("Jan Ukázka");
+    await page.close();
+  });
+
+  it("gives the reading area the rail's width at every desktop size", async () => {
+    // The point of collapsing is the 316px, not hiding the contents: a rail
+    // merely made invisible inside its own column leaves the table exactly as
+    // narrow as it was.
+    //
+    // Measured at more than one width on purpose. This passed at 1200 while
+    // being a complete no-op at 1920 — `.main` is capped, so above ~1636px the
+    // rail vanished and the table stayed exactly as wide, the content just
+    // sliding left into a doubled right margin. 1920 is the clinic
+    // workstation this is written for, so it is the width that mattered most
+    // and the only stock viewport that did not cover it.
+    for (const vp of [DESKTOP, WIDE, { width: 1920, height: 1080 }]) {
+      const p2 = await open(vp);
+      const t2 = p2.locator("header button.drawer-toggle");
+      const b2 = (await p2.locator(".main").boundingBox())!.width;
+      await t2.click();
+      await p2.waitForTimeout(400);
+      const a2 = (await p2.locator(".main").boundingBox())!.width;
+      expect(a2 - b2, `${vp.width}px: the reading area did not gain the rail's width`).toBeGreaterThan(
+        300,
+      );
+      await p2.close();
+    }
+
+    const page = await open(DESKTOP);
+    const toggle = page.locator("header button.drawer-toggle");
+    expect(await toggle.getAttribute("aria-expanded"), "the rail starts open").toBe("true");
+    const before = (await page.locator(".main").boundingBox())!.width;
+
+    await toggle.click();
+    await page.waitForTimeout(400);
+    expect(await toggle.getAttribute("aria-expanded")).toBe("false");
+    const after = (await page.locator(".main").boundingBox())!.width;
+    expect(after - before, "the reading area did not get the rail's width").toBeGreaterThan(300);
+    // Out of sight is not enough: it must also be out of the tab order and the
+    // accessibility tree, or a keyboard reader still walks a rail that is not
+    // on the screen.
+    expect(await page.locator(".sidebar").isVisible()).toBe(false);
+    expect(await page.locator("#rail").evaluate((el) => getComputedStyle(el).visibility)).toBe(
+      "hidden",
+    );
+
+    // The choice survives a reload — it is a display preference, like the
+    // theme, not a per-visit accident.
+    await page.reload({ waitUntil: "load" });
+    await page.waitForSelector(".patient-bar");
+    expect(await page.locator("header button.drawer-toggle").getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+    expect((await page.locator(".main").boundingBox())!.width).toBeCloseTo(after, 0);
+
+    await page.locator("header button.drawer-toggle").click();
+    await page.waitForTimeout(400);
+    expect((await page.locator(".main").boundingBox())!.width).toBeCloseTo(before, 0);
+    await page.close();
+  });
+
+  it("does not bring a drawer back after the window has been wide", async () => {
+    // `drawer` is inert while the rail is a column, so an open drawer used to
+    // survive a widen and reappear — already open, over the reading area,
+    // unasked for — the moment the window narrowed again. A tablet rotation
+    // was enough.
+    const page = await open(MOBILE);
+    await page.locator("header button.drawer-toggle").click();
+    await page.waitForTimeout(300);
+    expect(await page.locator(".sidebar.open").count(), "setup: drawer open").toBe(1);
+
+    await page.setViewportSize(DESKTOP);
+    await page.waitForTimeout(300);
+    await page.setViewportSize(MOBILE);
+    await page.waitForTimeout(400);
+
+    expect(await page.locator(".sidebar.open").count(), "a drawer opened itself").toBe(0);
+    expect(await page.locator(".scrim.open").count(), "a scrim with nothing behind it").toBe(0);
+    expect(await page.locator("header button.drawer-toggle").getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+    await page.close();
+  });
+
+  it("still opens as a drawer on a phone, whatever the desktop was left as", async () => {
+    // The two states are separate on purpose. A rail collapsed on a desktop
+    // must not arrive on a phone as a drawer that refuses to open, and the
+    // drawer must not come back as a collapsed desktop column.
+    const page = await open(MOBILE);
+    await page.evaluate(() => localStorage.setItem("bloodwork-rail", "collapsed"));
+    await page.reload({ waitUntil: "load" });
+    await page.waitForSelector(".patient-bar");
+
+    const toggle = page.locator("header button.drawer-toggle");
+    expect(await toggle.getAttribute("aria-expanded"), "a phone starts with the drawer shut").toBe(
+      "false",
+    );
+    await toggle.click();
+    await page.waitForTimeout(400);
+    expect(await page.locator(".sidebar.open").count(), "the drawer never opened").toBe(1);
+    expect(await page.locator(".sidebar").isVisible()).toBe(true);
+    expect(await toggle.getAttribute("aria-expanded")).toBe("true");
+
+    // Escape still closes it, and still only it.
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(400);
+    expect(await page.locator(".sidebar.open").count()).toBe(0);
+    expect(await toggle.getAttribute("aria-expanded")).toBe("false");
     await page.close();
   });
 

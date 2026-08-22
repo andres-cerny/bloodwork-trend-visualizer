@@ -95,8 +95,14 @@ pointer is on the dot itself".
 
 Three states, not two: a machine set to dark should serve the app dark, and a
 two-way toggle has to guess at first paint and is wrong half the time. The
-choice is the one thing this app persists to `localStorage` — it says nothing
-about a patient, and a theme that resets every reload is not a setting.
+choice is persisted to `localStorage` — it says nothing about a patient, and a
+theme that resets every reload is not a setting.
+
+That test is the whole rule for what may be stored, and exactly two things pass
+it: the theme and whether the document rail is collapsed. Both are display
+preferences describing the reader's screen, not the patient's data. Nothing
+derived from a report is written to disk, which is the guarantee stated at the
+top of `App.tsx` and the reason this list is worth keeping short.
 
 The dark palette's values live once, as `--dk-*`, aliased onto the real tokens
 by the system-preference rule and by `[data-theme="dark"]`. Those two rules
