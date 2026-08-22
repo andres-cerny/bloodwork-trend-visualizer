@@ -438,7 +438,7 @@ export function signalsOf(c: Candidate, incoming: UnmappedAnalyte): Signal[] {
     detail:
       c.rangeMatch === null
         ? incoming.refRange
-          ? "u tohoto analytu rozmezí neznáme"
+          ? "u tohoto parametru rozmezí neznáme"
           : "laboratoř rozmezí neuvedla"
         : `${czRange(incoming.refRange)} vs ${czRange(c.candidateRange)}` +
           (c.rangeSource === "curated" ? " (z tabulky)" : " (z dokumentů)") +

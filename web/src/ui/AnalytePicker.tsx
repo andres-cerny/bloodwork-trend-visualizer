@@ -58,13 +58,13 @@ export default function AnalytePicker({ options, onPick, onClose }: Props) {
   useEffect(() => setCursor(0), [query]);
 
   return (
-    <div className="picker" ref={boxRef} role="dialog" aria-label="Přidat analyt">
+    <div className="picker" ref={boxRef} role="dialog" aria-label="Přidat parametr">
       <input
         ref={inputRef}
         type="search"
         value={query}
-        placeholder="Hledat analyt…"
-        aria-label="Hledat analyt"
+        placeholder="Hledat parametr…"
+        aria-label="Hledat parametr"
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape") return onClose();

@@ -248,9 +248,9 @@ function UnmappedCard({
       ) : (
         <p className="banner no-lead">
           {cands.length === 0
-            ? "V registru není žádný dostatečně podobný analyt."
+            ? "V registru není žádný dostatečně podobný parametr."
             : "Žádný návrh neobstál — u všech mluví něco proti tomu, že jde o totéž vyšetření."}{" "}
-          Vyberte analyt ručně, nebo nechte název nepřiřazený.
+          Vyberte parametr ručně, nebo nechte název nepřiřazený.
         </p>
       )}
 
@@ -262,7 +262,7 @@ function UnmappedCard({
         )}
         <div className="picker-anchor">
           <button className="btn" onClick={() => setPicking(true)}>
-            Vybrat jiný analyt…
+            Vybrat jiný parametr…
           </button>
           {picking && (
             <AnalytePicker
@@ -326,12 +326,12 @@ export default function MappingTab({ reports, registry, onMap, onUndoMap, onShow
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Přiřazení názvů analytů</h2>
+            <h2>Přiřazení názvů parametrů</h2>
             <p className="sub" style={{ marginBottom: 0 }}>
               {unmapped.length === 0
-                ? "Všechny názvy z dokumentů odpovídají známým analytům — není co řešit."
+                ? "Všechny názvy z dokumentů odpovídají známým parametrům — není co řešit."
                 : `Tyto názvy zatím neznáme, takže se neobjeví v trendech. U každého vidíte, ` +
-                  `co pro navržený analyt mluví a co proti — jednotka, referenční rozmezí, ` +
+                  `co pro navržený parametr mluví a co proti — jednotka, referenční rozmezí, ` +
                   `materiál a řád naměřených hodnot — abyste mohli posoudit, jestli jde ` +
                   `opravdu o totéž vyšetření.`}
             </p>
@@ -346,7 +346,7 @@ export default function MappingTab({ reports, registry, onMap, onUndoMap, onShow
         {lastMap && (
           <p className="banner undo-banner">
             <span>
-              <strong>{lastMap.rawName}</strong> je nyní součástí analytu{" "}
+              <strong>{lastMap.rawName}</strong> je nyní součástí parametru{" "}
               <strong>{registry.displayName(lastMap.canonicalId)}</strong>.
             </span>
             <button
@@ -381,7 +381,7 @@ export default function MappingTab({ reports, registry, onMap, onUndoMap, onShow
               Ponechané bez přiřazení ({held.length})
             </summary>
             <p className="muted" style={{ marginTop: 8 }}>
-              Nepřiřazený analyt se nikam neztratí — zůstane v Ověření u svého dokumentu,
+              Nepřiřazený parametr se nikam neztratí — zůstane v Ověření u svého dokumentu,
               jen se nezobrazí v trendech, protože ho nelze spolehlivě porovnat mezi odběry.
             </p>
             <ul className="held-list">

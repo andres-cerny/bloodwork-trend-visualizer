@@ -59,7 +59,7 @@ export default function SummaryTab({ trends, onShowSource }: Props) {
         <div>
           <h2>Souhrn změn</h2>
           <p className="sub" style={{ marginBottom: 0 }}>
-            Popis posledních dvou měření u každého analytu. Text je generován
+            Popis posledních dvou měření u každého parametru. Text je generován
             deterministickými pravidly — žádný model, tedy žádná interpretace ani
             diagnóza. Aktualizuje se okamžitě, pokud v Ověření opravíte hodnotu.
           </p>

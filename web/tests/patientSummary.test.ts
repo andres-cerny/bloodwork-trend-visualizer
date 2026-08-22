@@ -565,7 +565,7 @@ describe("it degrades rather than inventing", () => {
       [report("2022-02-08"), report("2026-04-14")],
       map(trend([pt("2026-04-14", 0.4)])),
     );
-    expect(o.sentences[1]).toBe("Zatím žádný analyt se dvěma porovnatelnými měřeními.");
+    expect(o.sentences[1]).toBe("Zatím žádný parametr se dvěma porovnatelnými měřeními.");
   });
 
   it("survives a report with no date at all", () => {

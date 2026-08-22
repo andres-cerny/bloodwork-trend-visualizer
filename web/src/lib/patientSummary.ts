@@ -235,7 +235,7 @@ function sentencesFor(
     out.push(
       draws <= 1
         ? "Zatím jediný odběr: popis vývoje až od druhého."
-        : "Zatím žádný analyt se dvěma porovnatelnými měřeními.",
+        : "Zatím žádný parametr se dvěma porovnatelnými měřeními.",
     );
     return out;
   }

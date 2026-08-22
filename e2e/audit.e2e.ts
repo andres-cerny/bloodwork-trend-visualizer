@@ -112,9 +112,9 @@ async function closeRail(page: Page) {
 }
 
 async function addAnalyte(page: Page, query: string) {
-  await page.getByRole("button", { name: /Přidat analyt/ }).click();
+  await page.getByRole("button", { name: /Přidat parametr/ }).click();
   await page.waitForTimeout(150);
-  await page.getByLabel("Hledat analyt").fill(query);
+  await page.getByLabel("Hledat parametr").fill(query);
   await page.waitForTimeout(150);
   const item = page.locator(".picker-item").first();
   if ((await item.count()) > 0) await item.click();
@@ -146,7 +146,7 @@ const SCREENS: Screen[] = [
   {
     name: "trends (picker open)",
     go: async (page) => {
-      await page.getByRole("button", { name: /Přidat analyt/ }).click();
+      await page.getByRole("button", { name: /Přidat parametr/ }).click();
       await page.waitForTimeout(250);
     },
   },
@@ -204,7 +204,7 @@ const SCREENS: Screen[] = [
     go: async (page) => {
       await tab(page, "🗂️ Přiřazení názvů").click();
       await page.waitForTimeout(400);
-      await page.getByRole("button", { name: "Vybrat jiný analyt…" }).first().click();
+      await page.getByRole("button", { name: "Vybrat jiný parametr…" }).first().click();
       await page.waitForTimeout(300);
     },
   },

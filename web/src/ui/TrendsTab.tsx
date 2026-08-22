@@ -54,7 +54,7 @@ export default function TrendsTab({
   const [picking, setPicking] = useState(false);
 
   if (all.length === 0)
-    return <p className="sub">Zatím není co zobrazit — reporty nemají datum odběru nebo namapované analyty.</p>;
+    return <p className="sub">Zatím není co zobrazit — reporty nemají datum odběru nebo přiřazené parametry.</p>;
 
   const shown = shownIds
     .map((id) => all.find((t) => t.canonicalId === id))
@@ -83,7 +83,7 @@ export default function TrendsTab({
       <div className="card toolbar-card">
         {unmappedCount > 0 && (
           <p className="sub" style={{ marginTop: 0 }}>
-            Pozor: {count(unmappedCount, "analyt se", "analyty se", "analytů se")}{" "}
+            Pozor: {count(unmappedCount, "parametr se", "parametry se", "parametrů se")}{" "}
             {plural(unmappedCount, "nezobrazuje", "nezobrazují", "nezobrazuje")} — zatím
             {plural(unmappedCount, " nemá", " nemají", " nemá")} přiřazený název. Najdete
             {plural(unmappedCount, " ho", " je", " je")} v záložce{" "}
@@ -93,7 +93,7 @@ export default function TrendsTab({
         <div className="toolbar">
           <span className="muted">
             {shown.length === 0
-              ? `K dispozici ${count(all.length, "analyt", "analyty", "analytů")}`
+              ? `K dispozici ${count(all.length, "parametr", "parametry", "parametrů")}`
               : `Zobrazeno ${shown.length} z ${all.length}`}
           </span>
           <span className="spacer" />
@@ -109,7 +109,7 @@ export default function TrendsTab({
               disabled={options.length === 0}
               onClick={() => setPicking((p) => !p)}
             >
-              ＋ Přidat analyt
+              ＋ Přidat parametr
             </button>
             {picking && (
               <AnalytePicker options={options} onPick={add} onClose={() => setPicking(false)} />
@@ -120,10 +120,10 @@ export default function TrendsTab({
 
       {shown.length === 0 ? (
         <div className="card empty-pick">
-          <h2>Vyberte analyt</h2>
+          <h2>Vyberte parametr</h2>
           <p className="sub">
-            Graf se vykreslí, až si nějaký analyt přidáte — tlačítkem{" "}
-            <strong>＋ Přidat analyt</strong> a psaním názvu. Přidat jich můžete
+            Graf se vykreslí, až si nějaký parametr přidáte — tlačítkem{" "}
+            <strong>＋ Přidat parametr</strong> a psaním názvu. Přidat jich můžete
             kolik chcete, zobrazí se pod sebou.
           </p>
           {suggested.length > 0 && (

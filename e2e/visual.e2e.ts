@@ -60,10 +60,10 @@ async function textOf(page: Page, selector: string, timeoutMs = 4000): Promise<s
  * picker, type enough of the name to narrow the list, click the match.
  */
 async function selectAnalyte(page: Page, pattern: RegExp) {
-  await page.getByRole("button", { name: /Přidat analyt/ }).click();
+  await page.getByRole("button", { name: /Přidat parametr/ }).click();
   await page.waitForTimeout(150);
   const query = pattern.source.replace(/[\^$]/g, "").slice(0, 6);
-  await page.getByLabel("Hledat analyt").fill(query);
+  await page.getByLabel("Hledat parametr").fill(query);
   await page.waitForTimeout(150);
   const item = page.locator(".picker-item", { hasText: pattern }).first();
   if ((await item.count()) === 0) throw new Error(`no analyte matching ${pattern}`);
@@ -650,9 +650,9 @@ describe("mapping leads with the decision", () => {
     // analyte was not among them there was no way to say so.
     const page = await openMapping();
     const card = cardFor(page, "U_Bílkovina");
-    await card.getByRole("button", { name: "Vybrat jiný analyt…" }).click();
+    await card.getByRole("button", { name: "Vybrat jiný parametr…" }).click();
     await page.waitForTimeout(250);
-    await page.getByLabel("Hledat analyt").fill("ferrit");
+    await page.getByLabel("Hledat parametr").fill("ferrit");
     await page.waitForTimeout(200);
     const item = page.locator(".picker-item", { hasText: "Ferritin" }).first();
     expect(await item.count(), "the full registry is not reachable").toBe(1);

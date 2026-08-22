@@ -218,7 +218,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
             <table>
               <thead>
                 <tr>
-                  <th>Analyt</th>
+                  <th>Parametr</th>
                   <th style={{ textAlign: "right" }}>Hodnota</th>
                   <th>Stav</th>
                 </tr>
