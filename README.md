@@ -68,7 +68,7 @@ That is the whole setup for both apps and all four Workers.
 Python is only needed to regenerate the demo data or run the parity tests:
 
 ```sh
-python3 -m venv .venv && .venv/bin/pip install -r tools/pipeline/requirements.txt
+python3.11 -m venv .venv-mac && .venv-mac/bin/pip install -r tools/pipeline/requirements.txt
 ```
 
 ## Run

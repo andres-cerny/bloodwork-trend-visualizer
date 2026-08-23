@@ -1,5 +1,7 @@
-# Python
+# Python. This is a macOS workspace; the Windows PC the project started on is
+# gone, and .venv/Scripts was deleted with it.
 .venv/
+.venv-mac/
 __pycache__/
 *.pyc
 
@@ -33,8 +35,6 @@ data/
 samples/*.pdf
 apps/bloodwork/public/demo/real/
 
-# macOS venv (the checked-in .venv layout is Windows-only)
-.venv-mac/
 
 # TypeScript incremental build cache
 *.tsbuildinfo

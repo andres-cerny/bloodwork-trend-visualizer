@@ -1,8 +1,8 @@
 """Regression tests for the Trends tab UI (the graphs page), driven through
 Streamlit's AppTest so they exercise the real script end-to-end. Run with:
 
-    .venv/Scripts/python.exe -m pytest tests/test_trends_ui.py -q
-    (or plain: .venv/Scripts/python.exe tests/test_trends_ui.py)
+    python3 -m pytest tests/test_trends_ui.py -q
+    (or plain: python3 tests/test_trends_ui.py)
 
 These need processed reports in data/reports/ (which is gitignored). When none
 are present the data-dependent tests skip instead of failing.

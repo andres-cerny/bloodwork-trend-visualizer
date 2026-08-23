@@ -2,7 +2,7 @@
 (SPADIA/medivis 2023 & 2025, CASRI Praha 2019). Cross-lab synonyms are grouped
 under one canonical id so the same analyte lines up across reports.
 
-Run: .venv/Scripts/python.exe -m scripts.seed_registry
+Run from tools/pipeline: python3 -m scripts.seed_registry
 The registry then grows at runtime as the user maps unmatched names in the UI.
 """
 from __future__ import annotations

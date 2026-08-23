@@ -2,7 +2,7 @@
 gathering. This is what makes the „Namapování" review usable — a wrong
 suggestion wastes a click, so the ranking rules are worth pinning.
 
-    .venv/Scripts/python.exe tests/test_matching.py
+    python3 tests/test_matching.py
 """
 from __future__ import annotations
 

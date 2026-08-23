@@ -1,8 +1,8 @@
 """Unit tests for the deterministic parsing — the highest-value tests in the
 project, since a misread decimal is the cardinal bug. Run with:
 
-    .venv/Scripts/python.exe -m pytest tests/ -q
-    (or plain: .venv/Scripts/python.exe tests/test_normalize.py)
+    python3 -m pytest tests/ -q
+    (or plain: python3 tests/test_normalize.py)
 """
 from __future__ import annotations
 

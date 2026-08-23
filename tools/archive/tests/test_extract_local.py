@@ -2,7 +2,7 @@
 shape, response parsing into PageExtraction, retry policy, and the dispatch
 from extract.py. All HTTP is stubbed; no server or model needed.
 
-    .venv/Scripts/python.exe tests/test_extract_local.py
+    python3 tests/test_extract_local.py
 """
 from __future__ import annotations
 

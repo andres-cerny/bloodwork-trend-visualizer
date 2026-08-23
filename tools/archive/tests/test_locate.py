@@ -2,7 +2,7 @@
 at a row on the source image. Uses a real sample PDF when present (skips
 gracefully otherwise, e.g. a fresh checkout without samples/).
 
-    .venv/Scripts/python.exe tests/test_locate.py
+    python3 tests/test_locate.py
 """
 from __future__ import annotations
 

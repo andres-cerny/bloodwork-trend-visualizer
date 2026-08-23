@@ -1,10 +1,18 @@
 # samples/
 
-Drop your own Czech lab-report PDFs here, then process them from the UI or CLI:
+Drop your Czech lab-report PDFs here.
+
+They are git-ignored (`samples/*.pdf`) and a commit hook refuses to stage them —
+this is real medical data and the one hard rule is that it never leaves the
+machine. Only this README is tracked, so the folder exists in a fresh clone.
+
+The web app reads uploads in the browser and never writes them anywhere. To
+process them with the local pipeline instead:
 
 ```sh
-.venv/Scripts/python.exe -m src.pipeline all
+cd tools/pipeline
+python3 -m scripts.export_web_data --help
 ```
 
-PDFs in this folder are **git-ignored** — they contain personal medical data and
-are never committed. Only this README is tracked so the folder exists.
+Note the extraction pipeline itself is archived (`tools/archive/`) — the Workers
+do that job now.
