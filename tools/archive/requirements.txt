@@ -1,0 +1,15 @@
+# The retired local Streamlit tool.
+#
+# Kept runnable rather than deleted: it is the original of the parsing contract
+# that tools/pipeline/tests/test_parity.py still enforces against the TypeScript
+# port, and the only place some of that reasoning is written down.
+#
+# Note Pillow, which app.py has always imported and never declared.
+anthropic>=0.40
+httpx>=0.27
+pymupdf>=1.24
+streamlit>=1.40
+pandas>=2.2
+altair>=5.4
+python-dotenv>=1.0
+Pillow>=10.0

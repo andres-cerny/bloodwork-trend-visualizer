@@ -1,150 +1,160 @@
-# Bloodwork Trend Visualizer (demo)
+# Bloodwork — two apps over one clinical agent
 
-Local tool that extracts structured values from Czech lab-report PDFs and shows
-how each analyte develops over time, with a plain descriptive summary of what
-changed. The hard part it derisks: **reliably and verifiably** transcribing the
-right numbers/units/decimals from varied Czech lab layouts.
+Two web demos sharing an agent backend.
+
+- **Bloodwork visualizer** — reads Czech lab-report PDFs, verifies every value
+  against the printed page, and shows how each parameter develops over time.
+  The hard part it derisks: **reliably and verifiably** transcribing the right
+  numbers, units and decimals from varied Czech lab layouts.
+- **Clinical agent** — a chat UI that answers questions about a patient, reaches
+  for the data with tools, and can propose a chart. It holds no lab code: every
+  number it shows arrived through the agent from the deterministic layer.
 
 > **Privacy — read this first.** Lab reports are sensitive medical data. This
-> repository ships **without any sample PDFs or extracted data**: the `samples/`
-> PDFs and the entire `data/` directory (extracted JSON, page images, the
-> registry) are git-ignored. Bring your own PDFs (drop them in `samples/` or
-> upload them in the app). Everything runs locally on your machine.
+> repository ships **without any sample PDFs or extracted data**: `samples/*.pdf`
+> and the whole `data/` directory are git-ignored, and a commit hook refuses to
+> stage them. Bring your own PDFs. Everything runs on your machine.
 
-## How it works
+## Layout
 
 ```
-PDF (upload or samples/) → render page images (PyMuPDF)
-    → Claude vision transcribes each row verbatim (Sonnet 5 + Opus 4.8,
-      the two reads run in parallel and cross-check each other)
-    → deterministic Python parses decimals/units/ranges & recomputes flags
+apps/bloodwork   the visualizer          workers/agent    chat, tools, streaming
+apps/chat        the clinical agent      workers/extract  PDF -> JSON
+packages/        lab-core, agent/*, gate, ui-kit, api-client
+tools/pipeline   the Python CI needs     evals/           the agent's regression suite
+```
+
+Packages are consumed as raw TypeScript — there is no build step. Vite,
+wrangler's esbuild and Vitest all compile `.ts` directly.
+
+## How extraction works
+
+```
+PDF (upload) → rows from the page's own text layer, or a rendered image for scans
+    → Claude transcribes each row verbatim (Sonnet 5 + Haiku 4.5, the two
+      reads run in parallel and cross-check each other)
+    → deterministic TypeScript parses decimals/units/ranges & recomputes flags
     → analyte synonym registry lines the same test up across labs
-    → reports grouped by patient (rodné číslo)
-    → per-analyte trends + rule-based Czech summary + verification UI
+    → per-parameter trends + rule-based Czech summary + verification UI
 ```
 
-The LLM only transcribes; **all numeric interpretation is deterministic Python**
-(`src/normalize.py`, unit-tested) so a misread decimal can't slip through
-silently.
+The LLM only transcribes; **all numeric interpretation is deterministic**
+(`packages/lab-core`, unit-tested against the Python original) so a misread
+decimal cannot slip through silently.
 
 ## The two tabs that carry the trust story
 
 - **🔍 Ověření (verification).** The extracted table sits next to the source
   page image. Pick a row and the app crops + highlights exactly where it sits on
-  the page (via the PDF text layer — `src/locate.py`, no extra API cost). A
+  the page (via the PDF text layer, no extra API cost). A
   "jen sporné řádky" toggle filters to the rows that need a human: low
   confidence, model disagreement, or a numeric-looking value that failed to
   parse. Corrections are saved back into the report.
 - **🗂️ Namapování (analyte mapping).** Unknown analyte names get a **ranked,
   zero-API suggestion** for what they map to — fuzzy name match plus unit
   compatibility and value plausibility against data already mapped
-  (`suggest_mappings` in `src/matching.py`). Each candidate shows its evidence
+  (`suggestMappings` in `packages/lab-core`). Each candidate shows its evidence
   (unit, typical value, ✔/✘ checks); one click accepts the top suggestion, and
   the app remembers it for every future report.
 
 ## Setup
 
 ```sh
-# 1. Create venv (Windows-native Python 3.11+) and install deps
-py -3.11 -m venv .venv
-.venv/Scripts/python.exe -m pip install -r requirements.txt
+npm install
+```
 
-# 2. Add your Anthropic API key
-cp .env.example .env          # then edit .env and paste your key
+That is the whole setup for both apps and all four Workers.
 
-# 3. Seed the analyte registry (already checked in, but to regenerate):
-.venv/Scripts/python.exe -m scripts.seed_registry
+Python is only needed to regenerate the demo data or run the parity tests:
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install -r tools/pipeline/requirements.txt
 ```
 
 ## Run
 
 ```sh
-# Streamlit UI (upload/process reports, trends, summary, verification)
-.venv/Scripts/streamlit.exe run app.py
-
-# Or batch-process from the CLI:
-.venv/Scripts/python.exe -m src.pipeline all           # all PDFs in samples/
-.venv/Scripts/python.exe -m src.pipeline samples/2025_08.pdf
+npm run dev:extract     # :8787   ┐ one terminal each; wrangler connects
+npm run dev:agent       # :8788   ┘ siblings through its dev registry
+npm run dev:bloodwork   # Vite, proxying /api to both
+npm run dev:chat        # the agent UI
 ```
 
-In the UI you can **drag-and-drop your own PDF** (or several) in the sidebar, or
-pick one from `samples/`. Uploaded PDFs are saved under `data/uploads/`.
-Processing shows live progress and a per-report cost/time readout when done;
-already-processed files are detected (by content hash) and skipped rather than
-re-billed.
+Set `ANTHROPIC_API_KEY`, `TURNSTILE_SECRET_KEY` and `SESSION_SECRET` in
+`workers/*/.dev.vars` for the AI routes. Turnstile publishes test keys that
+always pass — see [docs/deploy.md](docs/deploy.md).
 
-## Web demo (Cloudflare)
+## The demos
 
-A shareable version of this tool runs as a static SPA plus one Worker.
 **Live: https://bloodwork-demo.andres-cerny.workers.dev**
 
-Uploads are read **concurrently** — several files at once, sharing one global
-limit of 8 in-flight extraction requests — and rows appear in the UI as each
-page lands rather than when the whole file finishes. The reasoning, the
-measurements, and the things that turned out not to matter are in
-[docs/extraction-speed.md](docs/extraction-speed.md).
+Both open on a **pre-baked synthetic dataset** — no API calls, no real patient —
+and offer live use on top of it, gated by Cloudflare Turnstile. Uploaded PDFs
+are parsed in the browser and never written to a server, so closing the tab
+genuinely ends the session.
 
-```sh
-npm install
-npm run dev          # SPA against the pre-baked demo data — no key needed
-npm test             # 330 unit tests (TS) — no key, no browser
-npm run test:audit   # every screen × width × palette, checked for layout flaws
-npm run test:e2e     # the built app driven in a real browser
-npm run test:live    # real extraction through Claude (~$0.10, needs a key)
-npm run deploy       # build, check the bundle, push to Cloudflare
-```
+Uploads are read **concurrently**, sharing one global limit of in-flight
+extraction requests, and rows appear as each page lands rather than when the
+file finishes. The measurements, and the four hypotheses that turned out not to
+matter, are in [docs/extraction-speed.md](docs/extraction-speed.md).
 
-Also `python3 tests/test_parity.py` — 58 cases run through **both** the Python
-and TypeScript parsing implementations, which must agree.
+For **digital PDFs the page image is never sent**: pdf.js reconstructs the
+printed rows from the text layer's own coordinates and Claude assigns columns,
+so the characters come from the file. Every returned value is checked against
+the printed page — one that is not there is flagged, never trended. Scans fall
+back to a 220 DPI vision path automatically.
+
+Keys live as Worker secrets, and a KV-backed ledger prices every call and
+**freezes the AI features once spend hits a configured ceiling**, per
+capability, at which point the pre-baked demo keeps working.
 
 | Read this | For |
 |---|---|
+| [CLAUDE.md](CLAUDE.md) | The map, and the three rules that break something real |
 | [docs/constraints.md](docs/constraints.md) | Invariants that break something real if changed blindly |
-| [docs/design-notes.md](docs/design-notes.md) | Why the UI looks as it does; what a clinician could not use |
-| [docs/deploy.md](docs/deploy.md) | KV, Turnstile, secrets, the spend ceiling |
-| [docs/web-demo-plan.md](docs/web-demo-plan.md) | The original design and why each decision went that way |
-
-The site opens on a **pre-baked synthetic dataset** — no API calls, no real
-patient — and offers live upload on top of it, gated by Cloudflare Turnstile.
-Uploaded PDFs are parsed in the browser and never written to a server, so
-closing the tab genuinely ends the session.
-
-Extraction and chat use Claude exactly as the local tool does (Sonnet 5 and
-Opus 4.8 cross-checking each other). For **digital PDFs the page image is
-never sent**: pdf.js reconstructs the printed rows from the text layer's own
-coordinates and Claude assigns columns, so the characters come from the file.
-Every returned value is then checked against the printed page — one that is
-not there is flagged, never trended. Scans fall back to the 220 DPI vision
-path automatically. The key lives as a Worker secret, and a
-KV-backed ledger prices every call and **freezes the AI features once total
-spend hits a configured ceiling** (default $20) — at which point the pre-baked
-demo keeps working.
-
-The deterministic core (`normalize`, `trends`, `summary`) is ported to
-TypeScript in `web/src/lib/` so that correcting a value in the verification tab
-re-derives its flag, trend and summary live. `web/tests/normalize.test.ts`
-mirrors `tests/test_normalize.py` case for case.
-
-Regenerate the demo data, or swap in your own (anonymized and redacted):
-
-```sh
-python3 -m scripts.make_demo_data                      # synthetic
-python3 -m scripts.export_web_data --name "Jan Ukázka" # your processed reports
-```
+| [apps/bloodwork/docs/design-notes.md](apps/bloodwork/docs/design-notes.md) | Why the UI looks as it does; what a clinician could not use |
+| [docs/deploy.md](docs/deploy.md) | Four Workers, secrets, service bindings, the spend ceiling |
+| [docs/extraction-speed.md](docs/extraction-speed.md) | Why upload is fast, and the four hypotheses that died |
+| [docs/archive/](docs/archive/README.md) | Plans that were carried out — history, not description |
 
 ## Tests
 
 ```sh
-.venv/Scripts/python.exe tests/test_normalize.py       # deterministic parsing
-.venv/Scripts/python.exe tests/test_matching.py        # mapping suggestions
-.venv/Scripts/python.exe tests/test_locate.py          # source-row locator
-.venv/Scripts/python.exe tests/test_trends_ui.py       # trends tab (Streamlit AppTest)
+npm test             # unit tests across every package — no key, no browser
+npm run typecheck    # every app, package and worker
+npm run docs:check   # docs that contradict the code fail here
+npm run test:audit   # every screen × width × palette, checked for layout flaws
+npm run test:e2e     # the built app driven in a real browser
+npm run test:all     # all of the above, plus parity and the bundle guards
+```
+
+These cost money and are outside the default run:
+
+```sh
+npm run test:live    # real extraction through Claude (~$0.10, needs a key)
+npm run eval         # the agent's regression cases (see evals/CONTEXT.md)
+npm run bench:stage0 # extraction sweeps
+```
+
+**The parsing layer exists twice** — Python for the pipeline, TypeScript for the
+browser — and 58 shared cases run through both:
+
+```sh
+cd tools/pipeline && python3 tests/test_parity.py
+```
+
+Regenerate the demo data, or swap in your own (anonymized and redacted):
+
+```sh
+cd tools/pipeline
+python3 -m scripts.make_demo_data                      # synthetic
+python3 -m scripts.export_web_data --name "Jan Ukázka" # your processed reports
 ```
 
 ## Accuracy strategy
 
-Every page is transcribed **independently by two models** (Sonnet 5 and Opus
-4.8) and the reads are unioned row-by-row. This is what makes it trustworthy:
+Every page is transcribed **independently by two models** (Sonnet 5 and Haiku
+4.5) and the reads are unioned row-by-row. This is what makes it trustworthy:
 
 - **Agreement** on a value → marked high-confidence.
 - **Disagreement** → the row is flagged for review (verification tab).
@@ -163,37 +173,30 @@ flag is recomputed in Python from the value vs. the parsed reference range.
 
 ## Cost
 
-Vision extraction of the full sample set (~37 pages × two models) costs roughly
-**~$3 per full run**. Each processed report shows its own token cost and elapsed
-time (see `report.stats`; prices in `src/config.py`). API usage is billed to
-your Anthropic API key, separately from any Claude subscription.
+Extraction prices every call from the token usage the API reports; the pricing
+table lives in `packages/agent/core/src/pricing.ts` and mirrors the Python one.
+A full run over the sample corpus is roughly **$1**, and each processed report
+shows its own cost and elapsed time. Usage is billed to your Anthropic API key,
+separately from any Claude subscription.
 
-## Local / self-hosted models (optional)
+The deployed demos are bounded rather than trusted: a KV-backed ledger freezes
+each capability at its own ceiling. See [docs/deploy.md](docs/deploy.md).
 
-Claude is the default, but the extractor also speaks to **local or
-OpenAI-compatible** vision models (`src/extract_local.py`) using the same Czech
-prompt and JSON schema — useful when the data can't leave the building. Select a
-backend per role via environment variables (all optional; unset = the Claude
-defaults above):
+## Local / self-hosted models
 
-```sh
-# Ollama (local): prefix a model tag with "ollama:"
-BLOODWORK_MODEL_PRIMARY=ollama:qwen2.5vl:7b
-BLOODWORK_MODEL_ESCALATION=none        # "none" disables the second read
+The retired Streamlit pipeline could also drive local or OpenAI-compatible
+vision models through the same Czech prompt and schema, which is useful when the
+data cannot leave the building. That code is in `tools/archive/extract_local.py`
+and is **not wired into the Workers** — the deployed demos call Claude only.
 
-# vLLM / any OpenAI-compatible server: prefix with "openai:" and set the URL
-BLOODWORK_MODEL_PRIMARY=openai:Qwen2.5-VL-7B-Instruct
-BLOODWORK_LOCAL_URL=http://localhost:8000/v1
-```
-
-You can also run **hybrid** (e.g. a local primary read cross-checked by Claude).
-On a CPU-only laptop local vision is slow (minutes per page) — it's meant for
-accuracy validation; for real throughput use a GPU server behind the `openai:`
-backend.
+The reasoning behind that choice, including the fact that it was never measured,
+is recorded in [docs/archive/web-demo-plan.md](docs/archive/web-demo-plan.md).
+It matters the day a demo has to run unbillable.
 
 ## Notes / scope
 
-- Local demo — no auth, no database, no cloud. Data lives in `data/` as JSON.
+- The deployed demos have no auth and no database; a session lives in the
+  browser and ends with the tab. The local pipeline writes JSON to `data/`.
 - **Multiple patients:** reports are grouped by rodné číslo (name as fallback);
   a selector at the top scopes every tab to one patient. The rodné číslo is
   masked by default with a reveal toggle.

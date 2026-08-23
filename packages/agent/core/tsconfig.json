@@ -6,11 +6,11 @@
    * workerd: fetch, Request, Response, ReadableStream, crypto.subtle, and no
    * document.
    */
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "WebWorker", "WebWorker.Iterable"],
     "types": [],
-    "tsBuildInfoFile": "../../node_modules/.tmp/agent-core.tsbuildinfo"
+    "tsBuildInfoFile": "../../../node_modules/.tmp/agent-core.tsbuildinfo"
   },
   "include": ["src", "tests"]
 }

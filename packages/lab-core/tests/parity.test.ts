@@ -4,7 +4,7 @@
  * These functions reimplement src/normalize.py so the browser can re-derive a
  * corrected value live. Two implementations of the same rules drift silently
  * unless something forces them together — so both this file and
- * tests/test_parity.py read tests/parity_cases.json, and a change made on one
+ * tools/pipeline/tests/test_parity.py read tools/pipeline/tests/parity_cases.json, and a change made on one
  * side and not the other fails here.
  *
  * When a rule genuinely needs to change: edit the fixture first, then make
@@ -23,7 +23,7 @@ import {
 } from "@bw/lab-core";
 
 const CASES = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../tests/parity_cases.json"), "utf-8"),
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../tools/pipeline/tests/parity_cases.json"), "utf-8"),
 ) as {
   parse_czech_number: Array<[string, number | null]>;
   parse_value: Array<[string, number | null]>;

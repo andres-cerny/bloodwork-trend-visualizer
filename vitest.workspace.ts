@@ -33,7 +33,7 @@ export default defineWorkspace([
   },
   {
     test: {
-      name: "web",
+      name: "bloodwork",
       root: "./apps/bloodwork",
       include: ["tests/**/*.test.ts"],
       environment: "node",

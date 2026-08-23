@@ -9,7 +9,10 @@ from dotenv import load_dotenv
 load_dotenv()  # so BLOODWORK_* / ANTHROPIC_API_KEY from .env are visible here
 
 # Project layout ------------------------------------------------------------
-ROOT = Path(__file__).resolve().parent.parent
+# tools/pipeline/src/config.py -> repo root is four levels up. The pipeline
+# was demoted out of the repo root, but the data and samples it reads still
+# live there.
+ROOT = Path(__file__).resolve().parents[3]
 SAMPLES_DIR = ROOT / "samples"
 DATA_DIR = ROOT / "data"
 REPORTS_DIR = DATA_DIR / "reports"

@@ -7,8 +7,8 @@
     "build": "npm run build:bloodwork && npm run build:chat",
     "test": "vitest run",
     "deploy": "npm run deploy:agent && npm run deploy:extract && npm run deploy:bloodwork && npm run deploy:chat",
-    "test:parity": "python3 tests/test_parity.py && vitest run --project lab-core parity",
-    "test:all": "npm run test:parity && vitest run && npm run test:hooks && npm run typecheck && npm run build && npm run check:bundle",
+    "test:parity": "cd tools/pipeline && python3 tests/test_parity.py && cd ../.. && vitest run --project lab-core parity",
+    "test:all": "npm run test:parity && vitest run && npm run test:hooks && npm run typecheck && npm run docs:check && npm run build && npm run check:bundle",
     "test:live": "vitest run --config config/vitest.handoff.config.ts tests/live",
     "test:e2e": "npm run build:bloodwork && vitest run --config config/vitest.handoff.config.ts e2e/visual.e2e.ts",
     "test:audit": "npm run build:bloodwork && vitest run --config config/vitest.handoff.config.ts e2e/audit.e2e.ts",
@@ -36,7 +36,8 @@
     "build:chat": "npm -w apps/chat run build",
     "check:bundle:chat": "node scripts/check-bundle.mjs apps/chat/dist",
     "deploy:chat": "npm run build:chat && npm run check:bundle:chat && npm -w apps/chat run deploy",
-    "eval": "vitest run --config config/vitest.eval.config.ts"
+    "eval": "vitest run --config config/vitest.eval.config.ts",
+    "docs:check": "node scripts/check-docs.mjs"
   },
   "dependencies": {
     "@bw/agent-core": "*",
@@ -67,6 +68,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
+    "packages/agent/*",
     "workers/*"
   ]
 }

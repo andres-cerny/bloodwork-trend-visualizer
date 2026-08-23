@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pymupdf
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from scripts._fonts import czech_fonts  # noqa: E402
 

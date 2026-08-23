@@ -1,9 +1,9 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "WebWorker", "WebWorker.Iterable"],
     "types": [],
-    "tsBuildInfoFile": "../../node_modules/.tmp/datasource.tsbuildinfo"
+    "tsBuildInfoFile": "../../../node_modules/.tmp/datasource.tsbuildinfo"
   },
   "include": ["src", "tests"]
 }

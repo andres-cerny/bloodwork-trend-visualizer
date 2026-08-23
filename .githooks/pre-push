@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Refuse a push whose documentation contradicts the code.
+#
+# Deliberately only docs:check, and deliberately nothing slower. A pre-push hook
+# that takes ten seconds gets bypassed with --no-verify, and then it protects
+# nothing — so the typecheck, the build and the tests stay in CI where they
+# belong. This is file reads and regexes.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+npm run --silent docs:check || {
+  echo ""
+  echo "Push refused: the docs contradict the code."
+  echo "Fix them, or run with --no-verify if you know why this is wrong."
+  exit 1
+}

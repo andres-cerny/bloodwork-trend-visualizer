@@ -1,0 +1,7 @@
+# What CI and the demo-data generators need, and nothing else.
+#
+# The Streamlit tool's dependencies moved to tools/archive/requirements.txt with
+# it — anthropic, httpx, streamlit, pandas, altair, and the Pillow it imported
+# without ever declaring.
+pymupdf>=1.24
+python-dotenv>=1.0

@@ -28,10 +28,12 @@ jobs:
       # fails here rather than drifting silently.
       - name: Parity (Python side)
         run: python3 tests/test_parity.py
+        working-directory: tools/pipeline
       - name: Python unit tests
         run: |
           python3 tests/test_normalize.py
           python3 tests/test_matching.py
+        working-directory: tools/pipeline
 
       - name: TypeScript tests
         run: npm test
@@ -41,6 +43,12 @@ jobs:
       # the author's.
       - name: Hook tests
         run: npm run test:hooks
+
+      # The docs are checked, not merely written: constants that appear in both
+      # a doc and the code must agree, every internal link must resolve, and the
+      # CLAUDE.md files must stay inside their budget.
+      - name: Docs
+        run: npm run docs:check
 
       # Covers the web app, the Worker, and — since the tools project was added
       # — bench/, e2e/ and tests/live/, which reach across directories by
@@ -56,6 +64,8 @@ jobs:
       # something else wrote into apps/bloodwork/public/demo.
       - name: Demo data is reproducible and synthetic
         run: |
+          cd tools/pipeline
           python3 -m scripts.seed_registry
           python3 -m scripts.make_demo_data
+          cd ../..
           git diff --exit-code -- apps/bloodwork/public/demo/reports.json apps/bloodwork/public/demo/registry.json
