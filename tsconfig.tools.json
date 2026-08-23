@@ -28,5 +28,5 @@
     "isolatedModules": true,
     "types": ["node"]
   },
-  "include": ["bench/**/*.ts", "e2e/**/*.ts", "tests/live/**/*.ts"]
+  "include": ["bench/**/*.ts", "e2e/**/*.ts", "tests/live/**/*.ts", "config/*.ts"]
 }
