@@ -1,186 +1,844 @@
 /*
  * The chat app's own layout. Palette and reset come from @bw/ui-kit/styles.css,
  * imported before this file — anything here may use the tokens, nothing here
- * may define one.
+ * may define one, and every rule has to hold in both palettes.
  *
- * The shell is a three-row grid rather than a scrolling page: on a phone the
- * composer has to stay above the keyboard while the transcript scrolls under
- * it, and a page that simply grows pushes the composer out of reach.
+ * The surfaces step, they do not contrast. The rails sit on the plane (the
+ * desk), the conversation is a sheet one step lighter, and the evidence cards
+ * are one step lighter again — so the crops and excerpts read as specimens
+ * mounted on a mat rather than as attachments bolted to a message. Three soft
+ * steps, ascending the same way in both palettes; the borders are hairlines and
+ * the type scale stays inside a single octave, because the reader is a doctor
+ * between two patients and the screen has to be restful before it is clever.
  */
 
-.chat-app {
+/* ── Shell ────────────────────────────────────────────────────────────────── */
+
+/*
+ * Three columns, and the page itself never scrolls: the thread owns its own
+ * scrollbar so the composer stays above the keyboard on a phone and the
+ * evidence rail keeps its place while an answer runs long.
+ *
+ * dvh, not vh: mobile browsers shrink the viewport when the keyboard opens and
+ * vh does not notice.
+ */
+.shell {
   display: grid;
-  grid-template-rows: auto 1fr auto auto;
-  /* dvh, not vh: mobile browsers shrink the viewport when the keyboard opens,
-     and vh does not notice. */
+  /* The evidence column is wider than the rail token's 316px on purpose: the
+     row crop is a slice of a 1819px page, and every pixel given to this column
+     is a pixel of legible print. 380px is what it takes for the parameter, its
+     value and its unit to sit in view at once. */
+  grid-template-columns: 264px minmax(0, 1fr) 380px;
   height: 100dvh;
-  max-width: 820px;
-  margin: 0 auto;
+  background: var(--plane);
+  color: var(--ink-1);
+}
+.shell > * { min-width: 0; min-height: 0; }
+
+/* ── The history rail ─────────────────────────────────────────────────────── */
+
+/*
+ * minmax(0, 1fr), not the implicit `auto` column.
+ *
+ * A grid container with no declared columns sizes its implicit one by
+ * max-content, so one nowrap chip inside the header made the whole thread
+ * column 23px wider than the phone and the entire page scrolled sideways —
+ * with the composer's send button off the right edge. Every grid in this file
+ * declares its column for that reason.
+ */
+.rail-history,
+.thread-col,
+.rail-evidence {
+  grid-template-columns: minmax(0, 1fr);
+}
+.rail-history > *,
+.thread-col > *,
+.rail-evidence > * { min-width: 0; }
+
+.rail-history {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-right: 1px solid var(--border);
+  background: var(--plane);
 }
 
-.chat-top {
+.rail-top {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
-}
-.chat-top h1 { font-size: 1.05rem; margin: 0; }
-
-.chat-main {
-  overflow-y: auto;
-  padding: 16px;
-  /* Keeps the last message clear of the composer's shadow on iOS. */
-  scroll-padding-bottom: 16px;
-}
-
-.chat-log { display: flex; flex-direction: column; gap: 10px; }
-
-.chat-empty { display: flex; flex-direction: column; gap: 12px; }
-.chat-suggestions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-/* A tool step is deliberately quieter than a message: it is what the agent did,
-   not what it said. */
-.step {
-  font-size: 0.85rem;
-  color: var(--muted);
-  padding: 4px 10px;
-  border-left: 2px solid var(--line);
-}
-.step.pending { opacity: 0.7; }
-.step.failed { border-left-color: var(--warn); color: var(--warn); }
-
-.chart-msg { max-width: 100%; }
-
-.chat-composer {
-  display: flex;
+  align-items: flex-start;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--line);
-  background: var(--bg);
+  padding: 18px 16px 12px;
 }
-.chat-composer input { flex: 1; min-width: 0; }
-
-.chat-foot {
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
-  font-size: 0.8rem;
-  text-align: center;
-  border-top: 1px solid var(--line);
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brand-kicker {
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
 }
-
-.chat-gate { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-
-@media (max-width: 640px) {
-  .chat-main { padding: 12px; }
-  .msg { max-width: 92%; }
+.brand-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
-
-/* Which patient is open. A chip, not a belief: it renders exactly what the
-   server pinned, and closing it is the reader's act, not the model's. */
-.chat-patient {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.drawer-close {
+  display: none;
   margin-left: auto;
-  padding: 3px 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-.chat-patient button {
   border: 0;
   background: none;
-  color: var(--muted);
+  color: var(--ink-muted);
   font: inherit;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 2px 4px;
 }
-.chat-patient button:hover { color: inherit; }
 
-/* The practice choice, for a bare URL. Two doors, nothing else. */
-.chat-pick {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: stretch;
-  max-width: 420px;
-  margin: 0 auto;
-}
-.chat-pick-card {
-  display: block;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  text-align: center;
-  text-decoration: none;
-  color: inherit;
-  background: var(--bg);
-}
-.chat-pick-card:hover { border-color: var(--muted); }
+.rail-scroll { overflow-y: auto; padding: 0 12px 8px; }
 
-/* Citations. The chip is text; the panel below is where it resolves. */
-.cite {
-  font-size: 0.7em;
-  padding: 0 3px;
-  margin: 0 1px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--muted);
-}
-.sources {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin: 4px 0 8px;
-  max-width: 640px;
-}
-.sources-head {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-.source { padding: 4px 0; border-top: 1px solid var(--line); }
-.source:first-of-type { border-top: 0; }
-.source-row {
+.new-thread {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink-1);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.new-thread:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.new-thread .plus { color: var(--ink-muted); font-size: 1rem; line-height: 1; }
+
+.rail-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 20px 0 6px;
+  padding: 0 2px;
+}
+
+.hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.hist-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.83rem;
+  line-height: 1.4;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition: background 120ms ease, color 120ms ease;
+}
+.hist-item:hover { background: var(--surface-3); color: var(--ink-1); }
+.hist-item.on {
+  background: var(--surface-1);
+  color: var(--ink-1);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+}
+
+.rail-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+}
+.rail-budget { font-size: 0.72rem; color: var(--ink-muted); }
+
+/* ── The conversation column ──────────────────────────────────────────────── */
+
+/*
+ * The rows are named, not counted.
+ *
+ * The header only exists when there is a patient to pin or a drawer to open,
+ * and with auto-placement its absence slid the thread into row 1 and the
+ * composer into the 1fr row — a 490px-tall composer floating in the middle of
+ * an empty screen. Pinning each child to its row makes the missing header
+ * collapse to nothing instead of shifting everything below it.
+ */
+.thread-col {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+}
+.thread-head { grid-row: 1; }
+.thread { grid-row: 2; }
+.composer-zone { grid-row: 3; }
+
+.thread-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-1);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  min-width: 0;
+}
+.drawer-toggle:hover { background: var(--surface-3); }
+.drawer-toggle-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/*
+ * Which patient is open. A chip, not a belief: it renders exactly what the
+ * server pinned, and closing it is the reader's act, not the model's.
+ */
+.patient-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-1);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  min-width: 0;
+}
+.patient-chip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
+.patient-chip .pat-year { color: var(--ink-muted); }
+.patient-chip button {
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0 3px;
+}
+.patient-chip button:hover { color: var(--ink-1); }
+
+.thread { overflow-y: auto; scroll-padding-bottom: 24px; }
+.thread-inner { max-width: 720px; margin: 0 auto; padding: 4px 32px 40px; }
+
+/* ── One question, one answer ─────────────────────────────────────────────── */
+
+.qa-list { display: block; }
+.qa { padding: 30px 0 8px; }
+.qa + .qa { border-top: 1px solid var(--border); }
+.qa:first-child { padding-top: 22px; }
+
+.q {
+  font-size: 1.24rem;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The steps are what the agent did, not what it said, so they are quieter than
+ * the answer — a thread of small marks down the left rather than a list of
+ * statements competing with it.
+ */
+.steps {
+  display: grid;
+  gap: 1px;
+  margin: 0 0 20px 3px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+}
+.step {
+  position: relative;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ink-muted);
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+}
+.step::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+}
+.step.pending { color: var(--ink-2); }
+.step.pending::before {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: step-pulse 1.4s ease-in-out infinite;
+}
+.step.failed { color: var(--critical-ink); }
+.step.failed::before { background: var(--status-critical); border-color: var(--status-critical); }
+
+@keyframes step-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.78); }
+}
+
+/* The answer itself. One octave of type, generous leading. */
+.answer { font-size: 0.95rem; line-height: 1.72; color: var(--ink-1); }
+.answer > :first-child { margin-top: 0; }
+.answer h2 {
+  font-size: 1.04rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  margin: 26px 0 10px;
+}
+.answer h3 {
+  font-size: 0.87rem;
+  font-weight: 600;
+  letter-spacing: 0.008em;
+  color: var(--ink-2);
+  margin: 24px 0 8px;
+}
+.answer p { margin: 0 0 13px; overflow-wrap: anywhere; }
+.answer ul, .answer ol { margin: 0 0 14px; padding-left: 20px; }
+.answer li { margin: 6px 0; overflow-wrap: anywhere; }
+.answer li::marker { color: var(--ink-muted); }
+.answer strong { font-weight: 600; color: var(--ink-1); }
+
+/*
+ * Citations. Small, quiet, and a real control: clicking one focuses its entry
+ * in the evidence rail, which is the whole gesture a reader of this pattern
+ * already expects.
+ */
+.cite {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 4px;
+  margin: 0 0 0 2px;
+  vertical-align: 1px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--chip);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.cite:hover { background: var(--series-1-soft); color: var(--accent-ink); }
+.cite.on { background: var(--accent); color: #fff; }
+
+/* A chart is mounted like a specimen too — its own sheet, its own caption. */
+.chart-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px 8px;
+  margin: 18px 0;
+}
+.chart-one + .chart-one { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.chart-head {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 8px;
+}
+/* ui-kit's Chart labels its caption `muted`; without the rule the reference
+   range printed at body size and shouted over the chart it belongs to. */
+.muted { color: var(--ink-muted); font-size: 0.8rem; }
+.single-point { margin: 6px 0 0; font-size: 0.95rem; }
+.single-point strong { font-size: 1.15rem; }
+.single-point strong.out { color: var(--critical-ink); }
+.chart-tip { filter: drop-shadow(var(--shadow-sm)); }
+
+/* Waiting for the next fragment. Three marks, not a spinner. */
+.thinking { display: flex; gap: 5px; padding: 6px 0 2px; }
+.thinking span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  animation: think 1.2s ease-in-out infinite;
+}
+.thinking span:nth-child(2) { animation-delay: 0.15s; }
+.thinking span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes think {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* ── Follow-ups, and the empty state's suggestions ────────────────────────── */
+
+.fu { margin: 26px 0 6px; }
+.fu-head {
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.fu-list { display: grid; border-top: 1px solid var(--border); }
+.fu-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--ink-1);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.fu-item:hover { color: var(--accent-ink); }
+.fu-plus { color: var(--ink-muted); font-size: 1rem; line-height: 1.35; flex: 0 0 auto; }
+.fu-item:hover .fu-plus { color: var(--accent-ink); }
+
+/* ── The empty state ──────────────────────────────────────────────────────── */
+
+.empty { padding: 44px 0 8px; max-width: 560px; }
+.empty h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.024em;
+  margin: 0 0 10px;
+}
+.empty > p {
+  color: var(--ink-2);
+  font-size: 0.93rem;
+  line-height: 1.65;
+  margin: 0 0 8px;
+}
+.empty .rail-label { margin: 26px 0 4px; }
+.empty-hint { margin: 26px 0 0; font-size: 0.8rem; color: var(--ink-muted); }
+
+.thread-err {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--status-critical);
+  border-radius: var(--radius-sm);
+  background: var(--status-critical-soft);
+}
+
+/* ── The composer, and the gate inside it ─────────────────────────────────── */
+
+.composer-zone {
+  padding: 12px 32px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.composer {
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 10px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.composer:focus-within { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+.composer-row { display: flex; gap: 8px; align-items: center; }
+.composer-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.92rem;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-1);
+}
+.composer-row input::placeholder { color: var(--ink-muted); }
+.composer-row input:focus { outline: none; }
+
+.composer-gate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 2px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.turnstile-box { flex: 0 0 auto; min-height: 65px; }
+.composer-note {
+  flex: 1 1 220px;
+  margin: 0;
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+button.btn {
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--ink-1);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+button.btn.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.disclaimer {
+  max-width: 720px;
+  margin: 8px auto 0;
+  font-size: 0.71rem;
+  line-height: 1.45;
+  color: var(--ink-muted);
+  text-align: center;
+}
+.err { color: var(--critical-ink); font-size: 0.83rem; margin: 0; }
+
+/* ── The evidence rail ────────────────────────────────────────────────────── */
+
+.rail-evidence {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--plane);
+}
+.rail-ev-head { padding: 16px 18px 10px; }
+.rail-ev-head .rail-label { margin: 0 0 6px; }
+.rail-ev-sub {
+  margin: 0;
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.rail-ev-body { overflow-y: auto; padding: 2px 14px 24px; }
+
+.src-list { display: grid; gap: 10px; align-content: start; }
+
+/*
+ * One source, mounted. The card is the frame, the mat is a step darker than the
+ * card, and the paper inside it is paper in both palettes — a scanned report is
+ * white, and tinting it would be inventing something about the document.
+ */
+.src {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.src.on { border-color: var(--accent); box-shadow: var(--shadow-md); }
+
+.src-btn {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 11px 12px;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  padding: 0;
 }
-.source-label { flex: 1 1 auto; }
-/* The window the row is cropped into. Nothing outside it paints; the
-   wrapper's aspect-ratio (set inline from page geometry) reserves height. */
+.src-btn:disabled { cursor: default; }
+.src-n {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  border-radius: 5px;
+  background: var(--chip);
+  color: var(--ink-2);
+  font-size: 0.68rem;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+.src.on .src-n { background: var(--accent); color: #fff; }
+.src-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.src-label {
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ink-1);
+  overflow-wrap: anywhere;
+}
+.src-meta {
+  font-size: 0.71rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+.src-open {
+  margin-top: 4px;
+  font-size: 0.71rem;
+  color: var(--ink-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.src-btn:hover .src-open, .src.open .src-open { color: var(--accent-ink); }
+.src-open .chev { transition: transform 140ms ease; display: inline-block; }
+.src.open .src-open .chev { transform: rotate(180deg); }
+
+/* No located row on this source: the report page itself, as a small print. */
+.src-thumb {
+  flex: 0 0 auto;
+  width: 46px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.src-thumb img { display: block; width: 100%; }
+
+/*
+ * The mat, and the reason it scrolls.
+ *
+ * The crop is the whole printed row across the full page width — 1819px of
+ * paper. Fitted into a 300px rail that is a 6× reduction and the row stops
+ * being readable, which defeats the point of showing it at all. So the band is
+ * laid out at a width where the print is legible and the mat scrolls sideways
+ * inside its own box: the parameter and its value sit at the left, where they
+ * are visible without touching anything, and the reference range is one drag
+ * away. The page never scrolls sideways; this one element does.
+ */
+.src-mount {
+  display: block;
+  margin: 0 10px 11px;
+  padding: 4px;
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+/* The window the row is cropped into. Nothing outside it paints; the wrapper's
+   aspect-ratio (set inline from page geometry) reserves height. */
 .src-crop {
   display: block;
+  width: max(100%, 560px);
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  margin-top: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
   background: #fff; /* the page is paper in both palettes */
 }
 .src-crop img { display: block; width: 100%; }
-.source-quote {
-  margin: 4px 0 0;
-  padding: 4px 10px;
-  border-left: 2px solid var(--line);
-  color: var(--muted);
-  font-size: 0.9rem;
+
+.src-quote {
+  margin: 0 12px 12px;
+  padding: 9px 11px;
+  background: var(--surface-3);
+  border-left: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  max-height: 112px;
+  overflow: hidden;
+  /* Alpha only — the fade works over either palette's mat. */
+  mask-image: linear-gradient(to bottom, #000 68%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 68%, transparent);
 }
-.source-page {
+.src-quote.full { max-height: none; mask-image: none; -webkit-mask-image: none; }
+
+.src-page {
+  display: block;
+  margin: 0 12px 12px;
+  padding: 5px;
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
+}
+.src-page img {
   display: block;
   width: 100%;
-  margin-top: 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: #fff;
+}
+
+/* ── The evidence, folded under an answer (phone) ─────────────────────────── */
+
+.src-inline { margin: 22px 0 4px; }
+.src-disclose {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--ink-1);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.src-disclose[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.src-disclose .chev { display: inline-block; color: var(--ink-muted); transition: transform 140ms ease; }
+.src-panel { margin-top: 12px; }
+
+/* ── The practice picker ──────────────────────────────────────────────────── */
+
+.pick-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: var(--plane);
+}
+.pick { width: 100%; max-width: 420px; }
+.pick h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.024em;
+  margin: 0 0 8px;
+}
+.pick-sub { color: var(--ink-2); font-size: 0.9rem; line-height: 1.6; margin: 0 0 22px; }
+.pick-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.pick-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+.pick-name { font-size: 0.98rem; font-weight: 600; letter-spacing: -0.01em; }
+.pick-blurb { font-size: 0.8rem; color: var(--ink-muted); line-height: 1.45; }
+.pick-foot { display: flex; justify-content: center; margin-top: 18px; }
+.pick .disclaimer { margin-top: 14px; }
+
+/* The theme control, shared shape with the other app. */
+.theme-switch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.theme-switch:hover { background: var(--surface-3); color: var(--ink-1); }
+
+/* ── Below the breakpoint: one column, the rail behind a drawer ───────────── */
+
+.scrim { display: none; }
+
+@media (max-width: 959.98px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+
+  .rail-history {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 50;
+    width: min(300px, 86vw);
+    background: var(--surface-2);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-101%);
+    visibility: hidden;
+    transition: transform 180ms ease, visibility 180ms;
+  }
+  .rail-history.open { transform: none; visibility: visible; }
+  .drawer-close { display: block; }
+
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    border: 0;
+    padding: 0;
+    background: rgba(15, 15, 12, 0.42);
+  }
+
+  .thread-col { border-right: 0; }
+  /* The practice name and the patient both want the header row, and at 390px
+     they do not both fit. Wrapping puts the chip on its own line rather than
+     truncating a patient's name, which is the one label that may not be cut. */
+  .thread-head { padding: 6px 12px; flex-wrap: wrap; row-gap: 6px; }
+  .thread-inner { padding: 0 16px 32px; }
+  .composer-zone { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+
+  .q { font-size: 1.13rem; }
+  .empty { padding: 30px 0 8px; }
+  .empty h1 { font-size: 1.32rem; }
+  /* The mat is thinner at column width so the crop keeps the room. */
+  .src-mount, .src-quote, .src-page { margin-left: 10px; margin-right: 10px; }
+}
+
+@media (max-width: 400px) {
+  .thread-inner { padding: 0 12px 28px; }
+  .composer-zone { padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); }
+  .patient-chip { font-size: 0.75rem; padding-left: 8px; }
+  .drawer-toggle-label { max-width: 42vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }

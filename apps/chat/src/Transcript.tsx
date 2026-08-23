@@ -1,41 +1,20 @@
 /**
- * The conversation.
+ * The conversation, grouped by question.
  *
  * A tool-using turn is not a wall of text arriving at once — it is the agent
  * saying what it is about to look up, looking it up, and only then answering.
- * Those steps are rendered as their own rows rather than hidden, because a
- * reader who can see that the answer came from `get_trend` has a reason to
- * trust the number in it.
+ * The steps are rendered rather than hidden, because a reader who can see the
+ * answer came from `get_trend` has a reason to trust the number in it.
+ *
+ * One block per question: heading, the steps it took, the answer with its
+ * charts, the evidence (on a phone, behind its own disclosure), and finally the
+ * model's own proposals for what to ask next. The reader's eye goes down one
+ * column and never has to hunt for which answer a source belongs to.
  */
 import { Chart } from "@bw/ui-kit";
-import Sources, { type Source } from "./Sources";
-
-export interface Turn {
-  role: "user" | "assistant" | "tool" | "chart" | "sources";
-  content: string;
-  /** Tool rows only: still running, or the outcome. */
-  pending?: boolean;
-  ok?: boolean;
-  /** Chart rows only: the spec the model named and the series the server filled. */
-  chart?: { spec: unknown; series: unknown };
-  /** Sources rows only: the turn's evidence, numbered by the server. */
-  sources?: Source[];
-}
-
-/**
- * An answer with [n] markers, rendered so each marker is a superscript chip.
- * The chips are text, not links — the sources panel right below the answer is
- * where they resolve, and a number with no panel entry visibly points at
- * nothing, which is the point.
- */
-function withMarkers(text: string) {
-  const parts = text.split(/(\[\d+\])/g);
-  if (parts.length === 1) return text;
-  return parts.map((part, i) => {
-    const m = /^\[(\d+)\]$/.exec(part);
-    return m ? <sup key={i} className="cite">{m[1]}</sup> : part;
-  });
-}
+import Answer from "./answer";
+import Sources from "./Sources";
+import type { Block } from "./events";
 
 /** Czech for what each tool does, so the step reads as a sentence. */
 const TOOL_LABEL: Record<string, string> = {
@@ -49,70 +28,138 @@ const TOOL_LABEL: Record<string, string> = {
   computed_values: "počítá odvozené hodnoty",
 };
 
-export default function Transcript({
-  turns,
-  busy,
-  suggestions,
-  onPick,
-}: {
-  turns: Turn[];
-  busy: boolean;
-  suggestions: string[];
-  onPick: (s: string) => void;
-}) {
-  if (turns.length === 0) {
-    return (
-      <div className="chat-empty">
-        <p>Zeptejte se na výsledky pacienta. Například:</p>
-        <div className="chat-suggestions">
-          {suggestions.map((s) => (
-            <button key={s} className="btn small" onClick={() => onPick(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
+interface TrendLike {
+  displayName?: string;
+  unit?: string;
+}
 
+/** The series the server filled, flattened out of the chart event's envelope. */
+function trendsOf(chart: { series: unknown }): TrendLike[] {
+  const groups = (chart.series ?? []) as Array<{ series?: unknown[] }>;
+  return groups.flatMap((g) => (g.series ?? []) as TrendLike[]);
+}
+
+function Steps({ steps }: { steps: Block["steps"] }) {
+  if (steps.length === 0) return null;
   return (
-    <div className="chat-log">
-      {turns.map((t, i) => {
-        if (t.role === "tool") {
-          return (
-            <div key={i} className={`step${t.pending ? " pending" : t.ok === false ? " failed" : ""}`}>
-              {t.pending ? (TOOL_LABEL[t.content] ?? t.content) + "…" : t.content}
-            </div>
-          );
-        }
-        if (t.role === "chart") {
-          // The model named this chart; the series came from the data source.
-          // There is no path by which an invented number reaches this component.
-          const charts = (t.chart?.series ?? []) as Array<{ series: unknown[] }>;
-          return (
-            <div key={i} className="msg chart-msg">
-              {charts.flatMap((c, j) =>
-                (c.series as never[]).map((trend, k) => (
-                  <Chart key={`${j}-${k}`} trend={trend} />
-                )),
-              )}
-            </div>
-          );
-        }
-        if (t.role === "sources") {
-          return <Sources key={i} sources={t.sources ?? []} />;
-        }
+    <div className="steps">
+      {steps.map((s, i) => (
+        <div
+          key={i}
+          className={`step${s.pending ? " pending" : s.ok === false ? " failed" : ""}`}
+        >
+          {s.pending ? `${TOOL_LABEL[s.name] ?? s.name}…` : s.summary}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Transcript({
+  blocks,
+  busy,
+  desktop,
+  focus,
+  openSources,
+  onCite,
+  onToggleSources,
+  onAsk,
+}: {
+  blocks: Block[];
+  busy: boolean;
+  /** Above the breakpoint the evidence lives in the rail, not under the answer. */
+  desktop: boolean;
+  focus: { blockId: number; n: number } | null;
+  openSources: number | null;
+  onCite: (blockId: number, n: number) => void;
+  onToggleSources: (blockId: number) => void;
+  onAsk: (text: string) => void;
+}) {
+  return (
+    <div className="qa-list">
+      {blocks.map((b, bi) => {
+        const last = bi === blocks.length - 1;
+        const activeN = focus && focus.blockId === b.id ? focus.n : null;
+        const sourcesOpen = openSources === b.id;
         return (
-          <div key={i} className={`msg ${t.role === "user" ? "user" : "bot"}`}>
-            {t.role === "assistant" ? withMarkers(t.content) : t.content}
-          </div>
+          <article key={b.id} className="qa">
+            <h2 className="q">{b.question}</h2>
+
+            <Steps steps={b.steps} />
+
+            {b.parts.map((p, i) =>
+              p.kind === "text" ? (
+                <Answer
+                  key={i}
+                  text={p.text}
+                  activeN={activeN}
+                  onCite={(n) => onCite(b.id, n)}
+                />
+              ) : (
+                <div key={i} className="chart-card">
+                  {trendsOf(p.chart).map((trend, k) => (
+                    <div key={k} className="chart-one">
+                      <div className="chart-head">
+                        {trend.displayName ?? "vývoj hodnoty"}
+                        {trend.unit ? ` · ${trend.unit}` : ""}
+                      </div>
+                      {/* The model named this chart; the series came from the
+                          data source. No invented number reaches this component. */}
+                      <Chart trend={trend as never} />
+                    </div>
+                  ))}
+                </div>
+              ),
+            )}
+
+            {busy && last && (
+              <div className="thinking" aria-live="polite" aria-label="Asistent pracuje">
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
+
+            {!desktop && b.sources.length > 0 && (
+              <div className="src-inline">
+                <button
+                  type="button"
+                  className="src-disclose"
+                  data-testid="sources-toggle"
+                  aria-expanded={sourcesOpen}
+                  onClick={() => onToggleSources(b.id)}
+                >
+                  Zdroje ({b.sources.length})
+                  <span className="chev" aria-hidden="true">
+                    ▾
+                  </span>
+                </button>
+                {sourcesOpen && (
+                  <div data-testid="sources-panel" className="src-panel">
+                    <Sources sources={b.sources} focusedN={activeN} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {b.followups.length > 0 && (
+              <section className="fu" data-testid="followups">
+                <h3 className="fu-head">Související</h3>
+                <div className="fu-list">
+                  {b.followups.map((q) => (
+                    <button key={q} type="button" className="fu-item" onClick={() => onAsk(q)}>
+                      <span>{q}</span>
+                      <span className="fu-plus" aria-hidden="true">
+                        +
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+          </article>
         );
       })}
-      {busy && (
-        <div className="msg bot muted" aria-live="polite">
-          …
-        </div>
-      )}
     </div>
   );
 }
