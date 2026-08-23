@@ -297,7 +297,18 @@ Session mechanics:
   panel; live test proves markers only point at registered sources.
 - [x] 2026-08-23 Phase 6 (partial) — ledger split per tenant (+ pinned test),
   agent /api/session door, Turnstile hostnames (worker var + widget via API),
-  R2 evidence route. Open: eval cases, real-patient seed, deploy, UI audit.
+  evidence route (KV — R2 needs a dashboard opt-in the account lacks).
+- [x] 2026-08-23 Phase 4 (corpus) — 24 prose documents over the same pipeline;
+  inline panels quote the committed lab values verbatim.
+- [x] 2026-08-23 Browser walkthrough — four defects found and fixed, chief
+  among them cross-patient mislabeling on rebind; row crops now show the full
+  printed row; dev Turnstile un-broken (testing-key flag).
+- [x] 2026-08-23 Evals — the suite had silently skipped since the restructure
+  (ROOT bug); fixed, 7 clinical cases added, baseline promoted 14/14 at
+  3 reps, $1.07.
+- [x] 2026-08-23 DEPLOYED — https://bloodwork-chat.andres-cerny.workers.dev
+  (/sport, /orto). Ledgers verified live. Open: real-patient seed (running),
+  human Turnstile click on the new hostname, UI audit pass, memory wrap-up.
 
 ## Cut lines (in order, if the 1.5 weeks compress)
 
