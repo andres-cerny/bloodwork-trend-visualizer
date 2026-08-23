@@ -49,3 +49,8 @@ evals/output/*
 
 # Playwright MCP scratch (snapshots, console logs from browser sessions)
 .playwright-mcp/
+
+# Editor settings are shared: the explorer should show the repo, not what it
+# generates. Personal overrides go in .vscode/settings.local.json.
+.vscode/*
+!.vscode/settings.json

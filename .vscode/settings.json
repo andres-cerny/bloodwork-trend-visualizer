@@ -1,0 +1,32 @@
+{
+  // What the explorer shows should be the repository, not 2 GB of things the
+  // repository generates. Everything hidden here is git-ignored — nothing that
+  // is tracked is affected, and `search.exclude` keeps a project-wide search
+  // from returning node_modules for every hit.
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/*.tsbuildinfo": true,
+    ".playwright-mcp": true,
+    ".venv": true,
+    ".venv-mac": true,
+    ".wrangler": true,
+    "**/dist": true,
+    "node_modules": true
+  },
+  "search.exclude": {
+    "**/dist": true,
+    "**/node_modules": true,
+    ".venv": true,
+    ".venv-mac": true,
+    "package-lock.json": true
+  },
+  // data/ and samples/ hold real medical data and are git-ignored. They stay
+  // visible on purpose — hiding them is how you forget they are there.
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/.venv-mac/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true
+  }
+}
