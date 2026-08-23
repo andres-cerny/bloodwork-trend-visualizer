@@ -59,13 +59,21 @@ jobs:
       - name: Build
         run: npm run build
 
-      # The published demo must never contain real patient data. The generator
-      # is synthetic, so regenerating it must produce no diff — if it does,
-      # something else wrote into apps/bloodwork/public/demo.
+      # The published demo must never contain real patient data. The generators
+      # are synthetic, so regenerating them must produce no diff — if it does,
+      # something else wrote into a public/demo directory.
+      #
+      # The rendered page PNGs are deliberately not diffed: their bytes depend
+      # on the rasteriser, not on the corpus. What must be stable is the data
+      # and the boxes — reports.json carries every bbox, and the seed SQL is
+      # derived from it — and those are font-locked, so they are.
       - name: Demo data is reproducible and synthetic
         run: |
           cd tools/pipeline
           python3 -m scripts.seed_registry
           python3 -m scripts.make_demo_data
+          python3 -m scripts.make_chat_demo
           cd ../..
           git diff --exit-code -- apps/bloodwork/public/demo/reports.json apps/bloodwork/public/demo/registry.json
+          git diff --exit-code -- apps/chat/public/demo/sport/reports.json apps/chat/public/demo/orto/reports.json
+          git diff --exit-code -- tools/pipeline/out/seed_sport.sql tools/pipeline/out/seed_orto.sql
