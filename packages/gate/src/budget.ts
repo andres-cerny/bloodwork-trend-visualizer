@@ -13,7 +13,23 @@
  */
 
 const SHARDS = 8;
-const KEY = (i: number) => `spend_usd_shard_${i}`;
+
+/**
+ * Capability that spend is booked against.
+ *
+ * The ledger used to be one global counter, which meant a runaway agent or an
+ * eval sweep could freeze extraction — two demos, one fuse. Keyed per
+ * capability, each has its own ceiling and its own failure.
+ */
+export type Capability = "agent" | "extract";
+
+const KEY = (cap: Capability, i: number) => `spend_usd_${cap}_shard_${i}`;
+
+/**
+ * The pre-split key, still read so an existing deployment's history is not
+ * silently zeroed by a deploy. Nothing writes it any more.
+ */
+const LEGACY_KEY = (i: number) => `spend_usd_shard_${i}`;
 
 /**
  * Pricing lives in ./pricing.ts, not here: it is pure arithmetic and this
@@ -21,18 +37,23 @@ const KEY = (i: number) => `spend_usd_shard_${i}`;
  * module directly, so it never pulls `KVNamespace` into a Node program.
  */
 
-export async function totalSpentUsd(kv: KVNamespace): Promise<number> {
-  const parts = await Promise.all(
-    Array.from({ length: SHARDS }, (_, i) => kv.get(KEY(i))),
-  );
+export async function totalSpentUsd(kv: KVNamespace, cap: Capability): Promise<number> {
+  const parts = await Promise.all([
+    ...Array.from({ length: SHARDS }, (_, i) => kv.get(KEY(cap, i))),
+    ...Array.from({ length: SHARDS }, (_, i) => kv.get(LEGACY_KEY(i))),
+  ]);
   return parts.reduce((sum, v) => sum + (v ? parseFloat(v) || 0 : 0), 0);
 }
 
-export async function recordSpendUsd(kv: KVNamespace, usd: number): Promise<void> {
+export async function recordSpendUsd(
+  kv: KVNamespace,
+  cap: Capability,
+  usd: number,
+): Promise<void> {
   if (!(usd > 0)) return;
   const i = Math.floor(Math.random() * SHARDS);
-  const current = parseFloat((await kv.get(KEY(i))) || "0") || 0;
-  await kv.put(KEY(i), String(current + usd));
+  const current = parseFloat((await kv.get(KEY(cap, i))) || "0") || 0;
+  await kv.put(KEY(cap, i), String(current + usd));
 }
 
 export interface BudgetState {
@@ -42,8 +63,12 @@ export interface BudgetState {
   remainingUsd: number;
 }
 
-export async function budgetState(kv: KVNamespace, budgetUsd: number): Promise<BudgetState> {
-  const spentUsd = await totalSpentUsd(kv);
+export async function budgetState(
+  kv: KVNamespace,
+  cap: Capability,
+  budgetUsd: number,
+): Promise<BudgetState> {
+  const spentUsd = await totalSpentUsd(kv, cap);
   return {
     spentUsd: Math.round(spentUsd * 10000) / 10000,
     budgetUsd,

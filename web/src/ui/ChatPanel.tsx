@@ -7,7 +7,7 @@
  * conversation needs, and the reader chooses when to be in it.
  */
 import { useEffect, useRef, useState } from "react";
-import { ApiError, askChat, type Budget } from "@bw/api-client";
+import { ApiError, askAgent, getStatus, type Budget } from "@bw/api-client";
 
 interface Props {
   dataContext: string;
@@ -45,9 +45,25 @@ export default function ChatPanel({ dataContext, frozen, unlocked, available, on
     setBusy(true);
     setError(null);
     try {
-      const res = await askChat(dataContext, next);
-      setHistory([...next, { role: "assistant", content: res.text }]);
-      onBudget(res.budget);
+      // The answer is appended as it arrives rather than after it finishes.
+      // A two-line reply does not need that; a turn where the agent goes and
+      // looks something up does, and it is the same code path.
+      let answer = "";
+      let started = false;
+      for await (const ev of askAgent({ profile: "bloodwork", context: dataContext, history: next })) {
+        if (ev.type === "text") {
+          answer += ev.text;
+          setHistory(started
+            ? (h) => [...h.slice(0, -1), { role: "assistant", content: answer }]
+            : [...next, { role: "assistant", content: answer }]);
+          started = true;
+        } else if (ev.type === "error") {
+          setError(ev.message);
+        } else if (ev.type === "done") {
+          const status = await getStatus().catch(() => null);
+          if (status) onBudget(status.budget);
+        }
+      }
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Nepodařilo se odpovědět.";
       setError(msg);

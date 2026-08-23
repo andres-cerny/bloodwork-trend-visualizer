@@ -39,24 +39,46 @@ describe("pricing", () => {
 describe("ledger", () => {
   it("accumulates across shards", async () => {
     const kv = fakeKv();
-    for (let i = 0; i < 40; i++) await recordSpendUsd(kv, 0.25);
-    expect(await totalSpentUsd(kv)).toBeCloseTo(10, 6);
+    for (let i = 0; i < 40; i++) await recordSpendUsd(kv, "extract", 0.25);
+    expect(await totalSpentUsd(kv, "extract")).toBeCloseTo(10, 6);
   });
 
   it("ignores non-positive amounts", async () => {
     const kv = fakeKv();
-    await recordSpendUsd(kv, 0);
-    await recordSpendUsd(kv, -5);
-    expect(await totalSpentUsd(kv)).toBe(0);
+    await recordSpendUsd(kv, "extract", 0);
+    await recordSpendUsd(kv, "extract", -5);
+    expect(await totalSpentUsd(kv, "extract")).toBe(0);
   });
 
   it("freezes once spend reaches the ceiling, not before", async () => {
     const kv = fakeKv();
-    await recordSpendUsd(kv, 19.99);
-    expect((await budgetState(kv, 20)).frozen).toBe(false);
-    await recordSpendUsd(kv, 0.01);
-    const state = await budgetState(kv, 20);
+    await recordSpendUsd(kv, "extract", 19.99);
+    expect((await budgetState(kv, "extract", 20)).frozen).toBe(false);
+    await recordSpendUsd(kv, "extract", 0.01);
+    const state = await budgetState(kv, "extract", 20);
     expect(state.frozen).toBe(true);
     expect(state.remainingUsd).toBe(0);
+  });
+});
+
+describe("the ledger is per capability", () => {
+  it("does not let one capability's spend freeze the other", async () => {
+    const kv = fakeKv();
+    await recordSpendUsd(kv, "agent", 50);
+    expect(await totalSpentUsd(kv, "agent")).toBeCloseTo(50);
+    // The whole point of the split: an agent that burns its ceiling must not
+    // take extraction down with it.
+    expect(await totalSpentUsd(kv, "extract")).toBe(0);
+    expect((await budgetState(kv, "extract", 40)).frozen).toBe(false);
+    expect((await budgetState(kv, "agent", 40)).frozen).toBe(true);
+  });
+
+  it("still counts spend written before the split", async () => {
+    const kv = fakeKv();
+    // A deployed ledger has history under the old un-prefixed keys. Ignoring it
+    // would silently reset the ceiling to zero on the deploy that splits them.
+    await kv.put("spend_usd_shard_3", "12.5");
+    expect(await totalSpentUsd(kv, "agent")).toBeCloseTo(12.5);
+    expect(await totalSpentUsd(kv, "extract")).toBeCloseTo(12.5);
   });
 });

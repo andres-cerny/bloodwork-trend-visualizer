@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker", "WebWorker.Iterable"],
+    "types": [],
+    "tsBuildInfoFile": "../../node_modules/.tmp/agent-tools.tsbuildinfo"
+  },
+  "include": ["src", "tests"]
+}

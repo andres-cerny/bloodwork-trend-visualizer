@@ -1,3 +1,5 @@
+import { readSse, type AgentEvent } from "@bw/agent-core/events";
+
 /**
  * Talking to the API worker from a browser.
  *
@@ -82,6 +84,37 @@ export async function extract(
   );
 }
 
-export async function askChat(dataContext: string, history: Array<{ role: "user" | "assistant"; content: string }>) {
-  return post<{ text: string; costUsd: number; budget: Budget }>("/api/chat", { dataContext, history });
+/**
+ * Ask the agent, and receive the answer as it is written.
+ *
+ * Returns events rather than a string because a tool-using turn spends most of
+ * itself not talking: the caller wants to show "looking up cholesterol" while
+ * it happens, not a spinner followed by a paragraph.
+ *
+ * The profile is a name, never a prompt. The worker resolves it against its own
+ * allowlist, so nothing a caller sends can widen what the agent is or what it
+ * may reach.
+ */
+export async function* askAgent(req: {
+  profile: string;
+  history: Array<{ role: "user" | "assistant"; content: string }>;
+  context?: string;
+  reports?: unknown[];
+}): AsyncGenerator<AgentEvent> {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(req),
+  });
+
+  if (!res.ok || !res.body) {
+    const data = (await res.json().catch(() => ({}))) as any;
+    throw new ApiError(
+      data.message ?? `Chyba ${res.status}`,
+      data.error ?? "unknown",
+      data.budget,
+    );
+  }
+
+  yield* readSse(res.body);
 }

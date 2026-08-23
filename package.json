@@ -9,7 +9,7 @@
     "test": "vitest run",
     "deploy": "npm run build && npm run check:bundle && wrangler deploy",
     "test:parity": "python3 tests/test_parity.py && vitest run --project lab-core parity",
-    "test:all": "npm run test:parity && vitest run && npm run test:hooks && npm run typecheck",
+    "test:all": "npm run test:parity && vitest run && npm run test:hooks && npm run typecheck && npm run build && npm run check:bundle",
     "test:live": "vitest run --config config/vitest.handoff.config.ts tests/live",
     "test:e2e": "npm run build && vitest run --config config/vitest.handoff.config.ts e2e/visual.e2e.ts",
     "test:audit": "npm run build && vitest run --config config/vitest.handoff.config.ts e2e/audit.e2e.ts",
@@ -36,7 +36,9 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "@bw/api-client": "*",
-    "@bw/ui-kit": "*"
+    "@bw/ui-kit": "*",
+    "@bw/datasource": "*",
+    "@bw/agent-tools": "*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260823.1",

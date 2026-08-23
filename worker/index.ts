@@ -16,7 +16,14 @@ import {
   verifyTurnstile,
   type SessionClaims,
 } from "@bw/gate";
-import { chat, priceUsd, type ChatTurn } from "@bw/agent-core";
+import {
+  priceUsd,
+  resolveProfile,
+  runAgent,
+  toSse,
+  type ChatTurn,
+} from "@bw/agent-core";
+import { SessionSource } from "@bw/datasource";
 import { extractPage, extractPageText, MODEL_ESCALATION, MODEL_PRIMARY } from "@bw/extraction";
 
 export interface Env {
@@ -49,6 +56,7 @@ const sessionTtl = (env: Env) => parseInt(env.SESSION_TTL_SECONDS ?? "1800", 10)
 async function guard(
   request: Request,
   env: Env,
+  cap: "agent" | "extract",
 ): Promise<{ blocked: Response } | { claims: SessionClaims }> {
   const token = request.headers.get("x-demo-session");
   const claims = await verifySession(env.SESSION_SECRET, token);
@@ -60,7 +68,7 @@ async function guard(
       ),
     };
   }
-  const state = await budgetState(env.BUDGET, budgetLimit(env));
+  const state = await budgetState(env.BUDGET, cap, budgetLimit(env));
   if (state.frozen) {
     return {
       blocked: json(
@@ -94,7 +102,7 @@ async function handleSession(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleExtract(request: Request, env: Env): Promise<Response> {
-  const g = await guard(request, env);
+  const g = await guard(request, env, "extract");
   if ("blocked" in g) return g.blocked;
 
   // Spend the session's page allowance. Minting a `pages` claim and never
@@ -158,7 +166,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
     );
     reads.push(r.value);
   }
-  if (spent > 0) await recordSpendUsd(env.BUDGET, spent);
+  if (spent > 0) await recordSpendUsd(env.BUDGET, "extract", spent);
 
   if (reads.length === 0) {
     const why = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
@@ -173,38 +181,89 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
     // Zero across a whole report means the tools+system prefix is under the
     // ~1024-token cache minimum, not that something is broken.
     cacheReadTokens: reads.reduce((s, r) => s + r.usage.cacheReadTokens, 0),
-    budget: await budgetState(env.BUDGET, budgetLimit(env)),
+    budget: await budgetState(env.BUDGET, "extract", budgetLimit(env)),
   });
 }
 
+/**
+ * One agent turn, streamed.
+ *
+ * SSE rather than JSON because a tool-using agent spends most of a turn not
+ * talking, and a UI that shows nothing until the whole answer exists reads as
+ * broken. The apps name a profile; they never send a prompt, and an unknown
+ * name is refused rather than defaulted — quietly serving the clinical agent to
+ * a bad request is worse than refusing it.
+ *
+ * Cost is recorded on the terminal event, where the accumulated usage across
+ * every tool round-trip is final. Pricing anything earlier under-reports a
+ * multi-round turn, and the ledger is the only thing bounding this demo.
+ */
 async function handleChat(request: Request, env: Env): Promise<Response> {
-  const g = await guard(request, env);
+  const g = await guard(request, env, "agent");
   if ("blocked" in g) return g.blocked;
 
-  const { dataContext, history } = (await request.json().catch(() => ({}))) as {
-    dataContext?: string;
+  const { profile: profileName, history, context, reports } = (await request
+    .json()
+    .catch(() => ({}))) as {
+    profile?: string;
     history?: ChatTurn[];
+    context?: string;
+    reports?: unknown[];
   };
-  if (!Array.isArray(history) || history.length === 0) return json({ error: "missing_history" }, 400);
 
-  try {
-    const res = await chat(env.ANTHROPIC_API_KEY, (dataContext ?? "").slice(0, 60000), history);
-    const spent = priceUsd(
-      res.model,
-      res.usage.inputTokens,
-      res.usage.outputTokens,
-      res.usage.cacheReadTokens,
-      res.usage.cacheWriteTokens,
-    );
-    await recordSpendUsd(env.BUDGET, spent);
-    return json({
-      text: res.text,
-      costUsd: Math.round(spent * 10000) / 10000,
-      budget: await budgetState(env.BUDGET, budgetLimit(env)),
-    });
-  } catch (e) {
-    return json({ error: "chat_failed", message: String(e) }, 502);
+  const profile = resolveProfile(profileName);
+  if (!profile) return json({ error: "unknown_profile", message: "Neznámý profil." }, 400);
+  if (!Array.isArray(history) || history.length === 0) {
+    return json({ error: "missing_history" }, 400);
   }
+
+  // A profile with tools needs somewhere to look. Today that is whatever the
+  // reader loaded in their own browser, handed over with the question — the
+  // same privacy model the demo has always had.
+  const source =
+    profile.tools.length > 0
+      ? new SessionSource(Array.isArray(reports) ? (reports as never[]) : [])
+      : undefined;
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const enc = new TextEncoder();
+      const send = (e: Parameters<typeof toSse>[0]) => controller.enqueue(enc.encode(toSse(e)));
+      try {
+        for await (const event of runAgent({
+          apiKey: env.ANTHROPIC_API_KEY,
+          profile,
+          history,
+          context: (context ?? "").slice(0, 60000),
+          source,
+        })) {
+          if (event.type === "done") {
+            const spent = priceUsd(
+              event.model,
+              event.usage.inputTokens,
+              event.usage.outputTokens,
+              event.usage.cacheReadTokens,
+              event.usage.cacheWriteTokens,
+            );
+            await recordSpendUsd(env.BUDGET, "agent", spent);
+          }
+          send(event);
+        }
+      } catch (e) {
+        send({ type: "error", message: String(e) });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache",
+      connection: "keep-alive",
+    },
+  });
 }
 
 export default {
@@ -213,7 +272,8 @@ export default {
 
     if (url.pathname === "/api/status") {
       return json({
-        budget: await budgetState(env.BUDGET, budgetLimit(env)),
+        budget: await budgetState(env.BUDGET, "agent", budgetLimit(env)),
+        extractBudget: await budgetState(env.BUDGET, "extract", budgetLimit(env)),
         maxPages: maxPages(env),
         crossCheck: env.SINGLE_MODEL !== "1",
       });

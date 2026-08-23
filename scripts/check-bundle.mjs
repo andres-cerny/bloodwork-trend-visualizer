@@ -35,6 +35,36 @@ const bundle = readdirSync(DIST)
   .map((f) => readFileSync(join(DIST, f), "utf-8"))
   .join("\n");
 
+
+/**
+ * The Anthropic SDK must never reach the browser.
+ *
+ * It nearly did. api-client needs `readSse` to read the agent's stream, and
+ * importing it from @bw/agent-core's barrel pulled the whole agent — the tool
+ * loop, the toolset, and the SDK — into the SPA, taking the bundle from 217 kB
+ * to 387 kB. Nothing failed; it just got 170 kB heavier and shipped a server's
+ * dependencies to every visitor.
+ *
+ * The fix was an ./events subpath. This is the guard that says so out loud if
+ * anyone re-crosses the boundary, because the symptom is only a number nobody
+ * is watching.
+ */
+const SERVER_ONLY = [
+  ["@anthropic-ai/sdk", /anthropic-ai\/sdk|new Anthropic\(/],
+  ["the agent tool loop", /Agent nedospěl k odpovědi/],
+];
+
+for (const [what, pattern] of SERVER_ONLY) {
+  if (pattern.test(bundle)) {
+    fail(
+      `${what} is in the browser bundle.\n\n` +
+        `Server-only code reached the SPA, almost certainly through a package\n` +
+        `barrel that re-exports it. Import the narrow subpath instead — for the\n` +
+        `stream reader that is "@bw/agent-core/events", not "@bw/agent-core".`,
+    );
+  }
+}
+
 // Read the key straight from the file rather than from process.env: the whole
 // point is to check that what is written there reaches the build, and reading
 // it via the environment would test a different thing.
