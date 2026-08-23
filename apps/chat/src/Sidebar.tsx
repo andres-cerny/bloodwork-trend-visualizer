@@ -14,6 +14,16 @@ import { ThemeSwitch } from "@bw/ui-kit";
 import type { Budget } from "@bw/api-client";
 import type { Fixture } from "./fixtures";
 
+/**
+ * 9.61 → „9,61". `toFixed` writes an English number, and the one place a
+ * Czech interface must not lapse into English is a decimal point: „9.61 $" in
+ * a Czech footer reads as a typo at best and as a thousands separator at
+ * worst. Everything else on this screen is Czech; this was the last thing that
+ * was not.
+ */
+const czAmount = (usd: number): string =>
+  usd.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function Sidebar({
   practice,
   fixtures,
@@ -84,7 +94,7 @@ export default function Sidebar({
           <p className="muted budget">
             {budget.frozen
               ? "Rozpočet ukázky vyčerpán"
-              : `Rozpočet ukázky: zbývá ${budget.remainingUsd.toFixed(2)} $`}
+              : `Rozpočet ukázky: zbývá ${czAmount(budget.remainingUsd)} $`}
           </p>
         )}
         <p className="muted disclaimer">

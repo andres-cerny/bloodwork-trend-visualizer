@@ -17,8 +17,16 @@
  * focuses that entry in the evidence rail. A number whose entry does not exist
  * still renders — the absence is information, and the rail shows nothing to
  * scroll to.
+ *
+ * And it is welded to the word in front of it. A marker is a control, and a
+ * control that has drifted onto a line of its own — „pod rozmezím 30–400" then
+ * a lone grey 6 — has stopped reading as one; it reads as a footnote artefact
+ * the typesetter forgot. The welding is structural rather than cosmetic: the
+ * preceding word, the marker, and any punctuation that follows it go into one
+ * `white-space: nowrap` group, so there is no line break for them to fall
+ * through at any column width.
  */
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 
 /**
  * State that has to survive across the lines of one answer: which marker is
@@ -30,6 +38,9 @@ interface Marks {
   first: boolean;
 }
 
+/** Punctuation that belongs to the sentence, not to the next word. */
+const TRAILING = /^[.,;:!?)\]»”"…]+/;
+
 /** A run of text with `**bold**` and `[n]` resolved into nodes. */
 function inline(
   text: string,
@@ -40,21 +51,39 @@ function inline(
   marks: Marks,
 ): ReactNode[] {
   const out: ReactNode[] = [];
+
+  // The open nowrap group, if the last thing emitted was a marker. It is held
+  // back rather than pushed, because what follows a marker — a full stop, a
+  // second marker — may still belong inside it.
+  let bind: { key: string; kids: ReactNode[] } | null = null;
+  const settle = () => {
+    if (!bind) return;
+    out.push(
+      <span className="cite-bind" key={bind.key}>
+        {bind.kids}
+      </span>,
+    );
+    bind = null;
+  };
+
   // One pass, two patterns: bold spans and citation markers.
   const parts = text.split(/(\*\*[^*]+\*\*|\[\d+\])/g);
   parts.forEach((part, i) => {
     if (!part) return;
+
     const bold = /^\*\*([^*]+)\*\*$/.exec(part);
     if (bold) {
+      settle();
       out.push(<strong key={`${key}-${i}`}>{bold[1]}</strong>);
       return;
     }
+
     const cite = /^\[(\d+)\]$/.exec(part);
     if (cite) {
       const n = Number(cite[1]);
       const first = marks.first;
       marks.first = false;
-      out.push(
+      const marker = (
         <button
           key={`${key}-${i}`}
           type="button"
@@ -65,12 +94,52 @@ function inline(
           onClick={() => onCite?.(n)}
         >
           {n}
-        </button>,
+        </button>
       );
+      // `[1][2]` is one run and stays one run.
+      if (bind) {
+        bind.kids.push(marker);
+        return;
+      }
+
+      // Otherwise take the word in front of it out of the flow and bind them.
+      const prev = out[out.length - 1];
+      const kids: ReactNode[] = [];
+      if (typeof prev === "string") {
+        // The trailing space is captured too: inside a nowrap group it still
+        // prints, and taking it along is what removes the break opportunity.
+        const tail = /(\S+[ \t]*)$/.exec(prev);
+        if (tail) {
+          const head = prev.slice(0, prev.length - tail[1].length);
+          if (head) out[out.length - 1] = head;
+          else out.pop();
+          kids.push(tail[1]);
+        }
+      } else if (isValidElement(prev)) {
+        out.pop();
+        kids.push(prev);
+      }
+      kids.push(marker);
+      bind = { key: `${key}-b${i}`, kids };
       return;
+    }
+
+    const open = bind;
+    if (open) {
+      const punct = TRAILING.exec(part);
+      if (punct) {
+        open.kids.push(punct[0]);
+        settle();
+        const rest = part.slice(punct[0].length);
+        if (rest) out.push(rest);
+        return;
+      }
+      settle();
     }
     out.push(part);
   });
+
+  settle();
   return out;
 }
 
@@ -93,15 +162,23 @@ export default function Answer({
   const lines = text.split("\n");
   const out: ReactNode[] = [];
   let list: ReactNode[] = [];
+  // An enumeration is not a bullet list. „1. narozen 19. 7. 1963" is the shape
+  // the agent uses when it is offering the reader a choice between two records,
+  // and rendering it as loose paragraphs — which is what falling through to the
+  // paragraph branch did — throws away the only signal that the lines are one
+  // set of alternatives.
+  let ordered = false;
+  let next = 1;
 
   const flush = () => {
     if (list.length === 0) return;
+    const Tag = ordered ? "ol" : "ul";
     out.push(
-      <ul key={`ul-${out.length}`}>
+      <Tag key={`${Tag}-${out.length}`} className={ordered ? "choices" : undefined}>
         {list.map((li, i) => (
           <li key={i}>{li}</li>
         ))}
-      </ul>,
+      </Tag>,
     );
     list = [];
   };
@@ -111,10 +188,29 @@ export default function Answer({
     const key = `l${i}`;
     const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
     if (bullet) {
+      if (ordered) flush();
+      ordered = false;
       list.push(inline(bullet[1], key, onCite, activeCite, citeIds, marks));
       return;
     }
+    const numbered = /^\s*(\d{1,2})[.)]\s+(.*)$/.exec(line);
+    // Czech writes dates the same way a list writes its markers, and this
+    // agent writes a lot of dates: „8. 10. 2024 provedena artroskopická
+    // plastika…" is a sentence, not the eighth item of anything. Two guards
+    // separate them — the run has to start at 1 and count up, and what follows
+    // the marker must not itself open with a day number.
+    if (numbered && !/^\d{1,2}\.\s/.test(numbered[2])) {
+      const n = Number(numbered[1]);
+      if (n === (ordered ? next : 1)) {
+        if (!ordered) flush();
+        ordered = true;
+        next = n + 1;
+        list.push(inline(numbered[2], key, onCite, activeCite, citeIds, marks));
+        return;
+      }
+    }
     flush();
+    ordered = false;
     if (!line.trim()) return;
     const head = /^(#{1,6})\s+(.*)$/.exec(line);
     if (head) {

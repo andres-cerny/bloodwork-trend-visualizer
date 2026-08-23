@@ -43,9 +43,13 @@
  * The shell
  * ------------------------------------------------------------------ */
 
+/* The evidence rail is wider than a navigation rail would be, because what is
+   in it is a photograph of print: every pixel taken off the rail is taken off
+   the size of the type in the crop. 400px is the widest the rail can be at
+   1440 without pushing the reading column below its 720px cap. */
 .shell {
   display: grid;
-  grid-template-columns: 268px minmax(0, 1fr) 344px;
+  grid-template-columns: 260px minmax(0, 1fr) 400px;
   /* dvh, not vh: mobile browsers shrink the viewport when the keyboard opens,
      and vh does not notice. */
   height: 100dvh;
@@ -312,36 +316,81 @@
 .answer h5, .answer h6 { margin: 16px 0 6px; font-size: 0.92rem; }
 .answer > *:first-child { margin-top: 0; }
 .answer > *:last-child { margin-bottom: 0; }
-.answer ul { margin: 0 0 12px; padding-left: 20px; }
+.answer ul, .answer ol { margin: 0 0 12px; padding-left: 20px; }
 .answer li { margin: 5px 0; }
 .answer li::marker { color: var(--ink-muted); }
 .answer strong { font-weight: 640; }
 
+/* An enumeration the agent offers as alternatives — the two Michals Novákovi.
+   Rows with rules between them, so they read as one set of options rather than
+   as four sentences that happen to start with digits. */
+.answer .choices {
+  margin: 4px 0 14px;
+  padding: 0 0 0 4px;
+  list-style: none;
+  counter-reset: choice;
+  border-top: 1px solid var(--border);
+}
+.answer .choices li {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+  margin: 0;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.answer .choices li::before {
+  counter-increment: choice;
+  content: counter(choice);
+  flex: none;
+  min-width: 19px;
+  padding: 1px 0;
+  border-radius: 5px;
+  background: var(--chip);
+  color: var(--ink-2);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 /* The citation. A button, not a decoration: it focuses its entry in the
    evidence panel. A number the registry never issued keeps its strike — the
-   absence is information. */
+   absence is information.
+   It is boxed at rest, not only on focus. A grey numeral riding above the
+   baseline is the typography of a footnote — something the reader has already
+   been trained by every printed page to skip — and this is the one thing on
+   the screen they are most meant to press. The frame is the invitation. */
 .cite {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 17px;
-  height: 17px;
+  min-width: 19px;
+  height: 18px;
   padding: 0 4px;
-  margin: 0 1px;
-  vertical-align: 3px;
-  border: 0;
+  margin: 0 0 0 3px;
+  vertical-align: 1px;
+  border: 1px solid var(--border-strong);
   border-radius: 5px;
   background: var(--chip);
-  color: var(--ink-muted);
+  color: var(--ink-2);
   font: inherit;
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
 }
-.cite:hover { background: var(--series-1-soft); color: var(--accent-ink); }
-.cite.is-active { background: var(--accent); color: #fff; }
+.cite:hover {
+  border-color: var(--accent);
+  background: var(--series-1-soft);
+  color: var(--accent-ink);
+}
+.cite.is-active { border-color: var(--accent); background: var(--accent); color: #fff; }
 .cite[data-orphan] { text-decoration: line-through; opacity: 0.65; }
+
+/* The word, its marker and the full stop after it are one unbreakable run —
+   see Answer.tsx. Without this the marker is the cheapest break opportunity in
+   the line and Czech justification takes it. */
+.cite-bind { white-space: nowrap; }
 
 .writing { display: flex; gap: 5px; margin: 10px 0 0; }
 .writing span {
@@ -356,11 +405,34 @@
 
 .chart-card {
   margin: 16px 0;
-  padding: 14px 14px 8px;
+  padding: 12px 14px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-1);
   box-shadow: var(--shadow-sm);
+}
+/* The chart has no legend by design; this is where the series is named. */
+.chart-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border);
+}
+.chart-title {
+  font-size: 0.92rem;
+  font-weight: 640;
+  color: var(--ink-1);
+  overflow-wrap: anywhere;
+}
+.chart-unit {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--ink-2);
+  font-size: 0.74rem;
 }
 
 /* The model's own proposals for what to ask next. No event, no chips. */
@@ -481,15 +553,47 @@
 .send:disabled { background: var(--chip); color: var(--ink-muted); cursor: not-allowed; }
 
 /* The gate lives here, and only here: everything else on this screen is canned
-   content that costs nothing to show and reads without a session. */
+   content that costs nothing to show and reads without a session.
+   And it lives here small. On a 390 × 844 phone the composer is competing with
+   the answer for the same pixels, and a robot test that has not been asked for
+   yet must not win that: one labelled line at rest, the widget unfolding when
+   the reader reaches for the input. */
 .composer-gate, .composer-note {
-  padding: 11px 16px 13px;
+  padding: 9px 14px 10px;
   border-top: 1px solid var(--border);
   background: var(--surface-2);
 }
-.composer-gate { display: flex; flex-direction: column; gap: 9px; }
-.composer-gate p { margin: 0; font-size: 0.8rem; line-height: 1.45; }
 .composer-note { margin: 0; font-size: 0.82rem; line-height: 1.45; }
+
+.gate-line {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.gate-eyebrow {
+  flex: none;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+/* Collapsed, not unmounted — the widget renders into a box that exists from
+   the first paint, or it never renders at all. */
+.gate-box {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.18s ease, margin-top 0.18s ease;
+}
+.composer-gate.is-open .gate-box { max-height: 132px; margin-top: 9px; }
+.gate-box .err { margin: 6px 0 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-box { transition: none; }
+}
 
 /* ------------------------------------------------------------------ *
  * The empty thread — the composer takes the middle of the screen
@@ -620,32 +724,64 @@
 .src-meta { font-size: 0.75rem; color: var(--ink-muted); overflow-wrap: anywhere; }
 .src-more { flex: none; color: var(--ink-muted); font-size: 1rem; line-height: 1.2; }
 
+/* The mat.
+ *
+ * A scan is a white rectangle, and in the dark palette an un-matted one is a
+ * flare: near-black rail, then 300 × 260 pixels of #fff with no edge, which
+ * reads as an asset the theme forgot rather than as a photograph of paper. So
+ * the crop sits on a surface a step up from the card, inset by a border of its
+ * own — a print in a mount — and the paper itself is knocked back in the dark
+ * palette (see the paper block at the foot of this file). Light and dark are
+ * defined together and neither is the afterthought. */
+.src-mat {
+  display: block;
+  padding: 7px 7px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-3);
+}
 /* The window the row is cropped into. Nothing outside it paints; the wrapper's
-   aspect-ratio (set inline from page geometry) reserves height. */
+   aspect-ratio (set inline from page geometry) reserves height, and the image
+   inside is scaled and offset inline from the same geometry. */
 .src-crop {
   display: block;
   overflow: hidden;
-  border-top: 1px solid var(--border);
-  background: #fff; /* the page is paper in both palettes */
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: #fff; /* the page is paper, and paper is white */
 }
-.src-crop img { display: block; width: 100%; }
+.src-crop img { display: block; width: 100%; max-width: none; }
 .src-quote {
-  display: -webkit-box;
-  -webkit-line-clamp: 7;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin: 0;
-  padding: 9px 11px 11px;
-  border-top: 1px solid var(--border);
+  margin: 9px 10px 11px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
   color: var(--ink-2);
   font-size: 0.8rem;
   line-height: 1.5;
+}
+.src-quote span {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   white-space: pre-line;
 }
+/* The whole page, behind the `+`. Capped, so opening one entry does not push
+   every other numbered entry out of a rail the reader is using as an index. */
 .src-page {
   display: block;
-  width: 100%;
+  max-height: 58vh;
+  overflow-y: auto;
+  padding: 8px 10px 10px;
   border-top: 1px solid var(--border);
+  background: var(--surface-3);
+}
+.src-page img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
   background: #fff;
 }
 
@@ -684,8 +820,13 @@
  * ------------------------------------------------------------------ */
 
 @media (min-width: 960px) and (max-width: 1199.98px) {
-  .shell { grid-template-columns: 228px minmax(0, 1fr) 300px; }
+  .shell { grid-template-columns: 216px minmax(0, 1fr) 320px; }
   .thread, .dock, .starters, .topbar { padding-left: 20px; padding-right: 20px; }
+}
+
+@media (min-width: 1200px) and (max-width: 1359.98px) {
+  .shell { grid-template-columns: 244px minmax(0, 1fr) 356px; }
+  .thread, .dock, .starters, .topbar { padding-left: 22px; padding-right: 22px; }
 }
 
 @media (max-width: 959.98px) {
@@ -746,3 +887,33 @@
   .hero { padding-bottom: 20px; }
   .turn { padding: 18px 0 24px; }
 }
+
+/* ------------------------------------------------------------------ *
+ * Paper, in the dark.
+ *
+ * The only thing on this screen the token palette cannot speak for. Every
+ * other surface is a decision the designer made and a token carries; a scanned
+ * report is a photograph of something white that exists, and repainting it
+ * would be inventing a fact about the document. What is legitimate is exposure:
+ * the same sheet, printed less brightly, the way a lightbox is turned down
+ * rather than a print being re-made. Ten per cent is enough to stop the flare
+ * and not enough to touch the legibility of the type, which is the whole point
+ * of showing the crop.
+ *
+ * Written twice on purpose, and the two blocks must stay identical — the same
+ * rule the ui-kit theme test enforces on the token aliases, for the same
+ * reason: a reader whose system is dark and whose choice is dark must not get
+ * a different page from a reader who only chose.
+ * ------------------------------------------------------------------ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .src-crop,
+  :root:not([data-theme="light"]) .src-page img { background: #e3e1dc; }
+  :root:not([data-theme="light"]) .src-crop img,
+  :root:not([data-theme="light"]) .src-page img { filter: brightness(0.9); }
+}
+
+:root[data-theme="dark"] .src-crop,
+:root[data-theme="dark"] .src-page img { background: #e3e1dc; }
+:root[data-theme="dark"] .src-crop img,
+:root[data-theme="dark"] .src-page img { filter: brightness(0.9); }

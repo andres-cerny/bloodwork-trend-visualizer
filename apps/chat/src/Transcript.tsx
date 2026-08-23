@@ -88,14 +88,37 @@ function Steps({ tools, live }: { tools: ToolPart[]; live: boolean }) {
   );
 }
 
+/**
+ * The chart, titled.
+ *
+ * `Chart` draws one series and deliberately has no legend — "the card title
+ * names it", says its own header comment, and until now no card did. The
+ * reader learned that the line was hemoglobin from the prose above it, which
+ * works while the prose is on screen and fails the moment the chart is what
+ * they scrolled back to. The name and the unit are read straight off the
+ * payload the server sent; nothing here computes anything.
+ */
+interface TrendLike {
+  displayName?: string;
+  unit?: string;
+}
+
 function Charts({ series }: { series: unknown }) {
-  const groups = (series ?? []) as Array<{ series: unknown[] }>;
+  const groups = (series ?? []) as Array<{ unit?: string; series: TrendLike[] }>;
+  const names = groups.flatMap((g) => g.series.map((t) => t.displayName).filter(Boolean));
+  const unit = groups.map((g) => g.unit).find(Boolean);
   return (
-    <div className="chart-card">
+    <figure className="chart-card">
+      {names.length > 0 && (
+        <figcaption className="chart-head">
+          <span className="chart-title">{names.join(", ")}</span>
+          {unit && <span className="chart-unit">{unit}</span>}
+        </figcaption>
+      )}
       {groups.flatMap((g, j) =>
         (g.series as never[]).map((trend, k) => <Chart key={`${j}-${k}`} trend={trend} />),
       )}
-    </div>
+    </figure>
   );
 }
 
