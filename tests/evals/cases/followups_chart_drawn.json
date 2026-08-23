@@ -1,0 +1,16 @@
+{
+  "id": "followups_chart_drawn",
+  "why": "A chart is already on screen, so proposing another one is a menu that repeats itself. At least one proposal must reach somewhere else — the documents, the practice, a second parameter.",
+  "question": "Ukaž graf vývoje ferritinu u Tomáše Hrubého.",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["propose_chart"],
+    "toolsMode": "contains",
+    "mustEmitChart": true,
+    "followups": {
+      "present": true,
+      "beyondChart": true
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "followups_labs_no_chart",
+  "why": "The turn a doctor takes first: numbers, and no picture under them. If the agent does not offer the chart here, its best capability stays invisible — a doctor has no way of learning it exists except by being told.",
+  "question": "Co se u Tomáše Hrubého změnilo mezi posledními odběry?",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["summarize_changes"],
+    "toolsMode": "contains",
+    "numbersMustBeGrounded": true,
+    "followups": {
+      "present": true,
+      "chartNudgeIfChartless": true
+    }
+  }
+}

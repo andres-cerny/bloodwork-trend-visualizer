@@ -1,0 +1,17 @@
+{
+  "id": "followups_ambiguity",
+  "why": "Two Michal Nováks, and the turn is a question, not an answer. Chips under it offer three ways to keep going without saying which patient — the accidental pick this whole product is built to prevent.",
+  "question": "Dej mi souhrn Michala Nováka.",
+  "profile": "clinical",
+  "corpus": "orto",
+  "expect": {
+    "tools": ["find_patient"],
+    "toolsMode": "contains",
+    "mustMention": ["1963", "1988"],
+    "mustMentionMode": "all",
+    "mustNotPin": true,
+    "followups": {
+      "present": false
+    }
+  }
+}

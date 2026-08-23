@@ -17,7 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { runTool, TOOLS, type SourceInfo, type ToolContext, type ToolResult } from "@bw/agent-tools";
 import { clientFor, usageOf, type Usage } from "./client";
 import type { AgentEvent } from "./events";
-import type { Profile } from "./profiles";
+import { FOLLOWUP_SENTINEL, type Profile } from "./profiles";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -26,6 +26,101 @@ export interface ChatTurn {
 
 /** Enough rounds for list -> fetch -> chart, and not enough to run away. */
 const MAX_ROUNDS = 6;
+
+/** More than three chips is a menu, not a suggestion. */
+const MAX_FOLLOWUPS = 3;
+
+/** A proposal long enough to need scrolling is not a question, it is a paste. */
+const MAX_FOLLOWUP_CHARS = 200;
+
+/**
+ * The gate every text delta passes through.
+ *
+ * The sentinel can split across delta boundaries anywhere — "…hodnota.\n\n@@NAV"
+ * then "AZUJICI@@\n[…]" — so the gate holds back the longest suffix that could
+ * still grow into the sentinel, plus the whitespace in front of it, and streams
+ * it the instant the match dies. Streamed text cannot be taken back, which is
+ * why the holding is pessimistic and the release is late rather than the other
+ * way round: briefly buffering three characters is invisible, leaking `@@NAV`
+ * into a doctor's answer is not.
+ *
+ * Anything still held when the stream ends and never became a sentinel is
+ * flushed as text — an answer ending in "@" is odd, an answer with its last
+ * word silently eaten is a defect.
+ */
+function tailGate() {
+  let held = "";
+  let tail: string | null = null;
+  return {
+    /** What is safe to stream now. */
+    push(delta: string): string {
+      if (tail !== null) {
+        tail += delta;
+        return "";
+      }
+      const buf = held + delta;
+      const at = buf.indexOf(FOLLOWUP_SENTINEL);
+      if (at !== -1) {
+        tail = buf.slice(at + FOLLOWUP_SENTINEL.length);
+        held = "";
+        return buf.slice(0, at).replace(/\s+$/, "");
+      }
+      let keep = 0;
+      for (let n = Math.min(FOLLOWUP_SENTINEL.length - 1, buf.length); n > 0; n--) {
+        if (buf.endsWith(FOLLOWUP_SENTINEL.slice(0, n))) {
+          keep = n;
+          break;
+        }
+      }
+      // The blank line before the sentinel is scaffolding too, and there is no
+      // un-emitting it once the reader has it.
+      while (keep < buf.length && /\s/.test(buf[buf.length - keep - 1])) keep++;
+      held = buf.slice(buf.length - keep);
+      return buf.slice(0, buf.length - keep);
+    },
+    /** Held text that turned out to be an ordinary ending. */
+    flush(): string {
+      const out = tail === null ? held : "";
+      held = "";
+      return out;
+    },
+    /** Everything after the sentinel, or null if it never arrived. */
+    tail(): string | null {
+      return tail;
+    },
+  };
+}
+
+/**
+ * The proposals out of the tail, or none at all.
+ *
+ * Every failure mode here — no array, truncated JSON, a number where a question
+ * belongs — resolves to an empty list, because the alternative is showing the
+ * reader the scaffolding. A turn with no chips looks finished; a turn with
+ * `["Ukaž graf` under it looks broken.
+ */
+export function parseFollowups(tail: string): string[] {
+  const start = tail.indexOf("[");
+  const end = tail.lastIndexOf("]");
+  if (start === -1 || end <= start) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(tail.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const out: string[] = [];
+  for (const item of parsed) {
+    if (typeof item !== "string") continue;
+    const q = item.trim();
+    if (!q || q.length > MAX_FOLLOWUP_CHARS) continue;
+    if (out.some((x) => x.toLowerCase() === q.toLowerCase())) continue;
+    out.push(q);
+    if (out.length === MAX_FOLLOWUPS) break;
+  }
+  return out;
+}
 
 const zero = (): Usage => ({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
 
@@ -81,11 +176,18 @@ export async function* runAgent(opts: {
       ...(tools.length ? { tools: tools as unknown as Anthropic.Tool[] } : {}),
     });
 
+    // A fresh gate per round: a tail the model emitted before asking for a
+    // tool is scaffolding out of place, and gets dropped rather than shown.
+    const gate = tailGate();
     for await (const event of stream) {
       if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-        yield { type: "text", text: event.delta.text };
+        const out = gate.push(event.delta.text);
+        if (out) yield { type: "text", text: out };
       }
     }
+    const held = gate.flush();
+    if (held) yield { type: "text", text: held };
+    const rawTail = gate.tail();
 
     const message = await stream.finalMessage();
     total = add(total, usageOf(message.usage));
@@ -95,6 +197,10 @@ export async function* runAgent(opts: {
     );
     if (calls.length === 0) {
       if (sources.length > 0) yield { type: "sources", sources };
+      // After the evidence, before the terminal event: the chips belong to a
+      // finished answer, and a malformed tail is silently no chips at all.
+      const questions = rawTail === null ? [] : parseFollowups(rawTail);
+      if (questions.length > 0) yield { type: "followups", questions };
       yield { type: "done", usage: total, model: profile.model };
       return;
     }

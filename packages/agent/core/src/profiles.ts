@@ -63,6 +63,59 @@ const DESCRIPTIVE_CLINICIAN =
   "ber je jako dané. Nestanovuj diagnózu ani nenavrhuj léčbu — popiš, co je v " +
   "dokumentaci, a co v ní chybí, řekni výslovně.";
 
+/**
+ * The line that separates the answer from the model's follow-up proposals.
+ *
+ * It lives here rather than in the loop because it is half of a prompt: the
+ * loop only knows where to cut because this text told the model where to mark.
+ *
+ * At-signs are the one punctuation a Czech clinical answer never contains —
+ * percent signs, angle brackets, square brackets and dashes all appear in
+ * values, reference ranges and source markers, so any of those would eventually
+ * eat a real sentence. ASCII and undiacriticised so the model reproduces it byte
+ * for byte.
+ */
+export const FOLLOWUP_SENTINEL = "@@NAVAZUJICI@@";
+
+/**
+ * What to offer next.
+ *
+ * The demo's problem is not that the agent cannot draw a chart — it is that a
+ * doctor has no way of learning it can. So the proposals are steered at the
+ * agent's own unused range rather than at whatever is conversationally natural:
+ * numbers with no chart under them, labs read without their documents, one
+ * patient discussed while a whole practice sits behind cohort_query.
+ *
+ * Two limits are not stylistic. A proposal outside the nine tools is a promise
+ * the next turn breaks, and a proposal phrased as a recommendation ("kontrola
+ * za tři měsíce?") smuggles back exactly the advice the answer refused to give
+ * — the chips are read as the agent talking, because they are. And after a
+ * disambiguation question there are no proposals at all: the doctor has one
+ * thing to answer, and offering three alternatives invites picking a patient by
+ * accident.
+ */
+const FOLLOWUPS =
+  " Až celou odpověď dokončíš, připoj na úplný konec samostatný řádek " +
+  FOLLOWUP_SENTINEL +
+  " a za něj JSON pole s jedním až třemi návrhy dalších dotazů, česky. " +
+  "Každý návrh formuluj jako otázku nebo pokyn, který lékař může beze změny " +
+  "odeslat jako další zprávu. Navrhuj tak, aby lékař poznal, co ještě umíš: " +
+  "padla-li v odpovědi čísla bez grafu, navrhni graf; četl-li jsi jen měřené " +
+  "hodnoty, navrhni dokumentaci pacienta; ukázal-li jsi vývoj, navrhni " +
+  "srovnání s jiným parametrem nebo obdobím; mluvil-li jsi o jednom " +
+  "pacientovi, navrhni dotaz přes celou kartotéku, ale vždy k jednomu " +
+  "konkrétnímu parametru (například kterým dalším pacientům ten parametr " +
+  "klesá) — vypsat kartotéku jako seznam neumíš. Návrh musí být " +
+  "zodpověditelný tvými nástroji — vyhledání pacienta, kartotéka, dokumenty, " +
+  "seznam parametrů, vývoj v čase, změny mezi odběry, graf, odvozené hodnoty " +
+  "— a musí zůstat popisný: nikdy nenavrhuj diagnózu, léčbu, doporučení, " +
+  "úvahy o příčinách ani objednání dalšího vyšetření, odběru či kontroly. " +
+  "Nikdy nenavrhuj nic, co tvé nástroje neumí (objednání, odeslání, tisk, " +
+  "zápis do karty). Ptáš-li se lékaře na upřesnění, například kterého ze " +
+  "jmenovců myslí, řádek " +
+  FOLLOWUP_SENTINEL +
+  " nepřipojuj vůbec. Značku ani návrhy nikdy nezmiňuj v samotné odpovědi.";
+
 export const PROFILES: Record<ProfileName, Profile> = {
   /**
    * The bloodwork app's chat: the reader is looking at the data, and the whole
@@ -100,7 +153,8 @@ export const PROFILES: Record<ProfileName, Profile> = {
       "nikdy nevymýšlej; hodnota bez src se uvádí bez značky. " +
       DESCRIPTIVE_CLINICIAN +
       " Když má odpověď smysl doprovodit grafem, navrhni ho nástrojem " +
-      "propose_chart; graf nikdy nevyplňuj sám.",
+      "propose_chart; graf nikdy nevyplňuj sám." +
+      FOLLOWUPS,
     model: "claude-sonnet-5",
     maxTokens: 2000,
     tools: ["find_patient", "cohort_query", "search_documents", "get_document", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],

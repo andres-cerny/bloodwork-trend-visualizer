@@ -1,0 +1,15 @@
+{
+  "id": "followups_documents_only",
+  "why": "Only the prose was read. The measured half of the record — and the chart over it — is exactly what the doctor cannot see from this answer, so it is what the proposals must offer.",
+  "question": "Co stojí v poslední zprávě ze sportovní prohlídky Kláry Šebestové?",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["search_documents"],
+    "toolsMode": "contains",
+    "followups": {
+      "present": true,
+      "chartNudgeIfChartless": true
+    }
+  }
+}

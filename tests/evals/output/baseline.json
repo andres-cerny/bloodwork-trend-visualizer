@@ -1,27 +1,23 @@
 {
   "reps": 3,
-  "spentUsd": 1.067,
+  "spentUsd": 1.2216,
   "results": {
     "absent_analyte": {
-      "verdict": "FLAKY",
+      "verdict": "PASS",
       "reps": [
-        {
-          "ok": false,
-          "tools": [
-            "list_analytes"
-          ],
-          "fails": [
-            "missing required mention (nemá | nen)"
-          ],
-          "usd": 0.0079722
-        },
         {
           "ok": true,
           "tools": [
+            "get_trend",
             "list_analytes"
           ],
           "fails": [],
-          "usd": 0.0067422
+          "usd": 0.0115314,
+          "followups": [
+            "Jaká je poslední hodnota CRP?",
+            "Jaký je vývoj leukocytů v čase?",
+            "Jaké dokumenty jsou u pacienta k dispozici?"
+          ]
         },
         {
           "ok": true,
@@ -30,7 +26,26 @@
             "list_analytes"
           ],
           "fails": [],
-          "usd": 0.0098568
+          "usd": 0.0112674,
+          "followups": [
+            "Jaká je poslední hodnota CRP?",
+            "Jaká je poslední hodnota leukocytů?",
+            "Zobrazit vývoj CRP v čase"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "get_trend",
+            "list_analytes"
+          ],
+          "fails": [],
+          "usd": 0.011834399999999998,
+          "followups": [
+            "Jaká je poslední hodnota CRP u tohoto pacienta?",
+            "Jaký je vývoj leukocytů v čase?",
+            "Je v dokumentaci pacienta zmíněn prokalcitonin?"
+          ]
         }
       ]
     },
@@ -44,7 +59,26 @@
             "propose_chart"
           ],
           "fails": [],
-          "usd": 0.011563799999999999
+          "usd": 0.013370400000000001,
+          "followups": [
+            "Ukaž vývoj cholesterolu spolu s HDL v grafu.",
+            "Zobraz dokumentaci pacienta týkající se cholesterolu nebo lipidů.",
+            "Kterým dalším pacientům v kartotéce cholesterol stoupá?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.0135804,
+          "followups": [
+            "Ukaž graf HDL a triacylglyceroly spolu s cholesterolem.",
+            "Jaké jsou odvozené hodnoty (např. non-HDL cholesterol) u tohoto pacienta?",
+            "Kterým dalším pacientům v kartotéce cholesterol stoupá?"
+          ]
         },
         {
           "ok": true,
@@ -54,17 +88,12 @@
             "propose_chart"
           ],
           "fails": [],
-          "usd": 0.0190578
-        },
-        {
-          "ok": true,
-          "tools": [
-            "list_analytes",
-            "get_trend",
-            "propose_chart"
-          ],
-          "fails": [],
-          "usd": 0.0182538
+          "usd": 0.020750400000000002,
+          "followups": [
+            "Ukaž vývoj HDL cholesterolu v čase.",
+            "Zobraz odvozené hodnoty jako non-HDL cholesterol.",
+            "Kterým dalším pacientům v kartotéce cholesterol stoupá?"
+          ]
         }
       ]
     },
@@ -78,7 +107,12 @@
             "summarize_changes"
           ],
           "fails": [],
-          "usd": 0.0287508
+          "usd": 0.0304104,
+          "followups": [
+            "Zobraz graf vývoje ferritinu a železa u Kláry Šebestové v čase.",
+            "Je v dokumentaci Kláry Šebestové zmínka k nedostatku železa nebo suplementaci?",
+            "Kterým dalším pacientům v kartotéce ferritin v poslední době stoupá?"
+          ]
         },
         {
           "ok": true,
@@ -87,7 +121,12 @@
             "summarize_changes"
           ],
           "fails": [],
-          "usd": 0.0297348
+          "usd": 0.0328554,
+          "followups": [
+            "Zobraz graf vývoje ferritinu a železa v čase u Kláry Šebestové.",
+            "Je v dokumentaci Kláry Šebestové zmínka o nedostatku železa nebo suplementaci?",
+            "Kterým dalším pacientům v kartotéce ferritin v poslední době stoupá?"
+          ]
         },
         {
           "ok": true,
@@ -96,7 +135,12 @@
             "summarize_changes"
           ],
           "fails": [],
-          "usd": 0.0292698
+          "usd": 0.0328554,
+          "followups": [
+            "Zobraz graf vývoje ferritinu a železa u Kláry Šebestové v čase",
+            "Prohledej dokumentaci Kláry Šebestové",
+            "Kterým dalším pacientům roste ferritin?"
+          ]
         }
       ]
     },
@@ -109,7 +153,12 @@
             "cohort_query"
           ],
           "fails": [],
-          "usd": 0.0042282
+          "usd": 0.006018600000000001,
+          "followups": [
+            "Kterým pacientům naopak ferritin stoupá?",
+            "Kterým pacientům je ferritin mimo referenční mez (nízký)?",
+            "Kterým pacientům je ferritin mimo referenční mez (vysoký)?"
+          ]
         },
         {
           "ok": true,
@@ -117,7 +166,12 @@
             "cohort_query"
           ],
           "fails": [],
-          "usd": 0.0045792
+          "usd": 0.006318600000000001,
+          "followups": [
+            "Kterým pacientům ferritin naopak stoupá?",
+            "Kterým pacientům je ferritin mimo referenční meze (vysoký nebo nízký)?",
+            "Zajímá vás vývoj jiného parametru napříč kartotékou, například hemoglobinu?"
+          ]
         },
         {
           "ok": true,
@@ -125,7 +179,12 @@
             "cohort_query"
           ],
           "fails": [],
-          "usd": 0.0047382
+          "usd": 0.0064086,
+          "followups": [
+            "Kterým pacientům ferritin naopak stoupá?",
+            "Kterým pacientům je ferritin mimo referenční mezí (nízký)?",
+            "Kterým pacientům je ferritin mimo referenční mezí (vysoký)?"
+          ]
         }
       ]
     },
@@ -137,11 +196,16 @@
           "tools": [
             "find_patient",
             "search_documents",
-            "search_documents",
-            "get_document"
+            "get_document",
+            "search_documents"
           ],
           "fails": [],
-          "usd": 0.011216400000000001
+          "usd": 0.0133992,
+          "followups": [
+            "Zobraz obsah zprávy ze sportovní prohlídky Adama Křižáka.",
+            "Jaké parametry má Adam Křižák naměřené?",
+            "Zobraz souhrn změn u Adama Křižáka mezi odběry."
+          ]
         },
         {
           "ok": true,
@@ -152,7 +216,12 @@
             "get_document"
           ],
           "fails": [],
-          "usd": 0.0114594
+          "usd": 0.0135732,
+          "followups": [
+            "Zobraz obsah zprávy ze sportovní prohlídky Adama Křižáka.",
+            "Jaké parametry má Adam Křižák naměřené?",
+            "Které dokumenty jsou u Adama Křižáka k dispozici?"
+          ]
         },
         {
           "ok": true,
@@ -163,7 +232,11 @@
             "get_document"
           ],
           "fails": [],
-          "usd": 0.0114024
+          "usd": 0.0131802,
+          "followups": [
+            "Zobraz obsah zprávy ze sportovní prohlídky Adama Křižáka.",
+            "Jaké parametry má Adam Křižák naměřené v kartotéce?"
+          ]
         }
       ]
     },
@@ -178,7 +251,12 @@
             "search_documents"
           ],
           "fails": [],
-          "usd": 0.014545800000000001
+          "usd": 0.016628399999999998,
+          "followups": [
+            "Zobraz graf vývoje VO2max Tomáše Hrubého v čase.",
+            "Vyhledej v dokumentaci Tomáše Hrubého zmínky o ferritinu.",
+            "Kterým dalším pacientům v kartotéce VO2max klesá?"
+          ]
         },
         {
           "ok": true,
@@ -188,7 +266,12 @@
             "search_documents"
           ],
           "fails": [],
-          "usd": 0.0141618
+          "usd": 0.0155424,
+          "followups": [
+            "Zobraz graf vývoje VO2max Tomáše Hrubého v čase.",
+            "Které další parametry se u Tomáše Hrubého změnily mezi odběry?",
+            "Kterým dalším pacientům klesá VO2max?"
+          ]
         },
         {
           "ok": true,
@@ -198,7 +281,235 @@
             "search_documents"
           ],
           "fails": [],
-          "usd": 0.0142788
+          "usd": 0.0154674,
+          "followups": [
+            "Zobraz graf vývoje VO2max Tomáše Hrubého v čase.",
+            "Zobraz dokumentaci ze sportovní prohlídky z února 2026 celou.",
+            "Kterým dalším pacientům v kartotéce VO2max klesá?"
+          ]
+        }
+      ]
+    },
+    "followups_ambiguity": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0045366
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0047166
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0046716
+        }
+      ]
+    },
+    "followups_chart_drawn": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.0164922,
+          "followups": [
+            "Zobraz dokumentaci pacienta Tomáš Hrubý k tématu anémie nebo nedostatek železa.",
+            "Ukaž souhrn všech změn mezi odběry u pacienta Tomáš Hrubý.",
+            "Kterým dalším pacientům v kartotéce feritin klesá?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.0153522,
+          "followups": [
+            "Zobraz dokumentaci pacienta Tomáše Hrubého.",
+            "Porovnej vývoj feritinu s hemoglobinem u tohoto pacienta.",
+            "Kterým dalším pacientům v kartotéce feritin klesá?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.0171732,
+          "followups": [
+            "Zobraz dokumentaci pacienta Tomáše Hrubého k tématu ferritin nebo anémie.",
+            "Ukaž souhrn všech změn napříč odběry u Tomáše Hrubého.",
+            "Kterým dalším pacientům v kartotéce feritin klesá?"
+          ]
+        }
+      ]
+    },
+    "followups_cohort": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "cohort_query"
+          ],
+          "fails": [],
+          "usd": 0.0064536,
+          "followups": [
+            "Kterým pacientům ferritin naopak stoupá?",
+            "Kterým pacientům je ferritin mimo referenční meze (vysoký nebo nízký)?",
+            "Jak se ferritin vyvíjí u konkrétního pacienta v čase?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "cohort_query"
+          ],
+          "fails": [],
+          "usd": 0.0063036,
+          "followups": [
+            "Kterým pacientům ferritin naopak stoupá?",
+            "Kterým pacientům je ferritin mimo referenční mez (vysoký nebo nízký)?",
+            "Jak se vyvíjí hemoglobin napříč kartotékou?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "cohort_query"
+          ],
+          "fails": [],
+          "usd": 0.0059286,
+          "followups": [
+            "Kterým pacientům feritin naopak stoupá?",
+            "Kterým pacientům je feritin mimo referenční mez (nízký)?",
+            "Kterým pacientům je feritin mimo referenční mez (vysoký)?"
+          ]
+        }
+      ]
+    },
+    "followups_documents_only": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "search_documents",
+            "get_document",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.032147999999999996,
+          "followups": [
+            "Zobraz graf vývoje VO₂max Kláry Šebestové v čase.",
+            "Jak se u Kláry Šebestové vyvíjel ferritin od února 2024?",
+            "Kterým dalším pacientům ferritin v kartotéce stoupá?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "search_documents",
+            "get_document",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.03469800000000001,
+          "followups": [
+            "Zobraz graf vývoje VO2max Kláry Šebestové v čase.",
+            "Jaký je aktuální trend hodnot ferritinu u Kláry Šebestové?",
+            "Kterým dalším pacientům v kartotéce ferritin stoupá?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "search_documents",
+            "get_document",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.035178,
+          "followups": [
+            "Zobraz graf vývoje VO2max u Kláry Šebestové v čase.",
+            "Jak se u Kláry Šebestové vyvíjel ferritin mezi jednotlivými odběry?",
+            "Kterým dalším pacientům v kartotéce stoupá VO2max?"
+          ]
+        }
+      ]
+    },
+    "followups_labs_no_chart": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.0327174,
+          "followups": [
+            "Zobraz graf vývoje CK a ferritinu u pana Hrubého v čase.",
+            "Prohledej dokumentaci pana Hrubého k tématu CK nebo svalové zátěži.",
+            "Kterým dalším pacientům v kartotéce klesá ferritin?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.0335424,
+          "followups": [
+            "Zobraz graf vývoje CK a feritinu v čase u pana Hrubého.",
+            "Prohledej dokumentaci pana Hrubého ohledně svalů nebo únavy.",
+            "Kterým dalším pacientům v kartotéce roste CK?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.032942400000000004,
+          "followups": [
+            "Zobraz graf vývoje CK a feritinu u Tomáše Hrubého v čase.",
+            "Prohledej dokumentaci Tomáše Hrubého ohledně CK.",
+            "Kterým dalším pacientům v kartotéce roste CK?"
+          ]
         }
       ]
     },
@@ -209,59 +520,15 @@
           "ok": true,
           "tools": [
             "list_analytes",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "propose_chart"
+            "summarize_changes"
           ],
           "fails": [],
-          "usd": 0.11054340000000001
-        },
-        {
-          "ok": true,
-          "tools": [
-            "list_analytes",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "get_trend",
-            "propose_chart"
-          ],
-          "fails": [],
-          "usd": 0.1127424
+          "usd": 0.0399966,
+          "followups": [
+            "Zobraz graf vývoje cholesterolu a triacylglycerolů v čase.",
+            "Vyhledej v dokumentaci pacienta zmínky o jaterních testech nebo lipidech.",
+            "Kterým dalším pacientům v kartotéce stoupá cholesterol?"
+          ]
         },
         {
           "ok": true,
@@ -289,7 +556,26 @@
             "get_trend"
           ],
           "fails": [],
-          "usd": 0.0704988
+          "usd": 0.0689004,
+          "followups": [
+            "Zobraz graf vývoje cholesterolu a triacylglycerolů v čase.",
+            "Prohledej dokumentaci pacienta ohledně jater nebo tuků v krvi.",
+            "Kterým dalším pacientům stoupá cholesterol?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.040304400000000004,
+          "followups": [
+            "Zobraz graf vývoje GGT, ALT, cholesterolu a triacylglycerolů v čase.",
+            "Kterým dalším pacientům v kartotéce roste cholesterol?",
+            "Prohledej dokumentaci pacienta k jaterním testům nebo lipidům."
+          ]
         }
       ]
     },
@@ -302,7 +588,10 @@
             "find_patient"
           ],
           "fails": [],
-          "usd": 0.0038231999999999997
+          "usd": 0.0047106000000000006,
+          "followups": [
+            "Zkusit vyhledat pacienta pod jiným jménem nebo příjmením?"
+          ]
         },
         {
           "ok": true,
@@ -310,7 +599,11 @@
             "find_patient"
           ],
           "fails": [],
-          "usd": 0.0036701999999999998
+          "usd": 0.0050556,
+          "followups": [
+            "Vyhledej pacienta pod jiným jménem nebo částí jména",
+            "Zkontroluj, zda existuje jmenovec s podobným příjmením"
+          ]
         },
         {
           "ok": true,
@@ -318,7 +611,11 @@
             "find_patient"
           ],
           "fails": [],
-          "usd": 0.0039432
+          "usd": 0.0052506,
+          "followups": [
+            "Vyhledej pacienta pod jiným jménem nebo příjmením",
+            "Zobraz seznam pacientů, kterým se sleduje konkrétní parametr (např. hemoglobin)"
+          ]
         }
       ]
     },
@@ -331,7 +628,7 @@
             "find_patient"
           ],
           "fails": [],
-          "usd": 0.0042462
+          "usd": 0.0050046
         },
         {
           "ok": true,
@@ -339,7 +636,7 @@
             "find_patient"
           ],
           "fails": [],
-          "usd": 0.0042912
+          "usd": 0.0048216
         },
         {
           "ok": true,
@@ -347,7 +644,7 @@
             "find_patient"
           ],
           "fails": [],
-          "usd": 0.0045042
+          "usd": 0.0045366
         }
       ]
     },
@@ -358,10 +655,15 @@
           "ok": true,
           "tools": [
             "get_document",
-            "search_documents"
+            "list_analytes"
           ],
           "fails": [],
-          "usd": 0.0084762
+          "usd": 0.012894599999999999,
+          "followups": [
+            "Jaké má pacient naměřené parametry a jejich poslední hodnoty?",
+            "Vyhledej dokumentaci pacienta, například poslední zprávu.",
+            "Zobraz vývoj hemoglobinu v čase."
+          ]
         },
         {
           "ok": true,
@@ -370,15 +672,26 @@
             "search_documents"
           ],
           "fails": [],
-          "usd": 0.0097032
+          "usd": 0.0100686,
+          "followups": [
+            "Jaké má pacient dostupné laboratorní parametry?",
+            "Ukaž souhrn změn mezi posledními odběry u tohoto pacienta.",
+            "Vytvoř graf vývoje některého parametru u tohoto pacienta."
+          ]
         },
         {
           "ok": true,
           "tools": [
-            "get_document"
+            "get_document",
+            "search_documents"
           ],
           "fails": [],
-          "usd": 0.0079842
+          "usd": 0.0116016,
+          "followups": [
+            "Jaké parametry má pacient naměřené?",
+            "Ukaž souhrn změn mezi odběry u pacienta.",
+            "Navrhni graf vývoje některého parametru pacienta."
+          ]
         }
       ]
     },
@@ -392,11 +705,32 @@
             "summarize_changes",
             "list_analytes",
             "get_document",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.0685752,
+          "followups": [
+            "Zobraz graf vývoje ferritinu a CK v čase u Tomáše Hrubého.",
+            "Otevři dokument Tréninková pásma z 3. 3. 2026.",
+            "Kterým dalším pacientům klesá ferritin?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "list_analytes",
+            "summarize_changes",
             "get_document",
             "get_document"
           ],
           "fails": [],
-          "usd": 0.07454039999999999
+          "usd": 0.06881519999999999,
+          "followups": [
+            "Zobraz graf vývoje ferritinu a CK v čase u Tomáše Hrubého.",
+            "Najdi v dokumentaci zmínky o substituci železa.",
+            "Kterým dalším pacientům v kartotéce klesá ferritin?"
+          ]
         },
         {
           "ok": true,
@@ -405,25 +739,15 @@
             "summarize_changes",
             "list_analytes",
             "get_document",
-            "get_document",
             "get_document"
           ],
           "fails": [],
-          "usd": 0.0753534
-        },
-        {
-          "ok": true,
-          "tools": [
-            "find_patient",
-            "summarize_changes",
-            "list_analytes",
-            "get_document",
-            "get_document",
-            "get_document",
-            "propose_chart"
-          ],
-          "fails": [],
-          "usd": 0.115752
+          "usd": 0.0677052,
+          "followups": [
+            "Zobraz graf vývoje ferritinu, železa a CK v čase u tohoto pacienta.",
+            "Kterým dalším pacientům v kartotéce klesá ferritin?",
+            "Porovnej VO2max z prohlídky 2024 a 2026 – ukaž dokumentaci obou vyšetření."
+          ]
         }
       ]
     },
@@ -436,7 +760,26 @@
             "summarize_changes"
           ],
           "fails": [],
-          "usd": 0.0329172
+          "usd": 0.0333126,
+          "followups": [
+            "Zobraz graf vývoje GGT a triacylglycerolů v čase.",
+            "Je v dokumentaci pacienta zmínka o jaterních testech nebo životosprávě?",
+            "Kterým dalším pacientům v kartotéce stoupá GGT?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "summarize_changes",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.0606264,
+          "followups": [
+            "Zobraz vývoj triacylglycerolů a cholesterolu za celé sledované období.",
+            "Je v dokumentaci pacienta zmínka o jaterních testech nebo životosprávě?",
+            "Kterým dalším pacientům v kartotéce roste GGT?"
+          ]
         },
         {
           "ok": true,
@@ -444,15 +787,12 @@
             "summarize_changes"
           ],
           "fails": [],
-          "usd": 0.0329322
-        },
-        {
-          "ok": true,
-          "tools": [
-            "summarize_changes"
-          ],
-          "fails": [],
-          "usd": 0.031942200000000004
+          "usd": 0.0328926,
+          "followups": [
+            "Zobraz graf vývoje GGT, ALT a cholesterolu v čase.",
+            "Je v dokumentaci pacienta zmínka o jaterních testech nebo životosprávě?",
+            "Kterým dalším pacientům v kartotéce roste GGT?"
+          ]
         }
       ]
     },
@@ -465,7 +805,12 @@
             "list_analytes"
           ],
           "fails": [],
-          "usd": 0.0107322
+          "usd": 0.011772600000000001,
+          "followups": [
+            "Ukaž vývoj hemoglobinu u tohoto pacienta v čase.",
+            "Shrň, co se u pacienta změnilo mezi posledními odběry.",
+            "Je k pacientovi k dispozici i další dokumentace (zprávy, nálezy)?"
+          ]
         },
         {
           "ok": true,
@@ -473,7 +818,12 @@
             "list_analytes"
           ],
           "fails": [],
-          "usd": 0.0105972
+          "usd": 0.011592600000000002,
+          "followups": [
+            "Ukaž vývoj hemoglobinu v čase u tohoto pacienta.",
+            "Shrň, co se u tohoto pacienta změnilo mezi posledními odběry.",
+            "Vyhledej dokumentaci tohoto pacienta."
+          ]
         },
         {
           "ok": true,
@@ -481,7 +831,12 @@
             "list_analytes"
           ],
           "fails": [],
-          "usd": 0.0110022
+          "usd": 0.011742599999999999,
+          "followups": [
+            "Jak se u pacienta vyvíjí hemoglobin v čase?",
+            "Shrň mi změny mezi jednotlivými odběry u tohoto pacienta.",
+            "Je v dokumentaci pacienta zmínka o nedostatku železa nebo vitaminu D?"
+          ]
         }
       ]
     },
@@ -493,22 +848,15 @@
           "tools": [
             "get_trend",
             "list_analytes",
-            "get_trend",
-            "propose_chart"
+            "get_trend"
           ],
           "fails": [],
-          "usd": 0.027278999999999998
-        },
-        {
-          "ok": true,
-          "tools": [
-            "get_trend",
-            "list_analytes",
-            "get_trend",
-            "propose_chart"
-          ],
-          "fails": [],
-          "usd": 0.027435
+          "usd": 0.021505200000000002,
+          "followups": [
+            "Zobraz graf vývoje kreatininu za celé období.",
+            "Jak se u tohoto pacienta vyvíjela urea?",
+            "Kterým dalším pacientům v kartotéce kreatinin stoupá?"
+          ]
         },
         {
           "ok": true,
@@ -518,7 +866,28 @@
             "get_trend"
           ],
           "fails": [],
-          "usd": 0.020267399999999998
+          "usd": 0.0214032,
+          "followups": [
+            "Zobraz graf vývoje kreatininu za celé období.",
+            "Jak se u tohoto pacienta vyvíjela urea?",
+            "Kterým dalším pacientům v kartotéce kreatinin stoupá?"
+          ]
+        },
+        {
+          "ok": true,
+          "tools": [
+            "get_trend",
+            "list_analytes",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.030657,
+          "followups": [
+            "Zobraz graf vývoje kreatininu v čase.",
+            "Jak se u pacienta vyvíjela urea za celou dobu?",
+            "Kterým dalším pacientům v kartotéce kreatinin stoupá?"
+          ]
         }
       ]
     }

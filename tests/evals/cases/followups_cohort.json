@@ -1,0 +1,15 @@
+{
+  "id": "followups_cohort",
+  "why": "A cohort answer is refs and aggregates. The proposals must stay at that altitude and inside the toolset — offering to open, order or send anything is a promise the next turn cannot keep.",
+  "question": "Kterým pacientům klesá ferritin?",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["cohort_query"],
+    "toolsMode": "contains",
+    "mustNotPin": true,
+    "followups": {
+      "present": true
+    }
+  }
+}
