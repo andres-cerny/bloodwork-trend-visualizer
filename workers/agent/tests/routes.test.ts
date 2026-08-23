@@ -108,8 +108,8 @@ function makeEnv(over: Partial<Env> = {}): Env {
     BUDGET: fakeKv(),
     DB_SPORT: fakeD1(SPORT_PATIENTS),
     DB_ORTO: fakeD1([]),
-    // Nothing here serves evidence; the route 404s on an empty bucket.
-    EVIDENCE: { get: async () => null } as unknown as R2Bucket,
+    // Nothing here serves evidence; the route 404s on an empty store.
+    EVIDENCE: fakeKv(),
     ANTHROPIC_API_KEY: "sk-ant-test",
     TURNSTILE_SECRET_KEY: "turnstile-test",
     SESSION_SECRET: SECRET,

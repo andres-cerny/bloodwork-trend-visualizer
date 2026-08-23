@@ -9,16 +9,19 @@
   // there is no second public origin to defend.
   "workers_dev": false,
 
-  "kv_namespaces": [{ "binding": "BUDGET", "id": "1a27795146e44c9092169ad7c86fa882" }],
+  "kv_namespaces": [
+    { "binding": "BUDGET", "id": "1a27795146e44c9092169ad7c86fa882" },
+    // Evidence images for the one real patient record (seeded at deploy time,
+    // never committed): synthetic pages ship as static assets, these cannot,
+    // because dist/ is tracked and real pixels must never enter git. KV, not
+    // R2, because R2 needs a dashboard opt-in this account has not made and
+    // a page PNG sits far under KV's 25MB value cap.
+    { "binding": "EVIDENCE", "id": "497ec72382db47288ba3703f61deb434" }
+  ],
 
   // One database per practice — isolation by database, not by column, so a
   // query cannot forget a WHERE tenant clause that never exists. The tenant
   // slug from the URL path picks the binding; an unknown slug is refused.
-  // Evidence images for the one real patient record (seeded at deploy time,
-  // never committed). Synthetic patients' pages are static app assets; these
-  // are not, because dist/ is tracked and real pixels must never enter git.
-  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "bloodwork-chat-evidence" }],
-
   "d1_databases": [
     { "binding": "DB_SPORT", "database_name": "bloodwork-chat-sport", "database_id": "9e137169-3517-401f-bf6d-e7575d7981d4" },
     { "binding": "DB_ORTO", "database_name": "bloodwork-chat-orto", "database_id": "01ba4f51-1520-4b80-bef6-342abe4c1d74" }

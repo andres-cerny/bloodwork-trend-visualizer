@@ -76,7 +76,7 @@ own only when standing one up fresh:
 ```sh
 npx wrangler d1 create bloodwork-chat-sport
 npx wrangler d1 create bloodwork-chat-orto
-npx wrangler r2 bucket create bloodwork-chat-evidence
+npx wrangler kv namespace create EVIDENCE   # real-patient page images
 ```
 
 Schema, then the committed synthetic seeds (regenerable by

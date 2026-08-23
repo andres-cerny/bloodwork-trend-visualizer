@@ -15,7 +15,7 @@ import type { ToolContext } from "@bw/agent-tools";
 export interface Env extends BaseEnv {
   DB_SPORT: D1Database;
   DB_ORTO: D1Database;
-  EVIDENCE: R2Bucket;
+  EVIDENCE: KVNamespace;
 }
 
 /**
@@ -191,9 +191,9 @@ export default {
     if (url.pathname.startsWith("/api/evidence/") && request.method === "GET") {
       const key = url.pathname.slice("/api/evidence/".length);
       if (!/^[a-z0-9-]{16,}\.png$/.test(key)) return json({ error: "not_found" }, 404);
-      const obj = await env.EVIDENCE.get(key);
+      const obj = await env.EVIDENCE.get(key, "arrayBuffer");
       if (!obj) return json({ error: "not_found" }, 404);
-      return new Response(obj.body, {
+      return new Response(obj, {
         headers: {
           "content-type": "image/png",
           "cache-control": "public, max-age=86400",
