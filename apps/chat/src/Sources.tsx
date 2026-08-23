@@ -9,8 +9,12 @@
  *
  * All rendering, no reasoning: the bbox, the image URL and the excerpt all
  * arrived in a `sources` event.
+ *
+ * Re-homed in the second pass — the same components now render into the right
+ * rail on a desktop and into a „Zdroje (n)" disclosure under the answer on a
+ * phone. The crop mechanics below did not change.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface Source {
   n: number;
@@ -56,43 +60,120 @@ function RowCrop({
   const y0 = Math.max(0, bbox[1] - BLEED_Y);
   const y1 = Math.min(pageH, bbox[3] + BLEED_Y);
   return (
-    <span className="src-crop" style={{ aspectRatio: `${pageW} / ${Math.max(1, y1 - y0)}` }}>
+    <span
+      className="src-crop"
+      style={{ aspectRatio: `${pageW} / ${Math.max(1, y1 - y0)}` }}
+    >
       <img src={src} alt="" style={{ transform: `translateY(${-(100 * y0) / pageH}%)` }} />
     </span>
   );
 }
 
-export default function Sources({ sources }: { sources: Source[] }) {
+/**
+ * A report cited as a whole has no located row — `bbox` is null, because
+ * nothing on the page was searched for. The same crop is still the right
+ * picture: the top of the sheet is the letterhead, the patient line and the
+ * results table, and the bottom half of a generated report is blank paper.
+ * Cropping to a fixed fraction of the page WIDTH keeps the card a predictable
+ * shape whatever the page geometry is.
+ */
+function PageHead({ src, pageW, pageH }: { src: string; pageW: number; pageH: number }) {
+  const band = Math.min(pageH, pageW * 0.82);
+  return (
+    <span className="src-crop" style={{ aspectRatio: `${pageW} / ${band}` }}>
+      <img src={src} alt="" />
+    </span>
+  );
+}
+
+function SourceCard({
+  s,
+  active,
+  open,
+  onToggle,
+}: {
+  s: Source;
+  active: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // A [n] that focuses an entry the reader cannot see has focused nothing.
+  useEffect(() => {
+    if (active) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [active]);
+
+  const meta =
+    s.kind === "lab" ? [s.lab, czDate(s.date)].filter(Boolean).join(" · ") : czDate(s.date);
+
+  return (
+    <div className={`src${active ? " is-active" : ""}`} ref={ref} id={`src-${s.n}`}>
+      <button
+        type="button"
+        className="src-head"
+        onClick={onToggle}
+        aria-expanded={open}
+        title={open ? "Skrýt stranu" : "Zobrazit celou stranu"}
+      >
+        <span className="src-n">{s.n}</span>
+        <span className="src-title">
+          <span className="src-label">{s.label}</span>
+          <span className="src-meta">{meta}</span>
+        </span>
+        {s.imageUrl && (
+          <span className="src-more" aria-hidden="true">
+            {open ? "−" : "+"}
+          </span>
+        )}
+      </button>
+
+      {s.kind === "lab" &&
+        s.imageUrl &&
+        s.pageW &&
+        s.pageH &&
+        (s.bbox ? (
+          <RowCrop src={s.imageUrl} bbox={s.bbox} pageW={s.pageW} pageH={s.pageH} />
+        ) : (
+          <PageHead src={s.imageUrl} pageW={s.pageW} pageH={s.pageH} />
+        ))}
+      {s.kind === "document" && s.excerpt && (
+        <blockquote className="src-quote">{s.excerpt}</blockquote>
+      )}
+      {open && s.imageUrl && (
+        <img className="src-page" src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
+      )}
+    </div>
+  );
+}
+
+/** 2026-02-24 → 24. 2. 2026. The registry ships ISO; a doctor does not read it. */
+function czDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${Number(m[3])}. ${Number(m[2])}. ${m[1]}` : iso;
+}
+
+export default function Sources({
+  sources,
+  activeCite = null,
+}: {
+  sources: Source[];
+  /** Which entry the answer's [n] pointed at, if any. */
+  activeCite?: number | null;
+}) {
   const [open, setOpen] = useState<number | null>(null);
   if (sources.length === 0) return null;
 
   return (
-    <div className="sources">
-      <div className="sources-head">Zdroje</div>
+    <div className="src-list">
       {sources.map((s) => (
-        <div key={s.n} className="source">
-          <button
-            type="button"
-            className="source-row"
-            onClick={() => setOpen(open === s.n ? null : s.n)}
-            aria-expanded={open === s.n}
-          >
-            <sup className="cite">{s.n}</sup>
-            <span className="source-label">{s.label}</span>
-            <span className="muted">
-              {s.kind === "lab" ? `${s.lab ?? ""} · ${s.date}` : `${s.date}`}
-            </span>
-          </button>
-          {s.kind === "lab" && s.imageUrl && s.bbox && s.pageW && s.pageH && (
-            <RowCrop src={s.imageUrl} bbox={s.bbox} pageW={s.pageW} pageH={s.pageH} />
-          )}
-          {s.kind === "document" && s.excerpt && (
-            <blockquote className="source-quote">{s.excerpt}</blockquote>
-          )}
-          {open === s.n && s.imageUrl && (
-            <img className="source-page" src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
-          )}
-        </div>
+        <SourceCard
+          key={s.n}
+          s={s}
+          active={activeCite === s.n}
+          open={open === s.n}
+          onToggle={() => setOpen(open === s.n ? null : s.n)}
+        />
       ))}
     </div>
   );
