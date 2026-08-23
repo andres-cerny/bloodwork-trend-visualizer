@@ -67,7 +67,7 @@ Generate it rather than inventing it:
 openssl rand -base64 32
 ```
 
-### 4. The chat demo's data (D1 + R2)
+### 4. The chat demo's data (D1 + evidence KV)
 
 The two practices live in two D1 databases; the ids committed in
 `workers/agent/wrangler.jsonc` belong to the existing deployment — create your
@@ -97,9 +97,15 @@ The documents go **after** the labs: `seed_<tenant>.sql` clears the document
 tables along with the patients they reference, so the reverse order seeds a
 practice with no documents and no error.
 
-The seeds open with `DELETE FROM`, so reseeding replaces rather than
-duplicates. The one real patient record is seeded separately, from `samples/`,
-by a machine that holds it — it exists in D1 and R2 only, never in git.
+The synthetic seeds open with **bare** `DELETE FROM`, so they wipe the whole
+database — including the real patient. **Order is therefore not optional:**
+synthetic seeds first, then the real record, every time either changes. The
+real record is seeded from `samples/` by a machine that holds it
+(`python3 -m scripts.seed_real_patient` from `tools/pipeline`, which needs the
+git-ignored `data/real_seed_docs.json` sidecar — keep a backup of that file
+outside the repo). It exists in D1 and the EVIDENCE KV namespace only, never
+in git; its own deletes are scoped to `p-cerny-1999`, so re-running it alone
+is safe.
 
 ### 5. Deploy
 

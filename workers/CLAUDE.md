@@ -9,7 +9,7 @@ reaches the extractor.
 should stop changing.
 
 **`agent` grew its future**: two D1 practices (`DB_SPORT`, `DB_ORTO`, one per
-tenant so isolation is by binding, not by a WHERE clause), an R2 shelf for the
+tenant so isolation is by binding, not by a WHERE clause), a KV evidence shelf for the
 one real record git never holds, and its own `/api/session` door — the chat
 shell binds only this worker, so a Turnstile token must be tradeable here.
 The split still holds the other way: **extraction must never grow a database

@@ -307,8 +307,13 @@ Session mechanics:
   (ROOT bug); fixed, 7 clinical cases added, baseline promoted 14/14 at
   3 reps, $1.07.
 - [x] 2026-08-23 DEPLOYED — https://bloodwork-chat.andres-cerny.workers.dev
-  (/sport, /orto). Ledgers verified live. Open: real-patient seed (running),
-  human Turnstile click on the new hostname, UI audit pass, memory wrap-up.
+  (/sport, /orto). Ledgers verified live.
+- [x] 2026-08-23 Real patient seeded — 15 lab reports (875/878 values with row
+  bboxes, $0: the archive's content-addressed cache held), 14 documents, 66
+  evidence images in KV; scoped deletes proved the synthetic corpus survives;
+  live /api/evidence serves. Seeding ORDER matters: synthetic seeds wipe
+  whole tables — real record always re-seeds after them (deploy.md §4).
+  Open: human Turnstile click on the new hostname; optional UI audit pass.
 
 ## Cut lines (in order, if the 1.5 weeks compress)
 
