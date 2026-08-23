@@ -25,9 +25,9 @@ const TENANTS: Record<string, { label: string; suggestions: string[] }> = {
   sport: {
     label: "Sportovní medicína",
     suggestions: [
-      "Dej mi souhrn Ondřeje Černého.",
-      "Jak se vyvíjí ferritin Terezy Malé?",
-      "Ukaž hemoglobin v grafu.",
+      "Dej mi souhrn Tomáše Hrubého.",
+      "Jak se vyvíjí ferritin Kláry Šebestové?",
+      "Ukaž hemoglobin Vojtěcha Palána v grafu.",
     ],
   },
   orto: {
@@ -126,6 +126,12 @@ export default function App() {
           // The server resolved who the conversation is about. Pin the ref;
           // the chip below is what keeps a near-miss visible.
           setPatient({ ref: ev.ref, fullName: ev.fullName, birthDate: ev.birthDate });
+        } else if (ev.type === "sources") {
+          setTurns((prev) => [
+            ...prev,
+            { role: "sources", content: "", sources: ev.sources as never },
+          ]);
+          opened = false;
         } else if (ev.type === "chart") {
           setTurns((prev) => [...prev, { role: "chart", content: "", chart: ev }]);
           opened = false;

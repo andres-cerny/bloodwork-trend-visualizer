@@ -33,6 +33,12 @@ export type AgentEvent =
    * what keeps a near-miss visible to the reader.
    */
   | { type: "patient"; ref: string; fullName: string; birthDate: string }
+  /**
+   * Everything the tools read this turn, numbered. [n] in the answer refers
+   * here; the client renders the registry as it was registered, so a number
+   * the model invented has nothing to point at and shows as such.
+   */
+  | { type: "sources"; sources: Array<{ n: number } & Record<string, unknown>> }
   /** Terminal. Usage is final here and nowhere earlier. */
   | { type: "done"; usage: Usage; model: string }
   | { type: "error"; message: string };

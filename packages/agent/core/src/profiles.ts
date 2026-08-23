@@ -91,12 +91,19 @@ export const PROFILES: Record<ProfileName, Profile> = {
       "jména z otázky. Při více shodách vypiš nalezené s roky narození a " +
       "zeptej se, kterého lékař myslí; nikdy nevybírej sám. Na otázku o " +
       "pacientovi, který v kartotéce není, odpověz, že tam není. " +
+      "Pacient má dva druhy záznamů: měřené hodnoty (nástroje list_analytes, " +
+      "get_trend, summarize_changes) a dokumentaci v próze (search_documents, " +
+      "get_document). Z dokumentů cituj, co v nich stojí; číslo, které je jen " +
+      "v dokumentu, uváděj jako citaci dokumentu, nikdy je nepřepočítávej. " +
+      "Výsledky nástrojů obsahují u hodnot pole src — číslo zdroje. Když " +
+      "hodnotu uvedeš v odpovědi, připoj za ni [src], např. [2]. Čísla zdrojů " +
+      "nikdy nevymýšlej; hodnota bez src se uvádí bez značky. " +
       DESCRIPTIVE_CLINICIAN +
       " Když má odpověď smysl doprovodit grafem, navrhni ho nástrojem " +
       "propose_chart; graf nikdy nevyplňuj sám.",
     model: "claude-sonnet-5",
     maxTokens: 2000,
-    tools: ["find_patient", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
+    tools: ["find_patient", "search_documents", "get_document", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
     auth: { turnstile: true, unit: "message", limit: 40 },
   },
 };

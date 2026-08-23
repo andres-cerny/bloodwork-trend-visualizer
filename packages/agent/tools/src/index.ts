@@ -54,7 +54,39 @@ export interface ToolContext {
   source: PatientDataSource | null;
   directory?: PatientDirectory;
   documents?: DocumentStore;
+  /**
+   * Register one piece of evidence and get its citation number. The server
+   * owns the registry and the numbering; a tool only says what it read. The
+   * numbers a tool embeds in its content are the ones the model may write as
+   * [n] — a number with no registered source is the model inventing one, and
+   * the client renders exactly what was registered, so the invention shows.
+   */
+  cite?: (s: SourceInfo) => number;
 }
+
+/** One citable piece of evidence, as the client will render it. */
+export type SourceInfo =
+  | {
+      kind: "lab";
+      /** "Ferritin 22 µg/l" — what the row says, for the panel label. */
+      label: string;
+      date: string;
+      lab: string;
+      reportId: string;
+      page: number;
+      imageUrl: string | null;
+      /** Pixel box of the row on the page image, for the crop. */
+      bbox: [number, number, number, number] | null;
+    }
+  | {
+      kind: "document";
+      label: string;
+      date: string;
+      documentId: string;
+      title: string;
+      excerpt: string;
+      imageUrl: string | null;
+    };
 
 export const TOOLS: ToolDef[] = [
   {
@@ -71,6 +103,31 @@ export const TOOLS: ToolDef[] = [
         birthYear: { type: ["number", "null"], description: "Rok narození pro rozlišení jmenovců." },
       },
       required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "search_documents",
+    description:
+      "Prohledá dokumentaci vybraného pacienta (zprávy, nálezy, záznamy z rehabilitace) a vrátí " +
+      "úryvky s místem nálezu. Hledej krátkým heslem (např. 'VO2max', 'koleno', 'MR'). " +
+      "Cituj jen to, co úryvek skutečně říká.",
+    input_schema: {
+      type: "object",
+      properties: { query: { type: "string", description: "Hledané heslo nebo sousloví." } },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_document",
+    description:
+      "Vrátí celý text jednoho dokumentu podle id ze search_documents nebo ze seznamu dokumentů. " +
+      "Bez argumentu id vypíše seznam dokumentů pacienta s daty a názvy.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: ["string", "null"], description: "Id dokumentu; vynech pro seznam." } },
+      required: [],
       additionalProperties: false,
     },
   },
@@ -189,6 +246,60 @@ export async function runTool(
       };
     }
 
+    if (name === "search_documents" || name === "get_document") {
+      const docs = ctx.documents;
+      if (!docs) return NO_PATIENT;
+      if (name === "search_documents") {
+        const hits = await docs.searchDocuments(String(input.query ?? ""));
+        const cited = await Promise.all(
+          hits.map(async (h) => {
+            if (!ctx.cite) return h;
+            const full = await docs.getDocument(h.id);
+            const src = ctx.cite({
+              kind: "document",
+              label: h.title,
+              date: h.docDate,
+              documentId: h.id,
+              title: h.title,
+              excerpt: h.excerpt,
+              imageUrl: full?.pages[0]?.imageUrl ?? null,
+            });
+            return { ...h, src };
+          }),
+        );
+        return {
+          ok: true,
+          summary: hits.length === 0 ? "v dokumentaci nic nenalezeno" : `nalezeno v ${hits.length} dokumentech`,
+          content: { matches: cited },
+        };
+      }
+      const id = input.id == null ? null : String(input.id);
+      if (!id) {
+        const list = await docs.listDocuments();
+        return {
+          ok: true,
+          summary: `vypsal ${list.length} dokumentů`,
+          content: { documents: list },
+        };
+      }
+      const doc = await docs.getDocument(id);
+      if (!doc) return { ok: false, summary: `dokument ${id} nenalezen`, content: { error: "not_found", id } };
+      const src = ctx.cite?.({
+        kind: "document",
+        label: doc.title,
+        date: doc.docDate,
+        documentId: doc.id,
+        title: doc.title,
+        excerpt: doc.bodyText.slice(0, 240),
+        imageUrl: doc.pages[0]?.imageUrl ?? null,
+      });
+      return {
+        ok: true,
+        summary: `otevřel ${doc.title} (${doc.docDate})`,
+        content: { id: doc.id, title: doc.title, docDate: doc.docDate, kind: doc.kind, text: doc.bodyText, pages: doc.pages, ...(src ? { src } : {}) },
+      };
+    }
+
     const source = ctx.source;
     if (!source) return NO_PATIENT;
 
@@ -201,7 +312,30 @@ export async function runTool(
         const id = String(input.canonicalId ?? "");
         const t = await source.getTrend(id);
         if (!t) return { ok: false, summary: `parametr ${id} nenalezen`, content: { error: "not_found", canonicalId: id } };
-        return { ok: true, summary: `načetl vývoj ${t.displayName}`, content: trendSummary(t) };
+        const base = trendSummary(t);
+        if (!ctx.cite) return { ok: true, summary: `načetl vývoj ${t.displayName}`, content: base };
+        // Each numeric point is one row on one printed report. The citation
+        // is that row: found by (analyte, date) in the lossless payloads, so
+        // the crop the reader opens is the same pixels the value came from.
+        const reports = await source.reports();
+        const points = base.points.map((pt) => {
+          const rep = reports.find((r) => r.reportDate === pt.date);
+          const m = rep?.measurements.find((mm) => mm.canonicalId === id);
+          if (!rep || !m) return pt;
+          const page = rep.pages?.[(m.sourcePage ?? 1) - 1];
+          const src = ctx.cite!({
+            kind: "lab",
+            label: `${t.displayName} ${m.valueRaw} ${m.unit ?? ""}`.trim(),
+            date: pt.date ?? "",
+            lab: rep.labName ?? "",
+            reportId: rep.id,
+            page: m.sourcePage ?? 1,
+            imageUrl: page?.imageUrl ?? null,
+            bbox: (m.bbox as [number, number, number, number] | null) ?? null,
+          });
+          return { ...pt, src };
+        });
+        return { ok: true, summary: `načetl vývoj ${t.displayName}`, content: { ...base, points } };
       }
       case "summarize_changes": {
         const reports = await source.reports();

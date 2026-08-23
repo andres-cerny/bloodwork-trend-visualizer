@@ -467,6 +467,26 @@ describe("tenancy and identity", () => {
     expect(pin).toMatchObject({ ref: "p-test", fullName: "Karel Tester" });
   });
 
+  it("what the tools read arrives numbered, right before done", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    nextStream = { text: "", toolUse: { name: "get_trend", input: { canonicalId: "hemoglobin" } } };
+
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport", patientRef: "p-test" }), s),
+      env,
+    );
+    const events = await sseEvents(res);
+    const src = events.find((e) => e.type === "sources");
+    expect(src).toBeDefined();
+    // One numeric point in the seeded report, so exactly one source: the row
+    // the value came from, numbered from 1.
+    expect(src.sources).toHaveLength(1);
+    expect(src.sources[0]).toMatchObject({ n: 1, kind: "lab", reportId: "r-1", label: "hemoglobin 150 g/l" });
+    // Numbering must reach the model too: the tool result it read carries src.
+    expect(events.indexOf(src)).toBe(events.length - 2);
+  });
+
   it("a lab tool with no patient pinned tells the model, not the reader", async () => {
     const env = makeEnv();
     const s = await mintSession(SECRET, 600, 12);

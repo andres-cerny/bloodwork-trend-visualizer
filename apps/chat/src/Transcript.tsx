@@ -8,19 +8,40 @@
  * trust the number in it.
  */
 import { Chart } from "@bw/ui-kit";
+import Sources, { type Source } from "./Sources";
 
 export interface Turn {
-  role: "user" | "assistant" | "tool" | "chart";
+  role: "user" | "assistant" | "tool" | "chart" | "sources";
   content: string;
   /** Tool rows only: still running, or the outcome. */
   pending?: boolean;
   ok?: boolean;
   /** Chart rows only: the spec the model named and the series the server filled. */
   chart?: { spec: unknown; series: unknown };
+  /** Sources rows only: the turn's evidence, numbered by the server. */
+  sources?: Source[];
+}
+
+/**
+ * An answer with [n] markers, rendered so each marker is a superscript chip.
+ * The chips are text, not links — the sources panel right below the answer is
+ * where they resolve, and a number with no panel entry visibly points at
+ * nothing, which is the point.
+ */
+function withMarkers(text: string) {
+  const parts = text.split(/(\[\d+\])/g);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => {
+    const m = /^\[(\d+)\]$/.exec(part);
+    return m ? <sup key={i} className="cite">{m[1]}</sup> : part;
+  });
 }
 
 /** Czech for what each tool does, so the step reads as a sentence. */
 const TOOL_LABEL: Record<string, string> = {
+  find_patient: "hledá pacienta v kartotéce",
+  search_documents: "prohledává dokumentaci",
+  get_document: "otevírá dokument",
   list_analytes: "hledá dostupné parametry",
   get_trend: "načítá vývoj hodnoty",
   summarize_changes: "porovnává odběry",
@@ -78,9 +99,12 @@ export default function Transcript({
             </div>
           );
         }
+        if (t.role === "sources") {
+          return <Sources key={i} sources={t.sources ?? []} />;
+        }
         return (
           <div key={i} className={`msg ${t.role === "user" ? "user" : "bot"}`}>
-            {t.content}
+            {t.role === "assistant" ? withMarkers(t.content) : t.content}
           </div>
         );
       })}

@@ -14,7 +14,7 @@
  * of bug. It stops and says so rather than continuing quietly.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { runTool, TOOLS, type ToolContext, type ToolResult } from "@bw/agent-tools";
+import { runTool, TOOLS, type SourceInfo, type ToolContext, type ToolResult } from "@bw/agent-tools";
 import { clientFor, usageOf, type Usage } from "./client";
 import type { AgentEvent } from "./events";
 import type { Profile } from "./profiles";
@@ -63,6 +63,13 @@ export async function* runAgent(opts: {
 
   let total = zero();
 
+  // The turn's evidence registry. The loop owns numbering so it is stable
+  // across rounds and tools; tools embed the numbers in what the model reads.
+  const sources: Array<{ n: number } & SourceInfo> = [];
+  const ctx: ToolContext | undefined = data
+    ? { ...data, cite: (s: SourceInfo) => sources.push({ n: sources.length + 1, ...s }) }
+    : undefined;
+
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const stream = client.messages.stream({
       model: profile.model,
@@ -85,6 +92,7 @@ export async function* runAgent(opts: {
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
     );
     if (calls.length === 0) {
+      if (sources.length > 0) yield { type: "sources", sources };
       yield { type: "done", usage: total, model: profile.model };
       return;
     }
@@ -103,7 +111,7 @@ export async function* runAgent(opts: {
 
     for (const call of calls) {
       yield { type: "tool_start", id: call.id, name: call.name, input: call.input };
-      const r: ToolResult = await runTool(call.name, call.input as Record<string, unknown>, data);
+      const r: ToolResult = await runTool(call.name, call.input as Record<string, unknown>, ctx!);
       yield { type: "tool_result", id: call.id, name: call.name, ok: r.ok, summary: r.summary };
       // A chart is emitted as its own event so the client can draw it without
       // parsing the model's prose. The series came from the data source, never
