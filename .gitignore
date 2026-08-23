@@ -31,7 +31,7 @@ dist/
 # Source lab PDFs and everything derived from them.
 data/
 samples/*.pdf
-web/public/demo/real/
+apps/bloodwork/public/demo/real/
 
 # macOS venv (the checked-in .venv layout is Windows-only)
 .venv-mac/

@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "bloodwork-demo",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-01-01",
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // SPA: unknown paths fall through to index.html rather than 404ing.
+    "not_found_handling": "single-page-application",
+    // Declares what the shell handles, rather than leaving it to a prefix check
+    // that happens to run because no asset matched. wrangler 4 accepts the
+    // array form; v3 was boolean-only, which is why the upgrade came first.
+    "run_worker_first": ["/api/*"]
+  },
+
+  "services": [
+    { "binding": "AGENT", "service": "bloodwork-agent" },
+    { "binding": "EXTRACT", "service": "bloodwork-extract" }
+  ],
+
+  "observability": { "enabled": true }
+}

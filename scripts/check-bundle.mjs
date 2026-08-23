@@ -16,23 +16,44 @@
  *   node scripts/check-bundle.mjs        # run standalone
  *   npm run deploy                       # runs automatically
  */
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DIST = "dist/assets";
-const ENV_FILE = ".env";
-const KEY = "VITE_TURNSTILE_SITE_KEY";
+/**
+ *   node scripts/check-bundle.mjs <dist-dir> [--key NAME]
+ *
+ * The dist directory is an argument because there are two apps now, and each
+ * gets its own invocation from its own deploy script.
+ */
+const args = process.argv.slice(2);
+const DIST = args.find((a) => !a.startsWith("--")) ?? "apps/bloodwork/dist";
+const keyFlag = args.indexOf("--key");
+const KEY = keyFlag === -1 ? "VITE_TURNSTILE_SITE_KEY" : args[keyFlag + 1];
+// Anchored to this file rather than to cwd: run through `npm -w`, the working
+// directory is the workspace, and a cwd-relative .env would be the wrong file
+// — or no file, which this script reports as "not configured".
+const ENV_FILE = fileURLToPath(new URL("../.env", import.meta.url));
 
 function fail(message) {
   console.error(`\n✗ bundle check failed\n\n${message}\n`);
   process.exit(1);
 }
 
-if (!existsSync(DIST)) fail(`No build found at ${DIST}. Run \`npm run build\` first.`);
+if (!existsSync(DIST) || !statSync(DIST).isDirectory())
+  fail(`No build found at ${DIST}. Run \`npm run build\` first.`);
 
-const bundle = readdirSync(DIST)
-  .filter((f) => f.endsWith(".js"))
-  .map((f) => readFileSync(join(DIST, f), "utf-8"))
+/** Every emitted script, wherever Vite put it — assetsDir is configurable. */
+function scripts(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) return scripts(full);
+    return /\.m?js$/.test(e.name) ? [full] : [];
+  });
+}
+
+const bundle = scripts(DIST)
+  .map((f) => readFileSync(f, "utf-8"))
   .join("\n");
 
 

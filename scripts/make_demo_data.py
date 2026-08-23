@@ -40,7 +40,7 @@ from src.matching import Registry, norm_key  # noqa: E402
 from src.models import AnalyteDef, Measurement  # noqa: E402
 from src.normalize import normalize_measurement  # noqa: E402
 
-OUT = ROOT / "web" / "public" / "demo"
+OUT = ROOT / "apps" / "bloodwork" / "public" / "demo"
 IMG_DIR = OUT / "pages"
 RENDER_DPI = 220
 

@@ -2,7 +2,7 @@
 
 Reads the reports you already processed with the Streamlit tool (``data/``),
 strips the patient's identity from both the JSON *and* the rendered page
-images, and writes the result into ``web/public/demo/`` where the SPA reads it.
+images, and writes the result into ``apps/bloodwork/public/demo/`` where the SPA reads it.
 
 The page images are the part that is easy to get wrong: they are pictures of
 the original lab reports, and the printed header carries the patient's name and
@@ -43,7 +43,7 @@ sys.path.insert(0, str(ROOT))
 from src.config import RENDER_DPI, SAMPLES_DIR, UPLOADS_DIR  # noqa: E402
 from src.storage import list_reports  # noqa: E402
 
-OUT = ROOT / "web" / "public" / "demo"
+OUT = ROOT / "apps" / "bloodwork" / "public" / "demo"
 IMG_DIR = OUT / "pages"
 
 

@@ -4,7 +4,7 @@ Resolved from the repository, not from the system, and that is the whole point.
 
 These generators produce output whose bytes depend on the font: glyph widths
 move text, which moves the row bounding boxes and the rendered page images that
-`web/public/demo/` and `packages/lab-core/tests/fixtures/` are committed copies of. CI
+`apps/bloodwork/public/demo/` and `packages/lab-core/tests/fixtures/` are committed copies of. CI
 regenerates and asserts no diff, so any machine with a different font — or a
 different *version* of the same font — produced a spurious diff. Bundling the
 font removes the variable entirely: no install step, no platform branch, no

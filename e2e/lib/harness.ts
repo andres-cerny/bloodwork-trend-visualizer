@@ -46,10 +46,16 @@ export async function startApp(port: number): Promise<Harness> {
   const base = `http://localhost:${port}/`;
   // Serve the built app, so this tests what would actually be deployed rather
   // than the dev server's transformed output.
-  const server: ChildProcess = spawn("npx", ["vite", "preview", "--port", String(port)], {
-    stdio: "ignore",
-    detached: false,
-  });
+  // The app has its own vite config now, and `npx vite preview` from the repo
+  // root would find none — it would serve the root directory as a static tree.
+  const server: ChildProcess = spawn(
+    "npx",
+    ["vite", "preview", "--config", "apps/bloodwork/vite.config.ts", "--port", String(port)],
+    {
+      stdio: "ignore",
+      detached: false,
+    },
+  );
   await waitForServer(base);
   const browser: Browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,

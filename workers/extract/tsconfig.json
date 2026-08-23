@@ -1,0 +1,15 @@
+{
+  /*
+   * Worker code: @cloudflare/workers-types alone in `types`. Combined with
+   * @types/node it collides on Request, Response and fetch — which is why the
+   * route tests run in plain node against this program rather than in a
+   * Workers pool.
+   */
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "tsBuildInfoFile": "../../node_modules/.tmp/worker-extract.tsbuildinfo"
+  },
+  "include": ["src", "tests"]
+}

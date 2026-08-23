@@ -53,9 +53,9 @@ jobs:
 
       # The published demo must never contain real patient data. The generator
       # is synthetic, so regenerating it must produce no diff — if it does,
-      # something else wrote into web/public/demo.
+      # something else wrote into apps/bloodwork/public/demo.
       - name: Demo data is reproducible and synthetic
         run: |
           python3 -m scripts.seed_registry
           python3 -m scripts.make_demo_data
-          git diff --exit-code -- web/public/demo/reports.json web/public/demo/registry.json
+          git diff --exit-code -- apps/bloodwork/public/demo/reports.json apps/bloodwork/public/demo/registry.json

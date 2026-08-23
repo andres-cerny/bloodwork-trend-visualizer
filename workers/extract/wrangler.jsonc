@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "bloodwork-extract",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // No assets. Reachable only through the app shells' service bindings, so
+  // there is no second public origin to defend.
+  "workers_dev": false,
+
+  "kv_namespaces": [{ "binding": "BUDGET", "id": "1a27795146e44c9092169ad7c86fa882" }],
+
+  "vars": {
+    "BUDGET_USD_LIMIT": "40",
+    "MAX_PAGES_PER_SESSION": "100",
+    "SESSION_TTL_SECONDS": "1800",
+    "SINGLE_MODEL": "0"
+  },
+
+  "observability": { "enabled": true }
+
+  // Secrets: ANTHROPIC_API_KEY, TURNSTILE_SECRET_KEY, SESSION_SECRET
+}

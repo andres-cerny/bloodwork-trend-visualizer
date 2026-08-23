@@ -34,7 +34,7 @@ export default defineWorkspace([
   {
     test: {
       name: "web",
-      root: "./web",
+      root: "./apps/bloodwork",
       include: ["tests/**/*.test.ts"],
       environment: "node",
     },
@@ -49,8 +49,24 @@ export default defineWorkspace([
   },
   {
     test: {
-      name: "worker",
-      root: "./worker",
+      name: "agent",
+      root: "./workers/agent",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
+      name: "bloodwork-shell",
+      root: "./apps/bloodwork/worker",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
+      name: "extract",
+      root: "./workers/extract",
       include: ["tests/**/*.test.ts"],
       environment: "node",
     },

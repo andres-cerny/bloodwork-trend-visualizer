@@ -1,4 +1,13 @@
 {
-  "files": [],
-  "references": [{ "path": "./tsconfig.web.json" }, { "path": "./tsconfig.worker.json" }]
+  /*
+   * The repo's tooling. No longer a solution file — each app, package and
+   * worker owns a leaf project, and `npm run typecheck` walks them.
+   */
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tools.tsbuildinfo"
+  },
+  "include": ["bench", "e2e", "tests/live", "config", "vitest.workspace.ts", "apps/*/vite.config.ts"]
 }
