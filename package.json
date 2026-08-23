@@ -23,7 +23,7 @@
     "bench:batch": "vitest run --config bench/vitest.config.ts bench/batch.bench.ts",
     "bench:triage": "vitest run --config bench/vitest.config.ts bench/triage.bench.ts",
     "bench:docling": "vitest run --config bench/vitest.config.ts bench/docling_eval.bench.ts",
-    "typecheck": "tsc -b && tsc -p tsconfig.tools.json",
+    "typecheck": "tsc -b && tsc -p tsconfig.tools.json && npm run typecheck --workspaces --if-present",
     "test:hooks": "node .claude/hooks/privacy-guard.test.mjs"
   },
   "dependencies": {
@@ -43,5 +43,10 @@
     "vite": "^5.4.10",
     "vitest": "^2.1.4",
     "wrangler": "^4.125.0"
-  }
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "workers/*"
+  ]
 }

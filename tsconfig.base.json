@@ -1,0 +1,28 @@
+{
+  /*
+   * Options shared by every project in the repo. No `include`, no `files` —
+   * each leaf project states what it owns.
+   *
+   * Deliberately not `composite`. A composite project requires every file in
+   * its program to be matched by its own `include`, which cannot hold once a
+   * package imports another package's source; and a referenced project
+   * resolves through emitted .d.ts, which would mean reintroducing a build
+   * step that nothing here wants. Packages are consumed as TypeScript source:
+   * Vite, esbuild-inside-wrangler and Vitest all compile .ts directly.
+   *
+   * Runtime discipline is enforced per project with `lib` and `types` instead —
+   * worker-side projects get no DOM, browser-side projects get no
+   * @cloudflare/workers-types. Those two type sets collide on Request/Response/
+   * fetch, so no project may hold both.
+   */
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  }
+}
