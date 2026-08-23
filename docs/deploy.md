@@ -67,7 +67,35 @@ Generate it rather than inventing it:
 openssl rand -base64 32
 ```
 
-### 4. Deploy
+### 4. The chat demo's data (D1 + R2)
+
+The two practices live in two D1 databases; the ids committed in
+`workers/agent/wrangler.jsonc` belong to the existing deployment — create your
+own only when standing one up fresh:
+
+```sh
+npx wrangler d1 create bloodwork-chat-sport
+npx wrangler d1 create bloodwork-chat-orto
+npx wrangler r2 bucket create bloodwork-chat-evidence
+```
+
+Schema, then the committed synthetic seeds (regenerable by
+`python3 -m scripts.make_chat_demo` and `make_chat_docs` from `tools/pipeline`):
+
+```sh
+cd workers/agent
+for db in bloodwork-chat-sport bloodwork-chat-orto; do
+  npx wrangler d1 execute $db --remote --file schema.sql -y
+done
+npx wrangler d1 execute bloodwork-chat-sport --remote --file ../../tools/pipeline/out/seed_sport.sql -y
+npx wrangler d1 execute bloodwork-chat-orto  --remote --file ../../tools/pipeline/out/seed_orto.sql  -y
+```
+
+The seeds open with `DELETE FROM`, so reseeding replaces rather than
+duplicates. The one real patient record is seeded separately, from `samples/`,
+by a machine that holds it — it exists in D1 and R2 only, never in git.
+
+### 5. Deploy
 
 ```sh
 npm run deploy
@@ -114,10 +142,13 @@ reports and added to the ledger; once the total reaches the ceiling the route
 returns 402 and the UI disables the feature. The pre-baked demo keeps working,
 because serving it costs nothing.
 
-**The two capabilities have separate ledgers.** They used to share one, which
-meant a batch of uploads could freeze the chat. Keys are `spend_usd_agent_*` and
-`spend_usd_extract_*`; pre-split `spend_usd_shard_*` keys are still read, so an
-existing deployment's history is not zeroed by the upgrade.
+**Every capability has its own ledger.** They used to share one, which meant a
+batch of uploads could freeze the chat. Keys are `spend_usd_agent_*`,
+`spend_usd_extract_*`, and — one per practice — `spend_usd_clinical-sport_*` /
+`spend_usd_clinical-orto_*`, each clinical ledger capped by
+`CLINICAL_USD_LIMIT` (default $10). Pre-split `spend_usd_shard_*` keys are
+still read, but only into the two ledgers that existed when they were written —
+a new capability is not pre-charged with history it never spent.
 
 ```sh
 # what has been spent
