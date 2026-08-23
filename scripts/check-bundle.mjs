@@ -75,6 +75,35 @@ const SERVER_ONLY = [
   ["the agent tool loop", /Agent nedospěl k odpovědi/],
 ];
 
+/**
+ * Code a given app must not contain at all.
+ *
+ * The chat app renders; it does not reason. It answers about a patient without
+ * holding a line of lab code, because every number it shows arrived through the
+ * agent from the deterministic layer. That is what will let the data source
+ * move from the browser to a doctor's database without the client changing —
+ * and it is invisible until someone imports lab-core "just for a type" and the
+ * boundary is gone with nothing failing.
+ */
+const FORBIDDEN_BY_APP = {
+  chat: [
+    ["lab domain code", /normalizeMeasurement|buildTrends|parseCzechNumber|suggestMappings/],
+    ["pdf.js", /pdfjs|GlobalWorkerOptions/],
+  ],
+};
+
+const appName = Object.keys(FORBIDDEN_BY_APP).find((n) => DIST.includes(`apps/${n}/`));
+for (const [what, pattern] of FORBIDDEN_BY_APP[appName] ?? []) {
+  if (pattern.test(bundle)) {
+    fail(
+      `${what} is in the ${appName} app's bundle.\n\n` +
+        `This app renders; it does not reason. Every number it shows came\n` +
+        `through the agent from the deterministic layer, and importing the\n` +
+        `domain directly removes the boundary that makes that true.`,
+    );
+  }
+}
+
 for (const [what, pattern] of SERVER_ONLY) {
   if (pattern.test(bundle)) {
     fail(

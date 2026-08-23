@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "bloodwork-chat",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-01-01",
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Only the agent. No extractor binding — this app has no upload.
+  "services": [{ "binding": "AGENT", "service": "bloodwork-agent" }],
+
+  "observability": { "enabled": true }
+}
