@@ -1,0 +1,14 @@
+{
+  "id": "document_metric",
+  "why": "VO2max lives only in a document, never in the lab tables. The answer must come from the document (with the value the document prints), not from an estimate.",
+  "question": "Jaké je poslední VO2max Tomáše Hrubého?",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["find_patient"],
+    "toolsMode": "contains",
+    "mustMention": ["64,8"],
+    "mustMentionMode": "all",
+    "numbersMustBeGrounded": true
+  }
+}

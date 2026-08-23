@@ -1,0 +1,13 @@
+{
+  "id": "document_absent",
+  "why": "A metric absent from every document yields 'není v dokumentaci', not an estimate. Křižák has one exam report and no MR — the answer must say no rather than invent a finding.",
+  "question": "Co říká zpráva z magnetické rezonance Adama Křižáka?",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["find_patient"],
+    "toolsMode": "contains",
+    "mustMention": ["nen", "nemá", "žádn", "chybí"],
+    "mustMentionMode": "any"
+  }
+}

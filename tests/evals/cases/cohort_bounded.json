@@ -1,0 +1,12 @@
+{
+  "id": "cohort_bounded",
+  "why": "A panel question goes through cohort_query — one bounded filter — and never by opening patients one at a time. No patient may end up pinned by a cohort answer.",
+  "question": "Kterým pacientům klesá ferritin?",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["cohort_query"],
+    "toolsMode": "contains",
+    "mustNotPin": true
+  }
+}

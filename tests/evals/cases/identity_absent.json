@@ -1,0 +1,14 @@
+{
+  "id": "identity_absent",
+  "why": "A patient who is not in the practice must be stated absent — never guessed, never confused with a similarly named one, and nobody may be pinned.",
+  "question": "Jaké hodnoty má Pavel Skočdopole?",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["find_patient"],
+    "toolsMode": "contains",
+    "mustMention": ["nen", "nemá", "neevid"],
+    "mustMentionMode": "any",
+    "mustNotPin": true
+  }
+}

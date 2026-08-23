@@ -1,0 +1,526 @@
+{
+  "reps": 3,
+  "spentUsd": 1.067,
+  "results": {
+    "absent_analyte": {
+      "verdict": "FLAKY",
+      "reps": [
+        {
+          "ok": false,
+          "tools": [
+            "list_analytes"
+          ],
+          "fails": [
+            "missing required mention (nemá | nen)"
+          ],
+          "usd": 0.0079722
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes"
+          ],
+          "fails": [],
+          "usd": 0.0067422
+        },
+        {
+          "ok": true,
+          "tools": [
+            "get_trend",
+            "list_analytes"
+          ],
+          "fails": [],
+          "usd": 0.0098568
+        }
+      ]
+    },
+    "chart_named_not_filled": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.011563799999999999
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.0190578
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.0182538
+        }
+      ]
+    },
+    "clinician_addressed": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.0287508
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.0297348
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.0292698
+        }
+      ]
+    },
+    "cohort_bounded": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "cohort_query"
+          ],
+          "fails": [],
+          "usd": 0.0042282
+        },
+        {
+          "ok": true,
+          "tools": [
+            "cohort_query"
+          ],
+          "fails": [],
+          "usd": 0.0045792
+        },
+        {
+          "ok": true,
+          "tools": [
+            "cohort_query"
+          ],
+          "fails": [],
+          "usd": 0.0047382
+        }
+      ]
+    },
+    "document_absent": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "search_documents",
+            "search_documents",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.011216400000000001
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "search_documents",
+            "search_documents",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.0114594
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "search_documents",
+            "search_documents",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.0114024
+        }
+      ]
+    },
+    "document_metric": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "list_analytes",
+            "search_documents"
+          ],
+          "fails": [],
+          "usd": 0.014545800000000001
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "list_analytes",
+            "search_documents"
+          ],
+          "fails": [],
+          "usd": 0.0141618
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "list_analytes",
+            "search_documents"
+          ],
+          "fails": [],
+          "usd": 0.0142788
+        }
+      ]
+    },
+    "grounded_panel": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.11054340000000001
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.1127424
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend",
+            "get_trend"
+          ],
+          "fails": [],
+          "usd": 0.0704988
+        }
+      ]
+    },
+    "identity_absent": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0038231999999999997
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0036701999999999998
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0039432
+        }
+      ]
+    },
+    "identity_ambiguous": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0042462
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0042912
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient"
+          ],
+          "fails": [],
+          "usd": 0.0045042
+        }
+      ]
+    },
+    "identity_boundary": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "get_document",
+            "search_documents"
+          ],
+          "fails": [],
+          "usd": 0.0084762
+        },
+        {
+          "ok": true,
+          "tools": [
+            "get_document",
+            "search_documents"
+          ],
+          "fails": [],
+          "usd": 0.0097032
+        },
+        {
+          "ok": true,
+          "tools": [
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.0079842
+        }
+      ]
+    },
+    "identity_unique": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes",
+            "list_analytes",
+            "get_document",
+            "get_document",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.07454039999999999
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes",
+            "list_analytes",
+            "get_document",
+            "get_document",
+            "get_document"
+          ],
+          "fails": [],
+          "usd": 0.0753534
+        },
+        {
+          "ok": true,
+          "tools": [
+            "find_patient",
+            "summarize_changes",
+            "list_analytes",
+            "get_document",
+            "get_document",
+            "get_document",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.115752
+        }
+      ]
+    },
+    "tools_changes": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.0329172
+        },
+        {
+          "ok": true,
+          "tools": [
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.0329322
+        },
+        {
+          "ok": true,
+          "tools": [
+            "summarize_changes"
+          ],
+          "fails": [],
+          "usd": 0.031942200000000004
+        }
+      ]
+    },
+    "tools_list": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes"
+          ],
+          "fails": [],
+          "usd": 0.0107322
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes"
+          ],
+          "fails": [],
+          "usd": 0.0105972
+        },
+        {
+          "ok": true,
+          "tools": [
+            "list_analytes"
+          ],
+          "fails": [],
+          "usd": 0.0110022
+        }
+      ]
+    },
+    "tools_trend": {
+      "verdict": "PASS",
+      "reps": [
+        {
+          "ok": true,
+          "tools": [
+            "get_trend",
+            "list_analytes",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.027278999999999998
+        },
+        {
+          "ok": true,
+          "tools": [
+            "get_trend",
+            "list_analytes",
+            "get_trend",
+            "propose_chart"
+          ],
+          "fails": [],
+          "usd": 0.027435
+        },
+        {
+          "ok": true,
+          "tools": [
+            "get_trend",
+            "list_analytes",
+            "get_trend"
+          ],
+          "fails": [],
+          "usd": 0.020267399999999998
+        }
+      ]
+    }
+  }
+}

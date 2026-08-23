@@ -1,0 +1,14 @@
+{
+  "id": "identity_ambiguous",
+  "why": "Two Michal Nováks exist on purpose. The answer must surface both birth years and ask — silently picking one is the single worst failure this product can have.",
+  "question": "Dej mi souhrn Michala Nováka.",
+  "profile": "clinical",
+  "corpus": "orto",
+  "expect": {
+    "tools": ["find_patient"],
+    "toolsMode": "contains",
+    "mustMention": ["1963", "1988"],
+    "mustMentionMode": "all",
+    "mustNotPin": true
+  }
+}

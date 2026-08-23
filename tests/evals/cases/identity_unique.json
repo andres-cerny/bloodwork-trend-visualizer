@@ -1,0 +1,15 @@
+{
+  "id": "identity_unique",
+  "why": "The demo minute: a name in the question must resolve, pin, and be summarized in ONE turn. If this needs a second ask, the flagship flow is broken.",
+  "question": "Dej mi souhrn Tomáše Hrubého.",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["find_patient"],
+    "toolsMode": "contains",
+    "mustMention": ["hrub"],
+    "mustMentionMode": "all",
+    "mustPin": true,
+    "numbersMustBeGrounded": true
+  }
+}

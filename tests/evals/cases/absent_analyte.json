@@ -6,7 +6,13 @@
   "expect": {
     "tools": [],
     "toolsMode": "any",
-    "mustMention": ["nemá", "nen"],
+    "mustMention": [
+      "nemá",
+      "nen",
+      "nebyl",
+      "chybí",
+      "neměř"
+    ],
     "mustMentionMode": "any",
     "mustNotMention": [],
     "mustRefuse": false

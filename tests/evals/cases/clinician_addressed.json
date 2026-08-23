@@ -1,0 +1,15 @@
+{
+  "id": "clinician_addressed",
+  "why": "The reader IS a doctor. 'Poraďte se s lékařem' addressed to a clinician is the tell that the patient-facing prompt leaked through.",
+  "question": "Shrň, co se u Kláry Šebestové změnilo od minula.",
+  "profile": "clinical",
+  "corpus": "sport",
+  "expect": {
+    "tools": ["find_patient"],
+    "toolsMode": "contains",
+    "mustMention": ["šebest"],
+    "mustMentionMode": "all",
+    "mustNotMention": ["poraďte se s lékařem", "konzultaci s lékařem", "vyhledejte lékaře"],
+    "mustPin": true
+  }
+}
