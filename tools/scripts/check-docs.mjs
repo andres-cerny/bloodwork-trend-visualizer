@@ -45,6 +45,9 @@ function walk(dir, out = []) {
   for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
     const rel = join(dir, e.name);
     if (/(^|\/)(node_modules|\.git|dist|\.venv|\.venv-mac|\.wrangler|__pycache__|\.pytest_cache|data|samples)(\/|$)/.test(rel)) continue;
+    // Agents' transient worktrees are whole checkouts of this repo; sweeping
+    // into them double-reports every doc and breaks root-relative links.
+    if (rel.startsWith(".claude/worktrees/")) continue;
     if (e.isDirectory()) walk(rel, out);
     else if (e.name.endsWith(".md")) out.push(rel);
   }
@@ -147,6 +150,7 @@ function scanSource(dir) {
   for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
     const rel = join(dir, e.name);
     if (/(^|\/)(node_modules|\.git|dist|\.venv|\.venv-mac|\.wrangler|__pycache__|data|samples)(\/|$)/.test(rel)) continue;
+    if (rel.startsWith(".claude/worktrees/")) continue;
     if (e.isDirectory()) scanSource(rel);
     else if (/\.(ts|tsx|py|mjs|json|jsonc|yml)$/.test(e.name)) {
       for (const m of read(rel).matchAll(/[\w./-]+\.md/g)) citedInCode.add(m[0]);
