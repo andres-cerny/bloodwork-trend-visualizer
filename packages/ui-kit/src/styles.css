@@ -36,6 +36,12 @@
   --critical-ink: #b32828;
   --band: rgba(42, 120, 214, 0.09);
   --chip: #eeede8;
+  /* A scanned page is paper, and paper is not a surface — it is an asset with
+     its own white in it. `--paper` is the mat the crop sits on, `--paper-dim`
+     the filter that stops a full-brightness scan reading as a lightbox in the
+     dark palette. Both palettes define both; only the value differs. */
+  --paper: #ffffff;
+  --paper-dim: none;
 
   --radius: 10px;
   --radius-sm: 7px;
@@ -83,6 +89,8 @@
   --dk-critical-ink: #ec8a8a;
   --dk-band: rgba(57, 135, 229, 0.14);
   --dk-chip: #262625;
+  --dk-paper: #d9d7d0;
+  --dk-paper-dim: brightness(0.72) contrast(1.06);
   --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --dk-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
   --dk-shadow-lg: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
@@ -109,6 +117,8 @@
     --critical-ink: var(--dk-critical-ink);
     --band: var(--dk-band);
     --chip: var(--dk-chip);
+    --paper: var(--dk-paper);
+    --paper-dim: var(--dk-paper-dim);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);
@@ -136,6 +146,8 @@
     --critical-ink: var(--dk-critical-ink);
     --band: var(--dk-band);
     --chip: var(--dk-chip);
+    --paper: var(--dk-paper);
+    --paper-dim: var(--dk-paper-dim);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);

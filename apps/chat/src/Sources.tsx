@@ -12,7 +12,16 @@
  *
  * Re-homed in the second pass — the same components now render into the right
  * rail on a desktop and into a „Zdroje (n)" disclosure under the answer on a
- * phone. The crop mechanics below did not change.
+ * phone.
+ *
+ * The crop mechanics did change, in the polish pass, and in one direction: a
+ * crop only exists where the pipeline located a row. With a bbox the card
+ * shows that row, cropped in both axes and scaled until its type is legible,
+ * with the row itself marked. Without one there is nothing to point at — a
+ * whole report cited as a whole — and the card is a compact row of label, lab
+ * and date whose page is one click away. Six cards each showing the top of a
+ * different A4 sheet at 5px type taught a reader nothing and cost the rail its
+ * whole height.
  */
 import { useEffect, useRef, useState } from "react";
 
@@ -33,55 +42,92 @@ export interface Source {
   pageH?: number | null;
 }
 
-/** Vertical breathing room around the located row, in page pixels. */
+/** Breathing room around the located row, in page pixels. */
 const BLEED_Y = 10;
+const BLEED_X = 16;
+/** …and how far outside the located text the mark is drawn, so it rings the
+    row rather than cutting through its first and last glyph. */
+const MARK_PAD = 6;
 
 /**
- * The whole printed row, full page width: the located bbox gives the row's
- * vertical band, and the crop shows that band across the entire page — the
- * value, unit and reference range are what a reader wants, and the bbox often
- * covers only the words the locator searched for.
+ * The smallest the located row's own type may render at, in CSS pixels.
  *
- * Pure CSS: the wrapper's aspect-ratio reserves the band's height at any
- * panel width, and the image is shifted up by the band's start as a fraction
- * of its own height. No measurement, no layout thrash.
+ * The old crop was the whole page scaled into a ~310px card: the lab table's
+ * body type landed at four to six CSS pixels, so the numbers a doctor is being
+ * asked to trust were a grey smudge. A crop that cannot be read is not
+ * evidence, it is a picture of evidence.
+ */
+const MIN_ROW_PX = 12;
+
+/**
+ * The located row, cropped in BOTH axes and scaled to be readable.
+ *
+ * The bbox gives the row's band; the crop is that band plus a little bleed,
+ * and the page image inside it is scaled so the row's own text clears
+ * MIN_ROW_PX. Where the band is wider than the card at that scale the card
+ * clips it — the left of the row, which carries the parameter and its value,
+ * stays legible, and the whole page is one click away as it always was.
+ * Scaling to fit instead would put us back at six pixels.
+ *
+ * Still pure CSS, still no measurement: `max(px, %)` picks fit-to-width or the
+ * legibility floor, whichever is larger, and every offset is a percentage of
+ * the element it applies to, so the same numbers hold at any card width.
  */
 function RowCrop({
   src,
   bbox,
   pageW,
   pageH,
+  marked,
 }: {
   src: string;
   bbox: [number, number, number, number];
   pageW: number;
   pageH: number;
+  /** The answer's [n] is pointing here right now. */
+  marked: boolean;
 }) {
+  const x0 = Math.max(0, bbox[0] - BLEED_X);
+  const x1 = Math.min(pageW, bbox[2] + BLEED_X);
   const y0 = Math.max(0, bbox[1] - BLEED_Y);
   const y1 = Math.min(pageH, bbox[3] + BLEED_Y);
+  const bandW = Math.max(1, x1 - x0);
+  const bandH = Math.max(1, y1 - y0);
+  const rowH = Math.max(1, bbox[3] - bbox[1]);
+  // Scale at which the row's text is exactly MIN_ROW_PX tall.
+  const floor = MIN_ROW_PX / rowH;
+  const pct = (v: number, of: number) => `${(100 * v) / of}%`;
+
   return (
     <span
-      className="src-crop"
-      style={{ aspectRatio: `${pageW} / ${Math.max(1, y1 - y0)}` }}
+      className={`src-crop${marked ? " is-marked" : ""}`}
+      style={{
+        aspectRatio: `${bandW} / ${bandH}`,
+        minHeight: `${Math.round(bandH * floor)}px`,
+      }}
     >
-      <img src={src} alt="" style={{ transform: `translateY(${-(100 * y0) / pageH}%)` }} />
-    </span>
-  );
-}
-
-/**
- * A report cited as a whole has no located row — `bbox` is null, because
- * nothing on the page was searched for. The same crop is still the right
- * picture: the top of the sheet is the letterhead, the patient line and the
- * results table, and the bottom half of a generated report is blank paper.
- * Cropping to a fixed fraction of the page WIDTH keeps the card a predictable
- * shape whatever the page geometry is.
- */
-function PageHead({ src, pageW, pageH }: { src: string; pageW: number; pageH: number }) {
-  const band = Math.min(pageH, pageW * 0.82);
-  return (
-    <span className="src-crop" style={{ aspectRatio: `${pageW} / ${band}` }}>
-      <img src={src} alt="" />
+      <span className="src-band" style={{ width: `max(${Math.round(bandW * floor)}px, 100%)` }}>
+        <img
+          src={src}
+          alt=""
+          style={{
+            width: `max(${Math.round(pageW * floor)}px, ${pct(pageW, bandW)})`,
+            transform: `translate(-${pct(x0, pageW)}, -${pct(y0, pageH)})`,
+          }}
+        />
+        {/* The signal marker: [6] backs four different parameters on one
+            report, so the crop has to say which row it is, not which page. */}
+        <span
+          className="src-row"
+          aria-hidden="true"
+          style={{
+            left: pct(bbox[0] - MARK_PAD - x0, bandW),
+            width: pct(bbox[2] - bbox[0] + MARK_PAD * 2, bandW),
+            top: pct(bbox[1] - MARK_PAD / 2 - y0, bandH),
+            height: pct(rowH + MARK_PAD, bandH),
+          }}
+        />
+      </span>
     </span>
   );
 }
@@ -100,15 +146,24 @@ function SourceCard({
   const ref = useRef<HTMLDivElement>(null);
 
   // A [n] that focuses an entry the reader cannot see has focused nothing.
+  // The glide is ambient; a reader who asked for stillness still gets there.
   useEffect(() => {
-    if (active) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (!active) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ref.current?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
   }, [active]);
 
   const meta =
     s.kind === "lab" ? [s.lab, czDate(s.date)].filter(Boolean).join(" · ") : czDate(s.date);
 
+  const located = Boolean(s.kind === "lab" && s.imageUrl && s.pageW && s.pageH && s.bbox);
+
   return (
-    <div className={`src${active ? " is-active" : ""}`} ref={ref} id={`src-${s.n}`}>
+    <div
+      className={`src${active ? " is-active" : ""}${located ? "" : " is-compact"}`}
+      ref={ref}
+      id={`src-${s.n}`}
+    >
       <button
         type="button"
         className="src-head"
@@ -128,20 +183,22 @@ function SourceCard({
         )}
       </button>
 
-      {s.kind === "lab" &&
-        s.imageUrl &&
-        s.pageW &&
-        s.pageH &&
-        (s.bbox ? (
-          <RowCrop src={s.imageUrl} bbox={s.bbox} pageW={s.pageW} pageH={s.pageH} />
-        ) : (
-          <PageHead src={s.imageUrl} pageW={s.pageW} pageH={s.pageH} />
-        ))}
+      {located && (
+        <RowCrop
+          src={s.imageUrl as string}
+          bbox={s.bbox as [number, number, number, number]}
+          pageW={s.pageW as number}
+          pageH={s.pageH as number}
+          marked={active}
+        />
+      )}
       {s.kind === "document" && s.excerpt && (
         <blockquote className="src-quote">{s.excerpt}</blockquote>
       )}
       {open && s.imageUrl && (
-        <img className="src-page" src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
+        <span className="src-sheet">
+          <img className="src-page" src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
+        </span>
       )}
     </div>
   );

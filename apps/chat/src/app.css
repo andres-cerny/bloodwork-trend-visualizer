@@ -313,6 +313,7 @@
 .answer > *:first-child { margin-top: 0; }
 .answer > *:last-child { margin-bottom: 0; }
 .answer ul { margin: 0 0 12px; padding-left: 20px; }
+.answer ol { margin: 0 0 12px; padding-left: 22px; }
 .answer li { margin: 5px 0; }
 .answer li::marker { color: var(--ink-muted); }
 .answer strong { font-weight: 640; }
@@ -327,7 +328,10 @@
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
-  margin: 0 1px;
+  /* Leading gap only. A symmetric margin plus the space the text already
+     carries pushed the sentence's full stop a clear space off the word, on
+     nearly every bullet of the flagship answer. */
+  margin: 0 0 0 0.15em;
   vertical-align: 3px;
   border: 0;
   border-radius: 5px;
@@ -342,6 +346,56 @@
 .cite:hover { background: var(--series-1-soft); color: var(--accent-ink); }
 .cite.is-active { background: var(--accent); color: #fff; }
 .cite[data-orphan] { text-decoration: line-through; opacity: 0.65; }
+
+/* The word, its marker and the punctuation that follows travel together, so
+   a [6] never lands alone at the start of a line. */
+.cite-bond { white-space: nowrap; }
+
+/* Two patients with the same name is the riskiest moment in the product, and
+   as three ordinary paragraphs it read like prose. The candidates are a set:
+   bordered rows, numbered like the evidence cards, with the one thing that
+   tells them apart carrying the weight. */
+.answer ol.cands, ol.cands {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 14px;
+  padding: 0;
+}
+.cand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+.cand-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 19px;
+  height: 19px;
+  border-radius: 6px;
+  background: var(--chip);
+  color: var(--ink-2);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.cand-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.cand-key { font-weight: 700; color: var(--ink-1); }
 
 .writing { display: flex; gap: 5px; margin: 10px 0 0; }
 .writing span {
@@ -620,15 +674,54 @@
 .src-meta { font-size: 0.75rem; color: var(--ink-muted); overflow-wrap: anywhere; }
 .src-more { flex: none; color: var(--ink-muted); font-size: 1rem; line-height: 1.2; }
 
-/* The window the row is cropped into. Nothing outside it paints; the wrapper's
-   aspect-ratio (set inline from page geometry) reserves height. */
-.src-crop {
+/* The window the located row is cropped into.
+   Inline styles carry the page geometry: the wrapper's aspect-ratio reserves
+   the band's height, min-height holds the legibility floor when the band is
+   too wide to fit at that scale, and the band inside is the only thing that
+   paints. The mat, the hairline and the dimming are tokens, so the same rule
+   describes both palettes — a scan at full brightness on near-black chrome
+   reads as a lightbox, not as paper. */
+.src-crop, .src-sheet {
+  position: relative;
   display: block;
   overflow: hidden;
-  border-top: 1px solid var(--border);
-  background: #fff; /* the page is paper in both palettes */
+  margin: 0 8px 8px;
+  /* Explicit, because `aspect-ratio` with an auto width and a min-height runs
+     the other way: the floor on the height inflates the width to keep the
+     ratio, and the crop grows out of its card. Width is the card's; the ratio
+     only ever decides height. */
+  width: calc(100% - 16px);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px var(--border);
+  background: var(--paper);
 }
-.src-crop img { display: block; width: 100%; }
+.src-band {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: block;
+  overflow: hidden;
+}
+.src-band img {
+  display: block;
+  max-width: none;
+  filter: var(--paper-dim);
+}
+/* Which row the [n] is actually pointing at. Signal tokens: this is a mark
+   that means something, not decoration. */
+.src-row {
+  position: absolute;
+  border-radius: 3px;
+  /* A ring, not a wash. The crop *is* the row, so a fill over it covers the
+     whole strip and turns the paper into a highlighted field — the mark has to
+     say "this row" without getting between the reader and the numbers. */
+  box-shadow: inset 0 0 0 1.5px var(--series-1);
+}
+.src-crop.is-marked .src-row {
+  background: var(--series-1-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
 .src-quote {
   display: -webkit-box;
   -webkit-line-clamp: 7;
@@ -642,12 +735,11 @@
   line-height: 1.5;
   white-space: pre-line;
 }
-.src-page {
-  display: block;
-  width: 100%;
-  border-top: 1px solid var(--border);
-  background: #fff;
-}
+.src-page { display: block; width: 100%; filter: var(--paper-dim); }
+
+/* A report cited whole located no row, so there is no row to show. The card is
+   the label, the lab and the date — and the page, on demand. */
+.src.is-compact .src-head { padding: 8px 10px; }
 
 /* ------------------------------------------------------------------ *
  * The practice choice, for a bare URL. Two doors, nothing else.
@@ -740,9 +832,36 @@
   .dock { padding: 0 16px calc(14px + env(safe-area-inset-bottom)); }
   .starters { padding: 12px 16px 0; }
 
+  /* The gate is the first thing a doctor meets, and it was taking 47 % of an
+     844px viewport with the transcript clipped mid-sentence behind it. One
+     line of explanation, tighter rows: the reading path stays the majority of
+     the screen. */
+  .composer-row { padding: 5px 6px 5px 14px; }
+  .composer-input { padding: 8px 0; font-size: 0.97rem; }
+  .composer-gate { padding: 9px 14px 10px; gap: 7px; }
+  .composer-gate p { font-size: 0.78rem; line-height: 1.35; }
+  .composer-note { padding: 9px 14px 10px; font-size: 0.79rem; }
+
   .q { font-size: 1.26rem; }
   .answer { font-size: 0.97rem; }
   .hero h1 { font-size: 1.5rem; }
   .hero { padding-bottom: 20px; }
   .turn { padding: 18px 0 24px; }
+}
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion
+ *
+ * Every moving thing on this screen is ambient — a pulsing step dot, three
+ * writing dots, a drawer sliding in. None of them carries information the
+ * static state does not, so a reader who has asked for stillness loses
+ * nothing by getting it.
+ * ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .step.pending .step-dot,
+  .writing span {
+    animation: none;
+  }
+  .rail-left { transition: none; }
 }

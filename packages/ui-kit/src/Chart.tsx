@@ -10,7 +10,7 @@
  * polyline and some dots, and this keeps full control of touch targets and the
  * mobile viewBox without shipping a dependency.
  */
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   czExact,
   czNum,
@@ -48,16 +48,70 @@ export function niceTicks(lo: number, hi: number, target = 4): number[] {
   return out;
 }
 
-const W = 640;
-const H = 240;
+const BASE_W = 640;
+const BASE_H = 240;
 // Generous left padding: axis labels are rendered at a size that survives
 // being scaled down to a ~330px phone viewport, so they need the room.
 const PAD = { top: 18, right: 18, bottom: 30, left: 58 };
 
-export default function Chart({ trend }: { trend: Trend }) {
+/**
+ * Both of the options below are opt-in and default to off, and that is the
+ * point: this component is drawn by two apps. `bloodwork` renders it with no
+ * props and must keep rendering exactly the SVG it rendered yesterday — same
+ * viewBox, same domain, same glyph positions — so every addition here is a
+ * branch a caller has to ask for by name.
+ */
+export interface ChartOptions {
+  /**
+   * Widen the y domain to contain the reference limits.
+   *
+   * Off, the domain is the data (see the long note below) — right for a
+   * ferritin moving inside a 30–400 band. On, the band's edges are guaranteed
+   * to land inside the plot rect, which is what a reader wants when the
+   * question is "how much headroom is left before the lower limit": with the
+   * domain clipped to the data the tint fills the whole plot and says nothing.
+   */
+  refInDomain?: boolean;
+  /**
+   * Map the viewBox 1:1 onto the element's CSS width instead of scaling a
+   * fixed 640×240 canvas down to it.
+   *
+   * Scaling shrinks the type with everything else: at a 390px viewport the
+   * axis labels land at ~7 CSS px, smaller than the caption directly beneath
+   * them. Measured, the same `fontSize={13}` is 13 CSS px at every width, and
+   * the plot keeps a usable height on a phone rather than collapsing to the
+   * 240/640 of whatever room it was given.
+   */
+  fluid?: boolean;
+}
+
+/** Fluid height: a phone gets a readable plot, a desktop keeps today's shape. */
+const fluidHeight = (w: number) => Math.round(Math.min(300, Math.max(220, w * 0.38)));
+
+export default function Chart({
+  trend,
+  refInDomain = false,
+  fluid = false,
+}: { trend: Trend } & ChartOptions) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
+  const boxRef = useRef<HTMLElement>(null);
+  const [boxW, setBoxW] = useState(0);
   const pts = numericPoints(trend);
+
+  // Only fluid charts measure. A default chart never observes anything, so it
+  // cannot re-render differently from how it rendered before this prop existed.
+  useEffect(() => {
+    if (!fluid) return;
+    const el = boxRef.current;
+    if (!el) return;
+    const measure = () => setBoxW(Math.round(el.getBoundingClientRect().width));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fluid, pts.length]);
+
   if (pts.length === 0) return <p className="muted">Žádné číselné hodnoty k zobrazení.</p>;
 
   // One measurement is not a trend. Drawing it as a chart invents an axis
@@ -94,6 +148,12 @@ export default function Chart({ trend }: { trend: Trend }) {
     );
   }
 
+  // The canvas. Default: the fixed 640×240 viewBox, scaled to whatever width
+  // the caller gives it. Fluid: the viewBox *is* the CSS box, so a fontSize of
+  // 13 is 13 CSS px at 390px and at 1440px alike.
+  const W = fluid && boxW > 0 ? boxW : BASE_W;
+  const H = fluid && boxW > 0 ? fluidHeight(boxW) : BASE_H;
+
   const values = pts.map((p) => p.value as number);
   const lows = pts.map((p) => p.refLow).filter((v): v is number => v !== null);
   const highs = pts.map((p) => p.refHigh).filter((v): v is number => v !== null);
@@ -115,6 +175,18 @@ export default function Chart({ trend }: { trend: Trend }) {
   const nearHigh = highs.filter((v) => v <= hi + pad * 2);
   let yMin = Math.min(lo - pad, ...nearLow);
   let yMax = Math.max(hi + pad, ...nearHigh);
+
+  // Opt-in: take the limits into the domain and leave room past them, so the
+  // band has a visible top and bottom edge inside the plot rect instead of
+  // tinting the whole thing.
+  if (refInDomain && (lows.length > 0 || highs.length > 0)) {
+    const dLo = lows.length > 0 ? Math.min(lo, ...lows) : lo;
+    const dHi = highs.length > 0 ? Math.max(hi, ...highs) : hi;
+    const dSpan = dHi - dLo;
+    const dPad = dSpan > 0 ? dSpan * 0.12 : Math.abs(dHi) * 0.15 || 1;
+    yMin = dLo - dPad;
+    yMax = dHi + dPad;
+  }
 
   // A concentration or a count cannot be negative, and an axis that says
   // "-25,5" for ferritin undermines every number beside it.
@@ -158,7 +230,7 @@ export default function Chart({ trend }: { trend: Trend }) {
   const active = hover !== null ? pts[hover] : null;
 
   return (
-    <figure style={{ margin: 0 }}>
+    <figure style={{ margin: 0 }} ref={boxRef}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"

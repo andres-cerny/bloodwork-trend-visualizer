@@ -71,10 +71,11 @@ export default function Composer({
       ) : (
         !gate.ready && (
           <div className="composer-gate">
-            <p className="muted">
-              Odesílání dotazů odemkne krátké ověření, že nejste robot. Číst se dá i bez
-              něj.
-            </p>
+            {/* One line, deliberately. On a phone the pre-gate composer was
+                taking almost half the viewport and clipping the answer behind
+                it — and the second sentence („číst se dá i bez něj") was
+                explaining something the visible transcript already proves. */}
+            <p className="muted">Odeslání odemkne krátké ověření.</p>
             <div ref={gate.boxRef} />
             {gate.error && <p className="err">{gate.error}</p>}
           </div>

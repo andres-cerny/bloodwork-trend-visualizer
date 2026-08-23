@@ -88,12 +88,24 @@ function Steps({ tools, live }: { tools: ToolPart[]; live: boolean }) {
   );
 }
 
+/**
+ * Both Chart options are asked for here, by this app, on purpose.
+ *
+ * `refInDomain`: a doctor opening a trend in a conversation is asking "how
+ * close to the edge is this?", so the reference limits have to be on screen
+ * with room past them — a band that fills the plot rect answers nothing.
+ * `fluid`: this chart is read on a phone at 390px, where a scaled 640-wide
+ * viewBox puts the axis labels at ~7 CSS px, smaller than the caption under
+ * them. The bloodwork app draws the same component with neither, unchanged.
+ */
 function Charts({ series }: { series: unknown }) {
   const groups = (series ?? []) as Array<{ series: unknown[] }>;
   return (
     <div className="chart-card">
       {groups.flatMap((g, j) =>
-        (g.series as never[]).map((trend, k) => <Chart key={`${j}-${k}`} trend={trend} />),
+        (g.series as never[]).map((trend, k) => (
+          <Chart key={`${j}-${k}`} trend={trend} refInDomain fluid />
+        )),
       )}
     </div>
   );
