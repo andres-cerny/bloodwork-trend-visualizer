@@ -98,6 +98,7 @@ interface SiteverifyResult {
   hostname?: string;
   action?: string;
   "error-codes"?: string[];
+  metadata?: { result_with_testing_key?: boolean };
 }
 
 export async function verifyTurnstile(
@@ -129,6 +130,13 @@ export async function verifyTurnstile(
   }
 
   if (data.success !== true) return false;
+  // Cloudflare's published always-pass secrets answer with a canned response:
+  // hostname "example.com", no action — so the two proofs below cannot apply,
+  // and requiring them broke every dev session the day they were added. The
+  // flag is set by siteverify itself, and only when the SECRET this deployment
+  // configured is a testing key; a production deployment holds a real secret,
+  // so no token an attacker brings can raise it.
+  if (data.metadata?.result_with_testing_key === true) return true;
   if (typeof data.hostname !== "string" || !allowed.has(data.hostname)) return false;
   if (data.action !== expect.action) return false;
   return true;

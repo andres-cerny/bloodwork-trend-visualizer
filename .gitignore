@@ -61,3 +61,4 @@ tests/evals/output/*
 
 # Finder noise
 .DS_Store
+.env.development.local

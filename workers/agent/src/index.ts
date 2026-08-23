@@ -104,30 +104,32 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   // against this tenant's directory, so a ref from the other practice is
   // indistinguishable from a ref that never existed.
   let data: ToolContext | undefined;
+  // For tool profiles the context is the server's, never the client's: it
+  // states which patient is pinned, so the model does not ask for a patient
+  // it already has — and a client cannot inject instructions through it.
+  let serverContext = "";
   if (profile.tools.length > 0) {
     const t = TENANTS[String(tenant ?? "")];
     if (!t) return json({ error: "unknown_tenant", message: "Neznámá ordinace." }, 400);
     const db = env[t.binding] as unknown as D1Like;
     const directory = new PatientDirectory(db);
+    // Both branches carry bind: on a unique find_patient match the rest of
+    // the turn re-scopes to that patient. The pinned branch NEEDS it too —
+    // asking about a second patient while one is pinned used to update the
+    // chip (the patient event) while the tools kept reading the first one,
+    // which is cross-patient mislabeling, the worst failure this app has.
+    const ctx: ToolContext = { source: null, directory };
+    ctx.bind = (ref: string) => {
+      ctx.source = new DatabaseSource(db, ref);
+      ctx.documents = new D1DocumentStore(db, ref);
+    };
     if (patientRef !== undefined) {
       const patient = await directory.getPatient(String(patientRef));
       if (!patient) return json({ error: "unknown_patient", message: "Neznámý pacient." }, 400);
-      data = {
-        source: new DatabaseSource(db, patient.id),
-        directory,
-        documents: new D1DocumentStore(db, patient.id),
-      };
-    } else {
-      // Unpinned: find_patient can still run, and on a unique match it binds
-      // the rest of the turn through this closure — the ref came from the
-      // directory, so the guarantee holds that no source opens un-validated.
-      const ctx: ToolContext = { source: null, directory };
-      ctx.bind = (ref: string) => {
-        ctx.source = new DatabaseSource(db, ref);
-        ctx.documents = new D1DocumentStore(db, ref);
-      };
-      data = ctx;
+      ctx.bind(patient.id);
+      serverContext = `Vybraný pacient: ${patient.fullName}, nar. ${patient.birthDate}. Nástroje jsou na něj napojené; ptá-li se lékař na jiného pacienta, vyhledej ho nástrojem find_patient.`;
     }
+    data = ctx;
   }
 
   const stream = new ReadableStream<Uint8Array>({
@@ -139,7 +141,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
           apiKey: env.ANTHROPIC_API_KEY,
           profile,
           history,
-          context: (context ?? "").slice(0, 60000),
+          context: profile.tools.length > 0 ? serverContext : (context ?? "").slice(0, 60000),
           data,
         })) {
           if (event.type === "done") {

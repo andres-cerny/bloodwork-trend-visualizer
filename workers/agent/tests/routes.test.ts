@@ -59,12 +59,20 @@ function fakeD1(patients: Array<{ id: string; full_name: string; name_norm: stri
           return { results: patients.filter((p) => p.id === a[0]) };
         case SQL.patientsByName:
           return { results: patients.filter((p) => p.name_norm.includes(String(a[0]).replaceAll("%", ""))) };
-        case SQL.reportsForPatient:
-          return {
-            results: patients.some((p) => p.id === a[0])
-              ? [{ payload: JSON.stringify(TEST_REPORT) }]
-              : [],
-          };
+        case SQL.reportsForPatient: {
+          if (!patients.some((p) => p.id === a[0])) return { results: [] };
+          const rep =
+            a[0] === "p-other"
+              ? {
+                  ...TEST_REPORT,
+                  id: "r-2",
+                  measurements: [
+                    { ...TEST_REPORT.measurements[0], rawAnalyteName: "S_Ferritin", canonicalId: "ferritin", value: 42, valueRaw: "42", unit: "µg/l", refRangeLow: 30, refRangeHigh: 300 },
+                  ],
+                }
+              : TEST_REPORT;
+          return { results: [{ payload: JSON.stringify(rep) }] };
+        }
         case SQL.documentsForPatient:
         case SQL.searchDocuments:
         case SQL.pagesForDocument:
@@ -79,6 +87,9 @@ function fakeD1(patients: Array<{ id: string; full_name: string; name_norm: stri
 
 const SPORT_PATIENTS = [
   { id: "p-test", full_name: "Karel Tester", name_norm: "karel tester", birth_date: "1990-01-01", sex: "m", note: "" },
+  // Measured for ferritin, which p-test is not — the rebind test tells the
+  // two apart by what get_trend can find.
+  { id: "p-other", full_name: "Jana Druhá", name_norm: "jana druha", birth_date: "1985-06-15", sex: "f", note: "" },
 ];
 
 function makeEnv(over: Partial<Env> = {}): Env {
@@ -516,6 +527,28 @@ describe("tenancy and identity", () => {
     // "no patient selected" recovery. One ask, one summary.
     const lab = events.filter((e) => e.type === "tool_result").at(-1);
     expect(lab).toMatchObject({ name: "list_analytes", ok: true });
+  });
+
+  it("asking about a second patient re-scopes the tools, not just the chip", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    streamQueue = [
+      { text: "", toolUse: { name: "find_patient", input: { query: "Druhá" } } },
+      { text: "", toolUse: { name: "get_trend", input: { canonicalId: "ferritin" } } },
+    ];
+
+    // Pinned to p-test — who has no ferritin. If the rebind is chip-only,
+    // get_trend answers "not found" from the WRONG patient's record.
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport", patientRef: "p-test" }), s),
+      env,
+    );
+    const events = await sseEvents(res);
+    expect(events.find((e) => e.type === "patient")).toMatchObject({ ref: "p-other" });
+    const trendResult = events.filter((e) => e.type === "tool_result").at(-1);
+    expect(trendResult).toMatchObject({ name: "get_trend", ok: true });
+    const src = events.find((e) => e.type === "sources");
+    expect(src.sources[0]).toMatchObject({ kind: "lab", reportId: "r-2" });
   });
 
   it("a lab tool with no patient pinned tells the model, not the reader", async () => {

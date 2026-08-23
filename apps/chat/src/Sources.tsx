@@ -25,35 +25,39 @@ export interface Source {
   documentId?: string;
   title?: string;
   excerpt?: string;
+  pageW?: number | null;
+  pageH?: number | null;
 }
 
-/** Some horizontal breathing room around the located row. */
-const BLEED_X = 12;
-const BLEED_Y = 6;
-const CROP_H = 44;
+/** Vertical breathing room around the located row, in page pixels. */
+const BLEED_Y = 10;
 
 /**
- * The row, cut out of the page image with pure CSS: the image is positioned
- * so the bbox lands inside a fixed-height window, scaled to the window width.
- * The math mirrors the verify screen in the bloodwork app.
+ * The whole printed row, full page width: the located bbox gives the row's
+ * vertical band, and the crop shows that band across the entire page — the
+ * value, unit and reference range are what a reader wants, and the bbox often
+ * covers only the words the locator searched for.
+ *
+ * Pure CSS: the wrapper's aspect-ratio reserves the band's height at any
+ * panel width, and the image is shifted up by the band's start as a fraction
+ * of its own height. No measurement, no layout thrash.
  */
-function RowCrop({ src, bbox }: { src: string; bbox: [number, number, number, number] }) {
-  const [x0, y0, x1, y1] = bbox;
-  const w = Math.max(1, x1 - x0 + BLEED_X * 2);
-  const h = Math.max(1, y1 - y0 + BLEED_Y * 2);
-  const scale = CROP_H / h;
+function RowCrop({
+  src,
+  bbox,
+  pageW,
+  pageH,
+}: {
+  src: string;
+  bbox: [number, number, number, number];
+  pageW: number;
+  pageH: number;
+}) {
+  const y0 = Math.max(0, bbox[1] - BLEED_Y);
+  const y1 = Math.min(pageH, bbox[3] + BLEED_Y);
   return (
-    <span className="src-crop" style={{ height: CROP_H }}>
-      <img
-        src={src}
-        alt=""
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "0 0",
-          translate: `${-(x0 - BLEED_X) * scale}px ${-(y0 - BLEED_Y) * scale}px`,
-          maxWidth: "none",
-        }}
-      />
+    <span className="src-crop" style={{ aspectRatio: `${pageW} / ${Math.max(1, y1 - y0)}` }}>
+      <img src={src} alt="" style={{ transform: `translateY(${-(100 * y0) / pageH}%)` }} />
     </span>
   );
 }
@@ -79,8 +83,8 @@ export default function Sources({ sources }: { sources: Source[] }) {
               {s.kind === "lab" ? `${s.lab ?? ""} · ${s.date}` : `${s.date}`}
             </span>
           </button>
-          {s.kind === "lab" && s.imageUrl && s.bbox && (
-            <RowCrop src={s.imageUrl} bbox={s.bbox} />
+          {s.kind === "lab" && s.imageUrl && s.bbox && s.pageW && s.pageH && (
+            <RowCrop src={s.imageUrl} bbox={s.bbox} pageW={s.pageW} pageH={s.pageH} />
           )}
           {s.kind === "document" && s.excerpt && (
             <blockquote className="source-quote">{s.excerpt}</blockquote>

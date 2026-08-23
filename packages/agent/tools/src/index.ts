@@ -84,6 +84,9 @@ export type SourceInfo =
       imageUrl: string | null;
       /** Pixel box of the row on the page image, for the crop. */
       bbox: [number, number, number, number] | null;
+      /** The page image's pixel size — the crop math needs the denominator. */
+      pageW: number | null;
+      pageH: number | null;
     }
   | {
       kind: "document";
@@ -352,6 +355,8 @@ export async function runTool(
             page: m.sourcePage ?? 1,
             imageUrl: page?.imageUrl ?? null,
             bbox: (m.bbox as [number, number, number, number] | null) ?? null,
+            pageW: page?.imageWidth ?? null,
+            pageH: page?.imageHeight ?? null,
           });
           return { ...pt, src };
         });
@@ -360,12 +365,33 @@ export async function runTool(
       case "summarize_changes": {
         const reports = await source.reports();
         const trends = await allTrends(source);
+        // One source per draw: the printed report the numbers came from. The
+        // summary speaks about draws, so the citation grain is the draw.
+        const cited = ctx.cite
+          ? reports.map((r) => ({
+              date: r.reportDate,
+              lab: r.labName,
+              src: ctx.cite!({
+                kind: "lab",
+                label: `Odběr ${r.reportDate ?? ""}`.trim(),
+                date: r.reportDate ?? "",
+                lab: r.labName ?? "",
+                reportId: r.id,
+                page: 1,
+                imageUrl: r.pages?.[0]?.imageUrl ?? null,
+                bbox: null,
+                pageW: r.pages?.[0]?.imageWidth ?? null,
+                pageH: r.pages?.[0]?.imageHeight ?? null,
+              }),
+            }))
+          : undefined;
         return {
           ok: true,
           summary: `porovnal ${reports.length} odběrů`,
           content: {
             overview: patientOverview(reports, trends),
             changes: summarizeChanges(trends),
+            ...(cited ? { reports: cited } : {}),
           },
         };
       }

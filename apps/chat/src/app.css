@@ -159,16 +159,17 @@
   padding: 0;
 }
 .source-label { flex: 1 1 auto; }
-/* The window the row is cropped into. Nothing outside it paints. */
+/* The window the row is cropped into. Nothing outside it paints; the
+   wrapper's aspect-ratio (set inline from page geometry) reserves height. */
 .src-crop {
   display: block;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 6px;
   margin-top: 4px;
-  background: var(--bg);
+  background: #fff; /* the page is paper in both palettes */
 }
-.src-crop img { display: block; }
+.src-crop img { display: block; width: 100%; }
 .source-quote {
   margin: 4px 0 0;
   padding: 4px 10px;

@@ -99,16 +99,26 @@ export default function App() {
       })) {
         if (ev.type === "text") {
           answer += ev.text;
+          // Decided NOW, not inside the updater: React applies updaters after
+          // this loop has already flipped `opened`, and reading the mutable
+          // flag at apply time made the first fragment after a chart replace
+          // the chart instead of opening a new bubble. Found by watching the
+          // state trail in a live turn.
+          const replaceLast = opened;
+          const text = answer;
           setTurns((prev) => {
-            const base = opened ? prev.slice(0, -1) : prev;
-            return [...base, { role: "assistant", content: answer }];
+            const base = replaceLast ? prev.slice(0, -1) : prev;
+            return [...base, { role: "assistant", content: text }];
           });
           opened = true;
         } else if (ev.type === "tool_start") {
           // Showing the step is the point of streaming a tool-using turn: the
-          // agent spends most of it not talking.
+          // agent spends most of it not talking. The next text opens a NEW
+          // bubble, so the accumulator starts over — reusing it repainted
+          // everything said before the tool into the new bubble too.
           setTurns((prev) => [...prev, { role: "tool", content: ev.name, pending: true }]);
           opened = false;
+          answer = "";
         } else if (ev.type === "tool_result") {
           setTurns((prev) => {
             // findLastIndex needs ES2023; this targets ES2022 and the array is
@@ -132,9 +142,11 @@ export default function App() {
             { role: "sources", content: "", sources: ev.sources as never },
           ]);
           opened = false;
+          answer = "";
         } else if (ev.type === "chart") {
           setTurns((prev) => [...prev, { role: "chart", content: "", chart: ev }]);
           opened = false;
+          answer = "";
         } else if (ev.type === "error") {
           setError(ev.message);
         } else if (ev.type === "done") {

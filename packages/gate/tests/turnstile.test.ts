@@ -37,6 +37,22 @@ describe("verifyTurnstile", () => {
     expect(await verify()).toBe(true);
   });
 
+  it("accepts the published testing key's canned response — dev only by construction", async () => {
+    // The always-pass secret answers hostname "example.com" and no action; the
+    // flag below is set by siteverify itself, only when the configured SECRET
+    // is a testing key. Requiring the proofs anyway broke every dev session.
+    siteverify({ success: true, hostname: "example.com", metadata: { result_with_testing_key: true } });
+    expect(await verify()).toBe(true);
+  });
+
+  it("does not let the flag be claimed without success, nor its shape without the flag", async () => {
+    siteverify({ success: false, metadata: { result_with_testing_key: true } });
+    expect(await verify()).toBe(false);
+    // Same canned shape, no flag: a real secret answered — the proofs apply.
+    siteverify({ success: true, hostname: "example.com" });
+    expect(await verify()).toBe(false);
+  });
+
   it("refuses a token solved on localhost", async () => {
     // The actual hole. localhost is on the widget, so siteverify says success.
     siteverify({ success: true, hostname: "localhost", action: TURNSTILE_ACTION });
