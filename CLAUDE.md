@@ -42,3 +42,4 @@ npm run dev:extract + dev:agent + dev:bloodwork    # one terminal each
 | Which suites cost money | [tests](tests/CLAUDE.md) |
 | Demo data, fixtures | [tools/pipeline](tools/pipeline/CLAUDE.md) |
 | The invariants, in full | [docs/constraints.md](docs/constraints.md) |
+| The chat demo, planned | [docs/plans/chat-demo.md](docs/plans/chat-demo.md) |
