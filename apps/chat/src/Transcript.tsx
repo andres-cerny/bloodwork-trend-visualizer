@@ -16,6 +16,7 @@
 import { Chart } from "@bw/ui-kit";
 import Answer from "./Answer";
 import Sources, { type Source } from "./Sources";
+import { scrollBehavior } from "./motion";
 
 /** One thing the agent produced, in the order it produced it. */
 export type Part =
@@ -127,38 +128,47 @@ export default function Transcript({
         const open = mobileOpen.has(b.id);
 
         return (
-          <article className="turn" key={b.id}>
+          <article className="turn" key={b.id} aria-busy={b.streaming || undefined}>
             <h2 className="q">{b.question}</h2>
 
-            {group(b.parts).map((g, i, all) =>
-              "tools" in g ? (
-                <Steps key={i} tools={g.tools} live={b.streaming && !spoken} />
-              ) : g.part.kind === "chart" ? (
-                <Charts key={i} series={g.part.series} />
-              ) : (
-                <Answer
-                  key={i}
-                  text={g.part.text}
-                  citeIds={citeIds}
-                  activeCite={active}
-                  onCite={(n) => onCite(b.id, n)}
-                  markFirstCite={
-                    all.findIndex((x) => "part" in x && x.part.kind === "text") === i
-                  }
-                />
-              ),
-            )}
+            {/* The answer arrives a fragment at a time. The region has to carry
+                aria-live from the moment the question opens — a live region
+                added at the same time as its content announces nothing — and
+                `additions text` keeps a screen reader on the new words instead
+                of re-reading the whole summary after every delta. */}
+            <div className="turn-body" aria-live="polite" aria-relevant="additions text">
+              {group(b.parts).map((g, i, all) =>
+                "tools" in g ? (
+                  <Steps key={i} tools={g.tools} live={b.streaming && !spoken} />
+                ) : g.part.kind === "chart" ? (
+                  <Charts key={i} series={g.part.series} />
+                ) : (
+                  <Answer
+                    key={i}
+                    text={g.part.text}
+                    citeIds={citeIds}
+                    activeCite={active}
+                    onCite={(n) => onCite(b.id, n)}
+                    markFirstCite={
+                      all.findIndex((x) => "part" in x && x.part.kind === "text") === i
+                    }
+                  />
+                ),
+              )}
 
-            {/* Something is still coming and nothing has been said yet: the
-                gap between the last tool and the first word is the longest
-                silence in a turn, and an empty column reads as a dead app. */}
-            {b.streaming && (
-              <p className="writing" aria-live="polite">
-                <span />
-                <span />
-                <span />
-              </p>
-            )}
+              {/* Something is still coming and nothing has been said yet: the
+                  gap between the last tool and the first word is the longest
+                  silence in a turn, and an empty column reads as a dead app.
+                  Three dots say that to an eye and nothing at all to an ear. */}
+              {b.streaming && (
+                <p className="writing" role="status">
+                  <span className="sr-only">Asistent píše odpověď…</span>
+                  <span aria-hidden="true" />
+                  <span aria-hidden="true" />
+                  <span aria-hidden="true" />
+                </p>
+              )}
+            </div>
 
             {!railed && b.sources.length > 0 && (
               <div className="turn-sources">
@@ -167,20 +177,23 @@ export default function Transcript({
                   className="sources-toggle"
                   data-testid="sources-toggle"
                   aria-expanded={open}
+                  aria-controls={`sources-${b.id}`}
                   onClick={(e) => {
                     // Opening a disclosure below the fold reveals evidence the
                     // reader cannot see; bring the block to the top instead.
                     const wrap = e.currentTarget.parentElement;
                     onToggleSources(b.id);
                     if (!open)
-                      requestAnimationFrame(() => wrap?.scrollIntoView({ block: "start" }));
+                      requestAnimationFrame(() =>
+                        wrap?.scrollIntoView({ block: "start", behavior: scrollBehavior() }),
+                      );
                   }}
                 >
                   <span className="sources-caret" aria-hidden="true" data-open={open} />
                   Zdroje ({b.sources.length})
                 </button>
                 {open && (
-                  <div data-testid="sources-panel">
+                  <div id={`sources-${b.id}`} data-testid="sources-panel">
                     <Sources sources={b.sources} activeCite={active} />
                   </div>
                 )}
@@ -189,7 +202,7 @@ export default function Transcript({
 
             {b.followups.length > 0 && (
               <div className="followups" data-testid="followups">
-                <div className="followups-head">Související</div>
+                <h3 className="followups-head">Související</h3>
                 {b.followups.map((q) => (
                   <button
                     key={q}

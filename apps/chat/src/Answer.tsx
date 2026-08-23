@@ -54,19 +54,43 @@ function inline(
       const n = Number(cite[1]);
       const first = marks.first;
       marks.first = false;
-      out.push(
+      const known = citeIds.has(n);
+      const marker = (
         <button
           key={`${key}-${i}`}
           type="button"
           className={`cite${activeCite === n ? " is-active" : ""}`}
-          {...(citeIds.has(n) ? {} : { "data-orphan": "true" })}
+          {...(known ? {} : { "data-orphan": "true" })}
           data-testid={first ? "cite-1" : undefined}
-          aria-label={`Zdroj ${n}`}
+          aria-label={known ? `Zdroj ${n}` : `Zdroj ${n} — bez záznamu`}
+          {...(activeCite === n ? { "aria-current": "true" as const } : {})}
           onClick={() => onCite?.(n)}
         >
           {n}
-        </button>,
+        </button>
       );
+
+      // Bound to the word in front of it, inside one nowrap span. Left loose,
+      // a marker after „pod rozmezím 30–400" wraps onto a line of its own and
+      // stops reading as a control at all — it reads as a stray numeral, which
+      // is exactly what a footnote artefact looks like. The trailing space goes
+      // inside the span too: the gap before the marker is what the line would
+      // otherwise break at.
+      const prev = out[out.length - 1];
+      const tail = typeof prev === "string" ? /(\S+[ \t]*)$/.exec(prev) : null;
+      if (typeof prev === "string" && tail) {
+        const head = prev.slice(0, prev.length - tail[1].length);
+        if (head) out[out.length - 1] = head;
+        else out.pop();
+        out.push(
+          <span className="cite-bind" key={`${key}-${i}-b`}>
+            {tail[1]}
+            {marker}
+          </span>,
+        );
+        return;
+      }
+      out.push(marker);
       return;
     }
     out.push(part);

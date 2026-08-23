@@ -15,6 +15,7 @@
  * phone. The crop mechanics below did not change.
  */
 import { useEffect, useRef, useState } from "react";
+import { scrollBehavior } from "./motion";
 
 export interface Source {
   n: number;
@@ -51,11 +52,13 @@ function RowCrop({
   bbox,
   pageW,
   pageH,
+  label,
 }: {
   src: string;
   bbox: [number, number, number, number];
   pageW: number;
   pageH: number;
+  label: string;
 }) {
   const y0 = Math.max(0, bbox[1] - BLEED_Y);
   const y1 = Math.min(pageH, bbox[3] + BLEED_Y);
@@ -64,7 +67,11 @@ function RowCrop({
       className="src-crop"
       style={{ aspectRatio: `${pageW} / ${Math.max(1, y1 - y0)}` }}
     >
-      <img src={src} alt="" style={{ transform: `translateY(${-(100 * y0) / pageH}%)` }} />
+      <img
+        src={src}
+        alt={`Výřez řádku z tištěného nálezu — ${label}`}
+        style={{ transform: `translateY(${-(100 * y0) / pageH}%)` }}
+      />
     </span>
   );
 }
@@ -77,11 +84,21 @@ function RowCrop({
  * Cropping to a fixed fraction of the page WIDTH keeps the card a predictable
  * shape whatever the page geometry is.
  */
-function PageHead({ src, pageW, pageH }: { src: string; pageW: number; pageH: number }) {
+function PageHead({
+  src,
+  pageW,
+  pageH,
+  label,
+}: {
+  src: string;
+  pageW: number;
+  pageH: number;
+  label: string;
+}) {
   const band = Math.min(pageH, pageW * 0.82);
   return (
     <span className="src-crop" style={{ aspectRatio: `${pageW} / ${band}` }}>
-      <img src={src} alt="" />
+      <img src={src} alt={`Horní část tištěného nálezu — ${label}`} />
     </span>
   );
 }
@@ -101,9 +118,11 @@ function SourceCard({
 
   // A [n] that focuses an entry the reader cannot see has focused nothing.
   useEffect(() => {
-    if (active) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (active)
+      ref.current?.scrollIntoView({ block: "nearest", behavior: scrollBehavior() });
   }, [active]);
 
+  const label = czLabel(s.label);
   const meta =
     s.kind === "lab" ? [s.lab, czDate(s.date)].filter(Boolean).join(" · ") : czDate(s.date);
 
@@ -114,11 +133,17 @@ function SourceCard({
         className="src-head"
         onClick={onToggle}
         aria-expanded={open}
+        aria-controls={s.imageUrl ? `src-page-${s.n}` : undefined}
         title={open ? "Skrýt stranu" : "Zobrazit celou stranu"}
       >
-        <span className="src-n">{s.n}</span>
+        <span className="src-n" aria-hidden="true">
+          {s.n}
+        </span>
         <span className="src-title">
-          <span className="src-label">{s.label}</span>
+          <span className="src-label">
+            <span className="sr-only">Zdroj {s.n}: </span>
+            {label}
+          </span>
           <span className="src-meta">{meta}</span>
         </span>
         {s.imageUrl && (
@@ -133,15 +158,26 @@ function SourceCard({
         s.pageW &&
         s.pageH &&
         (s.bbox ? (
-          <RowCrop src={s.imageUrl} bbox={s.bbox} pageW={s.pageW} pageH={s.pageH} />
+          <RowCrop
+            src={s.imageUrl}
+            bbox={s.bbox}
+            pageW={s.pageW}
+            pageH={s.pageH}
+            label={label}
+          />
         ) : (
-          <PageHead src={s.imageUrl} pageW={s.pageW} pageH={s.pageH} />
+          <PageHead src={s.imageUrl} pageW={s.pageW} pageH={s.pageH} label={label} />
         ))}
       {s.kind === "document" && s.excerpt && (
         <blockquote className="src-quote">{s.excerpt}</blockquote>
       )}
       {open && s.imageUrl && (
-        <img className="src-page" src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
+        <img
+          className="src-page"
+          id={`src-page-${s.n}`}
+          src={s.imageUrl}
+          alt={`Celá strana ${s.page ?? 1} — ${label}`}
+        />
       )}
     </div>
   );
@@ -151,6 +187,16 @@ function SourceCard({
 function czDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${Number(m[3])}. ${Number(m[2])}. ${m[1]}` : iso;
+}
+
+/**
+ * The registry's own label carries an ISO date inside it — „Odběr 2024-10-02" —
+ * and it lands two lines above the same date already rendered Czech. The label
+ * is the server's string, so this rewrites only what it recognises as a date
+ * and leaves everything else exactly as it arrived.
+ */
+function czLabel(label: string): string {
+  return label.replace(/(\d{4})-(\d{2})-(\d{2})/g, (_, y, m, d) => czDate(`${y}-${m}-${d}`));
 }
 
 export default function Sources({

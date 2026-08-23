@@ -8,34 +8,69 @@
  * canned thread can be continued with a real question. A sidebar item that does
  * nothing reads as a broken app; this one reads as work already done.
  *
- * On a phone the same element is a drawer behind the toggle in the top bar.
+ * On a phone the same element is a drawer behind the toggle in the top bar —
+ * and a drawer that is only slid off-screen is still in the tab order and still
+ * read out by a screen reader, which is how a keyboard user ends up typing into
+ * a menu they cannot see. Closed, on a phone, it is `inert`.
  */
+import { useEffect, useRef } from "react";
 import { ThemeSwitch } from "@bw/ui-kit";
 import type { Budget } from "@bw/api-client";
 import type { Fixture } from "./fixtures";
+
+/** „9,61 $" — the reader is Czech, and so is the decimal separator. */
+const USD = new Intl.NumberFormat("cs-CZ", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 export default function Sidebar({
   practice,
   fixtures,
   activeSlug,
   budget,
+  drawer,
   open,
   onPick,
   onNew,
   onClose,
+  closeRef,
 }: {
   practice: string;
   fixtures: Fixture[];
   activeSlug: string | null;
   budget: Budget | null;
+  /** This viewport shows the rail as a drawer, so „closed" means „gone". */
+  drawer: boolean;
   /** Drawer state; ignored by the desktop layout, which is always open. */
   open: boolean;
   onPick: (slug: string) => void;
   onNew: () => void;
   onClose: () => void;
+  closeRef?: React.RefObject<HTMLButtonElement>;
 }) {
+  const navRef = useRef<HTMLElement>(null);
+
+  // `inert` is set from an effect rather than rendered as a prop: React 18's
+  // JSX types have no such attribute, and the DOM one is what matters. It takes
+  // the element and everything under it out of the tab order and the
+  // accessibility tree, which `transform: translateX(-102%)` does not.
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    if (drawer && !open) {
+      el.setAttribute("inert", "");
+      el.setAttribute("aria-hidden", "true");
+    } else {
+      el.removeAttribute("inert");
+      el.removeAttribute("aria-hidden");
+    }
+  }, [drawer, open]);
+
   return (
     <nav
+      ref={navRef}
+      id="sidebar-nav"
       className={`rail-left${open ? " is-open" : ""}`}
       data-testid="sidebar"
       aria-label="Vlákna"
@@ -51,10 +86,11 @@ export default function Sidebar({
         <button
           type="button"
           className="drawer-close"
+          ref={closeRef}
           onClick={onClose}
           aria-label="Zavřít nabídku"
         >
-          ✕
+          <span aria-hidden="true">✕</span>
         </button>
       </div>
 
@@ -62,8 +98,10 @@ export default function Sidebar({
         <span aria-hidden="true">＋</span> Nové vlákno
       </button>
 
-      <div className="rail-section">Nedávné</div>
-      <ul className="threads">
+      <h2 className="rail-section" id="rail-recent">
+        Nedávné
+      </h2>
+      <ul className="threads" aria-labelledby="rail-recent">
         {fixtures.map((f) => (
           <li key={f.slug}>
             <button
@@ -71,6 +109,7 @@ export default function Sidebar({
               className={`thread-item${activeSlug === f.slug ? " is-active" : ""}`}
               onClick={() => onPick(f.slug)}
               title={f.title}
+              aria-current={activeSlug === f.slug ? "true" : undefined}
             >
               {f.title}
             </button>
@@ -84,7 +123,7 @@ export default function Sidebar({
           <p className="muted budget">
             {budget.frozen
               ? "Rozpočet ukázky vyčerpán"
-              : `Rozpočet ukázky: zbývá ${budget.remainingUsd.toFixed(2)} $`}
+              : `Rozpočet ukázky: zbývá ${USD.format(budget.remainingUsd)} $`}
           </p>
         )}
         <p className="muted disclaimer">

@@ -289,6 +289,8 @@ export default function App() {
   const desktop = useDesktop();
   const threadRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
+  const drawerToggleRef = useRef<HTMLButtonElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const [dockH, setDockH] = useState(0);
 
   // The composer floats over the thread, so the thread has to end above it —
@@ -344,6 +346,29 @@ export default function App() {
     const el = threadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [thread, busy]);
+
+  // A drawer that opens without moving focus is a drawer a keyboard user has to
+  // hunt for behind the whole page; one that closes without giving focus back
+  // drops them at the top of the document. Escape closes it, because on a phone
+  // the scrim is the only other way out and a keyboard has no scrim.
+  useEffect(() => {
+    if (desktop || !drawer) return;
+    drawerCloseRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawer(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      // In the cleanup, not in a "drawer closed" effect: Sidebar's own effect
+      // marks the closed rail `inert`, which blurs whatever was focused inside
+      // it — and child effects run after parent cleanups, so this is the last
+      // moment the stranded focus is still findable.
+      const active = document.activeElement;
+      if (active && document.getElementById("sidebar-nav")?.contains(active))
+        drawerToggleRef.current?.focus();
+    };
+  }, [drawer, desktop]);
 
   const blocked = !gate.available
     ? "Asistent není v této ukázce zapnutý. Uložená vlákna vlevo si můžete přečíst."
@@ -477,12 +502,16 @@ export default function App() {
         fixtures={FIXTURES[tenant] ?? []}
         activeSlug={slug}
         budget={budget}
+        drawer={!desktop}
         open={drawer}
         onPick={openThread}
         onNew={() => openThread(null)}
         onClose={() => setDrawer(false)}
+        closeRef={drawerCloseRef}
       />
-      {drawer && <div className="scrim" onClick={() => setDrawer(false)} />}
+      {drawer && (
+        <div className="scrim" aria-hidden="true" onClick={() => setDrawer(false)} />
+      )}
 
       <div
         className={`center${empty ? " is-empty" : ""}`}
@@ -495,7 +524,10 @@ export default function App() {
                 type="button"
                 className="drawer-toggle"
                 data-testid="sidebar-toggle"
+                ref={drawerToggleRef}
                 aria-label="Zobrazit vlákna"
+                aria-expanded={drawer}
+                aria-controls="sidebar-nav"
                 onClick={() => setDrawer(true)}
               >
                 <span aria-hidden="true">☰</span>
@@ -507,13 +539,17 @@ export default function App() {
                   title={`Otevřená karta: ${patient.fullName}`}
                 >
                   <span className="patient-dot" aria-hidden="true" />
-                  {patient.fullName} · nar. {patient.birthDate.slice(0, 4)}
+                  {/* Its own span so a long name ellipsises instead of being
+                      sliced mid-glyph by the chip's overflow at 360px. */}
+                  <span className="patient-name">
+                    {patient.fullName} · nar. {patient.birthDate.slice(0, 4)}
+                  </span>
                   <button
                     type="button"
-                    aria-label="Zavřít kartu pacienta"
+                    aria-label={`Zavřít kartu pacienta ${patient.fullName}`}
                     onClick={() => setThread((t) => ({ ...t, patient: null }))}
                   >
-                    ✕
+                    <span aria-hidden="true">✕</span>
                   </button>
                 </span>
               ) : (
@@ -556,7 +592,11 @@ export default function App() {
 
         <div className="dock" ref={dockRef}>
           <div className="column">
-            {thread.error && <p className="err dock-err">{thread.error}</p>}
+            {thread.error && (
+              <p className="err dock-err" role="alert">
+                {thread.error}
+              </p>
+            )}
             <Composer
               value={draft}
               onChange={setDraft}
@@ -564,13 +604,14 @@ export default function App() {
               busy={busy}
               gate={gate}
               blocked={blocked}
+              compact={!desktop}
             />
           </div>
         </div>
 
         {empty && (
           <div className="starters">
-            <div className="column">
+            <div className="column" role="group" aria-label="Návrhy dotazů">
               {TENANTS[tenant].suggestions.map((s) => (
                 <button key={s} type="button" className="starter" onClick={() => pick(s)}>
                   <span>{s}</span>
@@ -587,12 +628,12 @@ export default function App() {
       {desktop && (
         <aside className="rail-right" data-testid="sources-panel" aria-label="Zdroje">
           <div className="rail-top">
-            <div className="rail-head">
+            <h2 className="rail-head">
               Zdroje
               {focused && focused.sources.length > 0 && (
                 <span className="rail-count">{focused.sources.length}</span>
               )}
-            </div>
+            </h2>
             {focused && focused.sources.length > 0 ? (
               <p className="rail-sub" title={focused.question}>
                 {focused.question}

@@ -18,6 +18,22 @@
 .muted { color: var(--ink-muted); }
 .err { color: var(--critical-ink); font-size: 0.85rem; }
 
+/* Said to a screen reader, not drawn. Used where a picture, a numbered chip or
+   three pulsing dots carry meaning an ear cannot get at. Not `display: none`:
+   that would take it out of the accessibility tree too, which is the whole
+   point of the class. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .theme-switch {
   display: inline-flex;
   align-items: center;
@@ -113,8 +129,10 @@
 .new-thread:hover { border-color: var(--accent); color: var(--accent-ink); }
 
 .rail-section {
+  margin: 0;
   padding: 0 9px 6px;
   font-size: 0.72rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-muted);
@@ -201,6 +219,8 @@
   overflow: hidden;
 }
 .patient-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+/* At 360px a long name has to end in an ellipsis, not in a sliced glyph. */
+.patient-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .patient-chip button {
   padding: 0 4px;
   border: 0;
@@ -319,29 +339,43 @@
 
 /* The citation. A button, not a decoration: it focuses its entry in the
    evidence panel. A number the registry never issued keeps its strike — the
-   absence is information. */
+   absence is information.
+
+   Boxed and inline at rest, not a grey superscript. Raised half a step above
+   the baseline it read as a footnote artefact — a stray numeral the eye skips —
+   and it only announced itself as a control once it already had focus, which is
+   after the reader has to have found it. The border and the card surface are
+   what say „press me" before anything is pressed. */
 .cite {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 17px;
-  height: 17px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 4px;
   margin: 0 1px;
-  vertical-align: 3px;
-  border: 0;
+  vertical-align: 1px;
+  border: 1px solid var(--border-strong);
   border-radius: 5px;
-  background: var(--chip);
-  color: var(--ink-muted);
+  background: var(--surface-1);
+  color: var(--ink-2);
   font: inherit;
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
 }
-.cite:hover { background: var(--series-1-soft); color: var(--accent-ink); }
-.cite.is-active { background: var(--accent); color: #fff; }
-.cite[data-orphan] { text-decoration: line-through; opacity: 0.65; }
+.cite:hover {
+  border-color: var(--accent);
+  background: var(--series-1-soft);
+  color: var(--accent-ink);
+}
+.cite.is-active { border-color: var(--accent); background: var(--accent); color: #fff; }
+.cite[data-orphan] { text-decoration: line-through; color: var(--ink-muted); }
+
+/* The marker and the word it belongs to are one unbreakable unit. Without it
+   the marker after „pod rozmezím 20–45" wraps onto a line by itself. */
+.cite-bind { white-space: nowrap; }
 
 .writing { display: flex; gap: 5px; margin: 10px 0 0; }
 .writing span {
@@ -366,6 +400,7 @@
 /* The model's own proposals for what to ask next. No event, no chips. */
 .followups { margin-top: 24px; }
 .followups-head {
+  margin: 0;
   padding-bottom: 10px;
   font-size: 0.82rem;
   font-weight: 700;
@@ -450,6 +485,14 @@
   box-shadow: var(--shadow-md);
   overflow: hidden;
 }
+/* The input's own outline is suppressed — a ring drawn inside a box with
+   `overflow: hidden` is clipped on three sides — so the card carries the focus
+   state for it. Border and ring both, because a ring alone is invisible to
+   anyone who cannot separate the two blues. */
+.composer:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md), 0 0 0 3px var(--series-1-soft);
+}
 .composer-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 16px; }
 .composer-input {
   flex: 1 1 auto;
@@ -458,6 +501,7 @@
   border: 0;
   background: none;
   color: var(--ink-1);
+  /* 16px, so that focusing it on iOS does not zoom the layout. */
   font: inherit;
   font-size: 1rem;
   outline: none;
@@ -481,15 +525,73 @@
 .send:disabled { background: var(--chip); color: var(--ink-muted); cursor: not-allowed; }
 
 /* The gate lives here, and only here: everything else on this screen is canned
-   content that costs nothing to show and reads without a session. */
+   content that costs nothing to show and reads without a session.
+
+   One labelled line, and on a phone the widget is folded behind it until the
+   reader reaches for the input. Expanded by default it took 142px of an 844px
+   screen to say a sentence twice — the answer's last two bullets faded out
+   under it, which is a strange price to pay for a robot test the reader has not
+   yet needed. */
 .composer-gate, .composer-note {
-  padding: 11px 16px 13px;
   border-top: 1px solid var(--border);
   background: var(--surface-2);
 }
-.composer-gate { display: flex; flex-direction: column; gap: 9px; }
-.composer-gate p { margin: 0; font-size: 0.8rem; line-height: 1.45; }
-.composer-note { margin: 0; font-size: 0.82rem; line-height: 1.45; }
+.composer-note { margin: 0; padding: 11px 16px 13px; font-size: 0.82rem; line-height: 1.45; }
+
+.gate-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+.gate-label {
+  flex: none;
+  align-self: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--chip);
+  color: var(--ink-2);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.gate-copy { flex: 1 1 auto; min-width: 0; line-height: 1.45; }
+.gate-caret {
+  flex: none;
+  align-self: center;
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--ink-muted);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+}
+.gate-caret[data-open="true"] { transform: rotate(90deg); }
+.gate-head:hover .gate-copy { color: var(--ink-1); }
+.gate-head:hover .gate-caret { border-left-color: var(--ink-1); }
+
+.gate-box { padding: 0 16px 12px; }
+/* The widget's script is fetched from Cloudflare on demand, so for the first
+   second the open disclosure has nothing in it. Reserving the 65px the widget
+   will occupy is the difference between a composer that is loading and a
+   composer that looks broken. */
+.composer-gate[data-open="true"] .gate-box { min-height: 77px; }
+.composer-gate[data-open="false"] .gate-box {
+  /* Clipped, never unmounted: useTurnstile renders into its ref once, from an
+     effect that will not fire a second time. Unmounting the box would leave the
+     gate permanently unpassable for anyone who folded it. */
+  max-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+.gate-err { margin: 0; padding: 0 16px 11px; }
 
 /* ------------------------------------------------------------------ *
  * The empty thread — the composer takes the middle of the screen
@@ -549,7 +651,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  margin: 0;
   font-size: 0.78rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-muted);
@@ -621,12 +725,26 @@
 .src-more { flex: none; color: var(--ink-muted); font-size: 1rem; line-height: 1.2; }
 
 /* The window the row is cropped into. Nothing outside it paints; the wrapper's
-   aspect-ratio (set inline from page geometry) reserves height. */
+   aspect-ratio (set inline from page geometry) reserves height.
+
+   The paper is framed rather than laid bare. Un-framed, a scan is a rectangle
+   of undefined white bleeding into the card that holds it — on a dark page a
+   600px slab with no edge, on a light one a card that seems to have no bottom.
+   The ring is an ::after because an inset box-shadow paints under the content
+   and the image would cover it. */
 .src-crop {
+  position: relative;
   display: block;
   overflow: hidden;
   border-top: 1px solid var(--border);
   background: #fff; /* the page is paper in both palettes */
+}
+.src-crop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .src-crop img { display: block; width: 100%; }
 .src-quote {
@@ -647,6 +765,42 @@
   width: 100%;
   border-top: 1px solid var(--border);
   background: #fff;
+}
+
+/* ------------------------------------------------------------------ *
+ * Dark: the paper is designed, not inverted
+ * ------------------------------------------------------------------ *
+ *
+ * The evidence is a photograph of a printed page, and a photograph cannot be
+ * re-coloured — inverting it would fake a document that does not exist. So the
+ * page keeps being paper, and dark mode does the only honest thing available:
+ * it turns the lamp down. At full luminance a single crop is a flare in a
+ * near-black column, and the reader's pupils pay for every scroll past it.
+ *
+ * Both selectors, as everywhere in this codebase: the system preference (unless
+ * light is forced) and the explicit switch. A rule written for one only is a
+ * rule that holds for half the readers.
+ */
+[data-theme="dark"] .src-crop img,
+[data-theme="dark"] .src-page {
+  filter: brightness(0.76) contrast(1.08);
+}
+[data-theme="dark"] .src-crop { background: var(--surface-3); }
+/* A shadow the colour of the page is not a shadow, and a 42%-black scrim over
+   a #0d0d0c plane is not a scrim. Both need their own value here. */
+[data-theme="dark"] .chart-tip { filter: drop-shadow(0 2px 9px rgba(0, 0, 0, 0.72)); }
+[data-theme="dark"] .scrim { background: rgba(0, 0, 0, 0.66); }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .src-crop img,
+  :root:not([data-theme="light"]) .src-page {
+    filter: brightness(0.76) contrast(1.08);
+  }
+  :root:not([data-theme="light"]) .src-crop { background: var(--surface-3); }
+  :root:not([data-theme="light"]) .chart-tip {
+    filter: drop-shadow(0 2px 9px rgba(0, 0, 0, 0.72));
+  }
+  :root:not([data-theme="light"]) .scrim { background: rgba(0, 0, 0, 0.66); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -680,6 +834,50 @@
 .picker-foot { padding: 0 20px 26px; font-size: 0.78rem; text-align: center; }
 
 /* ------------------------------------------------------------------ *
+ * Focus, where the default ring cannot be seen
+ * ------------------------------------------------------------------ *
+ *
+ * ui-kit's `:focus-visible` draws a 2px ring at +2px offset, which is right
+ * almost everywhere. It is wrong in exactly one situation, and this app has
+ * five of them: a control that sits flush inside a scroll container or a
+ * clipped card, where an outward ring is cut off on the sides it needs most.
+ * Those get the same ring, drawn inward. Nothing here removes a focus state —
+ * the only element whose outline is suppressed is the composer input, and its
+ * card carries the state instead.
+ */
+.thread-item:focus-visible,
+.new-thread:focus-visible,
+.src-head:focus-visible,
+.gate-head:focus-visible,
+.send:focus-visible,
+.sources-toggle:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: -2px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Reduced motion
+ * ------------------------------------------------------------------ *
+ *
+ * Two pulses and a drawer slide, plus three scripted smooth scrolls that live
+ * in motion.ts because CSS cannot reach them. The pulsing dots are the app's
+ * only signal that a turn is still running, so they do not disappear here —
+ * they stop moving and hold the colour that was doing the work anyway.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .step.pending .step-dot,
+  .writing span { opacity: 1; }
+}
+
+/* ------------------------------------------------------------------ *
  * Phone: one column, a drawer, evidence under its answer
  * ------------------------------------------------------------------ */
 
@@ -705,18 +903,20 @@
   .rail-left.is-open { transform: none; }
   .scrim { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.42); }
 
+  /* 44px, not 36: this is the control a thumb reaches for first, and it is in
+     the corner of the screen where a thumb is least accurate. */
   .drawer-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: none;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface-1);
     color: var(--ink-1);
-    font-size: 1rem;
+    font-size: 1.05rem;
     cursor: pointer;
   }
   .drawer-close {
@@ -724,8 +924,8 @@
     align-items: center;
     justify-content: center;
     flex: none;
-    width: 30px;
-    height: 30px;
+    width: 42px;
+    height: 42px;
     margin-left: auto;
     border: 0;
     border-radius: var(--radius-sm);
@@ -734,15 +934,55 @@
     font: inherit;
     cursor: pointer;
   }
+  .drawer-close:hover { color: var(--ink-1); background: var(--surface-3); }
+
+  /* The drawer is read and tapped with one thumb, so its rows are tall enough
+     to be hit without aiming. */
+  .thread-item { padding: 12px 10px; }
+  .new-thread { padding: 12px 12px; }
 
   .topbar { padding: 8px 14px; min-height: 50px; }
-  .thread { padding: 8px 16px calc(var(--dock-h, 156px) + 30px); }
+  .thread { padding: 8px 16px calc(var(--dock-h, 120px) + 30px); }
   .dock { padding: 0 16px calc(14px + env(safe-area-inset-bottom)); }
   .starters { padding: 12px 16px 0; }
+
+  .send { width: 42px; height: 42px; }
+
+  /* 18×14 was the smallest target on the phone, and it closes the patient's
+     card — the one control here whose accidental press costs the reader
+     something. 32×32 clears WCAG 2.5.8 without changing the chip's height. */
+  .patient-chip { padding-right: 3px; }
+  .patient-chip button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    padding: 0;
+  }
+  .patient-chip button:hover { background: var(--surface-3); }
+  .cite { min-width: 20px; height: 20px; }
+
+  /* Full width and 44 tall: the one control that reveals the evidence should
+     not be a pill the thumb has to find. */
+  .sources-toggle { width: 100%; justify-content: flex-start; padding: 12px 15px; }
 
   .q { font-size: 1.26rem; }
   .answer { font-size: 0.97rem; }
   .hero h1 { font-size: 1.5rem; }
   .hero { padding-bottom: 20px; }
   .turn { padding: 18px 0 24px; }
+}
+
+/* Small phones — 360px is the floor, not 390. Every horizontal padding on the
+   page has to leave the Turnstile widget's fixed 300px of width somewhere to
+   stand, or the composer is the one element that scrolls sideways. */
+@media (max-width: 400px) {
+  .thread, .dock, .starters { padding-left: 12px; padding-right: 12px; }
+  .topbar { padding-left: 12px; padding-right: 12px; }
+  .composer-row { padding-left: 13px; }
+  .gate-head, .gate-box, .gate-err, .composer-note { padding-left: 13px; padding-right: 13px; }
+  .rail-left { width: min(300px, 88vw); }
 }
