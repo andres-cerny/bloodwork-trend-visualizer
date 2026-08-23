@@ -103,7 +103,7 @@ export const PROFILES: Record<ProfileName, Profile> = {
       "propose_chart; graf nikdy nevyplňuj sám.",
     model: "claude-sonnet-5",
     maxTokens: 2000,
-    tools: ["find_patient", "search_documents", "get_document", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
+    tools: ["find_patient", "cohort_query", "search_documents", "get_document", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
     auth: { turnstile: true, unit: "message", limit: 40 },
   },
 };

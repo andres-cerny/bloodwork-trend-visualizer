@@ -117,6 +117,23 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "cohort_query",
+    description:
+      "Najde napříč kartotékou pacienty, u kterých se jeden parametr vyvíjí daným směrem nebo je " +
+      "mimo rozmezí. Vrací jen jména a poslední hodnoty — detail pacienta vyžaduje jeho otevření. " +
+      "canonicalId je identifikátor parametru (např. 'ferritin', 'hemoglobin').",
+    input_schema: {
+      type: "object",
+      properties: {
+        canonicalId: { type: "string", description: "Parametr, o který jde." },
+        direction: { type: "string", enum: ["rising", "falling", "stable", "any"] },
+        flag: { type: "string", enum: ["high", "low", "any"] },
+      },
+      required: ["canonicalId"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "search_documents",
     description:
       "Prohledá dokumentaci vybraného pacienta (zprávy, nálezy, záznamy z rehabilitace) a vrátí " +
@@ -254,6 +271,37 @@ export async function runTool(
         ok: shown.length > 0,
         summary: shown.length === 0 ? "nikdo takový v kartotéce není" : `nalezeno ${shown.length} pacientů — zeptej se, kterého myslí`,
         content: { matches: shown },
+      };
+    }
+
+    if (name === "cohort_query") {
+      if (!ctx.directory) {
+        return { ok: false, summary: "kartotéka není připojena", content: { error: "no_directory" } };
+      }
+      const dirIn = String(input.direction ?? "any");
+      const flagIn = String(input.flag ?? "any");
+      const direction = (["rising", "falling", "stable", "any"].includes(dirIn) ? dirIn : "any") as
+        "rising" | "falling" | "stable" | "any";
+      const flag = (["high", "low", "any"].includes(flagIn) ? flagIn : "any") as "high" | "low" | "any";
+      // Refs and last values only — a cohort answer names WHO, never opens
+      // anyone. The rows come from the seed-time summary table; this is a
+      // filter over what lab-core computed, not an analyst.
+      const rows = await ctx.directory.cohort(String(input.canonicalId ?? ""), direction, flag);
+      return {
+        ok: true,
+        summary: rows.length === 0 ? "nikdo neodpovídá" : `nalezeno ${rows.length} pacientů`,
+        content: {
+          patients: rows.map((r) => ({
+            fullName: r.fullName,
+            birthYear: r.birthDate.slice(0, 4),
+            parameter: r.displayName,
+            lastValue: r.lastValue,
+            unit: r.unit,
+            lastDate: r.lastDate,
+            flag: r.lastFlag,
+            direction: r.direction,
+          })),
+        },
       };
     }
 

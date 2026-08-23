@@ -77,6 +77,17 @@ function fakeD1(patients: Array<{ id: string; full_name: string; name_norm: stri
         case SQL.searchDocuments:
         case SQL.pagesForDocument:
           return { results: [] };
+        case SQL.cohortByDirection:
+          return {
+            results:
+              a[0] === "ferritin" && (a[1] === "any" || a[1] === "falling")
+                ? [{
+                    patient_id: "p-test", full_name: "Karel Tester", birth_date: "1990-01-01",
+                    canonical_id: "ferritin", display_name: "Ferritin", unit: "µg/l",
+                    last_value: 21, last_date: "2026-02-24", last_flag: "low", delta: -13, direction: "falling",
+                  }]
+                : [],
+          };
         default:
           throw new Error(`fake D1 does not know this query: ${sql}`);
       }
@@ -527,6 +538,24 @@ describe("tenancy and identity", () => {
     // "no patient selected" recovery. One ask, one summary.
     const lab = events.filter((e) => e.type === "tool_result").at(-1);
     expect(lab).toMatchObject({ name: "list_analytes", ok: true });
+  });
+
+  it("a cohort answer names who, and never opens anyone", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    streamQueue = [
+      { text: "", toolUse: { name: "cohort_query", input: { canonicalId: "ferritin", direction: "falling" } } },
+    ];
+
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport" }), s),
+      env,
+    );
+    const events = await sseEvents(res);
+    const r = events.find((e) => e.type === "tool_result");
+    expect(r).toMatchObject({ name: "cohort_query", ok: true });
+    // No patient event: a cohort row is a name, not an opened record.
+    expect(events.some((e) => e.type === "patient")).toBe(false);
   });
 
   it("asking about a second patient re-scopes the tools, not just the chip", async () => {
