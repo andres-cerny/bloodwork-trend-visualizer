@@ -49,7 +49,7 @@ No event → render nothing. Never invent chips client-side.
 | `sources-toggle` | mobile: the „Zdroje (n)" disclosure control for a turn |
 | `followups` | the chip row of one turn |
 | `patient-chip` | the pinned-patient chip |
-| `cite-1` | the first `[1]` marker button in an answer |
+| `cite-1` | the first citation marker rendered in an answer, whatever number it carries — `hruby-souhrn` opens with `[6]`, and all three Round-1 variants converged on this reading |
 
 ## Unchanged truths
 
