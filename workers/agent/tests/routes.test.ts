@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../src/index";
 import { mintSession, recordSpendUsd, totalSpentUsd } from "@bw/gate";
+import { SQL } from "@bw/datasource";
 
 const SECRET = "test-session-secret";
 
@@ -20,9 +21,71 @@ function fakeKv() {
   } as unknown as KVNamespace;
 }
 
+/**
+ * The sport practice, as far as these tests need one: a single patient with a
+ * single seeded report payload. Dispatches on the SQL constants — the same
+ * contract the datasource tests pin.
+ */
+const TEST_REPORT = {
+  id: "r-1",
+  sourceFile: "r-1.pdf",
+  reportDate: "2025-05-02",
+  labName: "Laboratoř Test",
+  patientName: "Karel Tester",
+  patientId: null,
+  pages: [],
+  measurements: [
+    {
+      rawAnalyteName: "S_Hemoglobin", valueRaw: "150", unitRaw: "g/l",
+      refRangeRaw: "(135-175)", sourceSnippet: "S_Hemoglobin 150", sourcePage: 1,
+      confidence: "high", canonicalId: "hemoglobin", value: 150, unit: "g/l",
+      refRangeLow: 135, refRangeHigh: 175, refRangeText: "135-175", flag: "normal",
+      extractedBy: "test", escalated: false, disagreement: null, corrected: false, bbox: null,
+    },
+  ],
+};
+
+function fakeD1(patients: Array<{ id: string; full_name: string; name_norm: string; birth_date: string }>) {
+  const make = (sql: string, args: unknown[]): any => ({
+    bind: (...values: unknown[]) => make(sql, values),
+    async first() {
+      const { results } = await this.all();
+      return results[0] ?? null;
+    },
+    async all() {
+      const a = args as string[];
+      switch (sql) {
+        case SQL.patientById:
+          return { results: patients.filter((p) => p.id === a[0]) };
+        case SQL.patientsByName:
+          return { results: patients.filter((p) => p.name_norm.includes(String(a[0]).replaceAll("%", ""))) };
+        case SQL.reportsForPatient:
+          return {
+            results: patients.some((p) => p.id === a[0])
+              ? [{ payload: JSON.stringify(TEST_REPORT) }]
+              : [],
+          };
+        case SQL.documentsForPatient:
+        case SQL.searchDocuments:
+        case SQL.pagesForDocument:
+          return { results: [] };
+        default:
+          throw new Error(`fake D1 does not know this query: ${sql}`);
+      }
+    },
+  });
+  return { prepare: (sql: string) => make(sql, []) } as unknown as D1Database;
+}
+
+const SPORT_PATIENTS = [
+  { id: "p-test", full_name: "Karel Tester", name_norm: "karel tester", birth_date: "1990-01-01", sex: "m", note: "" },
+];
+
 function makeEnv(over: Partial<Env> = {}): Env {
   return {
     BUDGET: fakeKv(),
+    DB_SPORT: fakeD1(SPORT_PATIENTS),
+    DB_ORTO: fakeD1([]),
     ANTHROPIC_API_KEY: "sk-ant-test",
     TURNSTILE_SECRET_KEY: "turnstile-test",
     SESSION_SECRET: SECRET,
@@ -315,7 +378,7 @@ describe("the agent route", () => {
     nextStream = { text: "", toolUse: { name: "list_analytes", input: {} } };
 
     const res = await worker.fetch(
-      post("/api/chat", turn({ profile: "clinical", reports: [] }), s),
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport", patientRef: "p-test" }), s),
       env,
     );
     const events = await sseEvents(res);
@@ -332,12 +395,93 @@ describe("the agent route", () => {
     const s = await mintSession(SECRET, 600, 12);
     nextStream = { text: "", outTokens: 1000, toolUse: { name: "list_analytes", input: {} } };
 
-    await drain(await worker.fetch(post("/api/chat", turn({ profile: "clinical", reports: [] }), s), env));
+    await drain(await worker.fetch(post("/api/chat", turn({ profile: "clinical", tenant: "sport", patientRef: "p-test" }), s), env));
     // Two calls: the tool request and the answer after it. Pricing only the
     // terminal message would report half the turn, and the ledger is the only
     // thing bounding what this demo can spend.
     const spent = await totalSpentUsd(env.BUDGET, "agent");
     expect(spent).toBeGreaterThan(0.021);
+  });
+});
+
+describe("tenancy and identity", () => {
+  const turn = (over: Record<string, unknown> = {}) => ({
+    profile: "bloodwork",
+    context: "Analyt | jednotka",
+    history: [{ role: "user", content: "Co se změnilo?" }],
+    ...over,
+  });
+
+  it("refuses a tenant it does not know, rather than defaulting", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "kardio" }), s),
+      env,
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as any).error).toBe("unknown_tenant");
+  });
+
+  it("refuses a clinical turn with no tenant at all", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(post("/api/chat", turn({ profile: "clinical" }), s), env);
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses a patientRef the tenant's directory does not hold", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport", patientRef: "p-ghost" }), s),
+      env,
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as any).error).toBe("unknown_patient");
+  });
+
+  it("a ref from the other practice is indistinguishable from one that never existed", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    // p-test exists in sport; asked through orto it must refuse identically.
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "orto", patientRef: "p-test" }), s),
+      env,
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as any).error).toBe("unknown_patient");
+  });
+
+  it("find_patient's unique match rides its own event, with the server's ref", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    nextStream = { text: "", toolUse: { name: "find_patient", input: { query: "Tester" } } };
+
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport" }), s),
+      env,
+    );
+    const events = await sseEvents(res);
+    const pin = events.find((e) => e.type === "patient");
+    expect(pin).toMatchObject({ ref: "p-test", fullName: "Karel Tester" });
+  });
+
+  it("a lab tool with no patient pinned tells the model, not the reader", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    nextStream = { text: "", toolUse: { name: "list_analytes", input: {} } };
+
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport" }), s),
+      env,
+    );
+    const events = await sseEvents(res);
+    // The tool answers ok:false so the model recovers by finding a patient;
+    // the turn itself must not error.
+    expect(events.some((e) => e.type === "tool_result" && e.ok === false)).toBe(true);
+    expect(events.some((e) => e.type === "error")).toBe(false);
+    expect(events.at(-1)!.type).toBe("done");
   });
 });
 

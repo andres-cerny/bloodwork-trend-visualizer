@@ -49,6 +49,20 @@ const DESCRIPTIVE =
   "popiš, co se v datech změnilo, a případně doporuč konzultaci s lékařem. " +
   "Pokud se ptají na něco, co v datech není, řekni to.";
 
+/**
+ * The clinical variant reads the same except for its audience: the reader IS
+ * a clinician, so "poraďte se s lékařem" would be absurd — the closing move
+ * is naming what the data cannot say, not referring them onward. Everything
+ * else — described not diagnosed, no number the tools did not return — is
+ * identical on purpose: one guardrail, two audiences.
+ */
+const DESCRIPTIVE_CLINICIAN =
+  "Odpovídej česky, stručně a POUZE popisně. Čtenářem je lékař. Každé číslo, " +
+  "které uvedeš, musí pocházet z výsledků nástrojů; nikdy žádné nedopočítávej " +
+  "ani neodhaduj. Hodnoty a referenční meze už byly spočítány deterministicky, " +
+  "ber je jako dané. Nestanovuj diagnózu ani nenavrhuj léčbu — popiš, co je v " +
+  "dokumentaci, a co v ní chybí, řekni výslovně.";
+
 export const PROFILES: Record<ProfileName, Profile> = {
   /**
    * The bloodwork app's chat: the reader is looking at the data, and the whole
@@ -71,14 +85,18 @@ export const PROFILES: Record<ProfileName, Profile> = {
   clinical: {
     name: "clinical",
     system:
-      "Jsi klinický asistent. Máš nástroje, kterými si vyhledáš data pacienta — " +
-      "použij je, než odpovíš, a neodpovídej z paměti. " +
-      DESCRIPTIVE +
+      "Jsi klinický asistent ordinace. Máš nástroje, kterými si vyhledáš data " +
+      "pacienta — použij je, než odpovíš, a neodpovídej z paměti. " +
+      "Není-li vybraný pacient, vyhledej ho nástrojem find_patient podle " +
+      "jména z otázky. Při více shodách vypiš nalezené s roky narození a " +
+      "zeptej se, kterého lékař myslí; nikdy nevybírej sám. Na otázku o " +
+      "pacientovi, který v kartotéce není, odpověz, že tam není. " +
+      DESCRIPTIVE_CLINICIAN +
       " Když má odpověď smysl doprovodit grafem, navrhni ho nástrojem " +
       "propose_chart; graf nikdy nevyplňuj sám.",
     model: "claude-sonnet-5",
     maxTokens: 2000,
-    tools: ["list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
+    tools: ["find_patient", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
     auth: { turnstile: true, unit: "message", limit: 40 },
   },
 };

@@ -9,7 +9,10 @@
  *
  * Scoped to one patient at construction, like DatabaseSource: a tool holding
  * this store cannot search another patient's documents, because there is no
- * parameter with which to ask.
+ * parameter with which to ask. And like DatabaseSource it validates that the
+ * patient exists before answering anything — an empty list for a ref that
+ * resolved to nobody would read as "this patient has no documents", which is
+ * a statement about a person who was never looked up.
  */
 import { SQL, type D1Like } from "./d1";
 
@@ -72,12 +75,29 @@ const foldQuery = (q: string) =>
   q.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 export class D1DocumentStore implements DocumentStore {
+  private validated: Promise<void> | null = null;
+
   constructor(
     private readonly db: D1Like,
     private readonly patientRef: string,
   ) {}
 
+  /** Same guard, same memoisation, same reason as DatabaseSource.load(). */
+  private ensurePatient(): Promise<void> {
+    this.validated ??= (async () => {
+      const row = await this.db.prepare(SQL.patientById).bind(this.patientRef).first();
+      if (!row) {
+        throw new Error(
+          `unknown_patient: no patient ${this.patientRef} in this practice's database. ` +
+            `An empty document list would be an answer about nobody.`,
+        );
+      }
+    })();
+    return this.validated;
+  }
+
   async listDocuments(): Promise<DocumentRef[]> {
+    await this.ensurePatient();
     const { results } = await this.db
       .prepare(SQL.documentsForPatient)
       .bind(this.patientRef)
@@ -86,6 +106,7 @@ export class D1DocumentStore implements DocumentStore {
   }
 
   async searchDocuments(query: string): Promise<DocumentHit[]> {
+    await this.ensurePatient();
     const needle = foldQuery(query);
     if (!needle) return [];
     const { results } = await this.db
@@ -115,6 +136,7 @@ export class D1DocumentStore implements DocumentStore {
   }
 
   async getDocument(id: string): Promise<FullDocument | null> {
+    await this.ensurePatient();
     const doc = await this.db
       .prepare(SQL.documentById)
       .bind(id)

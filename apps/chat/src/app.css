@@ -75,3 +75,47 @@
   .chat-main { padding: 12px; }
   .msg { max-width: 92%; }
 }
+
+/* Which patient is open. A chip, not a belief: it renders exactly what the
+   server pinned, and closing it is the reader's act, not the model's. */
+.chat-patient {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.chat-patient button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.chat-patient button:hover { color: inherit; }
+
+/* The practice choice, for a bare URL. Two doors, nothing else. */
+.chat-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  max-width: 420px;
+  margin: 0 auto;
+}
+.chat-pick-card {
+  display: block;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  background: var(--bg);
+}
+.chat-pick-card:hover { border-color: var(--muted); }

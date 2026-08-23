@@ -14,8 +14,7 @@
  * of bug. It stops and says so rather than continuing quietly.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { runTool, TOOLS, type ToolResult } from "@bw/agent-tools";
-import type { PatientDataSource } from "@bw/datasource";
+import { runTool, TOOLS, type ToolContext, type ToolResult } from "@bw/agent-tools";
 import { clientFor, usageOf, type Usage } from "./client";
 import type { AgentEvent } from "./events";
 import type { Profile } from "./profiles";
@@ -44,9 +43,9 @@ export async function* runAgent(opts: {
   /** Injected data, for profiles with no tools. */
   context?: string;
   /** Required by profiles that have tools. */
-  source?: PatientDataSource;
+  data?: ToolContext;
 }): AsyncGenerator<AgentEvent> {
-  const { apiKey, profile, history, context, source } = opts;
+  const { apiKey, profile, history, context, data } = opts;
   const client = clientFor(apiKey);
   const tools = TOOLS.filter((t) => profile.tools.includes(t.name));
 
@@ -90,7 +89,10 @@ export async function* runAgent(opts: {
       return;
     }
 
-    if (!source) {
+    // A missing context is mis-wiring on the server, not a state the model
+    // can recover from. A missing *patient* inside the context is the model's
+    // to handle — runTool answers it per tool, and find_patient still works.
+    if (!data) {
       yield { type: "error", message: "Tento profil nemá připojený zdroj dat." };
       yield { type: "done", usage: total, model: profile.model };
       return;
@@ -101,12 +103,15 @@ export async function* runAgent(opts: {
 
     for (const call of calls) {
       yield { type: "tool_start", id: call.id, name: call.name, input: call.input };
-      const r: ToolResult = await runTool(call.name, call.input as Record<string, unknown>, source);
+      const r: ToolResult = await runTool(call.name, call.input as Record<string, unknown>, data);
       yield { type: "tool_result", id: call.id, name: call.name, ok: r.ok, summary: r.summary };
       // A chart is emitted as its own event so the client can draw it without
       // parsing the model's prose. The series came from the data source, never
       // from the model.
       if (r.chart) yield { type: "chart", spec: r.chart.spec, series: r.chart.series };
+      // Same reasoning for a resolved patient: the ref rides its own event,
+      // and the client pins it rather than scraping the transcript.
+      if (r.patient) yield { type: "patient", ...r.patient };
       results.push({
         type: "tool_result",
         tool_use_id: call.id,

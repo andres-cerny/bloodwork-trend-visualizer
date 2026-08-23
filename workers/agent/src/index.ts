@@ -8,9 +8,23 @@
 import { budgetState, recordSpendUsd } from "@bw/gate";
 import { guard, json, budgetLimit, type BaseEnv } from "@bw/gate/http";
 import { priceUsd, resolveProfile, runAgent, toSse, type ChatTurn } from "@bw/agent-core";
-import { SessionSource } from "@bw/datasource";
+import { D1DocumentStore, DatabaseSource, PatientDirectory, type D1Like } from "@bw/datasource";
+import type { ToolContext } from "@bw/agent-tools";
 
-export interface Env extends BaseEnv {}
+export interface Env extends BaseEnv {
+  DB_SPORT: D1Database;
+  DB_ORTO: D1Database;
+}
+
+/**
+ * The tenant allowlist. A slug the map does not hold is refused with the same
+ * posture as an unknown profile — a default here would quietly serve one
+ * practice's assistant against another practice's database.
+ */
+const TENANTS: Record<string, { binding: "DB_SPORT" | "DB_ORTO"; label: string }> = {
+  sport: { binding: "DB_SPORT", label: "Sportovní medicína" },
+  orto: { binding: "DB_ORTO", label: "Ortopedie a fyzioterapie" },
+};
 
 /**
  * One agent turn, streamed.
@@ -29,13 +43,14 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   const g = await guard(request, env, "agent");
   if ("blocked" in g) return g.blocked;
 
-  const { profile: profileName, history, context, reports } = (await request
+  const { profile: profileName, history, context, tenant, patientRef } = (await request
     .json()
     .catch(() => ({}))) as {
     profile?: string;
     history?: ChatTurn[];
     context?: string;
-    reports?: unknown[];
+    tenant?: string;
+    patientRef?: string;
   };
 
   const profile = resolveProfile(profileName);
@@ -44,13 +59,29 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     return json({ error: "missing_history" }, 400);
   }
 
-  // A profile with tools needs somewhere to look. Today that is whatever the
-  // reader loaded in their own browser, handed over with the question — the
-  // same privacy model the demo has always had.
-  const source =
-    profile.tools.length > 0
-      ? new SessionSource(Array.isArray(reports) ? (reports as never[]) : [])
-      : undefined;
+  // A profile with tools reads a practice's database, and which practice is
+  // part of the request's identity: unknown tenant refused, never defaulted.
+  // The patientRef is only ever one the server handed out — it is validated
+  // against this tenant's directory, so a ref from the other practice is
+  // indistinguishable from a ref that never existed.
+  let data: ToolContext | undefined;
+  if (profile.tools.length > 0) {
+    const t = TENANTS[String(tenant ?? "")];
+    if (!t) return json({ error: "unknown_tenant", message: "Neznámá ordinace." }, 400);
+    const db = env[t.binding] as unknown as D1Like;
+    const directory = new PatientDirectory(db);
+    if (patientRef !== undefined) {
+      const patient = await directory.getPatient(String(patientRef));
+      if (!patient) return json({ error: "unknown_patient", message: "Neznámý pacient." }, 400);
+      data = {
+        source: new DatabaseSource(db, patient.id),
+        directory,
+        documents: new D1DocumentStore(db, patient.id),
+      };
+    } else {
+      data = { source: null, directory };
+    }
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -62,7 +93,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
           profile,
           history,
           context: (context ?? "").slice(0, 60000),
-          source,
+          data,
         })) {
           if (event.type === "done") {
             const spent = priceUsd(

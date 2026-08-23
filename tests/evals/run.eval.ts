@@ -136,6 +136,8 @@ async function run() {
         console.error(`\nStopped: EVAL_MAX_USD (${MAX_USD}) reached after $${spent.toFixed(2)}.`);
         break;
       }
+      // The eval corpus rides a SessionSource: same interface the practice
+      // database implements, no D1 needed to score a prompt.
       const source = new SessionSource(reports);
       let answer = "", charted = false, usd = 0;
       const tools: string[] = [];
@@ -144,7 +146,7 @@ async function run() {
         apiKey,
         profile: PROFILES[c.profile],
         history: [{ role: "user", content: c.question }],
-        source,
+        data: { source },
       }) as AsyncGenerator<AgentEvent>) {
         if (ev.type === "text") answer += ev.text;
         else if (ev.type === "tool_start") tools.push(ev.name);

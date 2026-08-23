@@ -99,7 +99,10 @@ export async function* askAgent(req: {
   profile: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
   context?: string;
-  reports?: unknown[];
+  /** Which practice — required by tool-using profiles, validated server-side. */
+  tenant?: string;
+  /** A ref the server handed out via a `patient` event. Never invented here. */
+  patientRef?: string;
 }): AsyncGenerator<AgentEvent> {
   const res = await fetch("/api/chat", {
     method: "POST",

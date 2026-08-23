@@ -155,7 +155,7 @@ function seeded(): Tables {
       { id: "p-novak-88", full_name: "Michal Novák", name_norm: strip("Michal Novák"), birth_date: "1988-05-01", sex: "m", note: "" },
       { id: "p-novak-95", full_name: "Michal Novák", name_norm: strip("Michal Novák"), birth_date: "1995-11-12", sex: "m", note: "" },
     ],
-    reports: REPORTS.map((r) => ({ patient_id: "p-cerny", report_date: r.reportDate, payload: JSON.stringify(r) })),
+    reports: REPORTS.map((r) => ({ patient_id: "p-cerny", report_date: r.reportDate ?? "", payload: JSON.stringify(r) })),
     summary: [
       { patient_id: "p-cerny", canonical_id: "ferritin", display_name: "Ferritin", unit: "µg/l", last_value: 22, last_date: "2025-06-20", last_flag: "low", delta: -58, direction: "falling" },
       { patient_id: "p-novak-88", canonical_id: "ferritin", display_name: "Ferritin", unit: "µg/l", last_value: 140, last_date: "2025-05-02", last_flag: "normal", delta: 5, direction: "stable" },
@@ -223,6 +223,12 @@ describe("D1DocumentStore", () => {
     const hits = await store.searchDocuments("VO2max");
     expect(hits).toHaveLength(1);
     expect(hits[0].excerpt).toContain("VO₂max 61,2 ml/kg/min");
+  });
+
+  it("refuses an unknown patient rather than reporting an empty shelf", async () => {
+    const ghost = new D1DocumentStore(fakeD1(seeded()), "p-ghost");
+    await expect(ghost.listDocuments()).rejects.toThrow(/unknown_patient/);
+    await expect(ghost.searchDocuments("vo2max")).rejects.toThrow(/unknown_patient/);
   });
 
   it("another patient's document is indistinguishable from a missing one", async () => {

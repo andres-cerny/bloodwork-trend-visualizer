@@ -26,6 +26,13 @@ export type AgentEvent =
    * The model never fills one; `series` came from the deterministic layer.
    */
   | { type: "chart"; spec: unknown; series: unknown }
+  /**
+   * find_patient resolved to exactly one person. The ref is the server's,
+   * from the directory lookup — never parsed out of model text. The client
+   * pins it and sends it back with every later turn; the chip it renders is
+   * what keeps a near-miss visible to the reader.
+   */
+  | { type: "patient"; ref: string; fullName: string; birthDate: string }
   /** Terminal. Usage is final here and nowhere earlier. */
   | { type: "done"; usage: Usage; model: string }
   | { type: "error"; message: string };

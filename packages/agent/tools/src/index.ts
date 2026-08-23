@@ -20,7 +20,7 @@ import {
   validateChartSpec,
   type Trend,
 } from "@bw/lab-core";
-import type { PatientDataSource } from "@bw/datasource";
+import type { DocumentStore, PatientDataSource, PatientDirectory } from "@bw/datasource";
 
 export interface ToolDef {
   name: string;
@@ -36,9 +36,44 @@ export interface ToolResult {
   content: unknown;
   /** Set only by propose_chart, and only after the server resolved it. */
   chart?: { spec: unknown; series: unknown };
+  /**
+   * Set only by find_patient, and only on a unique match. The ref comes from
+   * the directory lookup, never from model text — the loop turns it into a
+   * `patient` event and the client pins it.
+   */
+  patient?: { ref: string; fullName: string; birthDate: string };
+}
+
+/**
+ * What a tool may reach on this request. `source` is null until a patient is
+ * pinned — the lab tools answer "no patient selected" through the model rather
+ * than erroring the turn, because telling the model to go find one first is
+ * the recovery. `directory` exists only for profiles that resolve identity.
+ */
+export interface ToolContext {
+  source: PatientDataSource | null;
+  directory?: PatientDirectory;
+  documents?: DocumentStore;
 }
 
 export const TOOLS: ToolDef[] = [
+  {
+    name: "find_patient",
+    description:
+      "Vyhledá pacienta v kartotéce ordinace podle jména (bez ohledu na diakritiku a pořadí slov). " +
+      "Použij vždy, když se otázka týká pacienta a žádný není vybraný. Při více shodách se čtenáře " +
+      "zeptej, kterého myslí — uveď roky narození — a zavolej znovu s birthYear. Nikdy pacienta " +
+      "nevybírej sám.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Jméno nebo jeho část, jak ho lékař napsal." },
+        birthYear: { type: ["number", "null"], description: "Rok narození pro rozlišení jmenovců." },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+  },
   {
     name: "list_analytes",
     description:
@@ -115,12 +150,48 @@ const trendSummary = (t: Trend) => {
  * an empty result that reads like an answer — see DatabaseSource, which throws
  * rather than reporting a patient with no analytes.
  */
+const NO_PATIENT: ToolResult = {
+  ok: false,
+  summary: "žádný pacient není vybrán",
+  content: {
+    error: "no_patient_selected",
+    hint: "Nejprve vyhledej pacienta nástrojem find_patient a nech čtenáře potvrdit, o koho jde.",
+  },
+};
+
 export async function runTool(
   name: string,
   input: Record<string, unknown>,
-  source: PatientDataSource,
+  ctx: ToolContext,
 ): Promise<ToolResult> {
   try {
+    if (name === "find_patient") {
+      if (!ctx.directory) {
+        return { ok: false, summary: "kartotéka není připojena", content: { error: "no_directory" } };
+      }
+      const query = String(input.query ?? "");
+      const year = typeof input.birthYear === "number" ? input.birthYear : null;
+      const all = await ctx.directory.findPatients(query);
+      const hits = year ? all.filter((p) => p.birthDate.startsWith(String(year))) : all;
+      const shown = hits.map((p) => ({ ref: p.id, fullName: p.fullName, birthDate: p.birthDate }));
+      if (shown.length === 1) {
+        return {
+          ok: true,
+          summary: `nalezen pacient ${shown[0].fullName} (${shown[0].birthDate.slice(0, 4)})`,
+          content: { matches: shown },
+          patient: shown[0],
+        };
+      }
+      return {
+        ok: shown.length > 0,
+        summary: shown.length === 0 ? "nikdo takový v kartotéce není" : `nalezeno ${shown.length} pacientů — zeptej se, kterého myslí`,
+        content: { matches: shown },
+      };
+    }
+
+    const source = ctx.source;
+    if (!source) return NO_PATIENT;
+
     switch (name) {
       case "list_analytes": {
         const list = await source.listAnalytes();
