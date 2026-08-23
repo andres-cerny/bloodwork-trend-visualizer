@@ -1,12 +1,11 @@
 /**
  * Where the agent gets a patient's data.
  *
- * The interface exists before its second implementation on purpose. Today the
- * only source is whatever the reader loaded into their browser this session;
- * the intended one is a doctor's database. If the tools were written against
- * the session's shape, every one of them would have to change when the
- * database arrives — and the tool layer is exactly the part that should not
- * care.
+ * Two implementations now: whatever the reader loaded into their browser this
+ * session (SessionSource), and a practice's seeded database (DatabaseSource
+ * over D1). The interface predates the second on purpose — the tools were
+ * written against it from the first tool, which is why the database arrived
+ * without a tool changing.
  *
  * So no tool may ask which implementation it has, and no implementation may
  * return anything the deterministic layer has not already computed. That second
@@ -32,4 +31,7 @@ export interface PatientDataSource {
 
 export * from "./session";
 export * from "./database";
+export * from "./directory";
+export * from "./documents";
+export { normalizeName, SQL, type D1Like, type D1Prepared, type D1Rows } from "./d1";
 export type { AnalyteDef };

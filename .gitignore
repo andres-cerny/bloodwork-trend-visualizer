@@ -58,3 +58,6 @@ tests/evals/output/*
 # generates. Personal overrides go in .vscode/settings.local.json.
 .vscode/*
 !.vscode/settings.json
+
+# Finder noise
+.DS_Store

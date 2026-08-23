@@ -57,6 +57,14 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: "datasource",
+      root: "./packages/agent/datasource",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "bloodwork-shell",
       root: "./apps/bloodwork/worker",
       include: ["tests/**/*.test.ts"],

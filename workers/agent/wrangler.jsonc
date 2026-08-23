@@ -11,6 +11,14 @@
 
   "kv_namespaces": [{ "binding": "BUDGET", "id": "1a27795146e44c9092169ad7c86fa882" }],
 
+  // One database per practice — isolation by database, not by column, so a
+  // query cannot forget a WHERE tenant clause that never exists. The tenant
+  // slug from the URL path picks the binding; an unknown slug is refused.
+  "d1_databases": [
+    { "binding": "DB_SPORT", "database_name": "bloodwork-chat-sport", "database_id": "9e137169-3517-401f-bf6d-e7575d7981d4" },
+    { "binding": "DB_ORTO", "database_name": "bloodwork-chat-orto", "database_id": "01ba4f51-1520-4b80-bef6-342abe4c1d74" }
+  ],
+
   "vars": {
     "BUDGET_USD_LIMIT": "40",
     "SESSION_TTL_SECONDS": "1800"
