@@ -79,7 +79,15 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
         documents: new D1DocumentStore(db, patient.id),
       };
     } else {
-      data = { source: null, directory };
+      // Unpinned: find_patient can still run, and on a unique match it binds
+      // the rest of the turn through this closure — the ref came from the
+      // directory, so the guarantee holds that no source opens un-validated.
+      const ctx: ToolContext = { source: null, directory };
+      ctx.bind = (ref: string) => {
+        ctx.source = new DatabaseSource(db, ref);
+        ctx.documents = new D1DocumentStore(db, ref);
+      };
+      data = ctx;
     }
   }
 

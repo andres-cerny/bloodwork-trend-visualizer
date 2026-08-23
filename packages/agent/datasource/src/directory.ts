@@ -55,7 +55,21 @@ const toRef = (r: PatientRow): PatientRef => ({
   note: r.note,
 });
 
-export class PatientDirectory {
+/**
+ * What identity resolution looks like from the tool layer — the class below
+ * is the D1 implementation, and tests stub this shape without a database.
+ */
+export interface PatientLookup {
+  findPatients(query: string): Promise<PatientRef[]>;
+  getPatient(id: string): Promise<PatientRef | null>;
+  cohort(
+    canonicalId: string,
+    direction: "rising" | "falling" | "stable" | "any",
+    flag: "high" | "low" | "any",
+  ): Promise<CohortRow[]>;
+}
+
+export class PatientDirectory implements PatientLookup {
   constructor(private readonly db: D1Like) {}
 
   /**

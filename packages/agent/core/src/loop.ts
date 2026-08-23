@@ -65,10 +65,12 @@ export async function* runAgent(opts: {
 
   // The turn's evidence registry. The loop owns numbering so it is stable
   // across rounds and tools; tools embed the numbers in what the model reads.
+  // The context is used as handed over, NOT copied: the server's bind closure
+  // mutates this same object mid-turn when find_patient resolves, and a copy
+  // here would receive the closure but never the mutation.
   const sources: Array<{ n: number } & SourceInfo> = [];
-  const ctx: ToolContext | undefined = data
-    ? { ...data, cite: (s: SourceInfo) => sources.push({ n: sources.length + 1, ...s }) }
-    : undefined;
+  const ctx = data;
+  if (ctx) ctx.cite = (s: SourceInfo) => sources.push({ n: sources.length + 1, ...s });
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const stream = client.messages.stream({

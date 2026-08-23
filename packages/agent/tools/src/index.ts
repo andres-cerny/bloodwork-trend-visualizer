@@ -20,7 +20,7 @@ import {
   validateChartSpec,
   type Trend,
 } from "@bw/lab-core";
-import type { DocumentStore, PatientDataSource, PatientDirectory } from "@bw/datasource";
+import type { DocumentStore, PatientDataSource, PatientLookup } from "@bw/datasource";
 
 export interface ToolDef {
   name: string;
@@ -52,7 +52,7 @@ export interface ToolResult {
  */
 export interface ToolContext {
   source: PatientDataSource | null;
-  directory?: PatientDirectory;
+  directory?: PatientLookup;
   documents?: DocumentStore;
   /**
    * Register one piece of evidence and get its citation number. The server
@@ -62,6 +62,13 @@ export interface ToolContext {
    * the client renders exactly what was registered, so the invention shows.
    */
   cite?: (s: SourceInfo) => number;
+  /**
+   * Supplied by the server. find_patient calls it on a unique match so the
+   * rest of THIS turn is already scoped — "dej mi souhrn X" is one turn, not
+   * a resolution turn and then a question turn. The ref it passes is one the
+   * directory returned; there is still no path from model text to a source.
+   */
+  bind?: (ref: string) => void;
 }
 
 /** One citable piece of evidence, as the client will render it. */
@@ -232,6 +239,7 @@ export async function runTool(
       const hits = year ? all.filter((p) => p.birthDate.startsWith(String(year))) : all;
       const shown = hits.map((p) => ({ ref: p.id, fullName: p.fullName, birthDate: p.birthDate }));
       if (shown.length === 1) {
+        ctx.bind?.(shown[0].ref);
         return {
           ok: true,
           summary: `nalezen pacient ${shown[0].fullName} (${shown[0].birthDate.slice(0, 4)})`,
@@ -248,7 +256,19 @@ export async function runTool(
 
     if (name === "search_documents" || name === "get_document") {
       const docs = ctx.documents;
-      if (!docs) return NO_PATIENT;
+      // Two different absences, two different answers. No documents STORE
+      // means this mode has no documentation at all — telling the model "no
+      // patient selected" when one is bound sends it hunting for a patient
+      // it already has, in circles, until the round budget dies. Seen live.
+      if (!docs) {
+        return ctx.source
+          ? {
+              ok: false,
+              summary: "dokumentace není v tomto režimu dostupná",
+              content: { error: "no_documents", hint: "Pokračuj s laboratorními nástroji; dokumentaci nezmiňuj jako prohledanou." },
+            }
+          : NO_PATIENT;
+      }
       if (name === "search_documents") {
         const hits = await docs.searchDocuments(String(input.query ?? ""));
         const cited = await Promise.all(

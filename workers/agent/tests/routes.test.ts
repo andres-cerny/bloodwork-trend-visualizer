@@ -214,13 +214,17 @@ async function sseEvents(res: Response): Promise<any[]> {
 }
 
 /** What the next Claude call should return; set per test. */
-let nextStream: { text: string; outTokens?: number; toolUse?: { name: string; input: unknown } } | null = null;
+type StreamSpec = { text: string; outTokens?: number; toolUse?: { name: string; input: unknown } };
+let nextStream: StreamSpec | null = null;
+/** For turns with several tool rounds: shifted first, before nextStream. */
+let streamQueue: StreamSpec[] = [];
 
 let calls: Array<{ url: string; body: any }> = [];
 
 beforeEach(() => {
   calls = [];
   nextStream = null;
+  streamQueue = [];
   // The SDK may call fetch with a Request object rather than (url, init), so
   // read the body from whichever shape arrives.
   vi.stubGlobal("fetch", async (input: any, init?: any) => {
@@ -240,7 +244,7 @@ beforeEach(() => {
 
     // A streaming request is an agent turn; a buffered one is extraction.
     if (body?.stream) {
-      const spec = nextStream ?? { text: "Ahoj." };
+      const spec = streamQueue.shift() ?? nextStream ?? { text: "Ahoj." };
       const reply = anthropicStream(spec.text, spec.outTokens ?? 100, spec.toolUse);
       nextStream = null; // a tool round-trip's second call falls back to text
       return reply;
@@ -485,6 +489,26 @@ describe("tenancy and identity", () => {
     expect(src.sources[0]).toMatchObject({ n: 1, kind: "lab", reportId: "r-1", label: "hemoglobin 150 g/l" });
     // Numbering must reach the model too: the tool result it read carries src.
     expect(events.indexOf(src)).toBe(events.length - 2);
+  });
+
+  it("a unique find_patient binds the rest of the turn: summary in one ask", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    streamQueue = [
+      { text: "", toolUse: { name: "find_patient", input: { query: "Tester" } } },
+      { text: "", toolUse: { name: "list_analytes", input: {} } },
+    ];
+
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport" }), s),
+      env,
+    );
+    const events = await sseEvents(res);
+    expect(events.find((e) => e.type === "patient")).toMatchObject({ ref: "p-test" });
+    // The lab tool ran in the SAME turn, against the bound source — not the
+    // "no patient selected" recovery. One ask, one summary.
+    const lab = events.filter((e) => e.type === "tool_result").at(-1);
+    expect(lab).toMatchObject({ name: "list_analytes", ok: true });
   });
 
   it("a lab tool with no patient pinned tells the model, not the reader", async () => {
