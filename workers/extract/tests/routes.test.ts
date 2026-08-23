@@ -29,6 +29,7 @@ function makeEnv(over: Partial<Env> = {}): Env {
     BUDGET_USD_LIMIT: "20",
     MAX_PAGES_PER_SESSION: "12",
     SESSION_TTL_SECONDS: "1800",
+    TURNSTILE_HOSTNAMES: "demo.test",
     SINGLE_MODEL: "0",
     ...over,
   };
@@ -154,10 +155,14 @@ async function sseEvents(res: Response): Promise<any[]> {
 /** What the next Claude call should return; set per test. */
 let nextStream: { text: string; outTokens?: number; toolUse?: { name: string; input: unknown } } | null = null;
 
+/** Where the stubbed challenge was solved. Tests override it per case. */
+let turnstileHostname = "demo.test";
+
 let calls: Array<{ url: string; body: any }> = [];
 
 beforeEach(() => {
   calls = [];
+  turnstileHostname = "demo.test";
   nextStream = null;
   // The SDK may call fetch with a Request object rather than (url, init), so
   // read the body from whichever shape arrives.
@@ -166,10 +171,10 @@ beforeEach(() => {
     const u = req ? req.url : String(input);
 
     if (u.includes("turnstile")) {
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: true, hostname: turnstileHostname, action: "session" }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
     }
 
     const rawBody = req ? await req.clone().text() : init?.body;
@@ -336,5 +341,28 @@ describe("spend ledger", () => {
     calls = [];
     await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("the session gate checks where the challenge was solved", () => {
+  it("refuses a token solved on a hostname this deployment does not serve", async () => {
+    // The widget registers localhost for development. A token belongs to the
+    // widget, not the page, so before the hostname check this minted a
+    // production session.
+    turnstileHostname = "localhost";
+    const res = await worker.fetch(
+      post("/api/session", { turnstileToken: "solved-on-localhost" }),
+      makeEnv(),
+    );
+    expect(res.status).toBe(403);
+    expect((await res.json() as any).error).toBe("turnstile_failed");
+  });
+
+  it("refuses everything when the allowlist is not configured", async () => {
+    const res = await worker.fetch(
+      post("/api/session", { turnstileToken: "fine" }),
+      makeEnv({ TURNSTILE_HOSTNAMES: "" }),
+    );
+    expect(res.status).toBe(403);
   });
 });

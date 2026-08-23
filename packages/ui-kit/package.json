@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@bw/api-client": "*",
-    "@bw/lab-core": "*"
+    "@bw/lab-core": "*",
+    "@bw/gate": "*"
   },
   "peerDependencies": {
     "react": "^18.3.1"

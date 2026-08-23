@@ -11,5 +11,6 @@
  * @bw/agent-core, so that anything wanting to price a call does not drag
  * KVNamespace into a Node program.
  */
+export * from "./turnstile";
 export * from "./auth";
 export * from "./budget";

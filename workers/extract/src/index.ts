@@ -6,7 +6,14 @@
  * that the agent is about to grow a database binding, and there is no version
  * of this that should inherit that reach.
  */
-import { consumePage, mintSession, recordSpendUsd, budgetState, verifyTurnstile } from "@bw/gate";
+import {
+  budgetState,
+  consumePage,
+  mintSession,
+  recordSpendUsd,
+  TURNSTILE_ACTION,
+  verifyTurnstile,
+} from "@bw/gate";
 import { guard, json, budgetLimit, maxPages, sessionTtl, type BaseEnv } from "@bw/gate/http";
 import { priceUsd } from "@bw/agent-core";
 import { extractPage, extractPageText, MODEL_ESCALATION, MODEL_PRIMARY } from "@bw/extraction";
@@ -26,6 +33,10 @@ async function handleSession(request: Request, env: Env): Promise<Response> {
     env.TURNSTILE_SECRET_KEY,
     turnstileToken,
     request.headers.get("cf-connecting-ip"),
+    {
+      hostnames: (env.TURNSTILE_HOSTNAMES ?? "").split(","),
+      action: TURNSTILE_ACTION,
+    },
   );
   if (!ok) return json({ error: "turnstile_failed", message: "Ověření se nezdařilo." }, 403);
 

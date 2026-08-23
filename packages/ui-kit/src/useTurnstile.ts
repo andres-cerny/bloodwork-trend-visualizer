@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, hasSession, startSession } from "@bw/api-client";
+import { TURNSTILE_ACTION } from "@bw/gate/turnstile";
 
 /**
  * Mount the Turnstile widget and trade a solved challenge for a session.
@@ -45,6 +46,9 @@ export function useTurnstile(siteKey: string | undefined, onUnlock?: () => void)
       if (!window.turnstile || el.childElementCount > 0) return;
       window.turnstile.render(el, {
         sitekey: siteKey,
+        // Checked server-side. A token minted for one surface must not be
+        // replayable at another.
+        action: TURNSTILE_ACTION,
         callback: async (token: string) => {
           try {
             await startSession(token);

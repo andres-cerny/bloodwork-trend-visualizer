@@ -23,6 +23,12 @@ that capability's ledger is not frozen. Identical between workers — only the
 capability argument differs.
 
 - **`consumePage` is never called on an agent route.** A test pins it.
+- **A Turnstile token proves three things, not one:** solved, on a hostname
+  this deployment serves, for this action. The widget registers localhost for
+  development, and a token belongs to the widget rather than the page — so
+  checking only `success` let a locally-solved challenge mint production
+  sessions. `TURNSTILE_HOSTNAMES` is per-deployment and must never list
+  localhost in production; unset means refuse everything.
 - **The ledgers are separate.** They used to share one counter, so a batch of
   uploads could freeze the chat. Pre-split `spend_usd_shard_*` keys are still
   read, so an existing deployment's history survives.

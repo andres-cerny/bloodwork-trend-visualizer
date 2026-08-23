@@ -12,6 +12,12 @@ export interface BaseEnv {
   BUDGET: KVNamespace;
   ANTHROPIC_API_KEY: string;
   TURNSTILE_SECRET_KEY: string;
+  /**
+   * Hostnames this deployment serves, comma-separated. Deployment-specific on
+   * purpose: production must not list localhost, or a challenge solved locally
+   * mints production sessions.
+   */
+  TURNSTILE_HOSTNAMES?: string;
   SESSION_SECRET: string;
   BUDGET_USD_LIMIT?: string;
   MAX_PAGES_PER_SESSION?: string;

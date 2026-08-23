@@ -15,6 +15,10 @@
     "BUDGET_USD_LIMIT": "40",
     "MAX_PAGES_PER_SESSION": "100",
     "SESSION_TTL_SECONDS": "1800",
+    // Hostnames this deployment serves. Deliberately NOT localhost: the widget
+    // registers it for development, and a challenge solved there would
+    // otherwise mint production sessions.
+    "TURNSTILE_HOSTNAMES": "bloodwork-demo.andres-cerny.workers.dev",
     "SINGLE_MODEL": "0"
   },
 

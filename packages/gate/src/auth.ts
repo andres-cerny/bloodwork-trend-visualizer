@@ -66,21 +66,70 @@ export async function verifySession(secret: string, token: string | null): Promi
   }
 }
 
-/** Server-side Turnstile check. Never trust the widget's client-side result. */
+/**
+ * Server-side Turnstile check. Never trust the widget's client-side result.
+ *
+ * `success` alone is not enough, and the gap is not theoretical here. A widget
+ * registers several domains — this one has the production hostname *and*
+ * localhost — and a token is valid for the widget, not for the page. So a
+ * challenge solved against localhost produced a token production accepted.
+ * Anyone who could run the app locally could mint production sessions.
+ *
+ * Cloudflare's canonical check is therefore three things, and all three matter:
+ *
+ *   success   the challenge was solved
+ *   hostname  ...on a page we actually serve, not merely one on the widget
+ *   action    ...at the surface that asked for it, not replayed from another
+ *
+ * Fails closed everywhere: a network error, a non-2xx, an unparseable body, or
+ * an empty hostname allowlist all return false. An allowlist that is missing is
+ * a misconfiguration, and treating it as "allow everything" is how a guard
+ * quietly stops guarding.
+ */
+export interface TurnstileExpectations {
+  /** Hostnames this deployment serves. Never include localhost in production. */
+  hostnames: string[];
+  /** The surface that requested the challenge, matched against `data-action`. */
+  action: string;
+}
+
+interface SiteverifyResult {
+  success?: boolean;
+  hostname?: string;
+  action?: string;
+  "error-codes"?: string[];
+}
+
 export async function verifyTurnstile(
   secret: string,
   token: string,
   remoteIp: string | null,
+  expect: TurnstileExpectations,
 ): Promise<boolean> {
-  const body = new FormData();
-  body.append("secret", secret);
-  body.append("response", token);
-  if (remoteIp) body.append("remoteip", remoteIp);
-  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    body,
-  });
-  if (!res.ok) return false;
-  const data = (await res.json()) as { success?: boolean };
-  return data.success === true;
+  // A token is a bounded opaque string; anything else is not worth a round trip.
+  if (typeof token !== "string" || token.length === 0 || token.length > 2048) return false;
+  const allowed = new Set(expect.hostnames.map((h) => h.trim()).filter(Boolean));
+  if (allowed.size === 0) return false;
+
+  let data: SiteverifyResult;
+  try {
+    const body = new URLSearchParams({ secret, response: token });
+    if (remoteIp) body.set("remoteip", remoteIp);
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      // Without this, a hung siteverify hangs the request that is waiting on it.
+      signal: AbortSignal.timeout(10_000),
+      body,
+    });
+    if (!res.ok) return false;
+    data = (await res.json()) as SiteverifyResult;
+  } catch {
+    return false;
+  }
+
+  if (data.success !== true) return false;
+  if (typeof data.hostname !== "string" || !allowed.has(data.hostname)) return false;
+  if (data.action !== expect.action) return false;
+  return true;
 }
