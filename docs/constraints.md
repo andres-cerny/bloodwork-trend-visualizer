@@ -226,3 +226,34 @@ malformed path rather than falling through; no secret can reach the client
 bundle or an error body; the spend ledger is driven only by token counts the
 API reports; the Worker's only outbound hosts are hardcoded. Worth re-running
 `/security-review` if you change `worker/`.
+
+## The chat demo's four rules
+
+The clinical demo (apps/chat, the two D1 practices) added invariants of its
+own. Each has a test; the file that pins it is named.
+
+**The model names a patient; the server opens one.** find_patient resolves the
+model's query deterministically; a unique match travels as a `patient` event
+whose ref came from the directory, never from model text, and every later turn
+revalidates the ref against the tenant. Asking about a second patient re-scopes
+the tools, not just the chip — the browser walkthrough caught the version that
+did not, answering with one patient's blood under another patient's name.
+Pinned by `workers/agent/tests/routes.test.ts`.
+
+**SQL filters what lab-core computed; it never re-derives it.**
+`reports.payload` is the lossless truth; `measurements` and
+`patient_analyte_summary` are seed-time indexes. The direction rule lives in
+the seeder, once. A cohort answer is names and last values — opening a record
+stays a separate, reader-visible act. Pinned by the cohort route test.
+
+**An unconnected source refuses; an empty one answers.** DatabaseSource and
+the document store both throw for a ref that resolved to nobody, because "no
+documents" about a person who was never looked up reads as a fact about
+nobody. A validated patient with nothing on file is a real answer. Pinned by
+`packages/agent/datasource/tests/database.test.ts`.
+
+**A citation is a registry entry, not a convention.** Tools register what they
+read through a server-owned counter; the numbers ride inside the tool results
+the model sees; the client renders the registry exactly as sent, so a [n] the
+model invented points at nothing visibly. The live test asserts every marker
+in a real answer resolves (`tests/live/clinical.live.ts`).
