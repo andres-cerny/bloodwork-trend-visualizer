@@ -169,7 +169,9 @@ git), hand-authoring the `followups` events for now. Write the screenshot
 script: for a given dev-server port, drive the scripted states — empty,
 mid-stream (replayer paused), full answer with sources and follow-up chips,
 Novák ambiguity, chart turn, drawer open — at 390px and 1440px, both palettes.
-Write the rubric the evaluator scores against: hierarchy, likeness to the
+Write the rubric the evaluator scores against
+(committed as [tools/ui-loop/rubric.md](../../tools/ui-loop/rubric.md), with the
+shared mechanics in [tools/ui-loop/spec.md](../../tools/ui-loop/spec.md)): hierarchy, likeness to the
 reference pattern, row-crop legibility at rail width, Czech copy fit (no
 overflow, no orphaned labels), mobile composer ergonomics, palette parity,
 streaming states, wow. Commit the harness before any variant exists.
