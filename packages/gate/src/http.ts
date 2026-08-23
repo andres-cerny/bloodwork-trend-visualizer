@@ -20,6 +20,8 @@ export interface BaseEnv {
   TURNSTILE_HOSTNAMES?: string;
   SESSION_SECRET: string;
   BUDGET_USD_LIMIT?: string;
+  /** Ceiling per clinical tenant's ledger; the demo pair each get their own. */
+  CLINICAL_USD_LIMIT?: string;
   MAX_PAGES_PER_SESSION?: string;
   SESSION_TTL_SECONDS?: string;
 }
@@ -30,7 +32,10 @@ export const json = (data: unknown, status = 200) =>
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 
-export const budgetLimit = (env: BaseEnv) => parseFloat(env.BUDGET_USD_LIMIT ?? "20") || 20;
+export const budgetLimit = (env: BaseEnv, cap?: Capability) =>
+  cap?.startsWith("clinical-")
+    ? parseFloat(env.CLINICAL_USD_LIMIT ?? "10") || 10
+    : parseFloat(env.BUDGET_USD_LIMIT ?? "20") || 20;
 export const maxPages = (env: BaseEnv) => parseInt(env.MAX_PAGES_PER_SESSION ?? "12", 10) || 12;
 export const sessionTtl = (env: BaseEnv) => parseInt(env.SESSION_TTL_SECONDS ?? "1800", 10) || 1800;
 
@@ -49,7 +54,7 @@ export async function guard(
       ),
     };
   }
-  const state = await budgetState(env.BUDGET, cap, budgetLimit(env));
+  const state = await budgetState(env.BUDGET, cap, budgetLimit(env, cap));
   if (state.frozen) {
     return {
       blocked: json(

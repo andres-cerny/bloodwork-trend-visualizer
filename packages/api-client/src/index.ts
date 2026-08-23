@@ -57,8 +57,10 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
-export async function getStatus(): Promise<{ budget: Budget; maxPages: number; crossCheck: boolean }> {
-  const res = await fetch("/api/status");
+export async function getStatus(
+  tenant?: string,
+): Promise<{ budget: Budget; maxPages: number; crossCheck: boolean }> {
+  const res = await fetch(`/api/status${tenant ? `?tenant=${encodeURIComponent(tenant)}` : ""}`);
   if (!res.ok) throw new Error("status unavailable");
   return res.json();
 }

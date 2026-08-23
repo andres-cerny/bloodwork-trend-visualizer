@@ -5,7 +5,7 @@
  * index, a conversation store. Keeping it apart from extraction is what stops
  * that reach being handed to a path that only ever needed an API key.
  */
-import { budgetState, recordSpendUsd } from "@bw/gate";
+import { budgetState, recordSpendUsd, type Capability } from "@bw/gate";
 import { guard, json, budgetLimit, type BaseEnv } from "@bw/gate/http";
 import { priceUsd, resolveProfile, runAgent, toSse, type ChatTurn } from "@bw/agent-core";
 import { D1DocumentStore, DatabaseSource, PatientDirectory, type D1Like } from "@bw/datasource";
@@ -40,9 +40,6 @@ const TENANTS: Record<string, { binding: "DB_SPORT" | "DB_ORTO"; label: string }
  * multi-round turn, and the ledger is the only thing bounding this demo.
  */
 async function handleChat(request: Request, env: Env): Promise<Response> {
-  const g = await guard(request, env, "agent");
-  if ("blocked" in g) return g.blocked;
-
   const { profile: profileName, history, context, tenant, patientRef } = (await request
     .json()
     .catch(() => ({}))) as {
@@ -58,6 +55,17 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
   if (!Array.isArray(history) || history.length === 0) {
     return json({ error: "missing_history" }, 400);
   }
+
+  // Spend books to the ledger of who is spending: the bloodwork chat to the
+  // shared agent ledger, each practice's assistant to its own. A doctor
+  // exploring one demo must not be able to freeze the other — that ledger
+  // merge bug has been fixed once already, one level down.
+  const capability: Capability =
+    profile.tools.length > 0 && String(tenant) in TENANTS
+      ? (`clinical-${tenant}` as Capability)
+      : "agent";
+  const g = await guard(request, env, capability);
+  if ("blocked" in g) return g.blocked;
 
   // A profile with tools reads a practice's database, and which practice is
   // part of the request's identity: unknown tenant refused, never defaulted.
@@ -111,7 +119,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
               event.usage.cacheReadTokens,
               event.usage.cacheWriteTokens,
             );
-            await recordSpendUsd(env.BUDGET, "agent", spent);
+            await recordSpendUsd(env.BUDGET, capability, spent);
           }
           send(event);
         }
@@ -137,8 +145,11 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === "/api/agent/status") {
-      return json({ budget: await budgetState(env.BUDGET, "agent", budgetLimit(env)) });
+    if (url.pathname === "/api/agent/status" || url.pathname === "/api/status") {
+      const tenant = url.searchParams.get("tenant");
+      const cap: Capability =
+        tenant && tenant in TENANTS ? (`clinical-${tenant}` as Capability) : "agent";
+      return json({ budget: await budgetState(env.BUDGET, cap, budgetLimit(env, cap)) });
     }
     if (url.pathname === "/api/chat" && request.method === "POST") {
       return handleChat(request, env);

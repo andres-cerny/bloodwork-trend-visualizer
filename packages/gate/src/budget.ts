@@ -21,7 +21,7 @@ const SHARDS = 8;
  * eval sweep could freeze extraction — two demos, one fuse. Keyed per
  * capability, each has its own ceiling and its own failure.
  */
-export type Capability = "agent" | "extract";
+export type Capability = "agent" | "extract" | "clinical-sport" | "clinical-orto";
 
 const KEY = (cap: Capability, i: number) => `spend_usd_${cap}_shard_${i}`;
 
@@ -38,9 +38,16 @@ const LEGACY_KEY = (i: number) => `spend_usd_shard_${i}`;
  */
 
 export async function totalSpentUsd(kv: KVNamespace, cap: Capability): Promise<number> {
+  // The legacy pre-split counter belongs to the era when only agent and
+  // extract existed; folding it into a clinical ledger would pre-charge a
+  // brand-new capability with history it never spent.
+  const legacy =
+    cap === "agent" || cap === "extract"
+      ? Array.from({ length: SHARDS }, (_, i) => kv.get(LEGACY_KEY(i)))
+      : [];
   const parts = await Promise.all([
     ...Array.from({ length: SHARDS }, (_, i) => kv.get(KEY(cap, i))),
-    ...Array.from({ length: SHARDS }, (_, i) => kv.get(LEGACY_KEY(i))),
+    ...legacy,
   ]);
   return parts.reduce((sum, v) => sum + (v ? parseFloat(v) || 0 : 0), 0);
 }

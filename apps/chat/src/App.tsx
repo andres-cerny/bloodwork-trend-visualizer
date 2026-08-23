@@ -68,8 +68,8 @@ export default function App() {
   );
 
   useEffect(() => {
-    getStatus().then((s) => setBudget(s.budget)).catch(() => {});
-  }, []);
+    if (tenant) getStatus(tenant).then((s) => setBudget(s.budget)).catch(() => {});
+  }, [tenant]);
 
   // A reply that lands below the fold reads as no reply at all.
   useEffect(() => {
@@ -138,7 +138,7 @@ export default function App() {
         } else if (ev.type === "error") {
           setError(ev.message);
         } else if (ev.type === "done") {
-          getStatus().then((s) => setBudget(s.budget)).catch(() => {});
+          getStatus(tenant).then((s) => setBudget(s.budget)).catch(() => {});
         }
       }
     } catch (e) {

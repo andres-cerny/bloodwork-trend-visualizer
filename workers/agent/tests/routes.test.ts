@@ -403,8 +403,13 @@ describe("the agent route", () => {
     // Two calls: the tool request and the answer after it. Pricing only the
     // terminal message would report half the turn, and the ledger is the only
     // thing bounding what this demo can spend.
-    const spent = await totalSpentUsd(env.BUDGET, "agent");
+    // ...and to the ledger of who spent it: the practice's own, so a doctor
+    // exploring one demo can never freeze the other. The agent ledger (the
+    // bloodwork chat's) must not have moved.
+    const spent = await totalSpentUsd(env.BUDGET, "clinical-sport");
     expect(spent).toBeGreaterThan(0.021);
+    expect(await totalSpentUsd(env.BUDGET, "agent")).toBe(0);
+    expect(await totalSpentUsd(env.BUDGET, "clinical-orto")).toBe(0);
   });
 });
 
