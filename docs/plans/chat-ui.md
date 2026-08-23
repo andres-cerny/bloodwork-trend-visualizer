@@ -193,15 +193,20 @@ state, picks a winner, and writes a concrete critique: what the winner must fix,
 and which single idea from each loser is worth grafting. The critique is a
 committed artifact; „B won" without reasons re-runs the round.
 
-**Round 3 — the winner branches, and Ondřej decides.**
+**Round 3 — the winner branches, every candidate is polished, Ondřej decides.**
 Two refiner agents fork the winning worktree: one applies the critique
 (including the grafts), one does the mobile/a11y/palette pass against the audit
-states. Orchestrator re-screenshots both; the evaluator scores them — but does
-not pick. **The candidates go to Ondřej**: the refined pair plus the Round-2
-winner as reference, side-by-side screenshots per state, with the evaluator's
-score table attached. He assesses; Round 4 builds on his pick and whatever he
-asks changed. If he asks for another generation instead, that is the loop
-branching again — his call, not a cut line.
+states. Then — Ondřej's instruction, 2026-08-23 — **each of the three
+candidates** (the Round-2 winner and both refinements) **runs its own polish
+loop before he sees anything**: the fixed camera shoots it, a critic scores it
+against the rubric and names its worst concrete defects, a fixer applies them
+on that candidate's branch, and the camera shoots again — repeating until the
+critic finds nothing consequential, three iterations at most per candidate.
+Only then do **the candidates go to Ondřej**: all three, side-by-side
+screenshots per state, with the final score tables attached. He assesses;
+Round 4 builds on his pick and whatever he asks changed. If he asks for
+another generation instead, that is the loop branching again — his call, not
+a cut line.
 
 **Round 4 — merge and prove.**
 Merge Ondřej's pick and Track B into `chat-demo`. `npm run typecheck`,
@@ -225,6 +230,6 @@ the two tracks are separable by design.
 - [ ] Track B — follow-ups implemented; eval promoted under the $10 cap
 - [x] Round 1 — variants A/B/C built in worktrees (branches `worktree-agent-a17364…/aeaacb…/a7c6b6…`), 34/34 camera states each; spec's `cite-1` wording pinned to the reading all three converged on
 - [x] Round 2 — blind verdict committed (`tools/ui-loop/round-2-verdict.md`): A 33 · C 31 · B 28; A wins on evidence legibility and pattern likeness, grafts taken from C (streaming) and B (row band)
-- [ ] Round 3 — refined candidates screenshotted and handed to Ondřej
+- [ ] Round 3 — refiners done; each candidate polished by its own camera→critic→fixer loop; candidates handed to Ondřej
 - [ ] Ondřej's pick recorded here
 - [ ] Round 4 — merged, audited, walked through live, deployed
