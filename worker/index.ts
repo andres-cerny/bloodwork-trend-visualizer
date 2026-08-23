@@ -8,7 +8,8 @@
  * than breaking it.
  */
 import { mintSession, verifySession, verifyTurnstile, type SessionClaims } from "./auth";
-import { budgetState, consumePage, priceUsd, recordSpendUsd } from "./budget";
+import { budgetState, consumePage, recordSpendUsd } from "./budget";
+import { priceUsd } from "./pricing";
 import {
   chat,
   extractPage,

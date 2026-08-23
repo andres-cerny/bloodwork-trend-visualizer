@@ -20,7 +20,7 @@ import { it } from "vitest";
 
 import Anthropic from "@anthropic-ai/sdk";
 
-import { parsePdf, realSamples, SCREEN_SUBSET } from "./corpus";
+import { parsePdf, realSamples, screenSamples } from "./corpus";
 import { rowsIndexed, rowsPlain } from "./extract";
 import { ITERATION_1, PRIMARY } from "./arms";
 import { SYSTEM_EXTRACT_TEXT, TOOL } from "../worker/claude";
@@ -93,7 +93,16 @@ it("stage 0 — the free measurements", async () => {
   const client = new Anthropic({ apiKey: key, maxRetries: 2 });
 
   // One dense page from the screening subset — representative of the real cost.
-  const { doc } = await parsePdf(`samples/${SCREEN_SUBSET[3]}`);
+  // `screenSamples` returns paths already joined against samples/, so they are
+  // passed through as they are; prefixing them again looked right and pointed
+  // at samples/samples/.
+  const subset = screenSamples();
+  if (subset.length === 0) {
+    console.log("\n(no PDFs in samples/ — skipping the token counts)\n");
+    writeFileSync(`${OUT}/stage0.jsonl`, rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
+    return;
+  }
+  const { doc } = await parsePdf(subset[subset.length - 1]);
   const densest = [...doc.pages].sort((a, b) => b.rows.length - a.rows.length)[0];
   console.log(
     `probe page: ${densest.file} p${densest.pageNum}, ${densest.rows.length} rows\n`,

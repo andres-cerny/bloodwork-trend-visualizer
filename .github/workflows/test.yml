@@ -36,8 +36,11 @@ jobs:
       - name: TypeScript tests
         run: npm test
 
+      # Covers the web app, the Worker, and — since the tools project was added
+      # — bench/, e2e/ and tests/live/, which reach across directories by
+      # relative path and were previously checked by nothing at all.
       - name: Typecheck
-        run: npx tsc -b
+        run: npm run typecheck
 
       - name: Build
         run: npm run build

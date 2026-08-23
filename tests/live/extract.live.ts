@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { extractPage, extractPageText, MODEL_ESCALATION, MODEL_PRIMARY } from "../../worker/claude";
-import { priceUsd } from "../../worker/budget";
+import { priceUsd } from "../../worker/pricing";
 import { buildRows, rowsAsText, isPrintedOnPage } from "../../web/src/pdf/rows";
 import { canonicalizeUnit, normalizeMeasurement } from "../../web/src/lib/normalize";
 import { makeMeasurement } from "../../web/src/lib/models";
@@ -196,10 +196,15 @@ describeLive("live extraction — vision fallback (scanned page)", () => {
   it("transcribes a page that has no text layer", async (ctx) => {
     const python = pythonWithFitz();
     if (!python) {
-      ctx.skip(
-        "no Python with PyMuPDF found — needed only to rasterise the fixture. " +
-          "Create one with: python3.11 -m venv .venv-mac && .venv-mac/bin/pip install pymupdf",
+      // vitest 2's ctx.skip() takes no argument, so the reason has to be
+      // printed rather than passed — and the reason is the useful part here:
+      // it says how to make the test runnable.
+      console.log(
+        "\n(skipping vision fallback: no Python with PyMuPDF found — needed only " +
+          "to rasterise the fixture.\n Create one with: python3.11 -m venv .venv-mac " +
+          "&& .venv-mac/bin/pip install pymupdf)\n",
       );
+      ctx.skip();
       return;
     }
 

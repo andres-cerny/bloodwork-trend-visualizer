@@ -1,6 +1,7 @@
 /** The ledger decides when AI features freeze, so its arithmetic is load-bearing. */
 import { describe, expect, it } from "vitest";
-import { budgetState, priceUsd, recordSpendUsd, totalSpentUsd } from "../budget";
+import { budgetState, recordSpendUsd, totalSpentUsd } from "../budget";
+import { priceUsd } from "../pricing";
 
 /** Minimal in-memory stand-in for the KV binding. */
 function fakeKv() {

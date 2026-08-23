@@ -15,36 +15,11 @@
 const SHARDS = 8;
 const KEY = (i: number) => `spend_usd_shard_${i}`;
 
-/** USD per million tokens (input, output) — mirrors MODEL_PRICING in src/config.py. */
-export const MODEL_PRICING: Record<string, [number, number]> = {
-  "claude-sonnet-5": [3.0, 15.0],
-  "claude-opus-4-8": [5.0, 25.0],
-  "claude-haiku-4-5": [1.0, 5.0],
-};
-
 /**
- * Price one call.
- *
- * Cached input is billed differently from fresh input — a cache write costs
- * ~1.25x and a cache read ~0.1x — so counting every input token at full rate
- * would overstate spend and freeze the demo early. The multipliers apply to
- * the model's own input rate.
+ * Pricing lives in ./pricing.ts, not here: it is pure arithmetic and this
+ * file is KV I/O. Anything that only needs to price a call imports that
+ * module directly, so it never pulls `KVNamespace` into a Node program.
  */
-export function priceUsd(
-  model: string,
-  inputTokens: number,
-  outputTokens: number,
-  cacheReadTokens = 0,
-  cacheWriteTokens = 0,
-): number {
-  const [inPrice, outPrice] = MODEL_PRICING[model] ?? [3.0, 15.0];
-  return (
-    (inputTokens / 1e6) * inPrice +
-    (cacheWriteTokens / 1e6) * inPrice * 1.25 +
-    (cacheReadTokens / 1e6) * inPrice * 0.1 +
-    (outputTokens / 1e6) * outPrice
-  );
-}
 
 export async function totalSpentUsd(kv: KVNamespace): Promise<number> {
   const parts = await Promise.all(

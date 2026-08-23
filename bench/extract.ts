@@ -25,7 +25,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { SYSTEM_EXTRACT_TEXT, TOOL, type PageExtraction, type Usage } from "../worker/claude";
 import { columnMapRequest, rebuild, type ColumnMap } from "./columnmap";
-import { MODEL_PRICING } from "../worker/budget";
+import { MODEL_PRICING } from "../worker/pricing";
 import type { TextRow } from "../web/src/pdf/rows";
 
 /** Extends the Worker's table; Haiku is only ever a benchmark arm today. */
