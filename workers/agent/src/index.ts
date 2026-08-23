@@ -15,6 +15,7 @@ import type { ToolContext } from "@bw/agent-tools";
 export interface Env extends BaseEnv {
   DB_SPORT: D1Database;
   DB_ORTO: D1Database;
+  EVIDENCE: R2Bucket;
 }
 
 /**
@@ -180,6 +181,22 @@ export default {
       const cap: Capability =
         tenant && tenant in TENANTS ? (`clinical-${tenant}` as Capability) : "agent";
       return json({ budget: await budgetState(env.BUDGET, cap, budgetLimit(env, cap)) });
+    }
+    // Real-patient page images, keyed by content hash. Unguessable rather
+    // than session-guarded, because an <img> tag cannot send the session
+    // header — and the record's owner chose this demo knowingly. Synthetic
+    // evidence never comes through here; it ships as static assets.
+    if (url.pathname.startsWith("/api/evidence/") && request.method === "GET") {
+      const key = url.pathname.slice("/api/evidence/".length);
+      if (!/^[a-z0-9-]{16,}\.png$/.test(key)) return json({ error: "not_found" }, 404);
+      const obj = await env.EVIDENCE.get(key);
+      if (!obj) return json({ error: "not_found" }, 404);
+      return new Response(obj.body, {
+        headers: {
+          "content-type": "image/png",
+          "cache-control": "public, max-age=86400",
+        },
+      });
     }
     if (url.pathname === "/api/session" && request.method === "POST") {
       return handleSession(request, env);
