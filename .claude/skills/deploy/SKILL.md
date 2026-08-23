@@ -46,6 +46,10 @@ resolves on its own `*.workers.dev` name — they are `workers_dev: false`, and 
 one answers, it has a public origin it should not have.
 
 **The Turnstile challenge cannot be verified from here.** Managed mode detects
-and refuses Playwright, headless and headed. It needs one human click on the
-live URL, and it is the only path to upload or chat — so nothing downstream of
-it is exercised until someone does that. Ask.
+and refuses Playwright, headless and headed — which is the feature working. It
+needs one human click on the live URL, and it is the only path to upload or
+chat, so nothing downstream of it is exercised until someone does that.
+
+The current keys were confirmed working by hand on 2026-08-23 (challenge solved,
+upload succeeded). Ask for a fresh check only after the site key or the secret
+changes, or after a deploy to a new hostname — the pairing is per-hostname.
