@@ -1,0 +1,14 @@
+{
+  "id": "chart_named_not_filled",
+  "why": "New. The agent may name a chart and never fill one — this asserts a chart event arrives and that its series came from the data source, which is the invariant chartSpec.ts was written to hold and had no caller to test it.",
+  "question": "Ukaž vývoj cholesterolu v grafu.",
+  "profile": "clinical",
+  "expect": {
+    "tools": ["propose_chart"],
+    "toolsMode": "contains",
+    "mustEmitChart": true,
+    "mustMention": [],
+    "mustNotMention": [],
+    "mustRefuse": false
+  }
+}

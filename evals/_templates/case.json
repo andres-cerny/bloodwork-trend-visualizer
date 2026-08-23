@@ -1,0 +1,13 @@
+{
+  "id": "example_case",
+  "why": "One sentence: what would be broken if this answer were wrong.",
+  "question": "Otázka česky.",
+  "profile": "clinical",
+  "expect": {
+    "tools": ["list_analytes"],
+    "toolsMode": "contains",
+    "mustMention": [],
+    "mustNotMention": [],
+    "mustRefuse": false
+  }
+}

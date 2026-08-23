@@ -1,0 +1,13 @@
+{
+  "id": "tools_list",
+  "why": "Asking what is on file is the one question that cannot be answered without looking. If this passes without a tool call, the agent is guessing.",
+  "question": "Které parametry pro pacienta vůbec máš k dispozici? Kolik jich je?",
+  "profile": "clinical",
+  "expect": {
+    "tools": ["list_analytes"],
+    "toolsMode": "contains",
+    "mustMention": [],
+    "mustNotMention": [],
+    "mustRefuse": false
+  }
+}

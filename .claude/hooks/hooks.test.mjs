@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The privacy guard's own tests.
+ * The hooks' own tests.
  *
  * `docs/constraints.md` says a guard that only runs on the happy fixture is not
  * a guard, and this one proved the point on its first day: it blocked its own
@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const GUARD = fileURLToPath(new URL("./privacy-guard.mjs", import.meta.url));
+const SPEND = fileURLToPath(new URL("./spend-guard.mjs", import.meta.url));
 
 const ALLOW = 0;
 const BLOCK = 2;
@@ -62,9 +63,42 @@ for (const [name, payload, want] of CASES) {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${verdict}  ${name}${ok ? "" : `  (exit ${got})`}`);
 }
 
+/**
+ * The spend guard asks, it does not block — a guard that refused would be wrong,
+ * since these suites exist to be run. What matters is that it stays quiet on the
+ * free commands sitting next to them: `npm run test:live` is one character away
+ * from `npm test`, and a hook that asked about both would be ignored within a day.
+ */
+const SPEND_CASES = [
+  ["npm run eval", true],
+  ["npm run bench:latency", true],
+  ["npm run test:live", true],
+  ["npm run test:handoff", true],
+  ["npm test", false],
+  ["npm run build", false],
+  ["npm run test:e2e", false],
+  ["npm run typecheck", false],
+];
+
+for (const [command, shouldAsk] of SPEND_CASES) {
+  let out = "";
+  try {
+    out = execFileSync("node", [SPEND], {
+      input: JSON.stringify({ tool_name: "Bash", tool_input: { command } }),
+      encoding: "utf8",
+    });
+  } catch {
+    out = "";
+  }
+  const asked = out.includes("permissionDecision");
+  const ok = asked === shouldAsk;
+  if (!ok) failed += 1;
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${shouldAsk ? "ask  " : "quiet"}  ${command}`);
+}
+
 console.log(
   failed === 0
-    ? `\n${CASES.length} cases pass.`
-    : `\n${failed} of ${CASES.length} cases FAILED.`,
+    ? `\n${CASES.length + SPEND_CASES.length} cases pass.`
+    : `\n${failed} of ${CASES.length + SPEND_CASES.length} cases FAILED.`,
 );
 process.exit(failed === 0 ? 0 : 1);

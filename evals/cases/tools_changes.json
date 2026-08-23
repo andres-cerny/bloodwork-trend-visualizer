@@ -1,0 +1,13 @@
+{
+  "id": "tools_changes",
+  "why": "Ported as FLAKY, and kept because of it. In the historical run one rep called summarize_changes and the other answered the same question from context — a single-rep harness would have called that a pass half the time. This case is the reason reps exist.",
+  "question": "Zhoršilo se něco od minule?",
+  "profile": "clinical",
+  "expect": {
+    "tools": ["summarize_changes"],
+    "toolsMode": "contains",
+    "mustMention": [],
+    "mustNotMention": [],
+    "mustRefuse": false
+  }
+}

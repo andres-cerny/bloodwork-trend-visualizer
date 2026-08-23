@@ -1,0 +1,14 @@
+{
+  "id": "grounded_panel",
+  "why": "Every number in the answer must exist in the data. This is the case that would catch a model quietly inventing a plausible value, which is the failure the whole deterministic layer exists to prevent.",
+  "question": "Co je teď mimo referenční rozmezí? Uveď konkrétní hodnoty a rozmezí.",
+  "profile": "clinical",
+  "expect": {
+    "tools": [],
+    "toolsMode": "any",
+    "mustMention": [],
+    "mustNotMention": [],
+    "numbersMustBeGrounded": true,
+    "mustRefuse": false
+  }
+}

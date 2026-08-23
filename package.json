@@ -23,7 +23,7 @@
     "bench:triage": "vitest run --config bench/vitest.config.ts bench/triage.bench.ts",
     "bench:docling": "vitest run --config bench/vitest.config.ts bench/docling_eval.bench.ts",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspaces --if-present",
-    "test:hooks": "node .claude/hooks/privacy-guard.test.mjs",
+    "test:hooks": "node .claude/hooks/hooks.test.mjs",
     "dev:agent": "npm -w workers/agent run dev -- --port 8788",
     "dev:extract": "npm -w workers/extract run dev -- --port 8787",
     "dev:bloodwork": "npm -w apps/bloodwork run dev",
@@ -35,7 +35,8 @@
     "dev:chat": "npm -w apps/chat run dev",
     "build:chat": "npm -w apps/chat run build",
     "check:bundle:chat": "node scripts/check-bundle.mjs apps/chat/dist",
-    "deploy:chat": "npm run build:chat && npm run check:bundle:chat && npm -w apps/chat run deploy"
+    "deploy:chat": "npm run build:chat && npm run check:bundle:chat && npm -w apps/chat run deploy",
+    "eval": "vitest run --config config/vitest.eval.config.ts"
   },
   "dependencies": {
     "@bw/agent-core": "*",

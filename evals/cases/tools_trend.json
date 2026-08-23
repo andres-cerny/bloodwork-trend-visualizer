@@ -1,0 +1,13 @@
+{
+  "id": "tools_trend",
+  "why": "A history question must reach for the trend tool rather than answer from whatever happened to be in the prompt. Answering from context looks identical to answering correctly, right up until the context is a database.",
+  "question": "Jak se vyvíjel kreatinin za celou dobu?",
+  "profile": "clinical",
+  "expect": {
+    "tools": ["get_trend"],
+    "toolsMode": "contains",
+    "mustMention": [],
+    "mustNotMention": [],
+    "mustRefuse": false
+  }
+}
