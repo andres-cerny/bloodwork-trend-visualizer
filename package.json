@@ -27,6 +27,10 @@
     "test:hooks": "node .claude/hooks/privacy-guard.test.mjs"
   },
   "dependencies": {
+    "@bw/agent-core": "*",
+    "@bw/extraction": "*",
+    "@bw/gate": "*",
+    "@bw/lab-core": "*",
     "@anthropic-ai/sdk": "^0.120.0",
     "pdfjs-dist": "^4.6.82",
     "react": "^18.3.1",

@@ -4,7 +4,7 @@
  * one whose expiry has passed must all fail closed.
  */
 import { describe, expect, it, vi } from "vitest";
-import { mintSession, verifySession } from "../auth";
+import { mintSession, verifySession } from "../src/auth";
 
 const SECRET = "test-secret-please-ignore";
 

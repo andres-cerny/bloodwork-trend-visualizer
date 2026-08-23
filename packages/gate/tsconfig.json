@@ -1,0 +1,18 @@
+{
+  /*
+   * Worker-only: the ledger takes a KVNamespace, so this is the one package
+   * that needs @cloudflare/workers-types. It stays alone in `types` — combined
+   * with @types/node it collides on Request, Response and fetch.
+   *
+   * This is why pricing is not here. It is pure arithmetic, and bench/ and
+   * tests/live/ price calls from plain node; keeping it in agent-core is what
+   * stops KVNamespace following it there.
+   */
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "tsBuildInfoFile": "../../node_modules/.tmp/gate.tsbuildinfo"
+  },
+  "include": ["src", "tests"]
+}

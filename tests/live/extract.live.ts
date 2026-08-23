@@ -24,8 +24,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { extractPage, extractPageText, MODEL_ESCALATION, MODEL_PRIMARY } from "../../worker/claude";
-import { priceUsd } from "../../worker/pricing";
+import { extractPage, extractPageText, MODEL_ESCALATION, MODEL_PRIMARY } from "@bw/extraction";
+import { priceUsd } from "@bw/agent-core";
 import {
   buildRows,
   rowsAsText,

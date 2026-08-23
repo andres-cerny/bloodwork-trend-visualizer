@@ -33,6 +33,14 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: "gate",
+      root: "./packages/gate",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "worker",
       root: "./worker",
       include: ["tests/**/*.test.ts"],

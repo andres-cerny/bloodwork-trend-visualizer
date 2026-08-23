@@ -7,17 +7,17 @@
  * neither, so a frozen budget degrades the site to a read-only demo rather
  * than breaking it.
  */
-import { mintSession, verifySession, verifyTurnstile, type SessionClaims } from "./auth";
-import { budgetState, consumePage, recordSpendUsd } from "./budget";
-import { priceUsd } from "./pricing";
 import {
-  chat,
-  extractPage,
-  extractPageText,
-  MODEL_ESCALATION,
-  MODEL_PRIMARY,
-  type ChatTurn,
-} from "./claude";
+  budgetState,
+  consumePage,
+  mintSession,
+  recordSpendUsd,
+  verifySession,
+  verifyTurnstile,
+  type SessionClaims,
+} from "@bw/gate";
+import { chat, priceUsd, type ChatTurn } from "@bw/agent-core";
+import { extractPage, extractPageText, MODEL_ESCALATION, MODEL_PRIMARY } from "@bw/extraction";
 
 export interface Env {
   ASSETS: Fetcher;

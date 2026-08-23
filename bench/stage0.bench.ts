@@ -23,7 +23,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { parsePdf, realSamples, screenSamples } from "./corpus";
 import { rowsIndexed, rowsPlain } from "./extract";
 import { ITERATION_1, PRIMARY } from "./arms";
-import { SYSTEM_EXTRACT_TEXT, TOOL } from "../worker/claude";
+import { SYSTEM_EXTRACT_TEXT, TOOL } from "@bw/extraction";
 
 const OUT = "bench/results";
 

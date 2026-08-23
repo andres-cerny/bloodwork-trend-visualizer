@@ -8,7 +8,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../index";
-import { mintSession } from "../auth";
+import { mintSession } from "@bw/gate";
 
 const SECRET = "test-session-secret";
 

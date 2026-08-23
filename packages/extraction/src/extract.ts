@@ -1,20 +1,24 @@
 /**
- * Claude calls, server-side. The API key lives as a Worker secret and never
- * reaches the browser.
+ * Turning a printed lab page into structured rows.
  *
- * Uses the official SDK rather than raw fetch, which brings retry with
- * exponential backoff on 408/409/429/5xx and connection errors — the Python
- * pipeline retries transient API failures and this had no equivalent, so one
- * blip lost a page.
+ * The model's only job here is verbatim transcription — it never computes,
+ * converts a unit, or edits a number. Everything numeric is recomputed
+ * afterwards by @bw/lab-core, which is what makes a misread decimal catchable
+ * rather than merely plausible.
  *
- * The extraction prompt and tool schema are lifted verbatim from
- * src/extract.py — the model's only job is verbatim transcription, and every
- * number is computed afterwards by normalize.ts. Keep the two in sync: if the
- * Czech prompt drifts between the Python and this file, the demo and the local
+ * The prompt and tool schema are lifted from src/extract.py and must stay in
+ * step with it: if the Czech drifts between the two, the demo and the local
  * tool stop extracting the same way.
+ *
+ * The SDK client and usage accounting come from @bw/agent-core — both
+ * capabilities price calls the same way, and duplicating that is how the two
+ * halves drift.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { clientFor, usageOf, type Usage } from "@bw/agent-core";
+
+
 
 export const MODEL_PRIMARY = "claude-sonnet-5";
 /**
@@ -30,7 +34,7 @@ export const MODEL_PRIMARY = "claude-sonnet-5";
  * an Opus escalation path. See docs/extraction-speed.md.
  */
 export const MODEL_ESCALATION = "claude-haiku-4-5";
-export const MODEL_CHAT = "claude-sonnet-5";
+
 
 export const SYSTEM_EXTRACT =
   "Jsi přesný přepisovač českých laboratorních výsledků z obrázku. " +
@@ -156,23 +160,6 @@ const TOOL_TEXT = (() => {
   return tool as Anthropic.Tool;
 })();
 
-export interface Usage {
-  inputTokens: number;
-  outputTokens: number;
-  /** Non-zero once the tools+system prefix is long enough to cache. */
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-}
-
-function usageOf(u: Anthropic.Usage | undefined): Usage {
-  return {
-    inputTokens: u?.input_tokens ?? 0,
-    outputTokens: u?.output_tokens ?? 0,
-    cacheReadTokens: u?.cache_read_input_tokens ?? 0,
-    cacheWriteTokens: u?.cache_creation_input_tokens ?? 0,
-  };
-}
-
 /** The tool_use block a forced tool_choice guarantees. */
 function toolInput(message: Anthropic.Message): Record<string, unknown> {
   const block = message.content.find((b) => b.type === "tool_use");
@@ -208,15 +195,6 @@ export interface PageExtraction {
   }>;
   usage: Usage;
   model: string;
-}
-
-function clientFor(apiKey: string): Anthropic {
-  return new Anthropic({
-    apiKey,
-    // Three attempts total. A page that still fails is skipped and reported
-    // rather than sinking the whole report.
-    maxRetries: 3,
-  });
 }
 
 /**
@@ -292,49 +270,4 @@ export async function extractPage(
     messages: [{ role: "user", content: content as Anthropic.ContentBlockParam[] }],
   });
   return toExtraction(toolInput(message), usageOf(message.usage), model);
-}
-
-const SYSTEM_CHAT =
-  "Jsi asistent, který pomáhá číst výsledky krevních testů. Odpovídej česky, " +
-  "stručně a POUZE popisně. Máš k dispozici strukturovaná data níže — každé " +
-  "číslo, které uvedeš, musí pocházet z těchto dat; nikdy žádné nedopočítávej " +
-  "ani neodhaduj. Hodnoty a referenční meze už byly spočítány deterministicky, " +
-  "ber je jako dané. Nestanovuj diagnózu, nedoporučuj léčbu a nespekuluj o " +
-  "příčinách; popiš, co se v datech změnilo, a případně doporuč konzultaci " +
-  "s lékařem. Pokud se ptají na něco, co v datech není, řekni to.";
-
-export interface ChatTurn {
-  role: "user" | "assistant";
-  content: string;
-}
-
-/**
- * Answer a question about the already-extracted data.
- *
- * The normalized values are injected as context rather than fetched through
- * tools: the dataset is small and already deterministic, so this keeps every
- * number the model can see traceable to the parsing layer.
- */
-export async function chat(
-  apiKey: string,
-  dataContext: string,
-  history: ChatTurn[],
-): Promise<{ text: string; usage: Usage; model: string }> {
-  const message = await clientFor(apiKey).messages.create({
-    model: MODEL_CHAT,
-    max_tokens: 1200,
-    // The instructions are stable; the patient's data changes per session, so
-    // the breakpoint sits between them.
-    system: [
-      { type: "text", text: SYSTEM_CHAT, cache_control: { type: "ephemeral" } },
-      { type: "text", text: `=== DATA PACIENTA ===\n${dataContext}` },
-    ],
-    messages: history.slice(-12),
-  });
-  const text = message.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
-  return { text, usage: usageOf(message.usage), model: MODEL_CHAT };
 }

@@ -1,0 +1,16 @@
+{
+  /*
+   * Runtime-agnostic: this code runs in workerd and in node tests, so it may
+   * assume neither. `types: []` is the assertion — no @types/node, no
+   * @cloudflare/workers-types — and WebWorker is the closest stock lib to
+   * workerd: fetch, Request, Response, ReadableStream, crypto.subtle, and no
+   * document.
+   */
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker", "WebWorker.Iterable"],
+    "types": [],
+    "tsBuildInfoFile": "../../node_modules/.tmp/agent-core.tsbuildinfo"
+  },
+  "include": ["src", "tests"]
+}
