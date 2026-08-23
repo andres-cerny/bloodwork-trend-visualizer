@@ -224,7 +224,7 @@ the two tracks are separable by design.
 - [x] Round 0 — event shape (`44a1b66`), fixtures, camera, spec addenda and rubric committed; capture cost ≈ $0.30 on the dev ledger
 - [ ] Track B — follow-ups implemented; eval promoted under the $10 cap
 - [x] Round 1 — variants A/B/C built in worktrees (branches `worktree-agent-a17364…/aeaacb…/a7c6b6…`), 34/34 camera states each; spec's `cite-1` wording pinned to the reading all three converged on
-- [ ] Round 2 — critique committed, winner chosen
+- [x] Round 2 — blind verdict committed (`tools/ui-loop/round-2-verdict.md`): A 33 · C 31 · B 28; A wins on evidence legibility and pattern likeness, grafts taken from C (streaming) and B (row band)
 - [ ] Round 3 — refined candidates screenshotted and handed to Ondřej
 - [ ] Ondřej's pick recorded here
 - [ ] Round 4 — merged, audited, walked through live, deployed
