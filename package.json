@@ -37,7 +37,8 @@
     "check:bundle:chat": "node scripts/check-bundle.mjs apps/chat/dist",
     "deploy:chat": "npm run build:chat && npm run check:bundle:chat && npm -w apps/chat run deploy",
     "eval": "vitest run --config config/vitest.eval.config.ts",
-    "docs:check": "node scripts/check-docs.mjs"
+    "docs:check": "node scripts/check-docs.mjs",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@bw/agent-core": "*",

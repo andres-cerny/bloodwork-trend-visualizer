@@ -29,6 +29,8 @@ npm run dev:extract + dev:agent + dev:bloodwork   # one terminal each
 
 `test:live`, `bench:*` and `eval` call the real API and cost money.
 
+`npm install` points git at `.githooks/`, where pre-push runs `docs:check`.
+
 ## Where to go
 
 | For | Read |
