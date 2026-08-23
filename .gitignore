@@ -18,8 +18,14 @@ dist/
 .dev.vars
 .streamlit/secrets.toml
 
-# Local Claude Code config
-.claude/
+# Claude Code config. The shared parts are committed — hooks and skills are
+# project infrastructure, and a privacy guard that only exists on one machine
+# guards nothing. Personal overrides stay local.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/skills/
+.claude/settings.local.json
 
 # Personal medical data — NEVER commit
 # Source lab PDFs and everything derived from them.

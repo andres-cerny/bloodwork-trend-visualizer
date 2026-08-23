@@ -36,6 +36,12 @@ jobs:
       - name: TypeScript tests
         run: npm test
 
+      # The privacy guard is the only enforcement of the rule that lab reports
+      # never leave the machine, so it needs to work on a machine that is not
+      # the author's.
+      - name: Hook tests
+        run: npm run test:hooks
+
       # Covers the web app, the Worker, and — since the tools project was added
       # — bench/, e2e/ and tests/live/, which reach across directories by
       # relative path and were previously checked by nothing at all.

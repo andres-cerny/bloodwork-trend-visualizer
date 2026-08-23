@@ -9,7 +9,7 @@
     "test": "vitest run",
     "deploy": "npm run build && npm run check:bundle && wrangler deploy",
     "test:parity": "python3 tests/test_parity.py && vitest run tests/parity.test.ts",
-    "test:all": "npm run test:parity && vitest run && npm run typecheck",
+    "test:all": "npm run test:parity && vitest run && npm run test:hooks && npm run typecheck",
     "test:live": "vitest run --config config/vitest.handoff.config.ts tests/live",
     "test:e2e": "npm run build && vitest run --config config/vitest.handoff.config.ts e2e/visual.e2e.ts",
     "test:audit": "npm run build && vitest run --config config/vitest.handoff.config.ts e2e/audit.e2e.ts",
@@ -23,7 +23,8 @@
     "bench:batch": "vitest run --config bench/vitest.config.ts bench/batch.bench.ts",
     "bench:triage": "vitest run --config bench/vitest.config.ts bench/triage.bench.ts",
     "bench:docling": "vitest run --config bench/vitest.config.ts bench/docling_eval.bench.ts",
-    "typecheck": "tsc -b && tsc -p tsconfig.tools.json"
+    "typecheck": "tsc -b && tsc -p tsconfig.tools.json",
+    "test:hooks": "node .claude/hooks/privacy-guard.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
