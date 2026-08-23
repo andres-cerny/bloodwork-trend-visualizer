@@ -1,0 +1,300 @@
+{
+ "title": "Ferritin v sezóně — K. Šebestová",
+ "tenant": "sport",
+ "turns": [
+  {
+   "user": "Jak se vyvíjel ferritin Kláry Šebestové?",
+   "events": [
+    {
+     "type": "tool_start",
+     "id": "toolu_01AUf11G3afXK3HF1D9i43r4",
+     "name": "find_patient",
+     "input": {
+      "query": "Klára Šebestová"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01AUf11G3afXK3HF1D9i43r4",
+     "name": "find_patient",
+     "ok": true,
+     "summary": "nalezen pacient Klára Šebestová (1999)"
+    },
+    {
+     "type": "patient",
+     "ref": "p-sebestova-1999",
+     "fullName": "Klára Šebestová",
+     "birthDate": "1999-11-08"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01Y5BdpcEu7kVWYccbWoMRtS",
+     "name": "get_trend",
+     "input": {
+      "canonicalId": "ferritin"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01Y5BdpcEu7kVWYccbWoMRtS",
+     "name": "get_trend",
+     "ok": true,
+     "summary": "načetl vývoj ferritin"
+    },
+    {
+     "type": "text",
+     "text": "V"
+    },
+    {
+     "type": "text",
+     "text": "ývoj ferritinu u Kláry Šebestové (referenční rozmezí 13–150 µg/l):\n\n- 27. 2."
+    },
+    {
+     "type": "text",
+     "text": " 2024: 6 µg/l – nízký [1]\n- 14. 5. 2024: 9 µg/l – nízký [2]\n- 3. 9. 2024: 16 µg/l – normální [3]\n- 21"
+    },
+    {
+     "type": "text",
+     "text": ". 1. 2025: 28 µg/l – normální [4]\n- 10. 6. 2025: 44 µg/l – normální [5]\n\nHodnoty tedy trvale rostou"
+    },
+    {
+     "type": "text",
+     "text": " – od deficitu na počátku sledování k normálním hodnotám v posledních dvou odbě"
+    },
+    {
+     "type": "text",
+     "text": "rech."
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_011LPGCXTNJnKVfwHW9rmSLA",
+     "name": "propose_chart",
+     "input": {
+      "parameters": [
+       "ferritin"
+      ],
+      "type": "line"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_011LPGCXTNJnKVfwHW9rmSLA",
+     "name": "propose_chart",
+     "ok": true,
+     "summary": "navrhl graf: ferritin"
+    },
+    {
+     "type": "chart",
+     "spec": {
+      "parameters": [
+       "ferritin"
+      ],
+      "from": null,
+      "to": null,
+      "type": "line"
+     },
+     "series": [
+      {
+       "unit": "µg/l",
+       "type": "line",
+       "series": [
+        {
+         "canonicalId": "ferritin",
+         "displayName": "ferritin",
+         "unit": "µg/l",
+         "points": [
+          {
+           "date": "2024-02-27",
+           "value": 6,
+           "unit": "µg/l",
+           "flag": "low",
+           "refLow": 13,
+           "refHigh": 150,
+           "valueRaw": "6",
+           "reportId": "p-sebestova-1999-r1",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2024-05-14",
+           "value": 9,
+           "unit": "µg/l",
+           "flag": "low",
+           "refLow": 13,
+           "refHigh": 150,
+           "valueRaw": "9",
+           "reportId": "p-sebestova-1999-r2",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2024-09-03",
+           "value": 16,
+           "unit": "µg/l",
+           "flag": "normal",
+           "refLow": 13,
+           "refHigh": 150,
+           "valueRaw": "16",
+           "reportId": "p-sebestova-1999-r3",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2025-01-21",
+           "value": 28,
+           "unit": "µg/l",
+           "flag": "normal",
+           "refLow": 13,
+           "refHigh": 150,
+           "valueRaw": "28",
+           "reportId": "p-sebestova-1999-r4",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2025-06-10",
+           "value": 44,
+           "unit": "µg/l",
+           "flag": "normal",
+           "refLow": 13,
+           "refHigh": 150,
+           "valueRaw": "44",
+           "reportId": "p-sebestova-1999-r5",
+           "suspect": null,
+           "unconfirmed": null
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": "Nav"
+    },
+    {
+     "type": "text",
+     "text": "rhla jsem graf vývoje ferritinu v čase pro přehlednější znázornění"
+    },
+    {
+     "type": "text",
+     "text": " trendu."
+    },
+    {
+     "type": "sources",
+     "sources": [
+      {
+       "n": 1,
+       "kind": "lab",
+       "label": "ferritin 6 µg/l",
+       "date": "2024-02-27",
+       "lab": "Laboratoře Modrý Kámen s.r.o.",
+       "reportId": "p-sebestova-1999-r1",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-sebestova-1999-r1_p1.png",
+       "bbox": [
+        152.8,
+        808.6,
+        1402.1,
+        840.6
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 2,
+       "kind": "lab",
+       "label": "ferritin 9 µg/l",
+       "date": "2024-05-14",
+       "lab": "Laboratoř Zelený Ostrov s.r.o.",
+       "reportId": "p-sebestova-1999-r2",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-sebestova-1999-r2_p1.png",
+       "bbox": [
+        152.8,
+        808.6,
+        1402.1,
+        840.6
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 3,
+       "kind": "lab",
+       "label": "ferritin 16 µg/l",
+       "date": "2024-09-03",
+       "lab": "Laboratoře Modrý Kámen s.r.o.",
+       "reportId": "p-sebestova-1999-r3",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-sebestova-1999-r3_p1.png",
+       "bbox": [
+        152.8,
+        808.6,
+        1402.1,
+        840.6
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 4,
+       "kind": "lab",
+       "label": "ferritin 28 µg/l",
+       "date": "2025-01-21",
+       "lab": "Laboratoř Zelený Ostrov s.r.o.",
+       "reportId": "p-sebestova-1999-r4",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-sebestova-1999-r4_p1.png",
+       "bbox": [
+        152.8,
+        808.6,
+        1402.1,
+        840.6
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 5,
+       "kind": "lab",
+       "label": "ferritin 44 µg/l",
+       "date": "2025-06-10",
+       "lab": "Laboratoře Modrý Kámen s.r.o.",
+       "reportId": "p-sebestova-1999-r5",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-sebestova-1999-r5_p1.png",
+       "bbox": [
+        152.8,
+        808.6,
+        1402.1,
+        840.6
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      }
+     ]
+    },
+    {
+     "type": "followups",
+     "questions": [
+      "Vykresli do grafu i hemoglobin.",
+      "Jak vypadaly výkonnostní testy v tomto období?",
+      "Porovnej poslední dva odběry."
+     ]
+    },
+    {
+     "type": "done",
+     "usage": {
+      "inputTokens": 1668,
+      "outputTokens": 444,
+      "cacheReadTokens": 10248,
+      "cacheWriteTokens": 0
+     },
+     "model": "claude-sonnet-5"
+    }
+   ]
+  }
+ ]
+}

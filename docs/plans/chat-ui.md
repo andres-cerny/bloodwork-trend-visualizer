@@ -219,7 +219,7 @@ the two tracks are separable by design.
 
 ## Build log
 
-- [ ] Round 0 — event shape, fixtures, screenshot script, rubric committed
+- [x] Round 0 — event shape (`44a1b66`), fixtures, camera, spec addenda and rubric committed; capture cost ≈ $0.30 on the dev ledger
 - [ ] Track B — follow-ups implemented; eval promoted under the $10 cap
 - [ ] Round 1 — variants A/B/C built and screenshotted
 - [ ] Round 2 — critique committed, winner chosen

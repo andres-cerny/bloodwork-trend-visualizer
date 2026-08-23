@@ -1,0 +1,174 @@
+{
+ "title": "Dokumentace — P. Vondrušák",
+ "tenant": "orto",
+ "turns": [
+  {
+   "user": "Shrň dokumentaci Petra Vondrušáka.",
+   "events": [
+    {
+     "type": "tool_start",
+     "id": "toolu_013jbKBwnFdTeN3hRhQBQ7yU",
+     "name": "find_patient",
+     "input": {
+      "query": "Petr Vondrušák"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_013jbKBwnFdTeN3hRhQBQ7yU",
+     "name": "find_patient",
+     "ok": true,
+     "summary": "nalezen pacient Petr Vondrušák (1985)"
+    },
+    {
+     "type": "patient",
+     "ref": "p-vondrusak-1985",
+     "fullName": "Petr Vondrušák",
+     "birthDate": "1985-12-03"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01GBYiwfAfykDqDVc7ZieadQ",
+     "name": "get_document",
+     "input": {}
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01GBYiwfAfykDqDVc7ZieadQ",
+     "name": "get_document",
+     "ok": true,
+     "summary": "vypsal 1 dokumentů"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_0137Bc4LsZpyaks368DaFB5Q",
+     "name": "get_document",
+     "input": {
+      "id": "d-vondrusak-fyzio-2025"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_0137Bc4LsZpyaks368DaFB5Q",
+     "name": "get_document",
+     "ok": true,
+     "summary": "otevřel Záznam z fyzioterapie — vstupní vyšetření (2025-06-24)"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01Wap4Bp1MYWE1H6z134WcDv",
+     "name": "list_analytes",
+     "input": {}
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01Wap4Bp1MYWE1H6z134WcDv",
+     "name": "list_analytes",
+     "ok": true,
+     "summary": "vypsal 8 parametrů"
+    },
+    {
+     "type": "text",
+     "text": "Pacient"
+    },
+    {
+     "type": "text",
+     "text": " Petr Vondrušák (nar. 3.12.1985) má v kartotéce jeden dokument"
+    },
+    {
+     "type": "text",
+     "text": " – vstupní záznam z fyzioterapie ze dne 24.6.2025 [1]:\n\n**Diagnó"
+    },
+    {
+     "type": "text",
+     "text": "za:** subakromiální impingement pravého ramene, řešeno konzervativně."
+    },
+    {
+     "type": "text",
+     "text": "\n\n**Subjektivně:** Bolest pravého ramene při pohybu nad horizontálu (práce nad hlavou, kraul), trvání "
+    },
+    {
+     "type": "text",
+     "text": "4 měsíce, plíživý začátek bez úrazu, budí ho v noci na pravém boku. VAS"
+    },
+    {
+     "type": "text",
+     "text": ": 4/10 při elevaci nad horizontálu, 1/10 v klidu, 5/10 v noci [1].\n\n**Objektivně:** Aktivní abdukce do 160° s bolestivým ob"
+    },
+    {
+     "type": "text",
+     "text": "loukem 70–120°, pasivní rozsah plný. Pozitivní Hawkinsův i Neerův test, mírně bolestivý test"
+    },
+    {
+     "type": "text",
+     "text": " supraspinatu při zachované síle. Protrakce ramen, oslabení dolních fixátorů lopatky, naznačená scapula alata vpravo [1].\n\n**"
+    },
+    {
+     "type": "text",
+     "text": "Terapie:** měkké techniky na m. trapezius (pars descendens) a m. pectoralis minor, centrace ramenního kloubu, aktivace dolních fixátorů lopat"
+    },
+    {
+     "type": "text",
+     "text": "ky, posilování zevních rotátorů s gumou (3×12) [1].\n\n**Plán:** 6 terapií po týdnu, denní domácí cvičení, d"
+    },
+    {
+     "type": "text",
+     "text": "očasné vyloučení kraulu a práce nad hlavou (nahrazeno plaváním na zádech). Při"
+    },
+    {
+     "type": "text",
+     "text": " nedostatečném efektu po 6 týdnech zvážit doplnění UZ vyšetření rotátorové manžety [1].\n\nDále je u pacienta"
+    },
+    {
+     "type": "text",
+     "text": " evidován seznam laboratorních parametrů (hemoglobin, leukocyty, trombocyty, CRP, glukóza, kreatinin, urea, ALT) – ž"
+    },
+    {
+     "type": "text",
+     "text": "ádné konkrétní hodnoty ani trendy jsem ale zatím nenač"
+    },
+    {
+     "type": "text",
+     "text": "etl; pokud potřebujete jejich přehled nebo vývoj, m"
+    },
+    {
+     "type": "text",
+     "text": "ohu ho doplnit."
+    },
+    {
+     "type": "sources",
+     "sources": [
+      {
+       "n": 1,
+       "kind": "document",
+       "label": "Záznam z fyzioterapie — vstupní vyšetření",
+       "date": "2025-06-24",
+       "documentId": "d-vondrusak-fyzio-2025",
+       "title": "Záznam z fyzioterapie — vstupní vyšetření",
+       "excerpt": "Ortopedie a fyzioterapie Podhájí s.r.o.\nPracoviště fyzioterapie\nZáznam z fyzioterapie — vstupní vyšetření\nPacient:\nPetr Vondrušák\nDatum narození:\n3.12.1985\nDatum terapie:\n24.6.2025\nTerapeut:\nBc. Lenka Zemanová\nDiagnóza: subakromiální imping",
+       "imageUrl": "/demo/orto/pages/d-vondrusak-fyzio-2025_p1.png"
+      }
+     ]
+    },
+    {
+     "type": "followups",
+     "questions": [
+      "Ukaž laboratorní hodnoty.",
+      "Které hodnoty jsou mimo rozmezí?",
+      "Kdy byl poslední odběr?"
+     ]
+    },
+    {
+     "type": "done",
+     "usage": {
+      "inputTokens": 3595,
+      "outputTokens": 890,
+      "cacheReadTokens": 12810,
+      "cacheWriteTokens": 0
+     },
+     "model": "claude-sonnet-5"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,286 @@
+{
+ "title": "Hemoglobin v grafu — V. Palán",
+ "tenant": "sport",
+ "turns": [
+  {
+   "user": "Ukaž hemoglobin Vojtěcha Palána v grafu.",
+   "events": [
+    {
+     "type": "tool_start",
+     "id": "toolu_01DCP4X2KaEHyPHquzEvg88H",
+     "name": "find_patient",
+     "input": {
+      "query": "Vojtěch Palán"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01DCP4X2KaEHyPHquzEvg88H",
+     "name": "find_patient",
+     "ok": true,
+     "summary": "nalezen pacient Vojtěch Palán (1997)"
+    },
+    {
+     "type": "patient",
+     "ref": "p-palan-1997",
+     "fullName": "Vojtěch Palán",
+     "birthDate": "1997-06-30"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01LXz1L15WYUjTMo27HgNuJf",
+     "name": "get_trend",
+     "input": {
+      "canonicalId": "hemoglobin"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01LXz1L15WYUjTMo27HgNuJf",
+     "name": "get_trend",
+     "ok": true,
+     "summary": "načetl vývoj hemoglobin"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01CmJCjpvhUdj3j3ZWPtKci3",
+     "name": "propose_chart",
+     "input": {
+      "parameters": [
+       "hemoglobin"
+      ],
+      "type": "line",
+      "from": "2024-01-16",
+      "to": "2025-05-19"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01CmJCjpvhUdj3j3ZWPtKci3",
+     "name": "propose_chart",
+     "ok": true,
+     "summary": "navrhl graf: hemoglobin"
+    },
+    {
+     "type": "chart",
+     "spec": {
+      "parameters": [
+       "hemoglobin"
+      ],
+      "from": "2024-01-16",
+      "to": "2025-05-19",
+      "type": "line"
+     },
+     "series": [
+      {
+       "unit": "g/l",
+       "type": "line",
+       "series": [
+        {
+         "canonicalId": "hemoglobin",
+         "displayName": "hemoglobin",
+         "unit": "g/l",
+         "points": [
+          {
+           "date": "2024-01-16",
+           "value": 149,
+           "unit": "g/l",
+           "flag": "normal",
+           "refLow": 135,
+           "refHigh": 175,
+           "valueRaw": "149",
+           "reportId": "p-palan-1997-r1",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2024-05-21",
+           "value": 151,
+           "unit": "g/l",
+           "flag": "normal",
+           "refLow": 135,
+           "refHigh": 175,
+           "valueRaw": "151",
+           "reportId": "p-palan-1997-r2",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2024-07-09",
+           "value": 166,
+           "unit": "g/l",
+           "flag": "normal",
+           "refLow": 135,
+           "refHigh": 175,
+           "valueRaw": "166",
+           "reportId": "p-palan-1997-r3",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2024-11-12",
+           "value": 158,
+           "unit": "g/l",
+           "flag": "normal",
+           "refLow": 135,
+           "refHigh": 175,
+           "valueRaw": "158",
+           "reportId": "p-palan-1997-r4",
+           "suspect": null,
+           "unconfirmed": null
+          },
+          {
+           "date": "2025-05-19",
+           "value": 150,
+           "unit": "g/l",
+           "flag": "normal",
+           "refLow": 135,
+           "refHigh": 175,
+           "valueRaw": "150",
+           "reportId": "p-palan-1997-r5",
+           "suspect": null,
+           "unconfirmed": null
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": "Nav"
+    },
+    {
+     "type": "text",
+     "text": "rhl jsem spojnicový graf hemoglobinu Vojtěcha Palána od 16.1"
+    },
+    {
+     "type": "text",
+     "text": ".2024 do 19.5.2025.\n\nHodnoty v čase (referenční rozmezí 135–175 g/l, v"
+    },
+    {
+     "type": "text",
+     "text": "še v pásmu normy):\n- 16.1.2024: 149 g/l [1]\n- 21.5.2024: 151 g/l [2]\n- 9"
+    },
+    {
+     "type": "text",
+     "text": ".7.2024: 166 g/l [3]\n- 12.11.2024: 158 g/l [4]\n- 19.5.2025: 150 g/l [5]"
+    },
+    {
+     "type": "sources",
+     "sources": [
+      {
+       "n": 1,
+       "kind": "lab",
+       "label": "hemoglobin 149 g/l",
+       "date": "2024-01-16",
+       "lab": "Laboratoře Modrý Kámen s.r.o.",
+       "reportId": "p-palan-1997-r1",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-palan-1997-r1_p1.png",
+       "bbox": [
+        152.8,
+        634.5,
+        1419.6,
+        666.5
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 2,
+       "kind": "lab",
+       "label": "hemoglobin 151 g/l",
+       "date": "2024-05-21",
+       "lab": "Laboratoř Zelený Ostrov s.r.o.",
+       "reportId": "p-palan-1997-r2",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-palan-1997-r2_p1.png",
+       "bbox": [
+        152.8,
+        634.5,
+        1419.6,
+        666.5
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 3,
+       "kind": "lab",
+       "label": "hemoglobin 166 g/l",
+       "date": "2024-07-09",
+       "lab": "Laboratoře Modrý Kámen s.r.o.",
+       "reportId": "p-palan-1997-r3",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-palan-1997-r3_p1.png",
+       "bbox": [
+        152.8,
+        634.5,
+        1419.6,
+        666.5
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 4,
+       "kind": "lab",
+       "label": "hemoglobin 158 g/l",
+       "date": "2024-11-12",
+       "lab": "Laboratoř Zelený Ostrov s.r.o.",
+       "reportId": "p-palan-1997-r4",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-palan-1997-r4_p1.png",
+       "bbox": [
+        152.8,
+        634.5,
+        1419.6,
+        666.5
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 5,
+       "kind": "lab",
+       "label": "hemoglobin 150 g/l",
+       "date": "2025-05-19",
+       "lab": "Laboratoře Modrý Kámen s.r.o.",
+       "reportId": "p-palan-1997-r5",
+       "page": 1,
+       "imageUrl": "/demo/sport/pages/p-palan-1997-r5_p1.png",
+       "bbox": [
+        152.8,
+        634.5,
+        1419.6,
+        666.5
+       ],
+       "pageW": 1819,
+       "pageH": 2573
+      }
+     ]
+    },
+    {
+     "type": "followups",
+     "questions": [
+      "Porovnej s hodnotami z minulé sezóny.",
+      "Ukaž ve stejném období i ferritin.",
+      "Shrň, co se změnilo od minulého odběru."
+     ]
+    },
+    {
+     "type": "done",
+     "usage": {
+      "inputTokens": 1529,
+      "outputTokens": 430,
+      "cacheReadTokens": 10248,
+      "cacheWriteTokens": 0
+     },
+     "model": "claude-sonnet-5"
+    }
+   ]
+  }
+ ]
+}

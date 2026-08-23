@@ -1,0 +1,78 @@
+{
+ "title": "Hemoglobin pod rozmezím — kartotéka",
+ "tenant": "orto",
+ "turns": [
+  {
+   "user": "Kteří pacienti mají hemoglobin pod referenčním rozmezím?",
+   "events": [
+    {
+     "type": "tool_start",
+     "id": "toolu_01GpHAy2Qz8tnSwgzjSySzUz",
+     "name": "cohort_query",
+     "input": {
+      "canonicalId": "hemoglobin",
+      "flag": "low",
+      "direction": "any"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01GpHAy2Qz8tnSwgzjSySzUz",
+     "name": "cohort_query",
+     "ok": true,
+     "summary": "nalezeno 1 pacientů"
+    },
+    {
+     "type": "text",
+     "text": "P"
+    },
+    {
+     "type": "text",
+     "text": "od"
+    },
+    {
+     "type": "text",
+     "text": " referenčním rozmez"
+    },
+    {
+     "type": "text",
+     "text": "ím p"
+    },
+    {
+     "type": "text",
+     "text": "ro hemoglobin je aktuálně jeden pacient:\n\n- **Michal Novák** (nar. 1963) – poslední hodnota 128 g/l"
+    },
+    {
+     "type": "text",
+     "text": " (22. 4. 2025), stav pod referenčním rozmezím, trend rostoucí.\n\nPro podrobnosti ("
+    },
+    {
+     "type": "text",
+     "text": "referenční meze, historii hodnot) je potřeba otevřít konk"
+    },
+    {
+     "type": "text",
+     "text": "rétního pacienta."
+    },
+    {
+     "type": "followups",
+     "questions": [
+      "Otevři kartu Michala Nováka z roku 1963.",
+      "Vykresli jeho hemoglobin do grafu.",
+      "Kteří pacienti mají zvýšené CRP?"
+     ]
+    },
+    {
+     "type": "done",
+     "usage": {
+      "inputTokens": 398,
+      "outputTokens": 244,
+      "cacheReadTokens": 5124,
+      "cacheWriteTokens": 0
+     },
+     "model": "claude-sonnet-5"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,350 @@
+{
+ "title": "Dva Michalové Novákové",
+ "tenant": "orto",
+ "turns": [
+  {
+   "user": "Dej mi souhrn Michala Nováka.",
+   "events": [
+    {
+     "type": "tool_start",
+     "id": "toolu_01Gc6B7qMQqxGDfj9e9sKKDV",
+     "name": "find_patient",
+     "input": {
+      "query": "Michal Novák"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01Gc6B7qMQqxGDfj9e9sKKDV",
+     "name": "find_patient",
+     "ok": true,
+     "summary": "nalezeno 2 pacientů — zeptej se, kterého myslí"
+    },
+    {
+     "type": "text",
+     "text": "V"
+    },
+    {
+     "type": "text",
+     "text": " k"
+    },
+    {
+     "type": "text",
+     "text": "artotéce j"
+    },
+    {
+     "type": "text",
+     "text": "sou dva pacien"
+    },
+    {
+     "type": "text",
+     "text": "ti"
+    },
+    {
+     "type": "text",
+     "text": " jménem Michal Novák:\n\n1. narozen 19. 7. 1963\n2. narozen 27. 2. 1988"
+    },
+    {
+     "type": "text",
+     "text": "\n\nKterého z nich máte na mysli?"
+    },
+    {
+     "type": "done",
+     "usage": {
+      "inputTokens": 328,
+      "outputTokens": 125,
+      "cacheReadTokens": 5124,
+      "cacheWriteTokens": 0
+     },
+     "model": "claude-sonnet-5"
+    }
+   ]
+  },
+  {
+   "user": "Toho narozeného v roce 1988.",
+   "events": [
+    {
+     "type": "tool_start",
+     "id": "toolu_01FCHzwg2Z7nkKqwmcmrRa18",
+     "name": "find_patient",
+     "input": {
+      "query": "Michal Novák",
+      "birthYear": 1988
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01FCHzwg2Z7nkKqwmcmrRa18",
+     "name": "find_patient",
+     "ok": true,
+     "summary": "nalezen pacient Michal Novák (1988)"
+    },
+    {
+     "type": "patient",
+     "ref": "p-novak-1988",
+     "fullName": "Michal Novák",
+     "birthDate": "1988-02-27"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01ECfsKiCAYTTDMrVbysTxig",
+     "name": "summarize_changes",
+     "input": {}
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01ECfsKiCAYTTDMrVbysTxig",
+     "name": "summarize_changes",
+     "ok": true,
+     "summary": "porovnal 2 odběrů"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01KBeKzn4WixAyEAqk84p45a",
+     "name": "list_analytes",
+     "input": {}
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01KBeKzn4WixAyEAqk84p45a",
+     "name": "list_analytes",
+     "ok": true,
+     "summary": "vypsal 11 parametrů"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01DvpNLU2TF92hPTuKH9B7Xy",
+     "name": "get_document",
+     "input": {}
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01DvpNLU2TF92hPTuKH9B7Xy",
+     "name": "get_document",
+     "ok": true,
+     "summary": "vypsal 4 dokumentů"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_01AkhuS6zwDf7zttAF6yCAip",
+     "name": "get_document",
+     "input": {
+      "id": "d-novak88-mr-2024"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_01AkhuS6zwDf7zttAF6yCAip",
+     "name": "get_document",
+     "ok": true,
+     "summary": "otevřel MR pravého kolenního kloubu — popis (2024-09-20)"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_014HV72G884D6fxRSTzakxMS",
+     "name": "get_document",
+     "input": {
+      "id": "d-novak88-operace-2024"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_014HV72G884D6fxRSTzakxMS",
+     "name": "get_document",
+     "ok": true,
+     "summary": "otevřel Operační protokol — artroskopická plastika LCA pravého kolena (2024-10-08)"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_014z567Lhx9dK5eruKVHWzAA",
+     "name": "get_document",
+     "input": {
+      "id": "d-novak88-fyzio-2024b"
+     }
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_014z567Lhx9dK5eruKVHWzAA",
+     "name": "get_document",
+     "ok": true,
+     "summary": "otevřel Záznam z fyzioterapie (2024-12-16)"
+    },
+    {
+     "type": "text",
+     "text": "##"
+    },
+    {
+     "type": "text",
+     "text": " Souhrn – Michal Novák (nar. 27. 2. 1988)\n\n**Anamnéza a"
+    },
+    {
+     "type": "text",
+     "text": " průběh:**\nDistorze pravého kolena při fotb"
+    },
+    {
+     "type": "text",
+     "text": "ale 14. 9. 2024. MR z 20. 9. 2024 prokázala kompletní rupturu předního zkří"
+    },
+    {
+     "type": "text",
+     "text": "ženého vazu (LCA), parciální lézi zadního rohu mediálního menisku, kostní"
+    },
+    {
+     "type": "text",
+     "text": " kontuzi laterálního femorálního kondylu a výpotek"
+    },
+    {
+     "type": "text",
+     "text": " středního rozsahu [3].\n\n8. 10. 2024 provedena artroskopická plastika LCA št"
+    },
+    {
+     "type": "text",
+     "text": "ěpem ze šlach hamstringů (semitendinosus + gracilis) s parciální me"
+    },
+    {
+     "type": "text",
+     "text": "niscektomií mediálního menisku; laterální meniskus i chrupavka"
+    },
+    {
+     "type": "text",
+     "text": " intaktní, bez komplikací výkonu [4]. Pooperační plán zahrnoval ortézu 0–"
+    },
+    {
+     "type": "text",
+     "text": "90° na 4 týdny, odlehčenou chůzi, rehabilita"
+    },
+    {
+     "type": "text",
+     "text": "ci od 10. dne a postupné navyšování zátěže (rotoped od"
+    },
+    {
+     "type": "text",
+     "text": " 3. týdne, plavání od 6. týdne, běh v přímém směru nejdříve od 4. měsíce, kontaktní sport nejdří"
+    },
+    {
+     "type": "text",
+     "text": "ve za 9 měsíců) [4].\n\n**Fyzioterapie (poslední záznam 16. 12. 2024, 10. pooperační týden):**"
+    },
+    {
+     "type": "text",
+     "text": "\nBez bolestí (VAS 0–1/10), chůze bez omezení, extenze plná, flexe 130° shodná s druhou stranou. Přetrv"
+    },
+    {
+     "type": "text",
+     "text": "ává deficit kvadricepsu – obvod stehna vpravo o 1,5 cm menší než vlevo. Stoj na jedné noze 30 s s"
+    },
+    {
+     "type": "text",
+     "text": " mírnou oscilací, skok na jedné noze zatím netestován. Plán počítá s během nejdříve od 4. měsíce po operaci a"
+    },
+    {
+     "type": "text",
+     "text": " pouze při deficitu síly kvadricepsu pod 15 % proti druhé straně; funkční testování na konci série [5].\n\n**Laboratorní h"
+    },
+    {
+     "type": "text",
+     "text": "odnoty:**\nDva odběry (2. 10. 2024 a 11. 12. 2024). K po"
+    },
+    {
+     "type": "text",
+     "text": "slednímu odběru žádná hodnota mimo referenční rozmezí. Nejvýraznější posun (v rámci norm"
+    },
+    {
+     "type": "text",
+     "text": "y): CRP 1,8 → 3,4 mg/l (+89 %) [1][2]. Ostatní parametry (krevní obra"
+    },
+    {
+     "type": "text",
+     "text": "z, jaterní testy, urea, kreatinin, glukóza) beze změn mimo referenční meze."
+    },
+    {
+     "type": "text",
+     "text": "\n\nChcete graf vývoje CRP nebo obvodu stehna/síly kvadricepsu v"
+    },
+    {
+     "type": "text",
+     "text": " čase (pokud jsou k dispozici jako měřené parametry)?"
+    },
+    {
+     "type": "sources",
+     "sources": [
+      {
+       "n": 1,
+       "kind": "lab",
+       "label": "Odběr 2024-10-02",
+       "date": "2024-10-02",
+       "lab": "Ortolab Podhájí s.r.o.",
+       "reportId": "p-novak-1988-r1",
+       "page": 1,
+       "imageUrl": "/demo/orto/pages/p-novak-1988-r1_p1.png",
+       "bbox": null,
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 2,
+       "kind": "lab",
+       "label": "Odběr 2024-12-11",
+       "date": "2024-12-11",
+       "lab": "Laboratoř Nemocnice Podhájí",
+       "reportId": "p-novak-1988-r2",
+       "page": 1,
+       "imageUrl": "/demo/orto/pages/p-novak-1988-r2_p1.png",
+       "bbox": null,
+       "pageW": 1819,
+       "pageH": 2573
+      },
+      {
+       "n": 3,
+       "kind": "document",
+       "label": "MR pravého kolenního kloubu — popis",
+       "date": "2024-09-20",
+       "documentId": "d-novak88-mr-2024",
+       "title": "MR pravého kolenního kloubu — popis",
+       "excerpt": "Ortopedie a fyzioterapie Podhájí s.r.o.\nRadiodiagnostické pracoviště\nMR pravého kolenního kloubu — popis\nPacient:\nMichal Novák\nDatum narození:\n27.2.1988\nDatum vyšetření:\n20.9.2024\nPopsal:\nMUDr. Eva Puchmertlová\nProvedené vyšetření\nTechnika:",
+       "imageUrl": "/demo/orto/pages/d-novak88-mr-2024_p1.png"
+      },
+      {
+       "n": 4,
+       "kind": "document",
+       "label": "Operační protokol — artroskopická plastika LCA pravého kolena",
+       "date": "2024-10-08",
+       "documentId": "d-novak88-operace-2024",
+       "title": "Operační protokol — artroskopická plastika LCA pravého kolena",
+       "excerpt": "Ortopedie a fyzioterapie Podhájí s.r.o.\nOrtopedické oddělení — operační sál\nOperační protokol — artroskopická plastika LCA pravého kolena\nPacient:\nMichal Novák\nDatum narození:\n27.2.1988\nDatum výkonu:\n8.10.2024\nOperatér:\nMUDr. Kamil Brandejs",
+       "imageUrl": "/demo/orto/pages/d-novak88-operace-2024_p1.png"
+      },
+      {
+       "n": 5,
+       "kind": "document",
+       "label": "Záznam z fyzioterapie",
+       "date": "2024-12-16",
+       "documentId": "d-novak88-fyzio-2024b",
+       "title": "Záznam z fyzioterapie",
+       "excerpt": "Ortopedie a fyzioterapie Podhájí s.r.o.\nPracoviště fyzioterapie\nZáznam z fyzioterapie\nPacient:\nMichal Novák\nDatum narození:\n27.2.1988\nDatum terapie:\n16.12.2024\nTerapeut:\nMgr. Petr Hlaváček\nDiagnóza: stav po plastice předního zkříženého vazu",
+       "imageUrl": "/demo/orto/pages/d-novak88-fyzio-2024b_p1.png"
+      }
+     ]
+    },
+    {
+     "type": "followups",
+     "questions": [
+      "Vykresli CRP po operaci do grafu.",
+      "Ukaž operační protokol.",
+      "Jak probíhala rehabilitace?"
+     ]
+    },
+    {
+     "type": "done",
+     "usage": {
+      "inputTokens": 13998,
+      "outputTokens": 1237,
+      "cacheReadTokens": 10248,
+      "cacheWriteTokens": 0
+     },
+     "model": "claude-sonnet-5"
+    }
+   ]
+  }
+ ]
+}
