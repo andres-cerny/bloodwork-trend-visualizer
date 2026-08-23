@@ -283,6 +283,22 @@ Session mechanics:
   may fan out in parallel; sequential phases stay sequential — each depends on
   the previous one's schema or events.
 
+## Build log
+
+- [x] 2026-08-23 Phase 1 — schema, DatabaseSource, directory, document store;
+  reviewer's finding (unguarded document store) closed with a throw + test.
+- [x] 2026-08-23 Phase 2 (labs) — 11 synthetic patients through the font-locked
+  pipeline; determinism proven three ways; remote D1s seeded.
+- [x] 2026-08-23 Phase 3 — tenancy by path, find_patient, mid-turn bind (one
+  ask = one turn), patient chip; refusals pinned by tests.
+- [x] 2026-08-23 Phase 4 (tools) — search_documents/get_document; document
+  corpus generation ran separately.
+- [x] 2026-08-23 Phase 5 — source registry, [n] markers, sources event, crops
+  panel; live test proves markers only point at registered sources.
+- [x] 2026-08-23 Phase 6 (partial) — ledger split per tenant (+ pinned test),
+  agent /api/session door, Turnstile hostnames (worker var + widget via API),
+  R2 evidence route. Open: eval cases, real-patient seed, deploy, UI audit.
+
 ## Cut lines (in order, if the 1.5 weeks compress)
 
 1. Inline `[n]` markers — keep the sources panel per turn (most of the trust,
