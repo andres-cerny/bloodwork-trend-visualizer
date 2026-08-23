@@ -33,7 +33,7 @@ const KEY = keyFlag === -1 ? "VITE_TURNSTILE_SITE_KEY" : args[keyFlag + 1];
 // Anchored to this file rather than to cwd: run through `npm -w`, the working
 // directory is the workspace, and a cwd-relative .env would be the wrong file
 // — or no file, which this script reports as "not configured".
-const ENV_FILE = fileURLToPath(new URL("../.env", import.meta.url));
+const ENV_FILE = fileURLToPath(new URL("../../.env", import.meta.url));
 
 function fail(message) {
   console.error(`\n✗ bundle check failed\n\n${message}\n`);

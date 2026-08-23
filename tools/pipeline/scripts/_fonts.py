@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-FONT_DIR = Path(__file__).resolve().parents[3] / "assets" / "fonts"
+FONT_DIR = Path(__file__).resolve().parents[1] / "assets" / "fonts"
 REGULAR = FONT_DIR / "DejaVuSans.ttf"
 BOLD = FONT_DIR / "DejaVuSans-Bold.ttf"
 

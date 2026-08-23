@@ -83,7 +83,7 @@ export default defineWorkspace([
     test: {
       name: "bench",
       root: ".",
-      include: ["bench/**/*.test.ts"],
+      include: ["tests/bench/**/*.test.ts"],
       environment: "node",
     },
   },

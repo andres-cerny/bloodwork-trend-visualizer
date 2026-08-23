@@ -5,7 +5,7 @@ than taken from the system so the PDF generators produce byte-identical output
 on every machine.
 
 **Why this matters, and which two fonts are excluded and how that was learned:**
-[docs/constraints.md](../../docs/constraints.md#the-pdf-generators-are-font-locked).
+[docs/constraints.md](../../../../docs/constraints.md#the-pdf-generators-are-font-locked).
 That is the one home for the reasoning; this file used to restate it, and two
 copies of a rule drift.
 

@@ -12,8 +12,8 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
-    root: fileURLToPath(new URL("..", import.meta.url)),
-    include: ["evals/**/*.eval.ts"],
+    root: fileURLToPath(new URL("../..", import.meta.url)),
+    include: ["tests/evals/**/*.eval.ts"],
     environment: "node",
     testTimeout: 1_800_000,
     fileParallelism: false,

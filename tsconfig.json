@@ -9,5 +9,5 @@
     "types": ["node", "vite/client"],
     "tsBuildInfoFile": "./node_modules/.tmp/tools.tsbuildinfo"
   },
-  "include": ["bench", "e2e", "evals", "tests/live", "config", "vitest.workspace.ts", "apps/*/vite.config.ts"]
+  "include": ["tests", "tools/scripts", "vitest.workspace.ts", "apps/*/vite.config.ts"]
 }

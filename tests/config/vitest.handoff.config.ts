@@ -22,8 +22,8 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
-    root: fileURLToPath(new URL("..", import.meta.url)),
-    include: ["tests/live/**/*.live.ts", "e2e/**/*.e2e.ts"],
+    root: fileURLToPath(new URL("../..", import.meta.url)),
+    include: ["tests/live/**/*.live.ts", "tests/e2e/**/*.e2e.ts"],
     environment: "node",
     // A live extraction round-trips two models; a browser run boots a server.
     testTimeout: 180_000,

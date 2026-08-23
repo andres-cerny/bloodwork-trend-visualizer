@@ -18,10 +18,11 @@ Two web demos sharing an agent backend.
 ## Layout
 
 ```
-apps/bloodwork   the visualizer          workers/agent    chat, tools, streaming
-apps/chat        the clinical agent      workers/extract  PDF -> JSON
-packages/        lab-core, agent/*, gate, ui-kit, api-client
-tools/pipeline   the Python CI needs     evals/           the agent's regression suite
+apps/bloodwork   the visualizer       workers/agent    chat, tools, streaming
+apps/chat        the clinical agent   workers/extract  PDF -> JSON
+packages/        lab-core · agent/{core,tools,datasource} · gate · ui-kit · api-client
+tests/           unit is beside the code; e2e, live, bench and evals live here
+tools/           the Python pipeline, the build guards, and the retired Streamlit tool
 ```
 
 Packages are consumed as raw TypeScript — there is no build step. Vite,
@@ -132,7 +133,7 @@ These cost money and are outside the default run:
 
 ```sh
 npm run test:live    # real extraction through Claude (~$0.10, needs a key)
-npm run eval         # the agent's regression cases (see evals/CONTEXT.md)
+npm run eval         # the agent's regression cases (see tests/evals/CONTEXT.md)
 npm run bench:stage0 # extraction sweeps
 ```
 

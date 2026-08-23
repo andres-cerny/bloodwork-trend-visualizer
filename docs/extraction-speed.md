@@ -1,9 +1,9 @@
 # Making upload fast enough to demo
 
 Plain-language account of what was measured, what worked, what didn't, and why.
-The numbers and graphs live in [`notebooks/bench.ipynb`](../notebooks/bench.ipynb);
-the harness that produced them is in [`bench/`](../bench/), and every figure in
-this document is read from `bench/results/*.jsonl` rather than typed by hand.
+The numbers and graphs live in [`notebooks/bench.ipynb`](../tools/notebooks/bench.ipynb);
+the harness that produced them is in [`bench/`](../tests/bench/), and every figure in
+this document is read from `tests/bench/results/*.jsonl` rather than typed by hand.
 
 ## The question
 

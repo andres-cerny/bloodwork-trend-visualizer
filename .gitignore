@@ -40,12 +40,12 @@ apps/bloodwork/public/demo/real/
 *.tsbuildinfo
 
 # Benchmark outputs — derived from real lab PDFs, same rule as data/
-bench/results/
+tests/bench/results/
 
 # Eval runs hold model answers about a patient. The baseline is committed,
 # because a baseline nobody else has cannot detect a regression on their machine.
-evals/output/*
-!evals/output/baseline.json
+tests/evals/output/*
+!tests/evals/output/baseline.json
 
 # Playwright MCP scratch (snapshots, console logs from browser sessions)
 .playwright-mcp/

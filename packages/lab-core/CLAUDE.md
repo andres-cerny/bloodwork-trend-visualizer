@@ -5,7 +5,7 @@ which is what makes a misread decimal catchable rather than plausible.
 
 ## The root export must stay DOM-free
 
-`workers/agent` imports this for its tools, `bench/` and `tests/live/` import it
+`workers/agent` imports this for its tools; `tests/bench/` and `tests/live/` use it
 in plain node. `pdf/pdf.ts` is browser-only and reachable **only** as
 `@bw/lab-core/pdf` — that subpath is what keeps `pdfjs-dist` and canvas out of
 workerd. `pdf/rows.ts` is in the root export because it is pure coordinate

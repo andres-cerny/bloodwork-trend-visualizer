@@ -24,7 +24,7 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname, relative, resolve } from "node:path";
 
-const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 /** Root CLAUDE.md routes and does not teach; regional files state local rules. */
 const CEILING = 60;

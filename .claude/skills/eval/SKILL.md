@@ -8,7 +8,7 @@ description: Run the agent's regression cases, read the result, and decide wheth
 **This spends real money.** Every case is a real agent turn with real tool
 calls. Confirm before running; `EVAL_MAX_USD` (default 5) stops a runaway.
 
-Read [evals/CONTEXT.md](../../../evals/CONTEXT.md) for the contract.
+Read [evals/CONTEXT.md](../../../tests/evals/CONTEXT.md) for the contract.
 
 ## Run
 

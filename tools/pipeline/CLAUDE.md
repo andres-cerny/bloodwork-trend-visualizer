@@ -7,7 +7,8 @@ Run from **this directory**: `python3 -m scripts.make_demo_data`.
 
 ## The generators are font-locked
 
-`scripts/_fonts.py` resolves the committed DejaVu 2.37 TTFs, and **nothing here
+`scripts/_fonts.py` resolves the DejaVu 2.37 TTFs now committed alongside it in
+`assets/fonts/`, and **nothing here
 may use a system font**. This is not aesthetic:
 
 - CI asserts the demo data regenerates byte-identically. A system font makes

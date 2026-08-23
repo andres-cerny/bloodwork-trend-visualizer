@@ -10,7 +10,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
-    include: ["bench/**/*.bench.ts"],
+    include: ["tests/bench/**/*.bench.ts"],
     environment: "node",
     testTimeout: 3_600_000,
     hookTimeout: 120_000,
