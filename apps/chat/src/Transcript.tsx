@@ -89,6 +89,41 @@ function Steps({ tools, live }: { tools: ToolPart[]; live: boolean }) {
 }
 
 /**
+ * The shape of the answer that is coming.
+ *
+ * The gap between the last tool result and the first word is the longest
+ * silence in a turn, and three small dots at the top of nine hundred empty
+ * pixels do not fill it — that screen reads as a request that died. A skeleton
+ * at the answer's real measure does: the column already has the proportions of
+ * the thing being written, so the wait is legible as a wait.
+ *
+ * `aria-hidden`, and the live region is the sentence beside it: a screen
+ * reader gets „Agent pracuje…" once, not six announcements of a grey bar.
+ */
+function Skeleton({ titled }: { titled: boolean }) {
+  // Two groups, because the thing being written is a sectioned summary and
+  // one group of five bars left half a phone still empty under it. Nothing
+  // here claims how long the answer will be; it claims that an answer with
+  // headings is on its way, which is what the four steps above already say.
+  return (
+    <div className="skel" aria-hidden="true">
+      {titled && <span className="skel-line skel-title" />}
+      {(titled ? [0, 1, 2, 4] : [0, 3]).map((i) => (
+        <span key={i} className={`skel-line skel-w${i}`} />
+      ))}
+      {titled && (
+        <>
+          <span className="skel-line skel-title skel-title-2" />
+          {[1, 2, 0, 4].map((i) => (
+            <span key={`b${i}`} className={`skel-line skel-w${i}`} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * The chart, titled.
  *
  * `Chart` draws one series and deliberately has no legend — "the card title
@@ -115,8 +150,15 @@ function Charts({ series }: { series: unknown }) {
           {unit && <span className="chart-unit">{unit}</span>}
         </figcaption>
       )}
+      {/* `includeRefRange`: here the chart arrives inside a sentence — „vše v
+          pásmu normy" — and the band is the claim that sentence makes, so the
+          axis has to hold the whole range or the picture argues with the
+          prose. The bloodwork trends tab does not opt in, and its charts are
+          unchanged. */}
       {groups.flatMap((g, j) =>
-        (g.series as never[]).map((trend, k) => <Chart key={`${j}-${k}`} trend={trend} />),
+        (g.series as never[]).map((trend, k) => (
+          <Chart key={`${j}-${k}`} trend={trend} includeRefRange />
+        )),
       )}
     </figure>
   );
@@ -128,6 +170,7 @@ export default function Transcript({
   focus,
   onCite,
   onFollowup,
+  onFill,
   mobileOpen,
   onToggleSources,
 }: {
@@ -137,6 +180,8 @@ export default function Transcript({
   focus: { blockId: number; n: number | null } | null;
   onCite: (blockId: number, n: number) => void;
   onFollowup: (text: string) => void;
+  /** Put text in the composer without sending it — the patient choice. */
+  onFill: (text: string) => void;
   /** Which blocks have their mobile „Zdroje (n)" disclosure open. */
   mobileOpen: Set<number>;
   onToggleSources: (blockId: number) => void;
@@ -165,6 +210,7 @@ export default function Transcript({
                   citeIds={citeIds}
                   activeCite={active}
                   onCite={(n) => onCite(b.id, n)}
+                  onChoose={onFill}
                   markFirstCite={
                     all.findIndex((x) => "part" in x && x.part.kind === "text") === i
                   }
@@ -172,15 +218,18 @@ export default function Transcript({
               ),
             )}
 
-            {/* Something is still coming and nothing has been said yet: the
-                gap between the last tool and the first word is the longest
-                silence in a turn, and an empty column reads as a dead app. */}
+            {/* Something is still coming: the column takes the shape of it.
+                Nothing said yet — a title bar and five lines; mid-paragraph —
+                two lines continuing the measure, because a heading skeleton
+                under a heading that has already arrived is a lie about what
+                is next. */}
             {b.streaming && (
-              <p className="writing" aria-live="polite">
-                <span />
-                <span />
-                <span />
-              </p>
+              <>
+                <p className="sr-only" aria-live="polite">
+                  Agent pracuje na odpovědi…
+                </p>
+                <Skeleton titled={!spoken} />
+              </>
             )}
 
             {!railed && b.sources.length > 0 && (
@@ -221,8 +270,11 @@ export default function Transcript({
                     onClick={() => onFollowup(q)}
                   >
                     <span>{q}</span>
-                    <span className="followup-plus" aria-hidden="true">
-                      +
+                    {/* The same glyph the empty state's suggestions carry: one
+                        action, one mark. `+` is the rail's crop expander and
+                        reads as „add", which this is not. */}
+                    <span className="ask-glyph" aria-hidden="true">
+                      ↗
                     </span>
                   </button>
                 ))}

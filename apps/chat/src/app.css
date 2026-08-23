@@ -299,14 +299,45 @@
 }
 .step-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
 .step-text { overflow-wrap: anywhere; }
-.step.pending { color: var(--accent-ink); }
-.step.pending .step-dot { background: var(--accent); animation: blip 1.2s ease-in-out infinite; }
+.step.pending { color: var(--accent-ink); font-weight: 600; }
+/* The step that is happening right now. A dot that only changes colour is a
+   dot: blue, static, indistinguishable at a glance from four finished lines
+   above it. The ring grows out of the bullet and fades, which is the one thing
+   on the screen that is unambiguously still running. */
+.step.pending .step-dot {
+  background: var(--accent);
+  /* Two rings: a halo that is always there, so the bullet is marked as the
+     live one in a still frame too, and a second one the animation pushes out
+     of it. */
+  box-shadow: 0 0 0 3px var(--series-1-soft), 0 0 0 0 var(--series-1-soft);
+  animation: pulse-ring 1.5s ease-out infinite;
+}
 .step.failed { color: var(--critical-ink); }
 .step.failed .step-dot { background: var(--status-critical); }
 
 @keyframes blip {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 3px var(--series-1-soft), 0 0 0 0 var(--series-1-soft); }
+  70% { box-shadow: 0 0 0 3px var(--series-1-soft), 0 0 0 9px rgba(0, 0, 0, 0); }
+  100% { box-shadow: 0 0 0 3px var(--series-1-soft), 0 0 0 0 rgba(0, 0, 0, 0); }
+}
+
+/*
+ * Nothing here moves for a reader who asked for no movement — and nothing here
+ * disappears either. The pending bullet keeps the accent fill and gains a ring
+ * that simply stays, the skeleton keeps its bars, so both states still say
+ * what they mean when the animation is off.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .step.pending .step-dot {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--series-1-soft);
+  }
+  .skel-line { animation: none; background-image: none; }
 }
 
 .answer { font-size: 1rem; line-height: 1.65; color: var(--ink-1); }
@@ -353,6 +384,57 @@
   text-align: center;
 }
 
+/* „Který Michal Novák?" — the candidates.
+ *
+ * Not the enumeration above: these were two grey numerals of exactly the
+ * shape, size and colour of the `[n]` citation chips in the prose, on a screen
+ * whose evidence rail carries an unrelated 1 and 2. A reader could take them
+ * for footnotes, and the one clinical mistake this screen exists to prevent is
+ * choosing the wrong person. So: a card each, the name the sentence above
+ * named set in the answer's own weight, the birth date under it, a chevron
+ * that is not a number, and a 44px target. Clicking loads the choice into the
+ * composer; it never sends. */
+.answer .candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.answer .candidates li { margin: 0; }
+.answer .candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink-1);
+  font: inherit;
+  text-align: left;
+}
+button.candidate { cursor: pointer; }
+button.candidate:hover {
+  border-color: var(--accent);
+  background: var(--series-1-soft);
+}
+button.candidate:hover .cand-go { color: var(--accent); }
+.cand-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cand-name {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.cand-born { font-size: 0.85rem; line-height: 1.3; color: var(--ink-2); }
+.cand-go { flex: none; color: var(--ink-muted); font-size: 1.25rem; line-height: 1; }
+
 /* The citation. A button, not a decoration: it focuses its entry in the
    evidence panel. A number the registry never issued keeps its strike — the
    absence is information.
@@ -392,16 +474,57 @@
    the line and Czech justification takes it. */
 .cite-bind { white-space: nowrap; }
 
-.writing { display: flex; gap: 5px; margin: 10px 0 0; }
-.writing span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border-strong);
-  animation: blip 1.2s ease-in-out infinite;
+/* The answer that is coming, as a shape.
+ *
+ * Replaces a three-dot row that sat at the top of ~900px of empty phone. The
+ * bars are at the answer's own measure and rhythm, so the column reads as a
+ * page being written rather than as a request that died. Shimmer travels left
+ * to right across each bar; with reduced motion the sweep stops and the bars
+ * stay as flat blocks, which still says „not yet" without moving. */
+.skel { display: flex; flex-direction: column; gap: 11px; margin: 18px 0 4px; }
+.skel-line {
+  display: block;
+  height: 13px;
+  border-radius: 5px;
+  background: var(--chip);
+  background-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0) 0%,
+    var(--surface-3) 38%,
+    var(--surface-1) 50%,
+    var(--surface-3) 62%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  background-size: 260% 100%;
+  background-repeat: no-repeat;
+  animation: sweep 1.5s linear infinite;
 }
-.writing span:nth-child(2) { animation-delay: 0.18s; }
-.writing span:nth-child(3) { animation-delay: 0.36s; }
+.skel-title { width: 46%; height: 19px; margin-bottom: 7px; border-radius: 6px; }
+.skel-title-2 { width: 38%; margin-top: 12px; }
+.skel-w0 { width: 100%; }
+.skel-w1 { width: 96%; }
+.skel-w2 { width: 99%; }
+.skel-w3 { width: 88%; }
+.skel-w4 { width: 62%; }
+
+@keyframes sweep {
+  from { background-position: 140% 0; }
+  to { background-position: -140% 0; }
+}
+
+/* For a screen reader the wait is one sentence, not six grey bars. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 .chart-card {
   margin: 16px 0;
@@ -461,8 +584,8 @@
   cursor: pointer;
 }
 .followup:hover { color: var(--accent-ink); }
-.followup-plus { flex: none; color: var(--ink-muted); font-size: 1.15rem; line-height: 1; }
-.followup:hover .followup-plus { color: var(--accent); }
+.ask-glyph { flex: none; color: var(--ink-muted); font-size: 1.15rem; line-height: 1; }
+.followup:hover .ask-glyph { color: var(--accent); }
 
 /* Mobile: the evidence folds under its own answer instead of into a rail. */
 .turn-sources { margin-top: 20px; }
@@ -627,7 +750,7 @@
   cursor: pointer;
 }
 .starter:hover { border-color: var(--accent); color: var(--accent-ink); }
-.starter:hover .followup-plus { color: var(--accent); }
+.starter:hover .ask-glyph { color: var(--accent); }
 
 /* ------------------------------------------------------------------ *
  * Right rail — the evidence
@@ -723,6 +846,12 @@
 .src-label { font-size: 0.86rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .src-meta { font-size: 0.75rem; color: var(--ink-muted); overflow-wrap: anywhere; }
 .src-more { flex: none; color: var(--ink-muted); font-size: 1rem; line-height: 1.2; }
+.src-head:hover .src-more { color: var(--accent); }
+/* An entry with no located row on the page is a reference, not a photograph —
+   see Sources.tsx. It gets a row's worth of rail instead of a picture's, and
+   the `+` is where its page still is. */
+.src.is-compact .src-head { padding: 11px 10px; }
+.src.is-compact .src-label { font-size: 0.88rem; }
 
 /* The mat.
  *
@@ -760,9 +889,17 @@
   font-size: 0.8rem;
   line-height: 1.5;
 }
+/* Ten lines, not four.
+ *
+ * The excerpt opens with the sheet's own header — institution, department,
+ * title, then four label/value pairs — and at four lines the quote ended at
+ * „Pacient:…", which told the reader that the document has a patient. The
+ * label lines are closed up in `foldExcerpt` and the clamp is set past them,
+ * so what is visible at rest is the clinical line: „Diagnóza: stav po plastice
+ * předního zkříženého vazu". */
 .src-quote span {
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 10;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-line;
@@ -896,24 +1033,35 @@
  * report is a photograph of something white that exists, and repainting it
  * would be inventing a fact about the document. What is legitimate is exposure:
  * the same sheet, printed less brightly, the way a lightbox is turned down
- * rather than a print being re-made. Ten per cent is enough to stop the flare
- * and not enough to touch the legibility of the type, which is the whole point
- * of showing the crop.
+ * rather than a print being re-made.
  *
- * Written twice on purpose, and the two blocks must stay identical — the same
- * rule the ui-kit theme test enforces on the token aliases, for the same
- * reason: a reader whose system is dark and whose choice is dark must not get
- * a different page from a reader who only chose.
+ * At rest the crop is turned down and its contrast nudged back up, so the
+ * paper sits at the luminance of a lit page in a dark room instead of glaring
+ * off a near-black rail while the type around it is dimmed — and the print
+ * inside it stays as separable as it was. The expanded page is the opposite
+ * case: the reader asked for the document, it is the only thing they are
+ * looking at, and it is shown at full exposure.
+ *
+ * Both palettes are written, light included, so the pin holds: a rule that
+ * exists only under a media query is a rule the light palette inherits by
+ * accident the day someone adds a filter above it.
+ *
+ * The dark rule is written twice on purpose, and the two blocks must stay
+ * identical — the same rule the ui-kit theme test enforces on the token
+ * aliases, for the same reason: a reader whose system is dark and whose choice
+ * is dark must not get a different page from a reader who only chose.
  * ------------------------------------------------------------------ */
+
+.src-crop img, .src-page img { filter: none; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .src-crop,
   :root:not([data-theme="light"]) .src-page img { background: #e3e1dc; }
-  :root:not([data-theme="light"]) .src-crop img,
-  :root:not([data-theme="light"]) .src-page img { filter: brightness(0.9); }
+  :root:not([data-theme="light"]) .src-crop img { filter: brightness(0.86) contrast(1.06); }
+  :root:not([data-theme="light"]) .src-page img { filter: none; }
 }
 
 :root[data-theme="dark"] .src-crop,
 :root[data-theme="dark"] .src-page img { background: #e3e1dc; }
-:root[data-theme="dark"] .src-crop img,
-:root[data-theme="dark"] .src-page img { filter: brightness(0.9); }
+:root[data-theme="dark"] .src-crop img { filter: brightness(0.86) contrast(1.06); }
+:root[data-theme="dark"] .src-page img { filter: none; }

@@ -35,6 +35,13 @@
   --status-critical-soft: rgba(208, 59, 59, 0.10);
   --critical-ink: #b32828;
   --band: rgba(42, 120, 214, 0.09);
+  /* The reference band drawn as paper rather than as signal. Where the axis
+     holds the whole range (Chart's `includeRefRange`), the band is a large
+     shape sharing the plot with the series — and a blue shape behind a blue
+     line is two blues arguing. This one is ink at low alpha: it separates
+     „inside the range" from „outside" by lightness only, which is also the
+     one channel colour vision never takes away. */
+  --band-neutral: rgba(20, 19, 15, 0.055);
   --chip: #eeede8;
 
   --radius: 10px;
@@ -82,6 +89,7 @@
   --dk-status-critical-soft: rgba(224, 85, 85, 0.16);
   --dk-critical-ink: #ec8a8a;
   --dk-band: rgba(57, 135, 229, 0.14);
+  --dk-band-neutral: rgba(255, 255, 255, 0.055);
   --dk-chip: #262625;
   --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --dk-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
@@ -108,6 +116,7 @@
     --status-critical-soft: var(--dk-status-critical-soft);
     --critical-ink: var(--dk-critical-ink);
     --band: var(--dk-band);
+    --band-neutral: var(--dk-band-neutral);
     --chip: var(--dk-chip);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);
@@ -135,6 +144,7 @@
     --status-critical-soft: var(--dk-status-critical-soft);
     --critical-ink: var(--dk-critical-ink);
     --band: var(--dk-band);
+    --band-neutral: var(--dk-band-neutral);
     --chip: var(--dk-chip);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);

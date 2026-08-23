@@ -27,6 +27,7 @@ import Composer from "./Composer";
 import Sidebar from "./Sidebar";
 import Sources, { type Source } from "./Sources";
 import { FIXTURES, findFixture, type Fixture } from "./fixtures";
+import { czDate } from "./dates";
 
 const TENANTS: Record<string, { label: string; blurb: string; suggestions: string[] }> = {
   sport: {
@@ -418,11 +419,23 @@ export default function App() {
    */
   function pick(text: string) {
     if (blocked || !gate.ready) {
-      setDraft(text);
-      dockRef.current?.querySelector("input")?.focus();
+      fill(text);
       return;
     }
     void send(text);
+  }
+
+  /**
+   * Put a sentence in the composer and stop.
+   *
+   * Not `pick`: a patient choice is never sent on one click, gate or no gate.
+   * „Který Michal Novák?" has two answers a click apart and only one of them
+   * is the right patient, so the click loads the question and the doctor reads
+   * it before pressing send.
+   */
+  function fill(text: string) {
+    setDraft(text);
+    dockRef.current?.querySelector("input")?.focus();
   }
 
   function onCite(blockId: number, n: number) {
@@ -507,7 +520,7 @@ export default function App() {
                   title={`Otevřená karta: ${patient.fullName}`}
                 >
                   <span className="patient-dot" aria-hidden="true" />
-                  {patient.fullName} · nar. {patient.birthDate.slice(0, 4)}
+                  {patient.fullName} · nar. {czDate(patient.birthDate)}
                   <button
                     type="button"
                     aria-label="Zavřít kartu pacienta"
@@ -540,6 +553,7 @@ export default function App() {
                 focus={focus}
                 onCite={onCite}
                 onFollowup={pick}
+                onFill={fill}
                 mobileOpen={openSources}
                 onToggleSources={(id) =>
                   setOpenSources((prev) => {
@@ -574,7 +588,7 @@ export default function App() {
               {TENANTS[tenant].suggestions.map((s) => (
                 <button key={s} type="button" className="starter" onClick={() => pick(s)}>
                   <span>{s}</span>
-                  <span className="followup-plus" aria-hidden="true">
+                  <span className="ask-glyph" aria-hidden="true">
                     ↗
                   </span>
                 </button>

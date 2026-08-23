@@ -22,8 +22,18 @@
  * that back and lands the type ~1.5× larger at rest. Crucially it lands it
  * larger with the „Referenční meze" column still inside the frame: the column
  * is the bbox's own right edge, so it cannot be scaled off the card.
+ *
+ * And a crop is drawn only where a row was actually located. When a report is
+ * cited as a whole the `sources` event carries no bbox, and there is no way to
+ * conjure the cited row on this side without inventing it — so the earlier
+ * fallback showed the page's letterhead instead. One letterhead says what the
+ * paper is; eight of them, identical down to the doctor's name, say nothing
+ * and cost the reader the whole rail. Those entries are now what they honestly
+ * are — a numbered reference: label, laboratory, date, and the entire page one
+ * click away behind the `+`.
  */
 import { useEffect, useRef, useState } from "react";
+import { czDate } from "./dates";
 
 export interface Source {
   n: number;
@@ -45,18 +55,6 @@ export interface Source {
 /** Breathing room around the located row, in page pixels. */
 const BLEED_Y = 14;
 const BLEED_X = 14;
-
-/**
- * The letterhead band of a report cited as a whole, as fractions of the page.
- *
- * Fractions rather than pixels: the geometry has to survive a report printed
- * on a different sheet. The band covers the laboratory, the patient and the
- * two dates — everything that says *which* report this is — and stops before
- * the results table, which is what the `+` is for. The first pass showed the
- * top 82 % of the page WIDTH instead, ≈ 260 rail pixels of paper per source;
- * eight sources of that is a rail nobody scrolls to the end of.
- */
-const HEAD = { x0: 0.05, y0: 0.055, x1: 0.95, y1: 0.2 };
 
 /** A window onto the page, in page pixels. */
 interface Rect {
@@ -123,16 +121,37 @@ const rowRect = (
 });
 
 /**
- * A report cited as a whole has no located row — `bbox` is null, because
- * nothing on the page was searched for. Its letterhead is the honest crop:
- * nothing on the sheet was singled out, so the sheet identifies itself.
+ * A quoted excerpt, with the document's own label lines closed up.
+ *
+ * The excerpt arrives as the extractor read the sheet: a two-column header
+ * flattened into one line per cell, so „Pacient:" and „Michal Novák" are two
+ * lines, and eleven such lines stand between the top of the quote and the
+ * first clinical sentence. Clamped at four lines that was a quote of a form,
+ * ending at „Pacient:…" — the reader learned the document has a patient.
+ *
+ * The only thing changed is where the line breaks fall: a line that ends in a
+ * colon takes the line after it. No word is altered, added, reordered or
+ * dropped — the quote reads exactly as it did, in the shape the paper had, and
+ * the clinical line is now inside the clamp instead of eight lines below it.
  */
-const headRect = (pageW: number, pageH: number): Rect => ({
-  x0: pageW * HEAD.x0,
-  y0: pageH * HEAD.y0,
-  x1: pageW * HEAD.x1,
-  y1: pageH * HEAD.y1,
-});
+export function foldExcerpt(text: string): string {
+  const lines = text.split("\n");
+  const out: string[] = [];
+  for (const line of lines) {
+    const prev = out[out.length - 1];
+    const value = line.trim();
+    // A label takes its value, and only its value: a second label after an
+    // unanswered one starts its own line rather than being swallowed.
+    if (prev !== undefined && /:\s*$/.test(prev) && value && !/:$/.test(value))
+      out[out.length - 1] = `${prev} ${value}`;
+    else out.push(line);
+  }
+  const folded = out.join("\n").trimEnd();
+  // The registry ships a fixed-length excerpt, so it can stop mid-word. The
+  // ellipsis says the paper goes on; without it „…subakromiální imping" reads
+  // as something the app got wrong rather than as a quote that was cut.
+  return /[.!?…]$/.test(folded) ? folded : `${folded}…`;
+}
 
 function SourceCard({
   s,
@@ -152,12 +171,31 @@ function SourceCard({
     if (active) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [active]);
 
+  // „Odběr 2023-02-14" over „Laboratoře Modrý Kámen s.r.o. · 14. 2. 2023" is
+  // one card stating one date twice, and in two conventions, one of which is
+  // not Czech. The registry's ISO is a key, not a caption: it goes through the
+  // app's one date formatter like every other date, and the line underneath
+  // then carries what the title does not — which laboratory printed it.
+  const label = labelWithCzechDate(s.label);
+  const dated = label !== s.label;
   const meta =
-    s.kind === "lab" ? [s.lab, czDate(s.date)].filter(Boolean).join(" · ") : czDate(s.date);
+    s.kind === "lab"
+      ? [s.lab, dated ? null : czDate(s.date)].filter(Boolean).join(" · ")
+      : czDate(s.date);
+
+  // A lab source the server located on the page (a bbox) is the printed row
+  // itself. A lab source cited as a whole report has nothing located, so there
+  // is no row to show — and eight cards each showing the same letterhead band
+  // is a rail of eight indistinguishable pictures of stationery. Those become
+  // what they actually are: a labelled reference, with the whole page one
+  // click away. The letterhead is still there, behind the `+`, once.
+  const rowCrop = s.kind === "lab" && s.bbox && s.imageUrl && s.pageW && s.pageH;
 
   return (
     <div
-      className={`src${active ? " is-active" : ""}${open ? " is-open" : ""}`}
+      className={`src${active ? " is-active" : ""}${open ? " is-open" : ""}${
+        rowCrop ? "" : " is-compact"
+      }`}
       ref={ref}
       id={`src-${s.n}`}
     >
@@ -170,7 +208,7 @@ function SourceCard({
       >
         <span className="src-n">{s.n}</span>
         <span className="src-title">
-          <span className="src-label">{s.label}</span>
+          <span className="src-label">{label}</span>
           <span className="src-meta">{meta}</span>
         </span>
         {s.imageUrl && (
@@ -180,16 +218,18 @@ function SourceCard({
         )}
       </button>
 
-      {/* The collapsed card is the band, always — the whole page lives behind
+      {/* The collapsed card is the located row — the whole page lives behind
           the `+`, where it costs the rail nothing until it is asked for. */}
-      {s.kind === "lab" && s.imageUrl && s.pageW && s.pageH && (
+      {rowCrop && (
         <Crop
-          src={s.imageUrl}
-          rect={
-            s.bbox ? rowRect(s.bbox, s.pageW, s.pageH) : headRect(s.pageW, s.pageH)
-          }
-          pageW={s.pageW}
-          pageH={s.pageH}
+          src={s.imageUrl as string}
+          rect={rowRect(
+            s.bbox as [number, number, number, number],
+            s.pageW as number,
+            s.pageH as number,
+          )}
+          pageW={s.pageW as number}
+          pageH={s.pageH as number}
         />
       )}
       {/* The clamp lives on the inner span, not on the quote: `overflow` on a
@@ -197,7 +237,7 @@ function SourceCard({
           first sliver of the line after the ellipsis paint anyway. */}
       {s.kind === "document" && s.excerpt && (
         <blockquote className="src-quote">
-          <span>{s.excerpt}</span>
+          <span>{foldExcerpt(s.excerpt)}</span>
         </blockquote>
       )}
       {open && s.imageUrl && (
@@ -209,10 +249,17 @@ function SourceCard({
   );
 }
 
-/** 2026-02-24 → 24. 2. 2026. The registry ships ISO; a doctor does not read it. */
-function czDate(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${Number(m[3])}. ${Number(m[2])}. ${m[1]}` : iso;
+/**
+ * „Odběr 2023-02-14" → „Odběr · 14. 2. 2023". A label the registry built from
+ * an ISO key, set the way the rest of the app sets a date. Returned unchanged
+ * when the label carries no ISO date — „hemoglobin 149 g/l" is a label, and
+ * the date belongs under it.
+ */
+function labelWithCzechDate(label: string): string {
+  return label.replace(
+    /\s*(\d{4})-(\d{2})-(\d{2})\s*$/,
+    (_m, y: string, mo: string, d: string) => ` · ${czDate(`${y}-${mo}-${d}`)}`,
+  );
 }
 
 export default function Sources({

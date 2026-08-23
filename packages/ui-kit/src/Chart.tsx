@@ -54,7 +54,31 @@ const H = 240;
 // being scaled down to a ~330px phone viewport, so they need the room.
 const PAD = { top: 18, right: 18, bottom: 30, left: 58 };
 
-export default function Chart({ trend }: { trend: Trend }) {
+export default function Chart({
+  trend,
+  includeRefRange = false,
+}: {
+  trend: Trend;
+  /**
+   * Opt in to a y-domain that contains the whole reference range.
+   *
+   * Off by default, and the default is the byte-for-byte rendering every
+   * existing caller already has: the bloodwork trends tab scales to the data
+   * on purpose (see the note on the domain below), because a ferritin fall
+   * from 112 to 88 inside a 30–400 band is the entire reason that chart was
+   * opened, and putting 400 on the axis flattens it into a straight line.
+   *
+   * The chat app opts in, because its chart arrives *inside a sentence*: the
+   * answer says „vše v pásmu normy" two lines under a plot whose band filled
+   * every pixel and whose last point sat on the bottom axis rule. There the
+   * band is the claim being made, so the band has to be visible as a band —
+   * with paper above the upper limit and below the lower one — or the picture
+   * contradicts the prose. With it on, the tint stops being the series colour
+   * too: a band that means „normal" is not a second blue object competing with
+   * the line.
+   */
+  includeRefRange?: boolean;
+}) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
   const pts = numericPoints(trend);
@@ -116,6 +140,16 @@ export default function Chart({ trend }: { trend: Trend }) {
   let yMin = Math.min(lo - pad, ...nearLow);
   let yMax = Math.max(hi + pad, ...nearHigh);
 
+  // Opted in: both limits are inside the plot, with air above and below them,
+  // so the band reads as a band rather than as the backdrop.
+  if (includeRefRange) {
+    const dLo = Math.min(lo, ...lows);
+    const dHi = Math.max(hi, ...highs);
+    const dPad = dHi > dLo ? (dHi - dLo) * 0.12 : pad;
+    yMin = dLo - dPad;
+    yMax = dHi + dPad;
+  }
+
   // A concentration or a count cannot be negative, and an axis that says
   // "-25,5" for ferritin undermines every number beside it.
   const canBeNegative = values.some((v) => v < 0) || lows.some((v) => v < 0);
@@ -154,7 +188,11 @@ export default function Chart({ trend }: { trend: Trend }) {
   if (band?.bLow != null && (band.bLow < yMin || band.bLow > yMax)) offscreenLimits.push("dolní mez");
 
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value as number)}`).join(" ");
-  const ticks = niceTicks(yMin, yMax);
+  // A domain widened to hold the whole range is a wider domain, and four ticks
+  // over it lands on a step of 20 where 10 was available — two labels for the
+  // whole axis. Only the opted-in domain asks for the denser target; the
+  // default keeps the tick count every existing chart has.
+  const ticks = niceTicks(yMin, yMax, includeRefRange ? 5 : 4);
   const active = hover !== null ? pts[hover] : null;
 
   return (
@@ -173,7 +211,13 @@ export default function Chart({ trend }: { trend: Trend }) {
 
         {band && (
           <g clipPath={`url(#${clipId})`}>
-            <rect x={PAD.left} y={band.top} width={innerW} height={band.height} fill="var(--band)" />
+            <rect
+              x={PAD.left}
+              y={band.top}
+              width={innerW}
+              height={band.height}
+              fill={includeRefRange ? "var(--band-neutral)" : "var(--band)"}
+            />
           </g>
         )}
 

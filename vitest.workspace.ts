@@ -81,6 +81,18 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The chat client's pure helpers — the date formatter every rendered
+      // date goes through, and the excerpt folder that must never touch a
+      // word of a quote. Everything else in apps/chat is verified by the
+      // screenshot walk; these two are the ones a regression would hide.
+      name: "chat-app",
+      root: "./apps/chat",
+      include: ["src/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "extract",
       root: "./workers/extract",
       include: ["tests/**/*.test.ts"],
