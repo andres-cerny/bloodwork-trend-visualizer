@@ -3,7 +3,7 @@
  * Refuse to stage, commit, or write personal medical data.
  *
  * This repo's one hard rule (docs/constraints.md, "Privacy") is that lab
- * reports never leave the machine: `data/`, `samples/*.pdf` and everything
+ * reports never leave the machine: `data/`, everything in `samples/` and everything
  * derived from them are git-ignored. A .gitignore is a default, not a
  * guarantee — `git add -f`, a path that slips outside the patterns, or a
  * generator writing somewhere new all get past it, and the failure is
@@ -19,7 +19,7 @@
 
 const FORBIDDEN = [
   { re: /(^|[\s"'/])data\//, what: "data/ — extracted reports, page images, the registry" },
-  { re: /samples\/[^\s"']*\.pdf/i, what: "samples/*.pdf — source lab reports" },
+  { re: /samples\/(?!README\.md)[^\s"']+/i, what: "samples/ — source lab reports and performance evals" },
   { re: /public\/demo\/real\//, what: "public/demo/real/ — real reports staged for the demo" },
   { re: /bench\/results\//, what: "bench/results/ — derived from real lab PDFs" },
 ];

@@ -30,9 +30,12 @@ dist/
 .claude/settings.local.json
 
 # Personal medical data — NEVER commit
-# Source lab PDFs and everything derived from them.
+# Source lab reports and everything derived from them. Everything under
+# samples/ except the README — subdirectories and non-PDF exports included;
+# `samples/*.pdf` once left samples/performance/ and an .xlsx stageable.
 data/
-samples/*.pdf
+samples/*
+!samples/README.md
 apps/bloodwork/public/demo/real/
 
 
