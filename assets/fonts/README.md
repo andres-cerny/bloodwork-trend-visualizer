@@ -1,23 +1,18 @@
 # Bundled fonts
 
-`DejaVuSans.ttf` and `DejaVuSans-Bold.ttf`, from DejaVu 2.37.
+`DejaVuSans.ttf` and `DejaVuSans-Bold.ttf`, from DejaVu 2.37, committed rather
+than taken from the system so the PDF generators produce byte-identical output
+on every machine.
 
-They are committed rather than taken from the system on purpose. The PDF
-generators (`scripts/make_demo_data.py`, `scripts/make_layout_fixtures.py`)
-produce output whose byte content depends on the font: glyph widths move text,
-which moves row bounding boxes and the rendered page images. CI regenerates and
-asserts no diff, so a machine with a different font — or a different *version*
-of the same font — produces a spurious diff.
+**Why this matters, and which two fonts are excluded and how that was learned:**
+[docs/constraints.md](../../docs/constraints.md#the-pdf-generators-are-font-locked).
+That is the one home for the reasoning; this file used to restate it, and two
+copies of a rule drift.
 
-Bundling makes the output identical on every machine with no install step.
+The short version: CI asserts the demo data regenerates with no diff, and a
+system font makes that assertion depend on the machine.
 
-Two fonts are excluded deliberately, both learned the hard way:
-
-- **Plain Arial** loses the hyphen when its text is read back through pdf.js. A
-  reference range printed `4,11-5,60` extracts as `4,115,60`, which parses to a
-  plausible wrong number rather than failing.
-- **Arial Unicode** works but is 23 MB, and PyMuPDF embeds the whole font into
-  every PDF it writes — fixtures went from 1.5 MB to 24 MB each.
+Resolved by `tools/pipeline/scripts/_fonts.py`.
 
 Licence: `LICENSE-DejaVu.txt` (Bitstream Vera / Arev, permissive; DejaVu's own
 changes are public domain).

@@ -134,8 +134,14 @@ for (const doc of docs) {
 
 /* ----------------------------------------------------------- 3. orphans */
 
-/** Files that are entry points by nature, or are cited from source rather than prose. */
+/**
+ * Entry points by nature: nothing links to them because nothing needs to.
+ * A skill is reached by invoking its name, a CLAUDE.md by being near the file
+ * being edited, and a CONTEXT.md is its own directory's contract.
+ */
 const ROOTS = new Set(["README.md", "CLAUDE.md"]);
+const isEntryPoint = (d) =>
+  ROOTS.has(d) || d.endsWith("CLAUDE.md") || d.endsWith("SKILL.md") || d.endsWith("CONTEXT.md");
 const citedInCode = new Set();
 function scanSource(dir) {
   for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
@@ -150,7 +156,7 @@ function scanSource(dir) {
 scanSource(".");
 
 for (const doc of docs) {
-  if (ROOTS.has(doc) || doc.endsWith("CLAUDE.md")) continue;
+  if (isEntryPoint(doc)) continue;
   const cited = [...citedInCode].some((c) => doc.endsWith(c));
   if (!linkedTo.has(doc) && !cited) {
     warnings.push(`${doc}: nothing links to it — is it still current?`);
