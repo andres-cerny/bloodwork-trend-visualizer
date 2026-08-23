@@ -5,7 +5,7 @@
  * unit-tested directly — they are the part of the text path that decides
  * whether a value is trustworthy.
  */
-import type { Box } from "../lib/models";
+import type { Box } from "../models";
 
 export interface TextRow {
   /** Cells left-to-right, as printed. */

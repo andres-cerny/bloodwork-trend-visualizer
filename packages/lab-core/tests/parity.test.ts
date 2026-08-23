@@ -23,7 +23,7 @@ import {
 } from "@bw/lab-core";
 
 const CASES = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../tests/parity_cases.json"), "utf-8"),
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../tests/parity_cases.json"), "utf-8"),
 ) as {
   parse_czech_number: Array<[string, number | null]>;
   parse_value: Array<[string, number | null]>;

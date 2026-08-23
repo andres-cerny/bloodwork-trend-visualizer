@@ -20,7 +20,7 @@ import pymupdf
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts._fonts import czech_fonts  # noqa: E402
 
-OUT = Path(__file__).resolve().parent.parent / "web" / "tests" / "fixtures"
+OUT = Path(__file__).resolve().parent.parent / "packages" / "lab-core" / "tests" / "fixtures"
 FONT, FONT_B = czech_fonts()
 
 

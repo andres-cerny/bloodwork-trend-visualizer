@@ -18,5 +18,4 @@ export default defineConfig({
   publicDir: "public",
   plugins: [react()],
   build: { outDir: "../dist", emptyOutDir: true },
-  test: { include: ["tests/**/*.test.ts", "../worker/tests/**/*.test.ts", "../bench/**/*.test.ts"], environment: "node" },
 });

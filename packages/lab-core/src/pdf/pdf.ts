@@ -9,7 +9,7 @@
  */
 import * as pdfjsLib from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import type { Box } from "../lib/models";
+import type { Box } from "../models";
 import { buildRows, type TextRow } from "./rows";
 
 export * from "./rows";

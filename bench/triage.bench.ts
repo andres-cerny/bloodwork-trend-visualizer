@@ -84,9 +84,9 @@ function signalFor(page: { rows: any[]; hasTextLayer: boolean; hasImage: boolean
 
 describe("A8 — page triage", () => {
   it("refuses to skip a genuine scan of real results", async () => {
-    // web/tests/fixtures/scanned.pdf is a rendered lab page with the text layer
+    // packages/lab-core/tests/fixtures/scanned.pdf is a rendered lab page with the text layer
     // stripped — the exact case the naive "no rows" rule would throw away.
-    const path = "web/tests/fixtures/scanned.pdf";
+    const path = "packages/lab-core/tests/fixtures/scanned.pdf";
     if (!existsSync(path)) {
       console.log(`${path} missing — regenerate with scripts/make_layout_fixtures.py`);
       return;

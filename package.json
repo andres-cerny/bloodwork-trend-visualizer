@@ -8,7 +8,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "deploy": "npm run build && npm run check:bundle && wrangler deploy",
-    "test:parity": "python3 tests/test_parity.py && vitest run tests/parity.test.ts",
+    "test:parity": "python3 tests/test_parity.py && vitest run --project lab-core parity",
     "test:all": "npm run test:parity && vitest run && npm run test:hooks && npm run typecheck",
     "test:live": "vitest run --config config/vitest.handoff.config.ts tests/live",
     "test:e2e": "npm run build && vitest run --config config/vitest.handoff.config.ts e2e/visual.e2e.ts",

@@ -43,7 +43,7 @@ const MAX_USD = parseFloat(process.env.LIVE_MAX_USD ?? "2");
 const SINGLE = process.env.LIVE_SINGLE_MODEL === "1";
 const MODELS = SINGLE ? [MODEL_PRIMARY] : [MODEL_PRIMARY, MODEL_ESCALATION];
 
-const FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../web/tests/fixtures");
+const FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../packages/lab-core/tests/fixtures");
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 /**

@@ -1,7 +1,5 @@
 /** Worker API client. Holds the session token minted from one Turnstile pass. */
-import type { LabReport } from "./models";
-import { czNum } from "./summary";
-import { numericPoints, type Trend } from "./trends";
+import { type LabReport, czNum, numericPoints, type Trend } from "@bw/lab-core";
 
 export interface Budget {
   spentUsd: number;
