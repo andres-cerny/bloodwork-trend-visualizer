@@ -39,6 +39,14 @@ export type AgentEvent =
    * the model invented has nothing to point at and shows as such.
    */
   | { type: "sources"; sources: Array<{ n: number } & Record<string, unknown>> }
+  /**
+   * The model's own proposals for what to ask next — parsed by the loop out of
+   * a marked tail the reader never sees. At most three, Czech, each phrased so
+   * sending it verbatim as the next user turn works. Emitted after `sources`
+   * and before `done`; absent entirely when the model proposed nothing, and
+   * the UI shows nothing rather than a canned menu pretending to be the model.
+   */
+  | { type: "followups"; questions: string[] }
   /** Terminal. Usage is final here and nowhere earlier. */
   | { type: "done"; usage: Usage; model: string }
   | { type: "error"; message: string };
