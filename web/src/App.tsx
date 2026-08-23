@@ -15,7 +15,8 @@
  * app persists, after the theme. Nothing about a patient is stored anywhere.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { buildChatContext, getStatus, type Budget } from "./lib/api";
+import { getStatus, type Budget } from "@bw/api-client";
+import { buildChatContext } from "@bw/lab-core";
 import {
   type AnalyteDef,
   type LabReport,
@@ -29,7 +30,7 @@ import ChatPanel from "./ui/ChatPanel";
 import MappingTab from "./ui/MappingTab";
 import PatientCard from "./ui/PatientCard";
 import Sidebar from "./ui/Sidebar";
-import ThemeSwitch from "./ui/ThemeSwitch";
+import { ThemeSwitch } from "@bw/ui-kit";
 import SummaryTab from "./ui/SummaryTab";
 import TrendsTab from "./ui/TrendsTab";
 import VerifyTab from "./ui/VerifyTab";

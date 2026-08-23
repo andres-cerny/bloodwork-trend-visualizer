@@ -32,3 +32,4 @@ export * from "./reconcile";
 export * from "./correction";
 export * from "./chartSpec";
 export * from "./pdf/rows";
+export * from "./chatContext";

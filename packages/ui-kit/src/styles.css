@@ -1,0 +1,170 @@
+/*
+ * The theme layer: both palettes, and the reset that assumes them.
+ *
+ * Split out of the app's stylesheet so a second app inherits the same colours
+ * rather than approximating them. The rule the theme test enforces is the one
+ * that matters here — the media-query dark block and the [data-theme="dark"]
+ * block must stay identical, because a token added to one and forgotten in the
+ * other produces a nearly-dark page, and only for readers whose system theme is
+ * light.
+ */
+
+:root {
+  /* Surfaces: the plane is a shade deeper than the cards, so a card reads as
+     a card without needing a heavy border. */
+  --plane: #f2f1ed;
+  --surface-1: #ffffff;
+  --surface-2: #faf9f6;
+  --surface-3: #f0efea;
+  --ink-1: #14130f;
+  --ink-2: #52514e;
+  --ink-muted: #6a6862;
+  --grid: #e6e5df;
+  --border: #e0dfd8;
+  --border-strong: #cfcec5;
+  /* Signal colours draw things — a chart line, a ring on a scanned page, a
+     tinted row. Ink colours are for text, and are darker, because the same
+     blue that reads correctly as a 2px line on white is only 3.4:1 as 12px
+     type on a tinted chip. Keeping one token for both jobs meant every
+     legibility fix dulled the graphics; splitting them lets each be right. */
+  --series-1: #2a78d6;
+  --series-1-soft: rgba(42, 120, 214, 0.10);
+  --accent: #2470cc;
+  --accent-ink: #2264b2;
+  --status-critical: #d03b3b;
+  --status-critical-soft: rgba(208, 59, 59, 0.10);
+  --critical-ink: #b32828;
+  --band: rgba(42, 120, 214, 0.09);
+  --chip: #eeede8;
+
+  --radius: 10px;
+  --radius-sm: 7px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 19, 15, 0.05);
+  --shadow-md: 0 2px 4px rgba(20, 19, 15, 0.05), 0 8px 20px -12px rgba(20, 19, 15, 0.22);
+  --shadow-lg: 0 18px 48px -18px rgba(20, 19, 15, 0.34);
+
+  --rail: 316px;
+  /* Cap on the reading column, so a line of prose does not run the full
+     width of a workstation monitor. Collapsing the rail raises it by exactly
+     the rail's width — see .shell.rail-collapsed. */
+  --read-max: 1320px;
+  --topbar: 56px;
+}
+
+/*
+ * Dark palette.
+ *
+ * The values live once, as --dk-* on :root, and are aliased onto the real
+ * tokens by two selectors: the system preference (unless the reader has forced
+ * light) and an explicit data-theme="dark". Written out twice, the two blocks
+ * drifted the moment anyone touched one of them — with the values in one place
+ * only the alias list is duplicated, and `web/tests/theme.test.ts` fails if
+ * those two lists ever stop matching.
+ */
+:root {
+  --dk-plane: #0d0d0c;
+  --dk-surface-1: #1a1a19;
+  --dk-surface-2: #171716;
+  --dk-surface-3: #232322;
+  --dk-ink-1: #ffffff;
+  --dk-ink-2: #c3c2b7;
+  --dk-ink-muted: #9a988f;
+  --dk-grid: #2c2c2a;
+  --dk-border: #2c2c2a;
+  --dk-border-strong: #3d3d3a;
+  --dk-series-1: #3987e5;
+  --dk-series-1-soft: rgba(57, 135, 229, 0.16);
+  --dk-accent: #1d74dd;
+  --dk-accent-ink: #6ba6ec;
+  --dk-status-critical: #e05555;
+  --dk-status-critical-soft: rgba(224, 85, 85, 0.16);
+  --dk-critical-ink: #ec8a8a;
+  --dk-band: rgba(57, 135, 229, 0.14);
+  --dk-chip: #262625;
+  --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --dk-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+  --dk-shadow-lg: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane: var(--dk-plane);
+    --surface-1: var(--dk-surface-1);
+    --surface-2: var(--dk-surface-2);
+    --surface-3: var(--dk-surface-3);
+    --ink-1: var(--dk-ink-1);
+    --ink-2: var(--dk-ink-2);
+    --ink-muted: var(--dk-ink-muted);
+    --grid: var(--dk-grid);
+    --border: var(--dk-border);
+    --border-strong: var(--dk-border-strong);
+    --series-1: var(--dk-series-1);
+    --series-1-soft: var(--dk-series-1-soft);
+    --accent: var(--dk-accent);
+    --accent-ink: var(--dk-accent-ink);
+    --status-critical: var(--dk-status-critical);
+    --status-critical-soft: var(--dk-status-critical-soft);
+    --critical-ink: var(--dk-critical-ink);
+    --band: var(--dk-band);
+    --chip: var(--dk-chip);
+    --shadow-sm: var(--dk-shadow-sm);
+    --shadow-md: var(--dk-shadow-md);
+    --shadow-lg: var(--dk-shadow-lg);
+  }
+}
+
+/* Forced dark, whatever the system says. */
+:root[data-theme="dark"] {
+    --plane: var(--dk-plane);
+    --surface-1: var(--dk-surface-1);
+    --surface-2: var(--dk-surface-2);
+    --surface-3: var(--dk-surface-3);
+    --ink-1: var(--dk-ink-1);
+    --ink-2: var(--dk-ink-2);
+    --ink-muted: var(--dk-ink-muted);
+    --grid: var(--dk-grid);
+    --border: var(--dk-border);
+    --border-strong: var(--dk-border-strong);
+    --series-1: var(--dk-series-1);
+    --series-1-soft: var(--dk-series-1-soft);
+    --accent: var(--dk-accent);
+    --accent-ink: var(--dk-accent-ink);
+    --status-critical: var(--dk-status-critical);
+    --status-critical-soft: var(--dk-status-critical-soft);
+    --critical-ink: var(--dk-critical-ink);
+    --band: var(--dk-band);
+    --chip: var(--dk-chip);
+    --shadow-sm: var(--dk-shadow-sm);
+    --shadow-md: var(--dk-shadow-md);
+    --shadow-lg: var(--dk-shadow-lg);
+}
+
+* { box-sizing: border-box; }
+
+/*
+ * `hidden` must win. The tab panels stay mounted and rely on it to leave the
+ * screen, so any later rule that sets `display` on a panel — a grid, a flex
+ * row — would silently bring the inactive tabs back and stack all five on top
+ * of each other. The UA sheet's `display: none` loses to a class selector;
+ * this does not.
+ */
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--plane);
+  color: var(--ink-1);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

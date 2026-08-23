@@ -7,7 +7,7 @@
  * conversation needs, and the reader chooses when to be in it.
  */
 import { useEffect, useRef, useState } from "react";
-import { ApiError, askChat, type Budget } from "../lib/api";
+import { ApiError, askChat, type Budget } from "@bw/api-client";
 
 interface Props {
   dataContext: string;

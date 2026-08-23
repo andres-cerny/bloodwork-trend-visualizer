@@ -18,14 +18,8 @@
  * minutes — the measurements are in docs/extraction-speed.md.
  */
 import { useEffect, useRef, useState } from "react";
-import {
-  ApiError,
-  type Budget,
-  extract,
-  hasSession,
-  isFatalApiError,
-  startSession,
-} from "../lib/api";
+import { ApiError, type Budget, extract, isFatalApiError } from "@bw/api-client";
+import { useTurnstile } from "@bw/ui-kit";
 import {
   type LabReport,
   type Measurement,
@@ -82,15 +76,6 @@ const PAGE_REQUESTS_IN_FLIGHT = 64;
  */
 const FILES_AT_ONCE = 24;
 
-declare global {
-  interface Window {
-    turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => void };
-    onTurnstileLoad?: () => void;
-  }
-}
-
-const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
-
 interface Props {
   registry: Registry;
   frozen: boolean;
@@ -101,8 +86,10 @@ interface Props {
 }
 
 export default function UploadPanel({ registry, frozen, maxPages, onReport, onBudget, onUnlock }: Props) {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(hasSession());
+  const { boxRef, ready, available, error: gateError } = useTurnstile(
+    import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined,
+    onUnlock,
+  );
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job<File>[]>([]);
@@ -124,34 +111,6 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
   // point. Kept in a ref so a re-render cannot hand a half-finished run a
   // second, empty budget.
   const limiterRef = useRef(createLimiter(PAGE_REQUESTS_IN_FLIGHT));
-
-  useEffect(() => {
-    if (ready || !SITE_KEY || !boxRef.current) return;
-    const el = boxRef.current;
-    const render = () => {
-      if (!window.turnstile || el.childElementCount > 0) return;
-      window.turnstile.render(el, {
-        sitekey: SITE_KEY,
-        callback: async (token: string) => {
-          try {
-            await startSession(token);
-            setReady(true);
-            onUnlock();
-          } catch (e) {
-            setError(e instanceof ApiError ? e.message : "Ověření se nezdařilo.");
-          }
-        },
-      });
-    };
-    if (window.turnstile) render();
-    else {
-      window.onTurnstileLoad = render;
-      const s = document.createElement("script");
-      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad";
-      s.async = true;
-      document.head.appendChild(s);
-    }
-  }, [ready, onUnlock]);
 
   /** Read one PDF end to end. Throws only on a fatal, queue-stopping error. */
   async function processOne(job: Job<File>) {
@@ -429,7 +388,7 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
   // A missing site key is a deployment condition, not a user error. The old
   // copy printed the environment-variable name in red, which reads as a broken
   // app to anyone who is not the person who deployed it.
-  if (!SITE_KEY)
+  if (!available)
     return (
       <p className="muted">
         Nahrávání vlastních PDF není v této ukázce zapnuté. Ukázková data fungují
@@ -444,7 +403,9 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
           Nejdřív krátké ověření, že nejste robot. Pak můžete nahrát PDF.
         </p>
         <div ref={boxRef} />
-        {error && <p className="err" style={{ margin: "8px 0 0" }}>{error}</p>}
+        {(gateError ?? error) && (
+          <p className="err" style={{ margin: "8px 0 0" }}>{gateError ?? error}</p>
+        )}
       </>
     );
 

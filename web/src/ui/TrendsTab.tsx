@@ -11,7 +11,7 @@
  */
 import { useMemo, useState } from "react";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
-import Chart from "./Chart";
+import { Chart } from "@bw/ui-kit";
 import Flag from "./Flag";
 import {
   czExact,

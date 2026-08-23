@@ -4,7 +4,7 @@
  * things like "0,056", which reads as a measurement.
  */
 import { describe, expect, it } from "vitest";
-import { niceTicks } from "../src/ui/Chart";
+import { niceTicks } from "../src/Chart";
 import { czNum } from "@bw/lab-core";
 
 describe("niceTicks", () => {

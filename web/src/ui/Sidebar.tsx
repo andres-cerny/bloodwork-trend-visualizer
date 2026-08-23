@@ -8,7 +8,7 @@
  * their own PDF ended up with their results mixed into a fictional person's.
  */
 import { useState } from "react";
-import type { Budget } from "../lib/api";
+import type { Budget } from "@bw/api-client";
 import { type LabReport, type Registry, czDate, count } from "@bw/lab-core";
 import UploadPanel from "./UploadPanel";
 

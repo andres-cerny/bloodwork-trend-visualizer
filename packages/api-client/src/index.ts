@@ -1,5 +1,10 @@
-/** Worker API client. Holds the session token minted from one Turnstile pass. */
-import { type LabReport, czNum, numericPoints, type Trend } from "@bw/lab-core";
+/**
+ * Talking to the API worker from a browser.
+ *
+ * Holds the session token minted from one Turnstile pass, and nothing else —
+ * no lab knowledge. Both apps use it, and the chat app must be able to without
+ * learning what an analyte is.
+ */
 
 export interface Budget {
   spentUsd: number;
@@ -79,31 +84,4 @@ export async function extract(
 
 export async function askChat(dataContext: string, history: Array<{ role: "user" | "assistant"; content: string }>) {
   return post<{ text: string; costUsd: number; budget: Budget }>("/api/chat", { dataContext, history });
-}
-
-/**
- * Compact, already-normalized view of the patient's data for the chat.
- *
- * Sent as context rather than exposed through tools: the dataset is small and
- * every number here came out of the deterministic parsing layer, so the model
- * has nothing left to compute — which is exactly the guarantee we want.
- */
-export function buildChatContext(reports: LabReport[], trends: Map<string, Trend>): string {
-  const lines: string[] = [];
-  const dates = reports.map((r) => r.reportDate).filter(Boolean).sort();
-  lines.push(`Počet reportů: ${reports.length}. Data odběrů: ${dates.join(", ")}.`);
-  lines.push("");
-  lines.push("Analyt | jednotka | referenční meze | hodnoty (datum: hodnota, stav)");
-  for (const t of trends.values()) {
-    const np = numericPoints(t);
-    if (np.length === 0) continue;
-    const last = np[np.length - 1];
-    const ref =
-      last.refLow !== null || last.refHigh !== null
-        ? `${last.refLow !== null ? czNum(last.refLow) : ""}–${last.refHigh !== null ? czNum(last.refHigh) : ""}`
-        : "neuvedeno";
-    const series = np.map((p) => `${p.date}: ${czNum(p.value)} (${p.flag})`).join("; ");
-    lines.push(`${t.displayName} | ${t.unit || "—"} | ${ref} | ${series}`);
-  }
-  return lines.join("\n");
 }

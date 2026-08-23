@@ -25,6 +25,14 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: "ui-kit",
+      root: "./packages/ui-kit",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "web",
       root: "./web",
       include: ["tests/**/*.test.ts"],

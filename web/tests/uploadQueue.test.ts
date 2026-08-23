@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { makeJob, runQueue, type Job } from "../src/lib/uploadQueue";
-import { ApiError, isFatalApiError } from "../src/lib/api";
+import { ApiError, isFatalApiError } from "@bw/api-client";
 
 class Fatal extends Error {}
 

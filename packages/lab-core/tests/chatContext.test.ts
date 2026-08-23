@@ -7,7 +7,7 @@
  * carries the flags and dates it needs and nothing it should not.
  */
 import { describe, expect, it } from "vitest";
-import { buildChatContext } from "../src/lib/api";
+import { buildChatContext } from "@bw/lab-core";
 import {
   makeMeasurement,
   type LabReport,
