@@ -1,6 +1,6 @@
 # tools/pipeline — the Python CI still needs
 
-Five modules and four scripts, kept because CI runs them. The Streamlit tool and
+Five modules and five scripts, kept because CI runs them. The Streamlit tool and
 everything only it reached is in `tools/archive/`.
 
 Run from **this directory**: `python3 -m scripts.make_demo_data`.

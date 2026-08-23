@@ -89,7 +89,13 @@ for db in bloodwork-chat-sport bloodwork-chat-orto; do
 done
 npx wrangler d1 execute bloodwork-chat-sport --remote --file ../../tools/pipeline/out/seed_sport.sql -y
 npx wrangler d1 execute bloodwork-chat-orto  --remote --file ../../tools/pipeline/out/seed_orto.sql  -y
+npx wrangler d1 execute bloodwork-chat-sport --remote --file ../../tools/pipeline/out/seed_docs_sport.sql -y
+npx wrangler d1 execute bloodwork-chat-orto  --remote --file ../../tools/pipeline/out/seed_docs_orto.sql  -y
 ```
+
+The documents go **after** the labs: `seed_<tenant>.sql` clears the document
+tables along with the patients they reference, so the reverse order seeds a
+practice with no documents and no error.
 
 The seeds open with `DELETE FROM`, so reseeding replaces rather than
 duplicates. The one real patient record is seeded separately, from `samples/`,
