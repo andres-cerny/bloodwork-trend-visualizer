@@ -6,7 +6,8 @@
  * that reach being handed to a path that only ever needed an API key.
  */
 import { budgetState, recordSpendUsd, type Capability } from "@bw/gate";
-import { guard, json, budgetLimit, type BaseEnv } from "@bw/gate/http";
+import { guard, json, budgetLimit, maxPages, sessionTtl, type BaseEnv } from "@bw/gate/http";
+import { mintSession, verifyTurnstile, TURNSTILE_ACTION } from "@bw/gate";
 import { priceUsd, resolveProfile, runAgent, toSse, type ChatTurn } from "@bw/agent-core";
 import { D1DocumentStore, DatabaseSource, PatientDirectory, type D1Like } from "@bw/datasource";
 import type { ToolContext } from "@bw/agent-tools";
@@ -25,6 +26,35 @@ const TENANTS: Record<string, { binding: "DB_SPORT" | "DB_ORTO"; label: string }
   sport: { binding: "DB_SPORT", label: "Sportovní medicína" },
   orto: { binding: "DB_ORTO", label: "Ortopedie a fyzioterapie" },
 };
+
+/**
+ * Mint a session from one Turnstile pass — the same door extract has.
+ *
+ * It exists here too because the chat shell binds only this worker: without
+ * it, the chat app's gate could collect a perfectly good token and have
+ * nowhere to trade it for a session. The claims carry a page allowance the
+ * agent never spends; consumePage stays extract-only, and a test pins that.
+ */
+async function handleSession(request: Request, env: Env): Promise<Response> {
+  const { turnstileToken } = (await request.json().catch(() => ({}))) as {
+    turnstileToken?: string;
+  };
+  if (!turnstileToken) return json({ error: "missing_token" }, 400);
+
+  const ok = await verifyTurnstile(
+    env.TURNSTILE_SECRET_KEY,
+    turnstileToken,
+    request.headers.get("cf-connecting-ip"),
+    {
+      hostnames: (env.TURNSTILE_HOSTNAMES ?? "").split(","),
+      action: TURNSTILE_ACTION,
+    },
+  );
+  if (!ok) return json({ error: "turnstile_failed", message: "Ověření se nezdařilo." }, 403);
+
+  const session = await mintSession(env.SESSION_SECRET, sessionTtl(env), maxPages(env));
+  return json({ session, maxPages: maxPages(env), ttlSeconds: sessionTtl(env) });
+}
 
 /**
  * One agent turn, streamed.
@@ -150,6 +180,9 @@ export default {
       const cap: Capability =
         tenant && tenant in TENANTS ? (`clinical-${tenant}` as Capability) : "agent";
       return json({ budget: await budgetState(env.BUDGET, cap, budgetLimit(env, cap)) });
+    }
+    if (url.pathname === "/api/session" && request.method === "POST") {
+      return handleSession(request, env);
     }
     if (url.pathname === "/api/chat" && request.method === "POST") {
       return handleChat(request, env);
