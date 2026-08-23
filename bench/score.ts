@@ -14,7 +14,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { isPrintedOnPage, type TextRow } from "../web/src/pdf/rows";
+import { isPrintedOnPage, type TextRow } from "@bw/lab-core";
 
 export interface RawMeasurement {
   raw_analyte_name?: string;

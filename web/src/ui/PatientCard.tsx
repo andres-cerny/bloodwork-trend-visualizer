@@ -17,10 +17,7 @@
  * fact the app checked, and it did not.
  */
 import { Fragment, useMemo, type ReactNode } from "react";
-import { count, czDate } from "../lib/czech";
-import type { LabReport } from "../lib/models";
-import { patientOverview } from "../lib/patientSummary";
-import type { Trend } from "../lib/trends";
+import { count, czDate, type LabReport, patientOverview, type Trend } from "@bw/lab-core";
 
 interface Props {
   reports: LabReport[];

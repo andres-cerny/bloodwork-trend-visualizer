@@ -16,11 +16,15 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildChatContext, getStatus, type Budget } from "./lib/api";
-import type { AnalyteDef, LabReport, Measurement } from "./lib/models";
-import { Registry } from "./lib/registry";
-import { buildTrends } from "./lib/trends";
-import { reviewOf } from "./lib/review";
-import { czDate } from "./lib/czech";
+import {
+  type AnalyteDef,
+  type LabReport,
+  type Measurement,
+  Registry,
+  buildTrends,
+  reviewOf,
+  czDate,
+} from "@bw/lab-core";
 import ChatPanel from "./ui/ChatPanel";
 import MappingTab from "./ui/MappingTab";
 import PatientCard from "./ui/PatientCard";

@@ -5,8 +5,14 @@
  * comma, a unit and a parenthesised reference range, laid out in columns.
  */
 import { describe, expect, it } from "vitest";
-import type { Box } from "../src/lib/models";
-import { buildRows, isPrintedOnPage, rowBoxFor, rowsAsText, rowTextAt } from "../src/pdf/rows";
+import {
+  type Box,
+  buildRows,
+  isPrintedOnPage,
+  rowBoxFor,
+  rowsAsText,
+  rowTextAt,
+} from "@bw/lab-core";
 
 /** Build a word at a column x and row y, as pdf.js would report it. */
 const w = (text: string, x: number, y: number, h = 12): { text: string; box: Box } => ({

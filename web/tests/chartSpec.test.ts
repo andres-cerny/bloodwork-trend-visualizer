@@ -8,8 +8,13 @@
  * is the whole reason this feature is safe to ship in a clinical tool.
  */
 import { describe, expect, it } from "vitest";
-import { parseChartSpec, validateChartSpec, type ChartSpec } from "../src/lib/chartSpec";
-import type { Trend, TrendPoint } from "../src/lib/trends";
+import {
+  parseChartSpec,
+  validateChartSpec,
+  type ChartSpec,
+  type Trend,
+  type TrendPoint,
+} from "@bw/lab-core";
 
 const pt = (date: string, value: number, unit: string): TrendPoint => ({
   date,

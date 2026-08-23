@@ -5,7 +5,7 @@
  * result.
  */
 import { describe, expect, it } from "vitest";
-import { checkCorrection } from "../src/lib/correction";
+import { checkCorrection } from "@bw/lab-core";
 
 describe("checkCorrection", () => {
   it("accepts a Czech-formatted number", () => {

@@ -5,8 +5,7 @@
  * mapping was withdrawn while the name still resolves.
  */
 import { describe, expect, it } from "vitest";
-import { Registry } from "../src/lib/registry";
-import type { AnalyteDef } from "../src/lib/models";
+import { Registry, type AnalyteDef } from "@bw/lab-core";
 
 const def = (id: string, name: string, syn: string[] = []): AnalyteDef => ({
   canonicalId: id,

@@ -8,8 +8,13 @@
  * wrongness the rest of the codebase is arranged against.
  */
 import { describe, expect, it } from "vitest";
-import { buildDerived, FRIEDEWALD_MAX_TG, isDerivedId } from "../src/lib/derived";
-import type { Trend, TrendPoint } from "../src/lib/trends";
+import {
+  buildDerived,
+  FRIEDEWALD_MAX_TG,
+  isDerivedId,
+  type Trend,
+  type TrendPoint,
+} from "@bw/lab-core";
 
 const pt = (
   reportId: string,

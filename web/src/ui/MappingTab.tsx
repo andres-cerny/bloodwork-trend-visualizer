@@ -22,8 +22,8 @@
  * model is involved, and each signal is shown rather than folded into a score.
  */
 import { useMemo, useState } from "react";
-import type { LabReport } from "../lib/models";
 import {
+  type LabReport,
   findUnmapped,
   materialCs,
   materialPrefix,
@@ -34,10 +34,12 @@ import {
   type Candidate,
   type Signal,
   type UnmappedAnalyte,
-} from "../lib/mapping";
-import { czNum } from "../lib/summary";
-import { count, czDate, prettyUnit } from "../lib/czech";
-import type { Registry } from "../lib/registry";
+  czNum,
+  count,
+  czDate,
+  prettyUnit,
+  type Registry,
+} from "@bw/lab-core";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
 
 interface Props {

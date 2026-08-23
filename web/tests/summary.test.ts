@@ -4,8 +4,14 @@
  * can appear — these tests pin both the numbers and the wording.
  */
 import { describe, expect, it } from "vitest";
-import { czExact, czNum, summarizeChanges, summarizeTrend } from "../src/lib/summary";
-import type { Trend, TrendPoint } from "../src/lib/trends";
+import {
+  czExact,
+  czNum,
+  summarizeChanges,
+  summarizeTrend,
+  type Trend,
+  type TrendPoint,
+} from "@bw/lab-core";
 
 const pt = (date: string, value: number | null, flag: TrendPoint["flag"], lo = 4.11, hi = 5.6): TrendPoint => ({
   date,

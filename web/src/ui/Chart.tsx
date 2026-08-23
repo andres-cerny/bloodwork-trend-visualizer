@@ -11,9 +11,15 @@
  * mobile viewBox without shipping a dependency.
  */
 import { useId, useState } from "react";
-import { czExact, czNum } from "../lib/summary";
-import { czDate, czMonthYear, prettyUnit } from "../lib/czech";
-import { numericPoints, type Trend } from "../lib/trends";
+import {
+  czExact,
+  czNum,
+  czDate,
+  czMonthYear,
+  prettyUnit,
+  numericPoints,
+  type Trend,
+} from "@bw/lab-core";
 
 /**
  * Round axis values a person would actually write: 1, 2, 2.5, 5 or 10 times a

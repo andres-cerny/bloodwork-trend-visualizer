@@ -6,9 +6,14 @@
  * would demand an agreement this module cannot guarantee.
  */
 import { describe, expect, it } from "vitest";
-import { czSpan, patientOverview } from "../src/lib/patientSummary";
-import type { Flag, LabReport } from "../src/lib/models";
-import type { Trend, TrendPoint } from "../src/lib/trends";
+import {
+  czSpan,
+  patientOverview,
+  type Flag,
+  type LabReport,
+  type Trend,
+  type TrendPoint,
+} from "@bw/lab-core";
 
 const pt = (
   date: string,

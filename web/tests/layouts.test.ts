@@ -11,9 +11,14 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { Box } from "../src/lib/models";
-import { buildRows, rowsAsText, type TextRow } from "../src/pdf/rows";
-import { canonicalizeUnit, parseRange } from "../src/lib/normalize";
+import {
+  type Box,
+  buildRows,
+  rowsAsText,
+  type TextRow,
+  canonicalizeUnit,
+  parseRange,
+} from "@bw/lab-core";
 
 /**
  * pdf.js returns Greek mu (U+03BC) where the document source used the micro

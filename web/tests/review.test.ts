@@ -7,9 +7,7 @@
  * drawn from a value the app had recorded as a coin-flip between two readings.
  */
 import { describe, expect, it } from "vitest";
-import { makeMeasurement } from "../src/lib/models";
-import { normalizeMeasurement } from "../src/lib/normalize";
-import { needsReview, reviewOf } from "../src/lib/review";
+import { makeMeasurement, normalizeMeasurement, needsReview, reviewOf } from "@bw/lab-core";
 
 const GLUCOSE = () => ({ low: 3.9, high: 5.6 });
 const noRange = () => null;

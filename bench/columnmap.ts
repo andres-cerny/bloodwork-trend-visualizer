@@ -26,7 +26,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 
-import type { TextRow } from "../web/src/pdf/rows";
+import { type TextRow } from "@bw/lab-core";
 import type { RawMeasurement } from "./score";
 
 export const TOOL_COLUMNS = {

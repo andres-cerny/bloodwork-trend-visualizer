@@ -9,9 +9,7 @@
  */
 import { useState } from "react";
 import type { Budget } from "../lib/api";
-import type { LabReport } from "../lib/models";
-import type { Registry } from "../lib/registry";
-import { czDate, count } from "../lib/czech";
+import { type LabReport, type Registry, czDate, count } from "@bw/lab-core";
 import UploadPanel from "./UploadPanel";
 
 interface Props {

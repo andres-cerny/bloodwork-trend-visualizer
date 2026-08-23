@@ -13,10 +13,12 @@ import {
   signalsOf,
   suggestMappings,
   verdictOf,
-} from "../src/lib/mapping";
-import { makeMeasurement, type AnalyteDef, type LabReport } from "../src/lib/models";
-import { normalizeMeasurement } from "../src/lib/normalize";
-import { Registry } from "../src/lib/registry";
+  makeMeasurement,
+  type AnalyteDef,
+  type LabReport,
+  normalizeMeasurement,
+  Registry,
+} from "@bw/lab-core";
 
 const m = (name: string, value: string, unit: string, ref: string, cid: string | null) =>
   normalizeMeasurement(

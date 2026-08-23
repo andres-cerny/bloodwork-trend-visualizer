@@ -26,11 +26,16 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { extractPage, extractPageText, MODEL_ESCALATION, MODEL_PRIMARY } from "../../worker/claude";
 import { priceUsd } from "../../worker/pricing";
-import { buildRows, rowsAsText, isPrintedOnPage } from "../../web/src/pdf/rows";
-import { canonicalizeUnit, normalizeMeasurement } from "../../web/src/lib/normalize";
-import { makeMeasurement } from "../../web/src/lib/models";
-import { reconcile } from "../../web/src/lib/reconcile";
-import type { Box } from "../../web/src/lib/models";
+import {
+  buildRows,
+  rowsAsText,
+  isPrintedOnPage,
+  canonicalizeUnit,
+  normalizeMeasurement,
+  makeMeasurement,
+  reconcile,
+  type Box,
+} from "@bw/lab-core";
 import { FIXTURES, SCAN_FIXTURE, type Fixture } from "./fixtures";
 
 const KEY = process.env.ANTHROPIC_API_KEY ?? "";

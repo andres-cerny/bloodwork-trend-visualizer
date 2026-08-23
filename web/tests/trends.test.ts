@@ -4,9 +4,15 @@
  * trend line implies a comparison that would not be justified.
  */
 import { describe, expect, it } from "vitest";
-import { buildTrends, latestTwo, numericPoints, suspectPoints } from "../src/lib/trends";
-import { makeMeasurement, type LabReport } from "../src/lib/models";
-import { normalizeMeasurement } from "../src/lib/normalize";
+import {
+  buildTrends,
+  latestTwo,
+  numericPoints,
+  suspectPoints,
+  makeMeasurement,
+  type LabReport,
+  normalizeMeasurement,
+} from "@bw/lab-core";
 
 const m = (name: string, value: string, cid: string | null, unit = "mmol/l") =>
   normalizeMeasurement(

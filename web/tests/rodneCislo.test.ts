@@ -4,7 +4,7 @@
  * beside a patient's name reads as a fact the app verified.
  */
 import { describe, expect, it } from "vitest";
-import { ageOn, parseRodneCislo } from "../src/lib/rodneCislo";
+import { ageOn, parseRodneCislo } from "@bw/lab-core";
 
 const date = (s: string) => parseRodneCislo(s)?.birthDate ?? null;
 

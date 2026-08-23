@@ -20,7 +20,7 @@ import {
   parseCzechNumber,
   parseRange,
   parseValue,
-} from "../src/lib/normalize";
+} from "@bw/lab-core";
 
 const CASES = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../tests/parity_cases.json"), "utf-8"),

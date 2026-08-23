@@ -6,15 +6,15 @@
  * only trustworthy if it agrees with the Python on every tricky Czech case.
  */
 import { describe, expect, it } from "vitest";
-import { makeMeasurement } from "../src/lib/models";
 import {
+  makeMeasurement,
   canonicalizeUnit,
   computeFlag,
   normalizeMeasurement,
   parseCzechNumber,
   parseRange,
   parseValue,
-} from "../src/lib/normalize";
+} from "@bw/lab-core";
 
 describe("numbers", () => {
   it("decimal comma", () => {

@@ -10,9 +10,7 @@
  * printed row on the source page.
  */
 import { useMemo } from "react";
-import { summarizeChanges } from "../lib/summary";
-import type { SummaryRecord } from "../lib/summary";
-import type { Trend } from "../lib/trends";
+import { summarizeChanges, type SummaryRecord, type Trend } from "@bw/lab-core";
 
 interface Props {
   trends: Map<string, Trend>;

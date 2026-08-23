@@ -6,7 +6,7 @@
  * would be far worse than missing a typo.
  */
 import { describe, expect, it } from "vitest";
-import { checkImplausible } from "../src/lib/implausible";
+import { checkImplausible } from "@bw/lab-core";
 
 const GLUCOSE = { low: 3.9, high: 5.6 };
 const ALT = { low: 0.17, high: 0.78 };

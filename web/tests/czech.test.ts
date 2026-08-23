@@ -4,7 +4,7 @@
  * to Czech doctors.
  */
 import { describe, expect, it } from "vitest";
-import { count, czDate, czMonthYear, plural, prettyUnit } from "../src/lib/czech";
+import { count, czDate, czMonthYear, plural, prettyUnit } from "@bw/lab-core";
 
 describe("plural", () => {
   it("uses the singular for one", () => {

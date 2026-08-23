@@ -13,9 +13,18 @@ import { useMemo, useState } from "react";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
 import Chart from "./Chart";
 import Flag from "./Flag";
-import { czExact, czNum } from "../lib/summary";
-import { numericPoints, suspectPoints, unconfirmedPoints, type Trend } from "../lib/trends";
-import { count, czDate, plural, prettyUnit } from "../lib/czech";
+import {
+  czExact,
+  czNum,
+  numericPoints,
+  suspectPoints,
+  unconfirmedPoints,
+  type Trend,
+  count,
+  czDate,
+  plural,
+  prettyUnit,
+} from "@bw/lab-core";
 
 /** Out-of-range latest result first — the rows a doctor scans for. */
 function sortTrends(trends: Trend[]): Trend[] {

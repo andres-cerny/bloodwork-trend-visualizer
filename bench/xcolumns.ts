@@ -19,7 +19,7 @@
  * where it sits, so a layout that puts the unit before the range is handled by
  * the same code as one that does not.
  */
-import type { TextRow } from "../web/src/pdf/rows";
+import { type TextRow } from "@bw/lab-core";
 import type { RawMeasurement } from "./score";
 
 /** A value cell: digits, optionally censored, optionally flagged by the lab. */

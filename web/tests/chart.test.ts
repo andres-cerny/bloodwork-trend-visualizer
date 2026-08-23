@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { niceTicks } from "../src/ui/Chart";
-import { czNum } from "../src/lib/summary";
+import { czNum } from "@bw/lab-core";
 
 describe("niceTicks", () => {
   it("produces round values inside the range", () => {

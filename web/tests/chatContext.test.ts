@@ -8,9 +8,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { buildChatContext } from "../src/lib/api";
-import { makeMeasurement, type LabReport } from "../src/lib/models";
-import { normalizeMeasurement } from "../src/lib/normalize";
-import { buildTrends } from "../src/lib/trends";
+import {
+  makeMeasurement,
+  type LabReport,
+  normalizeMeasurement,
+  buildTrends,
+} from "@bw/lab-core";
 
 const m = (name: string, value: string, cid: string, unit = "mmol/l") =>
   normalizeMeasurement(

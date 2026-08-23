@@ -12,11 +12,16 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Flag from "./Flag";
-import type { LabReport, Measurement } from "../lib/models";
-import { normalizeMeasurement } from "../lib/normalize";
-import { needsReview, reviewOf } from "../lib/review";
-import { checkCorrection } from "../lib/correction";
-import { czDate, prettyUnit } from "../lib/czech";
+import {
+  type LabReport,
+  type Measurement,
+  normalizeMeasurement,
+  needsReview,
+  reviewOf,
+  checkCorrection,
+  czDate,
+  prettyUnit,
+} from "@bw/lab-core";
 
 interface Props {
   reports: LabReport[];

@@ -11,7 +11,7 @@
  * Run: npx vitest run tests/bench/plausibility.bench.test.ts
  */
 import { describe, expect, it } from "vitest";
-import { rangesCompatible, type Range } from "../../src/lib/mapping";
+import { rangesCompatible, type Range } from "@bw/lab-core";
 
 interface Case {
   name: string;

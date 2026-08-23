@@ -5,7 +5,7 @@
  * confidence looks perfect from a single read.
  */
 import { describe, expect, it } from "vitest";
-import { reconcile, type RawRead } from "../src/lib/reconcile";
+import { reconcile, type RawRead } from "@bw/lab-core";
 
 const row = (name: string, value: string, unit = "mmol/l", ref = "(4,11-5,60)") => ({
   raw_analyte_name: name,

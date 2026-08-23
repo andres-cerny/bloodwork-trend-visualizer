@@ -15,8 +15,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 
-import { buildRows, type TextRow } from "../web/src/pdf/rows";
-import type { Box } from "../web/src/lib/models";
+import { buildRows, type TextRow, type Box } from "@bw/lab-core";
 
 export interface BenchPage {
   file: string;

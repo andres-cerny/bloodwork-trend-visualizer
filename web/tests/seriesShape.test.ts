@@ -8,8 +8,7 @@
  * the defect this whole codebase is arranged against.
  */
 import { describe, expect, it } from "vitest";
-import { daysBetween, seriesShape, type Trend, type TrendPoint } from "../src/lib/trends";
-import type { Flag } from "../src/lib/models";
+import { daysBetween, seriesShape, type Trend, type TrendPoint, type Flag } from "@bw/lab-core";
 
 const pt = (
   date: string,
