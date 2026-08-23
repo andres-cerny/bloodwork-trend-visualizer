@@ -9,8 +9,14 @@
  *
  * All rendering, no reasoning: the bbox, the image URL and the excerpt all
  * arrived in a `sources` event.
+ *
+ * It lives in two places now and is the same component in both — the right
+ * rail on a workstation, the „Zdroje (n)" disclosure under the answer on a
+ * phone. Only the width differs, which is why the crop is expressed as a ratio
+ * and never as pixels.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { czDate, czDates } from "./format";
 
 export interface Source {
   n: number;
@@ -62,38 +68,81 @@ function RowCrop({
   );
 }
 
-export default function Sources({ sources }: { sources: Source[] }) {
+export default function Sources({
+  sources,
+  focus = null,
+}: {
+  sources: Source[];
+  /** The entry a `[n]` in the answer pointed at: highlighted and scrolled to. */
+  focus?: number | null;
+}) {
   const [open, setOpen] = useState<number | null>(null);
+  const hit = useRef<HTMLDivElement>(null);
+
+  // A rail that silently holds the answer's eighth source is a rail the reader
+  // will conclude is empty. Clicking [8] has to move it.
+  useEffect(() => {
+    if (focus != null && hit.current)
+      hit.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [focus]);
+
   if (sources.length === 0) return null;
 
   return (
     <div className="sources">
-      <div className="sources-head">Zdroje</div>
-      {sources.map((s) => (
-        <div key={s.n} className="source">
-          <button
-            type="button"
-            className="source-row"
-            onClick={() => setOpen(open === s.n ? null : s.n)}
-            aria-expanded={open === s.n}
+      {sources.map((s) => {
+        const on = focus === s.n;
+        const expanded = open === s.n;
+        return (
+          <div
+            key={s.n}
+            className={`source${on ? " on" : ""}${expanded ? " open" : ""}`}
+            ref={on ? hit : undefined}
           >
-            <sup className="cite">{s.n}</sup>
-            <span className="source-label">{s.label}</span>
-            <span className="muted">
-              {s.kind === "lab" ? `${s.lab ?? ""} · ${s.date}` : `${s.date}`}
-            </span>
-          </button>
-          {s.kind === "lab" && s.imageUrl && s.bbox && s.pageW && s.pageH && (
-            <RowCrop src={s.imageUrl} bbox={s.bbox} pageW={s.pageW} pageH={s.pageH} />
-          )}
-          {s.kind === "document" && s.excerpt && (
-            <blockquote className="source-quote">{s.excerpt}</blockquote>
-          )}
-          {open === s.n && s.imageUrl && (
-            <img className="source-page" src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
-          )}
-        </div>
-      ))}
+            <button
+              type="button"
+              className="source-row"
+              /* Also the `[n]` handle for this entry: an answer does not always
+                 cite every source it registered, and the registry must stay
+                 reachable by number either way. */
+              data-testid={`cite-${s.n}`}
+              onClick={() => setOpen(expanded ? null : s.n)}
+              aria-expanded={expanded}
+            >
+              <span className="src-n">{s.n}</span>
+              <span className="src-text">
+                <span className="src-label">
+                  {czDates(s.kind === "document" ? (s.title ?? s.label) : s.label)}
+                </span>
+                {/* Date first: it is what a reader matches against the answer,
+                    and it is the half that must never be the one truncated. */}
+                <span className="src-meta">
+                  {czDate(s.date)}
+                  {" · "}
+                  {s.kind === "lab" ? s.lab ?? "laboratoř" : "dokument"}
+                  {s.page && s.page > 1 ? ` · s. ${s.page}` : ""}
+                </span>
+              </span>
+              <span className="src-more" aria-hidden="true">
+                {expanded ? "−" : "+"}
+              </span>
+            </button>
+
+            {s.kind === "lab" && s.imageUrl && s.bbox && s.pageW && s.pageH && (
+              <RowCrop src={s.imageUrl} bbox={s.bbox} pageW={s.pageW} pageH={s.pageH} />
+            )}
+            {s.kind === "document" && s.excerpt && (
+              <blockquote className="source-quote">{s.excerpt}</blockquote>
+            )}
+            {expanded && s.imageUrl && (
+              <img className="source-page" src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
+            )}
+            {expanded && !s.imageUrl && (
+              <p className="src-meta src-none">Náhled strany není k dispozici.</p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
