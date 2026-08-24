@@ -448,7 +448,6 @@ class ZonesDoc:
 def zones_blocks(z: ZonesDoc, story: Story) -> tuple:
     return (
         H("Identifikace"),
-        KV("ID:", z.pid),
         KV("Věk:", f"{age_at(story.birth, z.date)} let"),
         KV("Pohlaví:", "muž" if story.sex == "m" else "žena"),
         KV("Výška / hmotnost:", f"{z.height} / {z.weight}"),
@@ -474,12 +473,12 @@ def zones_blocks(z: ZonesDoc, story: Story) -> tuple:
 # --- sport: the athletes -----------------------------------------------------
 # VO₂max, ventilatory thresholds and spirometry are invented, but invented
 # consistently: a value belongs to one athlete's physiology and follows the arc
-# their lab work already tells. Hrubý's aerobic capacity falls as his iron
+# their lab work already tells. Majer's aerobic capacity falls as his iron
 # stores empty; Šebestová's rises as hers refill.
 
 EVALS: tuple[Eval, ...] = (
     Eval(
-        did="d-hruby-prohlidka-2024", pid="p-hruby-1994", date="2024-03-09",
+        did="d-majer-prohlidka-2024", pid="p-majer-1994", date="2024-03-09",
         physician="MUDr. Pavla Hejduková",
         height="178 cm", weight="66 kg", bp="118/72 mmHg", rest_hr="44/min",
         ra="bez kardiovaskulární zátěže, náhlé úmrtí v rodině neguje.",
@@ -541,7 +540,7 @@ EVALS: tuple[Eval, ...] = (
         quotes="2024-03-05",
     ),
     Eval(
-        did="d-hruby-prohlidka-2026", pid="p-hruby-1994", date="2026-02-27",
+        did="d-majer-prohlidka-2026", pid="p-majer-1994", date="2026-02-27",
         physician="MUDr. Pavla Hejduková",
         height="178 cm", weight="64 kg", bp="114/70 mmHg", rest_hr="46/min",
         ra="bez kardiovaskulární zátěže, náhlé úmrtí v rodině neguje.",
@@ -606,7 +605,7 @@ EVALS: tuple[Eval, ...] = (
         quotes="2026-02-24",
     ),
     Eval(
-        did="d-palan-prohlidka-2024", pid="p-palan-1997", date="2024-07-12",
+        did="d-trnka-prohlidka-2024", pid="p-trnka-1997", date="2024-07-12",
         physician="MUDr. Radek Šimáně",
         height="182 cm", weight="73 kg", bp="122/76 mmHg", rest_hr="46/min",
         ra="otec hypertenze od 55 let, jinak bez kardiovaskulární zátěže.",
@@ -665,7 +664,7 @@ EVALS: tuple[Eval, ...] = (
         quotes="2024-07-09",
     ),
     Eval(
-        did="d-palan-prohlidka-2025", pid="p-palan-1997", date="2025-05-22",
+        did="d-trnka-prohlidka-2025", pid="p-trnka-1997", date="2025-05-22",
         physician="MUDr. Radek Šimáně",
         height="182 cm", weight="72 kg", bp="120/74 mmHg", rest_hr="48/min",
         ra="otec hypertenze od 55 let, jinak bez kardiovaskulární zátěže.",
@@ -829,7 +828,7 @@ EVALS: tuple[Eval, ...] = (
         quotes="2025-06-10",
     ),
     Eval(
-        did="d-krizak-prohlidka-2025", pid="p-krizak-1991", date="2025-05-30",
+        did="d-trautenberk-prohlidka-2025", pid="p-trautenberk-1991", date="2025-05-30",
         physician="MUDr. Tereza Malíková",
         height="180 cm", weight="75 kg", bp="124/78 mmHg", rest_hr="48/min",
         ra="bez kardiovaskulární zátěže.",
@@ -879,7 +878,7 @@ EVALS: tuple[Eval, ...] = (
         quotes="2025-05-27",
     ),
     Eval(
-        did="d-bartonova-prohlidka-2026", pid="p-bartonova-2001",
+        did="d-duskova-prohlidka-2026", pid="p-duskova-2001",
         date="2026-01-16", physician="MUDr. Radek Šimáně",
         height="174 cm", weight="65 kg", bp="112/70 mmHg", rest_hr="56/min",
         ra="bez kardiovaskulární zátěže.",
@@ -937,7 +936,7 @@ EVALS: tuple[Eval, ...] = (
 
 ZONES: tuple[ZonesDoc, ...] = (
     ZonesDoc(
-        did="d-hruby-pasma-2026", pid="p-hruby-1994", date="2026-03-03",
+        did="d-majer-pasma-2026", pid="p-majer-1994", date="2026-03-03",
         physician="MUDr. Pavla Hejduková",
         height="178 cm", weight="64 kg",
         test_dt="27. 2. 2026, 9:40", duration="0:14:20",
@@ -983,7 +982,7 @@ ZONES: tuple[ZonesDoc, ...] = (
 # --- orto: narrative documents -----------------------------------------------
 ORTO_DOCS: tuple[Document, ...] = (
     Document(
-        did="d-novak63-rtg-2025", pid="p-novak-1963", date="2025-01-09",
+        did="d-darbujan63-rtg-2025", pid="p-darbujan-1963", date="2025-01-09",
         kind="imaging", title="RTG kyčelních kloubů — popis",
         clinic=ORTO_CLINIC, dept=ORTO_RTG_DEPT,
         date_label="Datum vyšetření", author_label="Popsal",
@@ -1016,7 +1015,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak63-operace-2025", pid="p-novak-1963", date="2025-02-03",
+        did="d-darbujan63-operace-2025", pid="p-darbujan-1963", date="2025-02-03",
         kind="op_report",
         title="Operační protokol — TEP levého kyčelního kloubu",
         clinic=ORTO_CLINIC, dept=ORTO_SURG_DEPT,
@@ -1074,7 +1073,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak63-fyzio-2025a", pid="p-novak-1963", date="2025-02-17",
+        did="d-darbujan63-fyzio-2025a", pid="p-darbujan-1963", date="2025-02-17",
         kind="physio_note", title="Záznam z fyzioterapie",
         clinic=ORTO_CLINIC, dept=ORTO_PHYSIO_DEPT,
         date_label="Datum terapie", author_label="Terapeut",
@@ -1107,7 +1106,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak63-fyzio-2025b", pid="p-novak-1963", date="2025-03-11",
+        did="d-darbujan63-fyzio-2025b", pid="p-darbujan-1963", date="2025-03-11",
         kind="physio_note", title="Záznam z fyzioterapie",
         clinic=ORTO_CLINIC, dept=ORTO_PHYSIO_DEPT,
         date_label="Datum terapie", author_label="Terapeut",
@@ -1138,7 +1137,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak63-fyzio-2025c", pid="p-novak-1963", date="2025-04-15",
+        did="d-darbujan63-fyzio-2025c", pid="p-darbujan-1963", date="2025-04-15",
         kind="physio_note", title="Záznam z fyzioterapie — závěr série",
         clinic=ORTO_CLINIC, dept=ORTO_PHYSIO_DEPT,
         date_label="Datum terapie", author_label="Terapeut",
@@ -1169,7 +1168,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak88-mr-2024", pid="p-novak-1988", date="2024-09-20",
+        did="d-darbujan88-mr-2024", pid="p-darbujan-1988", date="2024-09-20",
         kind="imaging", title="MR pravého kolenního kloubu — popis",
         clinic=ORTO_CLINIC, dept=ORTO_RTG_DEPT,
         date_label="Datum vyšetření", author_label="Popsal",
@@ -1205,7 +1204,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak88-operace-2024", pid="p-novak-1988", date="2024-10-08",
+        did="d-darbujan88-operace-2024", pid="p-darbujan-1988", date="2024-10-08",
         kind="op_report",
         title="Operační protokol — artroskopická plastika LCA pravého kolena",
         clinic=ORTO_CLINIC, dept=ORTO_SURG_DEPT,
@@ -1255,7 +1254,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak88-fyzio-2024a", pid="p-novak-1988", date="2024-11-05",
+        did="d-darbujan88-fyzio-2024a", pid="p-darbujan-1988", date="2024-11-05",
         kind="physio_note", title="Záznam z fyzioterapie",
         clinic=ORTO_CLINIC, dept=ORTO_PHYSIO_DEPT,
         date_label="Datum terapie", author_label="Terapeut",
@@ -1287,7 +1286,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-novak88-fyzio-2024b", pid="p-novak-1988", date="2024-12-16",
+        did="d-darbujan88-fyzio-2024b", pid="p-darbujan-1988", date="2024-12-16",
         kind="physio_note", title="Záznam z fyzioterapie",
         clinic=ORTO_CLINIC, dept=ORTO_PHYSIO_DEPT,
         date_label="Datum terapie", author_label="Terapeut",
@@ -1321,7 +1320,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-bezdickova-mr-2024", pid="p-bezdickova-1971", date="2024-05-06",
+        did="d-pandrholova-mr-2024", pid="p-pandrholova-1971", date="2024-05-06",
         kind="imaging", title="MR bederní páteře — popis",
         clinic=ORTO_CLINIC, dept=ORTO_RTG_DEPT,
         date_label="Datum vyšetření", author_label="Popsal",
@@ -1360,7 +1359,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-bezdickova-fyzio-2025a", pid="p-bezdickova-1971",
+        did="d-pandrholova-fyzio-2025a", pid="p-pandrholova-1971",
         date="2025-02-11", kind="physio_note",
         title="Záznam z fyzioterapie", clinic=ORTO_CLINIC,
         dept=ORTO_PHYSIO_DEPT, date_label="Datum terapie",
@@ -1395,7 +1394,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-bezdickova-fyzio-2025b", pid="p-bezdickova-1971",
+        did="d-pandrholova-fyzio-2025b", pid="p-pandrholova-1971",
         date="2025-10-14", kind="physio_note",
         title="Záznam z fyzioterapie — nová série", clinic=ORTO_CLINIC,
         dept=ORTO_PHYSIO_DEPT, date_label="Datum terapie",
@@ -1434,7 +1433,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-vondrusak-fyzio-2025", pid="p-vondrusak-1985", date="2025-06-24",
+        did="d-sevcik-fyzio-2025", pid="p-sevcik-1985", date="2025-06-24",
         kind="physio_note", title="Záznam z fyzioterapie — vstupní vyšetření",
         clinic=ORTO_CLINIC, dept=ORTO_PHYSIO_DEPT,
         date_label="Datum terapie", author_label="Terapeut",
@@ -1471,7 +1470,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-trefilova-rtg-2026", pid="p-trefilova-1958", date="2026-02-05",
+        did="d-sipkova-rtg-2026", pid="p-sipkova-1958", date="2026-02-05",
         kind="imaging", title="RTG kolenních kloubů ve stoji — popis",
         clinic=ORTO_CLINIC, dept=ORTO_RTG_DEPT,
         date_label="Datum vyšetření", author_label="Popsal",
@@ -1505,7 +1504,7 @@ ORTO_DOCS: tuple[Document, ...] = (
         ),
     ),
     Document(
-        did="d-skaloud-fyzio-2025", pid="p-skaloud-1993", date="2025-04-02",
+        did="d-krasomil-fyzio-2025", pid="p-krasomil-1993", date="2025-04-02",
         kind="physio_note", title="Záznam z fyzioterapie",
         clinic=ORTO_CLINIC, dept=ORTO_PHYSIO_DEPT,
         date_label="Datum terapie", author_label="Terapeut",

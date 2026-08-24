@@ -17,7 +17,7 @@ Two tenants, one generator:
   R2. Nothing real is ever committed, so this generator must stay ignorant of
   it.)
 * ``orto`` — six synthetic patients, two of them deliberately both named
-  "Michal Novák" with different birth years, so the disambiguation moment in
+  "Matěj Dařbuján" with different birth years, so the disambiguation moment in
   the demo can be triggered on demand rather than hoped for.
 
 Documents (performance evaluations, physio notes, imaging) are Phase 4 and are
@@ -168,7 +168,7 @@ SPORT: list[Story] = [
     # haemoglobin only starting to give way at the end — the sequence a sports
     # physician is meant to catch before the haemogram does.
     Story(
-        pid="p-hruby-1994", name="Tomáš Hrubý", birth="1994-03-12", sex="m",
+        pid="p-majer-1994", name="Petr Majer", birth="1994-03-12", sex="m",
         note="Vytrvalostní běžec, maraton. Sledování zásob železa při vysokém objemu tréninku.",
         physician="MUDr. Pavla Hejduková", panel="sport_full",
         draws=("2023-02-14", "2023-08-22", "2024-03-05", "2024-09-17",
@@ -188,7 +188,7 @@ SPORT: list[Story] = [
     # three-week camp — haemoglobin, haematocrit and red cells up together, and
     # ferritin down because it was spent building them.
     Story(
-        pid="p-palan-1997", name="Vojtěch Palán", birth="1997-06-30", sex="m",
+        pid="p-trnka-1997", name="Čestmír Trnka", birth="1997-06-30", sex="m",
         note="Silniční cyklista. Sledování hematologické odpovědi na výškové soustředění.",
         physician="MUDr. Radek Šimáně", panel="sport_full",
         draws=("2024-01-16", "2024-05-21", "2024-07-09", "2024-11-12", "2025-05-19"),
@@ -220,7 +220,7 @@ SPORT: list[Story] = [
     # sometimes be "nothing to report", or the agent learns that every patient
     # has a finding.
     Story(
-        pid="p-krizak-1991", name="Adam Křižák", birth="1991-09-23", sex="m",
+        pid="p-trautenberk-1991", name="Jakub Trautenberk", birth="1991-09-23", sex="m",
         note="Běžec na lyžích. Pravidelná sezónní kontrola, bez obtíží.",
         physician="MUDr. Tereza Malíková", panel="sport_full",
         draws=("2023-05-09", "2023-11-28", "2024-06-11", "2025-05-27", "2026-03-17"),
@@ -228,7 +228,7 @@ SPORT: list[Story] = [
     # One draw only — the case where every direction is 'single' and no trend
     # exists to chart. The agent must say so rather than draw a line.
     Story(
-        pid="p-bartonova-2001", name="Nikola Bartoňová", birth="2001-04-05", sex="f",
+        pid="p-duskova-2001", name="Leontýna Dušková", birth="2001-04-05", sex="f",
         note="Plavkyně. Vstupní sportovní prohlídka, první odběr.",
         physician="MUDr. Radek Šimáně", panel="sport_iron",
         draws=("2026-01-13",),
@@ -244,7 +244,7 @@ ORTO: list[Story] = [
     # response that is expected, not alarming), and the rehabilitation check
     # where both have come most of the way back.
     Story(
-        pid="p-novak-1963", name="Michal Novák", birth="1963-07-19", sex="m",
+        pid="p-darbujan-1963", name="Matěj Dařbuján", birth="1963-07-19", sex="m",
         note="Stav po TEP levé kyčle (02/2025), ambulantní rehabilitace.",
         physician="MUDr. Kamil Brandejs", panel="orto_preop",
         draws=("2025-01-14", "2025-02-06", "2025-04-22"),
@@ -258,9 +258,9 @@ ORTO: list[Story] = [
         },
     ),
     # The ambiguity pair, second half — same name, twenty-five years apart.
-    # "Dej mi souhrn Michala Nováka" has to ask which one.
+    # "Dej mi souhrn Matěje Dařbujána" has to ask which one.
     Story(
-        pid="p-novak-1988", name="Michal Novák", birth="1988-02-27", sex="m",
+        pid="p-darbujan-1988", name="Matěj Dařbuján", birth="1988-02-27", sex="m",
         note="Plastika LCA pravého kolena (10/2024), návrat ke sportu.",
         physician="MUDr. Kamil Brandejs", panel="orto_preop",
         draws=("2024-10-02", "2024-12-11"),
@@ -270,26 +270,26 @@ ORTO: list[Story] = [
         },
     ),
     Story(
-        pid="p-bezdickova-1971", name="Jarmila Bezdíčková", birth="1971-05-14", sex="f",
+        pid="p-pandrholova-1971", name="Jarmila Pandrholová", birth="1971-05-14", sex="f",
         note="Chronické bolesti bederní páteře, konzervativní terapie a fyzioterapie.",
         physician="MUDr. Iveta Roubalová", panel="orto_basic",
         draws=("2024-04-18", "2025-09-30"),
         arcs={"S_CRP": (4.2, 5.8)},
     ),
     Story(
-        pid="p-vondrusak-1985", name="Petr Vondrušák", birth="1985-12-03", sex="m",
+        pid="p-sevcik-1985", name="Jiří Ševčík", birth="1985-12-03", sex="m",
         note="Impingement pravého ramene, fyzioterapie bez operace.",
         physician="MUDr. Iveta Roubalová", panel="orto_basic",
         draws=("2025-06-05",),
     ),
     Story(
-        pid="p-trefilova-1958", name="Hana Trefilová", birth="1958-08-21", sex="f",
+        pid="p-sipkova-1958", name="Růžena Šípková", birth="1958-08-21", sex="f",
         note="Gonartróza vlevo, konzervativní postup.",
         physician="MUDr. Kamil Brandejs", panel="orto_basic",
         draws=("2026-01-29",),
     ),
     Story(
-        pid="p-skaloud-1993", name="Radim Škaloud", birth="1993-03-08", sex="m",
+        pid="p-krasomil-1993", name="Miroslav Krasomil", birth="1993-03-08", sex="m",
         note="Distorze pravého hlezna, nekomplikované hojení.",
         physician="MUDr. Iveta Roubalová", panel="orto_basic",
         draws=("2025-03-19", "2025-11-04"),
@@ -348,7 +348,7 @@ def build_pdf(path: Path, story: Story, date_iso: str, lab_name: str,
     page.insert_text((50, 80), "Výsledky laboratorního vyšetření", fontname="dj", fontsize=10)
     page.insert_text((50, 108), f"Pacient: {story.name}", fontname="dj", fontsize=10)
     # Date of birth rather than a rodné číslo: the demo needs a birth year to
-    # tell the two Michal Nováks apart, and inventing eleven national
+    # tell the two Matěj Dařbujáns apart, and inventing eleven national
     # identifiers that happen to be checksum-valid would create exactly the kind
     # of real-looking data this corpus exists to avoid.
     page.insert_text((50, 124), f"Datum narození: {cz_date(story.birth)}",
