@@ -21,6 +21,17 @@ import {
   type Trend,
 } from "@bw/lab-core";
 import type { DocumentStore, PatientDataSource, PatientLookup } from "@bw/datasource";
+import {
+  analytesListed,
+  derivedComputed,
+  documentsListed,
+  documentsMatched,
+  drawsCompared,
+  patientsInCohort,
+  patientsInDirectory,
+} from "./summaries";
+
+export * from "./summaries";
 
 export interface ToolDef {
   name: string;
@@ -269,7 +280,9 @@ export async function runTool(
       }
       return {
         ok: shown.length > 0,
-        summary: shown.length === 0 ? "nikdo takový v kartotéce není" : `nalezeno ${shown.length} pacientů — zeptej se, kterého myslí`,
+        summary: shown.length === 0
+          ? "nikdo takový v kartotéce není"
+          : `${patientsInDirectory(shown.length)} — zeptej se, kterého myslí`,
         content: { matches: shown },
       };
     }
@@ -289,7 +302,7 @@ export async function runTool(
       const rows = await ctx.directory.cohort(String(input.canonicalId ?? ""), direction, flag);
       return {
         ok: true,
-        summary: rows.length === 0 ? "nikdo neodpovídá" : `nalezeno ${rows.length} pacientů`,
+        summary: rows.length === 0 ? "nikdo neodpovídá" : patientsInCohort(rows.length),
         content: {
           patients: rows.map((r) => ({
             fullName: r.fullName,
@@ -340,7 +353,7 @@ export async function runTool(
         );
         return {
           ok: true,
-          summary: hits.length === 0 ? "v dokumentaci nic nenalezeno" : `nalezeno v ${hits.length} dokumentech`,
+          summary: hits.length === 0 ? "v dokumentaci nic nenalezeno" : documentsMatched(hits.length),
           content: { matches: cited },
         };
       }
@@ -349,7 +362,7 @@ export async function runTool(
         const list = await docs.listDocuments();
         return {
           ok: true,
-          summary: `vypsal ${list.length} dokumentů`,
+          summary: documentsListed(list.length),
           content: { documents: list },
         };
       }
@@ -377,7 +390,7 @@ export async function runTool(
     switch (name) {
       case "list_analytes": {
         const list = await source.listAnalytes();
-        return { ok: true, summary: `vypsal ${list.length} parametrů`, content: list };
+        return { ok: true, summary: analytesListed(list.length), content: list };
       }
       case "get_trend": {
         const id = String(input.canonicalId ?? "");
@@ -435,7 +448,7 @@ export async function runTool(
           : undefined;
         return {
           ok: true,
-          summary: `porovnal ${reports.length} odběrů`,
+          summary: drawsCompared(reports.length),
           content: {
             overview: patientOverview(reports, trends),
             changes: summarizeChanges(trends),
@@ -470,7 +483,7 @@ export async function runTool(
         const derived = buildDerived(await allTrends(source));
         return {
           ok: true,
-          summary: `spočítal ${derived.size} odvozených hodnot`,
+          summary: derivedComputed(derived.size),
           content: [...derived.values()],
         };
       }

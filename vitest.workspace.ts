@@ -65,6 +65,17 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The tool step summaries. They are the one part of a ToolResult that
+      // reaches the doctor's eye verbatim rather than the model's context, so
+      // their Czech is user-visible copy and gets pinned like any other.
+      name: "agent-tools",
+      root: "./packages/agent/tools",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "bloodwork-shell",
       root: "./apps/bloodwork/worker",
       include: ["tests/**/*.test.ts"],
