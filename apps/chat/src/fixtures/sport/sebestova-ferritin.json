@@ -7,7 +7,7 @@
    "events": [
     {
      "type": "tool_start",
-     "id": "toolu_01AUf11G3afXK3HF1D9i43r4",
+     "id": "toolu_012E28wBsTPwZkECaXRFM17X",
      "name": "find_patient",
      "input": {
       "query": "Klára Šebestová"
@@ -15,7 +15,7 @@
     },
     {
      "type": "tool_result",
-     "id": "toolu_01AUf11G3afXK3HF1D9i43r4",
+     "id": "toolu_012E28wBsTPwZkECaXRFM17X",
      "name": "find_patient",
      "ok": true,
      "summary": "nalezen pacient Klára Šebestová (1999)"
@@ -28,7 +28,7 @@
     },
     {
      "type": "tool_start",
-     "id": "toolu_01Y5BdpcEu7kVWYccbWoMRtS",
+     "id": "toolu_01QLV7SfhowZjdEu6FsoaEQi",
      "name": "get_trend",
      "input": {
       "canonicalId": "ferritin"
@@ -36,150 +36,34 @@
     },
     {
      "type": "tool_result",
-     "id": "toolu_01Y5BdpcEu7kVWYccbWoMRtS",
+     "id": "toolu_01QLV7SfhowZjdEu6FsoaEQi",
      "name": "get_trend",
      "ok": true,
      "summary": "načetl vývoj ferritin"
     },
     {
      "type": "text",
-     "text": "V"
+     "text": "Ferritin u"
     },
     {
      "type": "text",
-     "text": "ývoj ferritinu u Kláry Šebestové (referenční rozmezí 13–150 µg/l):\n\n- 27. 2."
+     "text": " Kláry Šebestové (referenční rozmezí 13–150 µg/l) vykazuje post"
     },
     {
      "type": "text",
-     "text": " 2024: 6 µg/l – nízký [1]\n- 14. 5. 2024: 9 µg/l – nízký [2]\n- 3. 9. 2024: 16 µg/l – normální [3]\n- 21"
+     "text": "upný vzestupný trend:\n\n- 27. 2. 2024: 6 µg/l – nízký [1]\n- 14. 5. 2024: 9 µg/l – nízký [2]\n- 3."
     },
     {
      "type": "text",
-     "text": ". 1. 2025: 28 µg/l – normální [4]\n- 10. 6. 2025: 44 µg/l – normální [5]\n\nHodnoty tedy trvale rostou"
+     "text": " 9. 2024: 16 µg/l – normální [3]\n- 21. 1. 2025: 28 µg/l – normální [4]\n- 10. 6. 2025: 44 µg/l – normální [5]\n\nHodnoty se z pás"
     },
     {
      "type": "text",
-     "text": " – od deficitu na počátku sledování k normálním hodnotám v posledních dvou odbě"
+     "text": "ma pod referenčním rozmezím postupně dostaly do normy"
     },
     {
      "type": "text",
-     "text": "rech."
-    },
-    {
-     "type": "tool_start",
-     "id": "toolu_011LPGCXTNJnKVfwHW9rmSLA",
-     "name": "propose_chart",
-     "input": {
-      "parameters": [
-       "ferritin"
-      ],
-      "type": "line"
-     }
-    },
-    {
-     "type": "tool_result",
-     "id": "toolu_011LPGCXTNJnKVfwHW9rmSLA",
-     "name": "propose_chart",
-     "ok": true,
-     "summary": "navrhl graf: ferritin"
-    },
-    {
-     "type": "chart",
-     "spec": {
-      "parameters": [
-       "ferritin"
-      ],
-      "from": null,
-      "to": null,
-      "type": "line"
-     },
-     "series": [
-      {
-       "unit": "µg/l",
-       "type": "line",
-       "series": [
-        {
-         "canonicalId": "ferritin",
-         "displayName": "ferritin",
-         "unit": "µg/l",
-         "points": [
-          {
-           "date": "2024-02-27",
-           "value": 6,
-           "unit": "µg/l",
-           "flag": "low",
-           "refLow": 13,
-           "refHigh": 150,
-           "valueRaw": "6",
-           "reportId": "p-sebestova-1999-r1",
-           "suspect": null,
-           "unconfirmed": null
-          },
-          {
-           "date": "2024-05-14",
-           "value": 9,
-           "unit": "µg/l",
-           "flag": "low",
-           "refLow": 13,
-           "refHigh": 150,
-           "valueRaw": "9",
-           "reportId": "p-sebestova-1999-r2",
-           "suspect": null,
-           "unconfirmed": null
-          },
-          {
-           "date": "2024-09-03",
-           "value": 16,
-           "unit": "µg/l",
-           "flag": "normal",
-           "refLow": 13,
-           "refHigh": 150,
-           "valueRaw": "16",
-           "reportId": "p-sebestova-1999-r3",
-           "suspect": null,
-           "unconfirmed": null
-          },
-          {
-           "date": "2025-01-21",
-           "value": 28,
-           "unit": "µg/l",
-           "flag": "normal",
-           "refLow": 13,
-           "refHigh": 150,
-           "valueRaw": "28",
-           "reportId": "p-sebestova-1999-r4",
-           "suspect": null,
-           "unconfirmed": null
-          },
-          {
-           "date": "2025-06-10",
-           "value": 44,
-           "unit": "µg/l",
-           "flag": "normal",
-           "refLow": 13,
-           "refHigh": 150,
-           "valueRaw": "44",
-           "reportId": "p-sebestova-1999-r5",
-           "suspect": null,
-           "unconfirmed": null
-          }
-         ]
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "text",
-     "text": "Nav"
-    },
-    {
-     "type": "text",
-     "text": "rhla jsem graf vývoje ferritinu v čase pro přehlednější znázornění"
-    },
-    {
-     "type": "text",
-     "text": " trendu."
+     "text": " a dále rostou."
     },
     {
      "type": "sources",
@@ -279,17 +163,17 @@
     {
      "type": "followups",
      "questions": [
-      "Vykresli do grafu i hemoglobin.",
-      "Jak vypadaly výkonnostní testy v tomto období?",
-      "Porovnej poslední dva odběry."
+      "Zobraz graf vývoje ferritinu Kláry Šebestové v čase.",
+      "Je v dokumentaci Kláry Šebestové zmínka o suplementaci železa?",
+      "Kterým dalším pacientům v kartotéce ferritin stoupá?"
      ]
     },
     {
      "type": "done",
      "usage": {
-      "inputTokens": 1668,
-      "outputTokens": 444,
-      "cacheReadTokens": 10248,
+      "inputTokens": 829,
+      "outputTokens": 437,
+      "cacheReadTokens": 9588,
       "cacheWriteTokens": 0
      },
      "model": "claude-sonnet-5"

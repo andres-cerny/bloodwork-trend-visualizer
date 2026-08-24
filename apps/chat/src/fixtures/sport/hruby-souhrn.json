@@ -7,7 +7,7 @@
    "events": [
     {
      "type": "tool_start",
-     "id": "toolu_01Bsm1L1esNYaBivuDvGWTz2",
+     "id": "toolu_01LpESmcsVgA6Jf5hWb5HzEy",
      "name": "find_patient",
      "input": {
       "query": "Tomáš Hrubý"
@@ -15,7 +15,7 @@
     },
     {
      "type": "tool_result",
-     "id": "toolu_01Bsm1L1esNYaBivuDvGWTz2",
+     "id": "toolu_01LpESmcsVgA6Jf5hWb5HzEy",
      "name": "find_patient",
      "ok": true,
      "summary": "nalezen pacient Tomáš Hrubý (1994)"
@@ -28,46 +28,46 @@
     },
     {
      "type": "tool_start",
-     "id": "toolu_01BvuPpwK8HJpYkrn7aA2KMe",
+     "id": "toolu_01875BEnnakQC6KhcTxyG8Zt",
      "name": "summarize_changes",
      "input": {}
     },
     {
      "type": "tool_result",
-     "id": "toolu_01BvuPpwK8HJpYkrn7aA2KMe",
+     "id": "toolu_01875BEnnakQC6KhcTxyG8Zt",
      "name": "summarize_changes",
      "ok": true,
      "summary": "porovnal 6 odběrů"
     },
     {
      "type": "tool_start",
-     "id": "toolu_01Ei5Fy26HqRzEecz28tUxzM",
+     "id": "toolu_019Agisywf8nxG7JEpBxdcvw",
+     "name": "get_document",
+     "input": {}
+    },
+    {
+     "type": "tool_result",
+     "id": "toolu_019Agisywf8nxG7JEpBxdcvw",
+     "name": "get_document",
+     "ok": true,
+     "summary": "vypsal 3 dokumenty"
+    },
+    {
+     "type": "tool_start",
+     "id": "toolu_012dtufR9m4gyj4HYP6YsZT6",
      "name": "list_analytes",
      "input": {}
     },
     {
      "type": "tool_result",
-     "id": "toolu_01Ei5Fy26HqRzEecz28tUxzM",
+     "id": "toolu_012dtufR9m4gyj4HYP6YsZT6",
      "name": "list_analytes",
      "ok": true,
      "summary": "vypsal 13 parametrů"
     },
     {
      "type": "tool_start",
-     "id": "toolu_01HuCYNintBy5VmCjuKycB4G",
-     "name": "get_document",
-     "input": {}
-    },
-    {
-     "type": "tool_result",
-     "id": "toolu_01HuCYNintBy5VmCjuKycB4G",
-     "name": "get_document",
-     "ok": true,
-     "summary": "vypsal 3 dokumentů"
-    },
-    {
-     "type": "tool_start",
-     "id": "toolu_01AKyxMohDWKihypR6LATGUk",
+     "id": "toolu_01AdgvdGgaRoTG55a3JLxJvY",
      "name": "get_document",
      "input": {
       "id": "d-hruby-prohlidka-2026"
@@ -75,25 +75,10 @@
     },
     {
      "type": "tool_result",
-     "id": "toolu_01AKyxMohDWKihypR6LATGUk",
+     "id": "toolu_01AdgvdGgaRoTG55a3JLxJvY",
      "name": "get_document",
      "ok": true,
      "summary": "otevřel Zpráva ze sportovní prohlídky (2026-02-27)"
-    },
-    {
-     "type": "tool_start",
-     "id": "toolu_015uC2UTigFDvvQLKSMdNU6t",
-     "name": "get_document",
-     "input": {
-      "id": "d-hruby-pasma-2026"
-     }
-    },
-    {
-     "type": "tool_result",
-     "id": "toolu_015uC2UTigFDvvQLKSMdNU6t",
-     "name": "get_document",
-     "ok": true,
-     "summary": "otevřel Tréninková pásma (2026-03-03)"
     },
     {
      "type": "text",
@@ -101,131 +86,111 @@
     },
     {
      "type": "text",
-     "text": " Souhrn – Tomáš Hrubý (nar. 12. 3. 1994)\n\n**Sled"
+     "text": " Sou"
     },
     {
      "type": "text",
-     "text": "ování:** 6 odběrů od 14. 2. 2023 do 24. 2. 2026 (přes "
+     "text": "hrn – Tomáš Hrubý (nar. 12. 3. 1994)\n\n**Laboratorní výv"
     },
     {
      "type": "text",
-     "text": "3 roky), poslední odběr 24. 2. 2026 v laboratoři Zelený Ostrov.\n\n### Laboratorní h"
+     "text": "oj** (6 odběrů, 14. 2. 2023 – 24. 2. 2026)\n\nK"
     },
     {
      "type": "text",
-     "text": "odnoty – mimo referenční rozmezí k poslednímu odběru\n- **CK**: trvale zvýšená"
+     "text": " poslednímu odběru (24. 2. 2026) jsou mimo rozmezí č"
     },
     {
      "type": "text",
-     "text": ", 3 odběry po sobě mimo rozmezí; nárůst napříč sérií +95"
+     "text": "tyři parametry:\n- **CK**: nárůst napříč celou sérií, +95"
     },
     {
      "type": "text",
-     "text": " % (2,61 → 5,1 µkat/l), aktuálně 5,1 µkat/l (ref. 0,4–3"
+     "text": " % (2,61 → 5,1 µkat/l), poslední změna 3,"
     },
     {
      "type": "text",
-     "text": ",2) [6]\n- **Ferritin**: pokles napříč sérií −83 % (126 → 21 µg/l), aktuálně 21 µg/l –"
+     "text": "35 → 5,1 µkat/l (+52 %) [1] — 3 odběry po sobě nad rozmezím"
     },
     {
      "type": "text",
-     "text": " pod rozmezím 30–400 [6]\n- **Saturace transferinu**: pokles −59 % (34,2 → 13,9 %), aktuálně 13,9 % – pod"
+     "text": " 0,4–3,2.\n- **Ferritin**: pokles napříč sérií −83 % (126"
     },
     {
      "type": "text",
-     "text": " rozmezím 20–45 [6]\n- **Železo**: aktuálně 8,1 µmol/l – pod rozmezím 11–28 [6]\n\nOst"
+     "text": " → 21 µg/l), poslední změna 34 → 21 µg/l (−38 %) [2] — nově pod r"
     },
     {
      "type": "text",
-     "text": "atní parametry (CRP, AST, ALT, kreatinin, urea, glukóza, hemoglobin, hematokrit, erytrocyty) jsou v refer"
+     "text": "ozmezím 30–400.\n- **Saturace transferinu**: pokles −59 % (34,2 → 13,9 %), poslední změna 17,6 → 13,9"
     },
     {
      "type": "text",
-     "text": "enčním rozmezí a bez zásadní změny.\n\n### Dokumentace – sportovní prohlíd"
+     "text": " % (−21 %) [3] — stále pod rozmezím 20–45.\n- **Železo**: poslední změna 9,8 → 8,1 µ"
     },
     {
      "type": "text",
-     "text": "ka (27. 2. 2026, MUDr. Hejduková)\n- **Anamnéza**: v"
+     "text": "mol/l (−17 %) [4] — stále pod rozmezím 11–28.\n\nOstatní parametry (hemoglobin, hematokrit, erytrocyty, CRP,"
     },
     {
      "type": "text",
-     "text": "ytrvalostní běžec (roční objem 6 200 km, 130–150 km/týden), od 04/2025 př"
+     "text": " ALT, AST, kreatinin, urea, glukóza) jsou v referenčním rozmezí a bez výraznější změny.\n\n**Dokum"
     },
     {
      "type": "text",
-     "text": "erušovaná perorální substituce železa s kolísavou adherenc"
+     "text": "entace** – k dispozici jsou tři zprávy: sportovní prohlídka 3/2024, sportovní prohl"
     },
     {
      "type": "text",
-     "text": "í dle pacienta samotného [7].\n- **Subjektivně**: poslední "
+     "text": "ídka 2/2026 a tréninková pásma 3/2026.\n\nVe zprávě ze sportovní prohlídky 27. 2. 2026 [7]:\n- Sportov"
     },
     {
      "type": "text",
-     "text": "3 měsíce horší tolerance intenzivních jednotek, tempo v prahových úsec"
+     "text": "ec – maraton, roční objem 6 200 km, v přípravě 130–150 km/týden; od"
     },
     {
      "type": "text",
-     "text": "ích subjektivně těžší při stejné TF, ranní TF o 4"
+     "text": " 4/2025 přerušovaná perorální substituce železa.\n- Subjektivně"
     },
     {
      "type": "text",
-     "text": "–6 tepů vyšší než obvykle [7].\n- **EKG a spirometrie**: bez patologie [7].\n- **Spiroergometrie**: V"
+     "text": " poslední 3 měsíce horší tolerance intenzity, vyšší ranní klidová TF.\n- E"
     },
     {
      "type": "text",
-     "text": "O₂max 64,8 ml/kg/min (4,15 l/min) – pokles o 3,6 ml/kg/min oproti vyšetření z března 2024"
+     "text": "KG klidové i zátěžové bez patologie, spirometr"
     },
     {
      "type": "text",
-     "text": " [7].\n- **Závěr lékařky**: pokles VO₂max nemá ventilační ani kardiální vysvětl"
+     "text": "ie v normě.\n- Spiroergometrie: VO₂max 64,8 ml/kg/min (4,15 l/min) – **pokles o 3,6 ml/kg/min oproti v"
     },
     {
      "type": "text",
-     "text": "ení; nález odpovídá sideropenii bez anémie (hemoglobin zatím v norm"
+     "text": "yšetření z března 2024**.\n- Laboratoř k tomuto vyšetření od"
     },
     {
      "type": "text",
-     "text": "ě) při vysokém tréninkovém objemu – jde"
+     "text": "povídá výše uvedeným hodnotám (ferritin 21, železo 8,1, satTr"
     },
     {
      "type": "text",
-     "text": " o čtvrtý sestupný odběr ferritinu v řadě od roku 2023"
+     "text": "f 13,9, hemoglobin 136 g/l – v normě).\n- Závěr dokumentu: „sideropenie bez anémie, čtvrtý sestupný odběr v řadě od"
     },
     {
      "type": "text",
-     "text": " [7].\n- **Doporučení**: denní substituce železa, kontrola ferritinu, železa a KO za 8 týdn"
+     "text": " roku 2023“, pokles VO₂max „nemá ventilační ani kardiální vysvětlení“, odpovídá „vyčerpání zásob železa při dlouhodobě"
     },
     {
      "type": "text",
-     "text": "ů; redukce týdenního objemu o 25 %, vynechání pásma I4 do"
+     "text": " vysokém objemu tréninku“.\n- Doporučení v dokumentu: substituce železa, kontrola za 8 týdnů, redukce objemu tréninku"
     },
     {
      "type": "text",
-     "text": " kontroly, ponechání jedné tempové jednotky týdně [7].\n- **Tréninková pásma** (protokol 3. 3."
+     "text": " o 25 % a úprava intenzitních zón (viz samostatný protokol tréninkových pásem"
     },
     {
      "type": "text",
-     "text": " 2026): stanovena pásma A–E podle TF/rychlosti/VO₂; pásmo E (max. intenzita) doporučeno zcela vynechat do kontrolního odběru v"
-    },
-    {
-     "type": "text",
-     "text": "zhledem k vyčerpaným zásobám železa [8].\n\n### Co v dokumentaci chybí\nKontrolní odběr po 8 týdnech subst"
-    },
-    {
-     "type": "text",
-     "text": "ituce zatím není v datech k dispozici; nelze tedy hodnotit od"
-    },
-    {
-     "type": "text",
-     "text": "pověď na léčbu. Vysvětlení zvýšené CK (nad r"
-    },
-    {
-     "type": "text",
-     "text": "ámec sportovní zátěže) v dokumentaci není komentováno.\n\nChcete gra"
-    },
-    {
-     "type": "text",
-     "text": "f vývoje ferritinu, železa, saturace transferinu a CK v čase?"
+     "text": " z 3. 3. 2026)."
     },
     {
      "type": "sources",
@@ -233,78 +198,108 @@
       {
        "n": 1,
        "kind": "lab",
-       "label": "Odběr 2023-02-14",
-       "date": "2023-02-14",
-       "lab": "Laboratoře Modrý Kámen s.r.o.",
-       "reportId": "p-hruby-1994-r1",
+       "label": "ck 5,10 µkat/l",
+       "date": "2026-02-24",
+       "lab": "Laboratoř Zelený Ostrov s.r.o.",
+       "reportId": "p-hruby-1994-r6",
        "page": 1,
-       "imageUrl": "/demo/sport/pages/p-hruby-1994-r1_p1.png",
-       "bbox": null,
+       "imageUrl": "/demo/sport/pages/p-hruby-1994-r6_p1.png",
+       "bbox": [
+        152.8,
+        1098.9,
+        1437.1,
+        1130.9
+       ],
        "pageW": 1819,
        "pageH": 2573
       },
       {
        "n": 2,
        "kind": "lab",
-       "label": "Odběr 2023-08-22",
-       "date": "2023-08-22",
+       "label": "ferritin 21 µg/l",
+       "date": "2026-02-24",
        "lab": "Laboratoř Zelený Ostrov s.r.o.",
-       "reportId": "p-hruby-1994-r2",
+       "reportId": "p-hruby-1994-r6",
        "page": 1,
-       "imageUrl": "/demo/sport/pages/p-hruby-1994-r2_p1.png",
-       "bbox": null,
+       "imageUrl": "/demo/sport/pages/p-hruby-1994-r6_p1.png",
+       "bbox": [
+        152.8,
+        808.6,
+        1402.1,
+        840.6
+       ],
        "pageW": 1819,
        "pageH": 2573
       },
       {
        "n": 3,
        "kind": "lab",
-       "label": "Odběr 2024-03-05",
-       "date": "2024-03-05",
-       "lab": "Laboratoře Modrý Kámen s.r.o.",
-       "reportId": "p-hruby-1994-r3",
+       "label": "saturace_trf 13,9 %",
+       "date": "2026-02-24",
+       "lab": "Laboratoř Zelený Ostrov s.r.o.",
+       "reportId": "p-hruby-1994-r6",
        "page": 1,
-       "imageUrl": "/demo/sport/pages/p-hruby-1994-r3_p1.png",
-       "bbox": null,
+       "imageUrl": "/demo/sport/pages/p-hruby-1994-r6_p1.png",
+       "bbox": [
+        152.8,
+        924.8,
+        1437.1,
+        956.7
+       ],
        "pageW": 1819,
        "pageH": 2573
       },
       {
        "n": 4,
        "kind": "lab",
-       "label": "Odběr 2024-09-17",
-       "date": "2024-09-17",
+       "label": "zelezo 8,1 µmol/l",
+       "date": "2026-02-24",
        "lab": "Laboratoř Zelený Ostrov s.r.o.",
-       "reportId": "p-hruby-1994-r4",
+       "reportId": "p-hruby-1994-r6",
        "page": 1,
-       "imageUrl": "/demo/sport/pages/p-hruby-1994-r4_p1.png",
-       "bbox": null,
+       "imageUrl": "/demo/sport/pages/p-hruby-1994-r6_p1.png",
+       "bbox": [
+        152.8,
+        866.7,
+        1437.1,
+        898.7
+       ],
        "pageW": 1819,
        "pageH": 2573
       },
       {
        "n": 5,
        "kind": "lab",
-       "label": "Odběr 2025-04-08",
-       "date": "2025-04-08",
-       "lab": "Laboratoře Modrý Kámen s.r.o.",
-       "reportId": "p-hruby-1994-r5",
+       "label": "crp 1,0 mg/l",
+       "date": "2026-02-24",
+       "lab": "Laboratoř Zelený Ostrov s.r.o.",
+       "reportId": "p-hruby-1994-r6",
        "page": 1,
-       "imageUrl": "/demo/sport/pages/p-hruby-1994-r5_p1.png",
-       "bbox": null,
+       "imageUrl": "/demo/sport/pages/p-hruby-1994-r6_p1.png",
+       "bbox": [
+        152.8,
+        1273.1,
+        1402.1,
+        1305.1
+       ],
        "pageW": 1819,
        "pageH": 2573
       },
       {
        "n": 6,
        "kind": "lab",
-       "label": "Odběr 2026-02-24",
+       "label": "ast 0,59 µkat/l",
        "date": "2026-02-24",
        "lab": "Laboratoř Zelený Ostrov s.r.o.",
        "reportId": "p-hruby-1994-r6",
        "page": 1,
        "imageUrl": "/demo/sport/pages/p-hruby-1994-r6_p1.png",
-       "bbox": null,
+       "bbox": [
+        152.8,
+        1215,
+        1437.1,
+        1247
+       ],
        "pageW": 1819,
        "pageH": 2573
       },
@@ -317,34 +312,24 @@
        "title": "Zpráva ze sportovní prohlídky",
        "excerpt": "Sportovní ambulance Vltavín s.r.o.\nOddělení funkční diagnostiky\nZpráva ze sportovní prohlídky\nPacient:\nTomáš Hrubý\nDatum narození:\n12.3.1994\nDatum vyšetření:\n27.2.2026\nVyšetřil:\nMUDr. Pavla Hejduková\nAnamnéza\nRA: bez kardiovaskulární zátěže",
        "imageUrl": "/demo/sport/pages/d-hruby-prohlidka-2026_p1.png"
-      },
-      {
-       "n": 8,
-       "kind": "document",
-       "label": "Tréninková pásma",
-       "date": "2026-03-03",
-       "documentId": "d-hruby-pasma-2026",
-       "title": "Tréninková pásma",
-       "excerpt": "Sportovní ambulance Vltavín s.r.o.\nLaboratoř zátěžové fyziologie\nTréninková pásma\nPacient:\nTomáš Hrubý\nDatum narození:\n12.3.1994\nDatum protokolu:\n3.3.2026\nVyhodnotil:\nMUDr. Pavla Hejduková\nIdentifikace\nID: p-hruby-1994\nVěk: 31 let\nPohlaví: ",
-       "imageUrl": "/demo/sport/pages/d-hruby-pasma-2026_p1.png"
       }
      ]
     },
     {
      "type": "followups",
      "questions": [
-      "Vykresli vývoj hemoglobinu do grafu.",
-      "Co ukázaly výkonnostní testy?",
-      "Porovnej poslední dva odběry."
+      "Zobraz graf vývoje ferritinu a CK v čase u tohoto pacienta.",
+      "Vyhledej v dokumentaci Tomáše Hrubého zmínky o VO2max.",
+      "Kterým dalším pacientům v kartotéce klesá ferritin?"
      ]
     },
     {
      "type": "done",
      "usage": {
-      "inputTokens": 22409,
-      "outputTokens": 1528,
-      "cacheReadTokens": 10248,
-      "cacheWriteTokens": 2562
+      "inputTokens": 14960,
+      "outputTokens": 1418,
+      "cacheReadTokens": 12784,
+      "cacheWriteTokens": 0
      },
      "model": "claude-sonnet-5"
     }

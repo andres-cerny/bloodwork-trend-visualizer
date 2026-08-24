@@ -7,7 +7,7 @@
    "events": [
     {
      "type": "tool_start",
-     "id": "toolu_01GpHAy2Qz8tnSwgzjSySzUz",
+     "id": "toolu_01CVphTTMeBgaKpU69Xg7zMZ",
      "name": "cohort_query",
      "input": {
       "canonicalId": "hemoglobin",
@@ -17,57 +17,41 @@
     },
     {
      "type": "tool_result",
-     "id": "toolu_01GpHAy2Qz8tnSwgzjSySzUz",
+     "id": "toolu_01CVphTTMeBgaKpU69Xg7zMZ",
      "name": "cohort_query",
      "ok": true,
-     "summary": "nalezeno 1 pacientů"
+     "summary": "1 pacient ve výběru"
     },
     {
      "type": "text",
-     "text": "P"
+     "text": "V"
     },
     {
      "type": "text",
-     "text": "od"
+     "text": " kartotéce má hemoglobin pod referenčním rozmezím pouze jeden pacient:\n\n- **Michal Novák**"
     },
     {
      "type": "text",
-     "text": " referenčním rozmez"
+     "text": " (nar. 1963) – poslední hodnota hemoglobinu 128 g/l (22. 4. 2025), stav pod referenčním rozmezím, tr"
     },
     {
      "type": "text",
-     "text": "ím p"
-    },
-    {
-     "type": "text",
-     "text": "ro hemoglobin je aktuálně jeden pacient:\n\n- **Michal Novák** (nar. 1963) – poslední hodnota 128 g/l"
-    },
-    {
-     "type": "text",
-     "text": " (22. 4. 2025), stav pod referenčním rozmezím, trend rostoucí.\n\nPro podrobnosti ("
-    },
-    {
-     "type": "text",
-     "text": "referenční meze, historii hodnot) je potřeba otevřít konk"
-    },
-    {
-     "type": "text",
-     "text": "rétního pacienta."
+     "text": "end rostoucí."
     },
     {
      "type": "followups",
      "questions": [
-      "Otevři kartu Michala Nováka z roku 1963.",
-      "Vykresli jeho hemoglobin do grafu.",
-      "Kteří pacienti mají zvýšené CRP?"
+      "Zobraz vývoj hemoglobinu u pacienta Michal Novák v čase.",
+      "Prohledej dokumentaci pacienta Michal Novák ohledně hemoglobinu nebo anémie.",
+      "Kterým dalším pacientům hemoglobin v poslední době klesá?"
      ]
     },
     {
      "type": "done",
      "usage": {
       "inputTokens": 398,
-      "outputTokens": 244,
-      "cacheReadTokens": 5124,
+      "outputTokens": 327,
+      "cacheReadTokens": 6392,
       "cacheWriteTokens": 0
      },
      "model": "claude-sonnet-5"

@@ -7,7 +7,7 @@
    "events": [
     {
      "type": "tool_start",
-     "id": "toolu_013jbKBwnFdTeN3hRhQBQ7yU",
+     "id": "toolu_01FfkcaRseMQ7XhbN8wFrU6b",
      "name": "find_patient",
      "input": {
       "query": "Petr Vondrušák"
@@ -15,7 +15,7 @@
     },
     {
      "type": "tool_result",
-     "id": "toolu_013jbKBwnFdTeN3hRhQBQ7yU",
+     "id": "toolu_01FfkcaRseMQ7XhbN8wFrU6b",
      "name": "find_patient",
      "ok": true,
      "summary": "nalezen pacient Petr Vondrušák (1985)"
@@ -28,20 +28,20 @@
     },
     {
      "type": "tool_start",
-     "id": "toolu_01GBYiwfAfykDqDVc7ZieadQ",
+     "id": "toolu_01KNuJd4QqXfgR2M6gd17uY9",
      "name": "get_document",
      "input": {}
     },
     {
      "type": "tool_result",
-     "id": "toolu_01GBYiwfAfykDqDVc7ZieadQ",
+     "id": "toolu_01KNuJd4QqXfgR2M6gd17uY9",
      "name": "get_document",
      "ok": true,
-     "summary": "vypsal 1 dokumentů"
+     "summary": "vypsal 1 dokument"
     },
     {
      "type": "tool_start",
-     "id": "toolu_0137Bc4LsZpyaks368DaFB5Q",
+     "id": "toolu_01HsBGPAjXY33kuiJXzB5nHb",
      "name": "get_document",
      "input": {
       "id": "d-vondrusak-fyzio-2025"
@@ -49,91 +49,99 @@
     },
     {
      "type": "tool_result",
-     "id": "toolu_0137Bc4LsZpyaks368DaFB5Q",
+     "id": "toolu_01HsBGPAjXY33kuiJXzB5nHb",
      "name": "get_document",
      "ok": true,
      "summary": "otevřel Záznam z fyzioterapie — vstupní vyšetření (2025-06-24)"
     },
     {
      "type": "tool_start",
-     "id": "toolu_01Wap4Bp1MYWE1H6z134WcDv",
+     "id": "toolu_013BTnUpKVzkzCfy5ZwdpFCE",
      "name": "list_analytes",
      "input": {}
     },
     {
      "type": "tool_result",
-     "id": "toolu_01Wap4Bp1MYWE1H6z134WcDv",
+     "id": "toolu_013BTnUpKVzkzCfy5ZwdpFCE",
      "name": "list_analytes",
      "ok": true,
      "summary": "vypsal 8 parametrů"
     },
     {
      "type": "text",
-     "text": "Pacient"
+     "text": "D"
     },
     {
      "type": "text",
-     "text": " Petr Vondrušák (nar. 3.12.1985) má v kartotéce jeden dokument"
+     "text": "okumentace pacienta Petra Vondrušáka obsahuje jeden záznam –"
     },
     {
      "type": "text",
-     "text": " – vstupní záznam z fyzioterapie ze dne 24.6.2025 [1]:\n\n**Diagnó"
+     "text": " vstupní kineziologický rozbor z fyzioterapie ze dne 24.6.2025 [1]:\n\n- **Diagnó"
     },
     {
      "type": "text",
-     "text": "za:** subakromiální impingement pravého ramene, řešeno konzervativně."
+     "text": "za:** subakromiální impingement pravého ramene, řešeno konzerv"
     },
     {
      "type": "text",
-     "text": "\n\n**Subjektivně:** Bolest pravého ramene při pohybu nad horizontálu (práce nad hlavou, kraul), trvání "
+     "text": "ativně [1].\n- **Anamnéza:** bolest pravého ramene při pohybu nad horizontálu (práce nad h"
     },
     {
      "type": "text",
-     "text": "4 měsíce, plíživý začátek bez úrazu, budí ho v noci na pravém boku. VAS"
+     "text": "lavou, plavání kraulem), trvání 4 měsíce, plíživý začátek bez úrazu, budí v noci při"
     },
     {
      "type": "text",
-     "text": ": 4/10 při elevaci nad horizontálu, 1/10 v klidu, 5/10 v noci [1].\n\n**Objektivně:** Aktivní abdukce do 160° s bolestivým ob"
+     "text": " ležení na pravém boku [1].\n- **VAS bolesti:** 4/10 při elevaci nad horizontálu, 1/10 v klidu, 5/10 v noci na"
     },
     {
      "type": "text",
-     "text": "loukem 70–120°, pasivní rozsah plný. Pozitivní Hawkinsův i Neerův test, mírně bolestivý test"
+     "text": " boku [1].\n- **Objektivní nález:** aktivní abdukce do 160° s bolestivým obloukem 70–120"
     },
     {
      "type": "text",
-     "text": " supraspinatu při zachované síle. Protrakce ramen, oslabení dolních fixátorů lopatky, naznačená scapula alata vpravo [1].\n\n**"
+     "text": "°, pasivní rozsah plný; pozitivní Hawkinsův i Neerův test, mírně bolestivý test"
     },
     {
      "type": "text",
-     "text": "Terapie:** měkké techniky na m. trapezius (pars descendens) a m. pectoralis minor, centrace ramenního kloubu, aktivace dolních fixátorů lopat"
+     "text": " supraspinatu se zachovanou silou; protrakce ramen, oslabení dolních fixátorů lopatky, naznačená scapula alata vpravo [1].\n- **Terapie:** měkké"
     },
     {
      "type": "text",
-     "text": "ky, posilování zevních rotátorů s gumou (3×12) [1].\n\n**Plán:** 6 terapií po týdnu, denní domácí cvičení, d"
+     "text": " techniky na m. trapezius (pars descendens) a m. pectoralis minor, centrace ramenního kloubu, aktivace dolních fixátorů lopatky, posilování zevních rotátorů s od"
     },
     {
      "type": "text",
-     "text": "očasné vyloučení kraulu a práce nad hlavou (nahrazeno plaváním na zádech). Při"
+     "text": "porovou gumou (3×12) [1].\n- **Plán:** série 6 terapií po týdnu, denní domácí cvičení, dočasné"
     },
     {
      "type": "text",
-     "text": " nedostatečném efektu po 6 týdnech zvážit doplnění UZ vyšetření rotátorové manžety [1].\n\nDále je u pacienta"
+     "text": " vyloučení plavání kraulem a práce nad hlavou (nahrazeno plaváním na zádech);"
     },
     {
      "type": "text",
-     "text": " evidován seznam laboratorních parametrů (hemoglobin, leukocyty, trombocyty, CRP, glukóza, kreatinin, urea, ALT) – ž"
+     "text": " při nedostatečném efektu po 6 týdnech zvážit doplnění ultrazvukového vyšetření rotátorové manžety [1].\n\nK"
     },
     {
      "type": "text",
-     "text": "ádné konkrétní hodnoty ani trendy jsem ale zatím nenač"
+     "text": "romě této fyzioterapeutické zprávy žádná další dokumentace (např. laboratorní nál"
     },
     {
      "type": "text",
-     "text": "etl; pokud potřebujete jejich přehled nebo vývoj, m"
+     "text": "ezy, zprávy z jiných oborů) v kartotéce evidována není. Pacient"
     },
     {
      "type": "text",
-     "text": "ohu ho doplnit."
+     "text": " má naopak k dispozici laboratorní parametry (hemoglobin, leukocyty, trombocyty, C"
+    },
+    {
+     "type": "text",
+     "text": "RP, glukóza, kreatinin, urea, ALT), ty ale nejsou součástí textové dokumentace, nýb"
+    },
+    {
+     "type": "text",
+     "text": "rž měřených hodnot."
     },
     {
      "type": "sources",
@@ -153,17 +161,17 @@
     {
      "type": "followups",
      "questions": [
-      "Ukaž laboratorní hodnoty.",
-      "Které hodnoty jsou mimo rozmezí?",
-      "Kdy byl poslední odběr?"
+      "Zobraz vývoj CRP u Petra Vondrušáka v čase.",
+      "Vyhledej v dokumentaci pacienta zmínky o ultrazvukovém vyšetření rotátorové manžety.",
+      "Kterým dalším pacientům byla diagnostikována bolest ramene v dokumentaci?"
      ]
     },
     {
      "type": "done",
      "usage": {
-      "inputTokens": 3595,
-      "outputTokens": 890,
-      "cacheReadTokens": 12810,
+      "inputTokens": 3618,
+      "outputTokens": 1101,
+      "cacheReadTokens": 15980,
       "cacheWriteTokens": 0
      },
      "model": "claude-sonnet-5"
