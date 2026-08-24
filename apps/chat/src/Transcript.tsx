@@ -111,9 +111,11 @@ function Charts({ series }: { series: unknown }) {
 /**
  * The `n` of every marker in this turn's prose, in reading order.
  *
- * This is what the evidence panel orders itself by. Only markers the registry
- * actually issued count — an orphan `[9]` renders with its strike in the text
- * and has no card to put anywhere.
+ * This is what the evidence panel groups itself by: cited above the divider,
+ * everything else below it. The panel then orders the cited group by number,
+ * not by this list. Only markers the registry actually issued count — an
+ * orphan `[9]` renders with its strike in the text and has no card to put
+ * anywhere.
  */
 export function citeOrder(b: Block): number[] {
   const seen: number[] = [];

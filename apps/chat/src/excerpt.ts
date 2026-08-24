@@ -28,7 +28,9 @@
  * When the clip holds nothing but identification, the answer is no excerpt at
  * all: the card keeps its title, its date and its „Celá strana dokumentu", and
  * says nothing it cannot back. Four lines of „Pacient / Datum narození /
- * Operatér" prove which patient, never which passage.
+ * Operatér" prove which patient, never which passage. „Provedené vyšetření /
+ * Technika:" is the same emptiness one line further in — a field named and a
+ * value the clip never reached — and gets the same answer.
  *
  * Lives in its own module, away from React, so the rules below can be run
  * against the real fixture excerpts in `apps/chat/tests/excerpt.test.ts`.
@@ -96,6 +98,38 @@ const key = (line: string): string => {
 const isMeta = (line: string): boolean => line.includes(":") && META.test(key(line));
 
 /**
+ * A key whose value never arrived: „Technika:" — the clip ended at the colon.
+ *
+ * `excerptLines` has already rejoined every key the extractor split from its
+ * value, so a line still ending at its colon here is one whose value is not in
+ * the excerpt at all. It names a field and says nothing, which is the one thing
+ * an excerpt must not do: „Technika:" on the MR card promised the technique and
+ * delivered a colon.
+ */
+const isElidedKey = (line: string): boolean => line.endsWith(":");
+
+/**
+ * The section title standing over one of those, with nothing else beneath it.
+ *
+ * „Provedené vyšetření / Technika:" is a named section whose body did not
+ * survive the clip. The title alone is no more a passage than the key is —
+ * same argument as `IDENT_HEAD` above, and the same shape: a heading is judged
+ * by the line under it.
+ *
+ * Deliberately narrow, because the cost of being wrong is a clinical finding
+ * clamped away. A title, not a sentence: at most two words and no punctuation
+ * of its own. „Kloub je stabilní" above a clipped „Doporučení:" is three words
+ * and stays; a two-word heading that stays when it should have gone costs the
+ * reader one line of nothing.
+ */
+const isEmptySectionHead = (line: string, next?: string): boolean =>
+  next !== undefined &&
+  isElidedKey(next) &&
+  !line.includes(":") &&
+  !/[.,;!?]/.test(line) &&
+  line.split(/\s+/).length <= 2;
+
+/**
  * The internal patient ref — „p-hruby-1994" — as the demo's database writes it.
  *
  * `\b` cannot be used here for the reason the whole module folds first: it is
@@ -145,16 +179,19 @@ export function excerptLines(excerpt: string): string[] {
 
 /**
  * Boilerplate: the letterhead, the department, the card's own title, a field,
- * or the heading that opens a block of fields.
+ * a key the clip cut off at its colon, or the heading that opens a block of
+ * either.
  *
- * `next` is the line below, and only the last of those rules reads it.
+ * `next` is the line below, and only the last two rules read it.
  */
 export function isBoilerplate(line: string, label: string, next?: string): boolean {
   const flat = fold(line);
   if (ORG.test(flat)) return true;
   if (flat === fold(label)) return true;
   if (isMeta(line)) return true;
+  if (isElidedKey(line)) return true;
   if (!line.includes(":") && UNIT.test(flat)) return true;
+  if (isEmptySectionHead(line, next)) return true;
   return !line.includes(":") && IDENT_HEAD.test(flat) && next !== undefined && isMeta(next);
 }
 

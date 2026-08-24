@@ -356,16 +356,21 @@ export default function Sources({
   /** Which entry the answer's [n] pointed at, if any. */
   activeCite?: number | null;
   /**
-   * The `n` of every marker in the answer, in the order the reader meets them.
+   * The `n` of every marker in the answer — which sources the prose cited.
    *
-   * The rail used to arrive in sample-date order, so the first three cards
-   * beside a summary that cites [6], [7] and [8] had no anchor anywhere in the
-   * visible text — every marker on screen pointed off-screen, which teaches the
-   * mapping backwards. Ordering by first appearance fixes that.
+   * This decides *membership*, not order: everything named here is a card above
+   * the divider, everything else is „Další podklady" below it. That is what the
+   * rail used to get wrong, arriving in sample-date order so that a summary
+   * citing [6], [7] and [8] sat beside three cards with no anchor in the
+   * visible text at all.
+   *
+   * Within the cited group the cards run by their own number, not by first
+   * mention. A doctor reading [4] scans for a 4, and a rail ordered 3, 4, 5, 1,
+   * 2 makes that a hunt — the chips are the index, so the index must count.
    *
    * The numbers themselves are never rewritten: a chip renumbered to match its
-   * new position would break the one contract the marker has, that [6] in the
-   * text and 6 in the rail are the same document.
+   * position would break the one contract the marker has, that [6] in the text
+   * and 6 in the rail are the same document.
    */
   citeOrder?: number[];
 }) {
@@ -373,7 +378,10 @@ export default function Sources({
   if (sources.length === 0) return null;
 
   const byN = new Map(sources.map((s) => [s.n, s]));
-  const cited = citeOrder.map((n) => byN.get(n)).filter((s): s is Source => Boolean(s));
+  const cited = citeOrder
+    .map((n) => byN.get(n))
+    .filter((s): s is Source => Boolean(s))
+    .sort((a, b) => a.n - b.n);
   const seen = new Set(cited.map((s) => s.n));
   const context = sources.filter((s) => !seen.has(s.n));
 

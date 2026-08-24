@@ -102,12 +102,26 @@ describe("the clamp starts at the document, not at the letterhead", () => {
     });
   }
 
-  it("drops the whole header of the MR report and opens on the examination", () => {
-    // The card the critic named: five lines of boilerplate before anything.
+  it("shows nothing on the MR report, whose clip ends at a colon", () => {
+    // The card the critic named twice. Five lines of boilerplate, and then the
+    // only thing the clip reached of the document itself is „Provedené
+    // vyšetření / Technika:" — a section named and a field whose value never
+    // arrived. Shown, it promises the technique and delivers a colon.
     const doc = docs.find((d) => d.label.startsWith("MR pravého kolenního kloubu"));
     expect(doc).toBeDefined();
     const lines = excerptLines(doc!.excerpt);
-    expect(lines[excerptStart(lines, doc!.label)]).toBe("Provedené vyšetření");
+    expect(lines.slice(-2)).toEqual(["Provedené vyšetření", "Technika:"]);
+    expect(excerptStart(lines, doc!.label)).toBe(lines.length);
+  });
+
+  it("keeps the same shape of heading when the value did arrive", () => {
+    // „Anamnéza / RA: bez kardiovaskulární zátěže" is the sports report's
+    // opening, and it is the rule's own counter-example: a heading over a key
+    // that carries its value is a passage, and the clamp stops there.
+    const doc = docs.find((d) => d.label === "Zpráva ze sportovní prohlídky");
+    expect(doc).toBeDefined();
+    const lines = excerptLines(doc!.excerpt);
+    expect(lines[excerptStart(lines, doc!.label)]).toBe("Anamnéza");
   });
 
   it("opens the physiotherapy record on its diagnosis", () => {
@@ -139,6 +153,41 @@ describe("the clamp starts at the document, not at the letterhead", () => {
     const lines = excerptLines(doc!.excerpt);
     expect(lines).toContain("Identifikace");
     expect(excerptStart(lines, doc!.label)).toBe(lines.length);
+  });
+});
+
+describe("a field whose value the clip never reached", () => {
+  it("is not what an excerpt opens on", () => {
+    expect(isBoilerplate("Technika:", "MR pravého kolenního kloubu — popis")).toBe(true);
+    expect(isBoilerplate("Technika: MR 1,5 T, sekvence PD", "X")).toBe(false);
+  });
+
+  it("takes the section title above it, which promised nothing else", () => {
+    expect(isBoilerplate("Provedené vyšetření", "X", "Technika:")).toBe(true);
+    // The same title over a line that says something stays.
+    expect(isBoilerplate("Provedené vyšetření", "X", "Technika: MR 1,5 T")).toBe(false);
+    expect(isBoilerplate("Provedené vyšetření", "X", "Kloub bez výpotku")).toBe(false);
+  });
+
+  it("does not take a finding that happens to sit above one", () => {
+    // The rule's whole cost: a line clamped away is a passage the reader loses.
+    // A sentence is not a section title, so it survives whatever follows it.
+    expect(isBoilerplate("Kloub je stabilní", "X", "Doporučení:")).toBe(false);
+    expect(isBoilerplate("Kloub je stabilní, bez výpotku", "X", "Doporučení:")).toBe(false);
+    expect(isBoilerplate("Bez patologického nálezu", "X", "Doporučení:")).toBe(false);
+  });
+
+  it("leaves the MR card with no excerpt rather than a promise", () => {
+    // End to end, on the string the fixture actually ships.
+    const excerpt =
+      "Ortopedie a fyzioterapie Podhájí s.r.o.\nRadiodiagnostické pracoviště\n" +
+      "MR pravého kolenního kloubu — popis\nPacient:\nMichal Novák\n" +
+      "Datum narození:\n27.2.1988\nDatum vyšetření:\n20.9.2024\nPopsal:\n" +
+      "MUDr. Eva Puchmertlová\nProvedené vyšetření\nTechnika:";
+    const doc = docs.find((d) => d.label.startsWith("MR pravého kolenního kloubu"));
+    expect(doc!.excerpt).toBe(excerpt);
+    const lines = excerptLines(excerpt);
+    expect(lines.slice(excerptStart(lines, "MR pravého kolenního kloubu — popis"))).toEqual([]);
   });
 });
 
