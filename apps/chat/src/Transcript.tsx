@@ -94,10 +94,37 @@ function Charts({ series }: { series: unknown }) {
   return (
     <div className="chart-card">
       {groups.flatMap((g, j) =>
-        (g.series as never[]).map((trend, k) => <Chart key={`${j}-${k}`} trend={trend} />),
+        (g.series as never[]).map((trend, k) => (
+          // Both opt-ins, and both because of the question this app is asked.
+          // The answer beside the chart says „vše v pásmu normy", and a band
+          // that runs off both edges of the plot cannot be checked against
+          // that claim: the reader needs to see the limits and the air above
+          // and below them. And once the band is most of the plot it is
+          // furniture, so it stops borrowing the series colour.
+          <Chart key={`${j}-${k}`} trend={trend} refInDomain bandTone="neutral" />
+        )),
       )}
     </div>
   );
+}
+
+/**
+ * The `n` of every marker in this turn's prose, in reading order.
+ *
+ * This is what the evidence panel orders itself by. Only markers the registry
+ * actually issued count — an orphan `[9]` renders with its strike in the text
+ * and has no card to put anywhere.
+ */
+export function citeOrder(b: Block): number[] {
+  const seen: number[] = [];
+  for (const p of b.parts) {
+    if (p.kind !== "text") continue;
+    for (const m of p.text.matchAll(/\[(\d+)\]/g)) {
+      const n = Number(m[1]);
+      if (!seen.includes(n) && b.sources.some((s) => s.n === n)) seen.push(n);
+    }
+  }
+  return seen;
 }
 
 export default function Transcript({
@@ -194,7 +221,11 @@ export default function Transcript({
                 </button>
                 {open && (
                   <div id={`sources-${b.id}`} data-testid="sources-panel">
-                    <Sources sources={b.sources} activeCite={active} />
+                    <Sources
+                      sources={b.sources}
+                      activeCite={active}
+                      citeOrder={citeOrder(b)}
+                    />
                   </div>
                 )}
               </div>

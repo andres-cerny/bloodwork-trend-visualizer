@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, askAgent, getStatus, type Budget } from "@bw/api-client";
 import type { AgentEvent } from "@bw/agent-core/events";
 import { ThemeSwitch, useTurnstile } from "@bw/ui-kit";
-import Transcript, { type Block } from "./Transcript";
+import Transcript, { citeOrder, type Block } from "./Transcript";
 import Composer from "./Composer";
 import Sidebar from "./Sidebar";
 import Sources, { type Source } from "./Sources";
@@ -649,6 +649,7 @@ export default function App() {
             <Sources
               sources={focused.sources}
               activeCite={focus?.blockId === focused.id ? focus.n : null}
+              citeOrder={citeOrder(focused)}
             />
           )}
         </aside>

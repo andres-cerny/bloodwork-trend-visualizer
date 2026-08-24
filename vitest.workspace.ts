@@ -80,6 +80,17 @@ export default defineWorkspace([
     },
   },
   {
+    // The chat client's non-React logic. The app is judged by screenshots, so
+    // the rules that decide *what* is drawn — where a document excerpt starts
+    // reading — have to be provable without one.
+    test: {
+      name: "chat",
+      root: "./apps/chat",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
     test: {
       name: "extract",
       root: "./workers/extract",

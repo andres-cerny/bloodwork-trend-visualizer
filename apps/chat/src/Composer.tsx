@@ -50,6 +50,7 @@ export default function Composer({
 }) {
   const sendable = !blocked && gate.ready;
   const [gateOpen, setGateOpen] = useState(!compact);
+  const [widget, setWidget] = useState(false);
   const boxWrapRef = useRef<HTMLDivElement>(null);
   // Rotating the phone into a desktop width should not leave the gate folded
   // in a layout that has room for it.
@@ -66,6 +67,36 @@ export default function Composer({
     if (gateOpen) el.removeAttribute("inert");
     else el.setAttribute("inert", "");
   }, [gateOpen, gate.ready, blocked]);
+
+  // The slot reserves the widget's height before the widget exists — it has to,
+  // or the composer grows under the reader's hand a second after it is drawn.
+  // Reserved and empty, though, the app's primary control is a grey void for as
+  // long as challenges.cloudflare.com takes to answer. So the slot says what it
+  // is waiting for until the iframe turns up in it.
+  useEffect(() => {
+    const el = boxWrapRef.current;
+    if (!el || widget) return;
+    // "Has the widget taken up its space yet" — measured, not inferred. Two
+    // cheaper tests were wrong: there is no iframe to look for (the challenge
+    // is a div and a hidden input), and the container element appears the
+    // instant `render()` is called, seconds before anything is drawn in it. Its
+    // height is the only thing that changes when the widget actually arrives.
+    const look = () => {
+      const slot = el.querySelector(".gate-slot");
+      if (slot && slot.getBoundingClientRect().height > 24) setWidget(true);
+    };
+    look();
+    // Layout is not a mutation, so the observer alone can miss the moment; the
+    // poll alone would be slower to notice. Both, and both stop on the first
+    // sighting — the effect re-runs with `widget` true and returns above.
+    const mo = new MutationObserver(look);
+    mo.observe(el, { childList: true, subtree: true, attributes: true });
+    const tick = window.setInterval(look, 250);
+    return () => {
+      mo.disconnect();
+      window.clearInterval(tick);
+    };
+  }, [widget, gate.ready, blocked]);
 
   return (
     <form
@@ -121,7 +152,12 @@ export default function Composer({
               <span className="gate-caret" aria-hidden="true" data-open={gateOpen} />
             </button>
             <div className="gate-box" id="composer-gate-box" ref={boxWrapRef}>
-              <div ref={gate.boxRef} />
+              {!widget && !gate.error && (
+                <p className="gate-loading muted" role="status">
+                  Načítám ověření…
+                </p>
+              )}
+              <div className="gate-slot" ref={gate.boxRef} />
             </div>
             {gate.error && (
               <p className="err gate-err" role="alert">

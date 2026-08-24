@@ -54,7 +54,36 @@ const H = 240;
 // being scaled down to a ~330px phone viewport, so they need the room.
 const PAD = { top: 18, right: 18, bottom: 30, left: 58 };
 
-export default function Chart({ trend }: { trend: Trend }) {
+/**
+ * Two opt-in switches, both defaulting to what this component already did.
+ *
+ * `Chart` is shared: the bloodwork app draws trends with it too, and there the
+ * data-scaled domain is right — a ferritin fall inside a 30–400 band is the
+ * whole point of opening the chart. The chat app answers a different question
+ * („je to v pásmu normy?"), and there a band that fills the plot edge to edge
+ * says nothing about headroom. So the behaviour is a prop, and the default is
+ * the old rendering, byte for byte: `refInDomain` false takes the same branch
+ * as before, `bandTone` "signal" emits the same `var(--band)` fill string.
+ */
+export interface ChartOptions {
+  /**
+   * Widen the y-domain to hold the reference limits, padded, so the band has
+   * visible surface above and below it and „just inside the limit" is legible
+   * as a distance rather than as a background colour.
+   */
+  refInDomain?: boolean;
+  /** Draw the band as furniture (`neutral`) instead of in the series colour. */
+  bandTone?: "signal" | "neutral";
+}
+
+/** Air left above and below the domain when the reference limits are in it. */
+const REF_PAD = 0.08;
+
+export default function Chart({
+  trend,
+  refInDomain = false,
+  bandTone = "signal",
+}: { trend: Trend } & ChartOptions) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
   const pts = numericPoints(trend);
@@ -98,23 +127,43 @@ export default function Chart({ trend }: { trend: Trend }) {
   const lows = pts.map((p) => p.refLow).filter((v): v is number => v !== null);
   const highs = pts.map((p) => p.refHigh).filter((v): v is number => v !== null);
 
-  // Scale to the DATA, not to the reference range.
+  // By default, scale to the DATA, not to the reference range.
   //
   // Including the range in the domain flattens the thing the chart exists to
   // show: ferritin moving 112 → 88 inside a 30–400 band renders as a straight
   // line, and the fall is exactly why the chart was opened. The band is drawn
-  // as a backdrop and simply clips when it extends past the view.
+  // as a backdrop and simply clips when it extends past the view. `refInDomain`
+  // is the other question — „kolik zbývá k mezi?" — and only a caller knows
+  // which of the two it is asking.
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const vSpan = hi - lo;
   const pad = vSpan > 0 ? vSpan * 0.25 : Math.abs(hi) * 0.15 || 1;
 
-  // Keep a nearby range edge visible when it is close enough to be useful,
-  // so "just inside the limit" still reads as such.
-  const nearLow = lows.filter((v) => v >= lo - pad * 2);
-  const nearHigh = highs.filter((v) => v <= hi + pad * 2);
-  let yMin = Math.min(lo - pad, ...nearLow);
-  let yMax = Math.max(hi + pad, ...nearHigh);
+  // The band's own edges, needed before the domain when the caller asked for
+  // the domain to hold them.
+  const bLow = lows.length ? Math.max(...lows) : null;
+  const bHigh = highs.length ? Math.min(...highs) : null;
+
+  let yMin: number;
+  let yMax: number;
+  if (refInDomain && (bLow !== null || bHigh !== null)) {
+    // Both limits inside the view, with air above and below: the reader is
+    // asking how much headroom the value has, and a band clipped at the plot
+    // edge answers that question with a colour instead of a distance.
+    const dLo = Math.min(lo, bLow ?? lo);
+    const dHi = Math.max(hi, bHigh ?? hi);
+    const air = (dHi - dLo) * REF_PAD || Math.abs(dHi) * REF_PAD || 1;
+    yMin = dLo - air;
+    yMax = dHi + air;
+  } else {
+    // Keep a nearby range edge visible when it is close enough to be useful,
+    // so "just inside the limit" still reads as such.
+    const nearLow = lows.filter((v) => v >= lo - pad * 2);
+    const nearHigh = highs.filter((v) => v <= hi + pad * 2);
+    yMin = Math.min(lo - pad, ...nearLow);
+    yMax = Math.max(hi + pad, ...nearHigh);
+  }
 
   // A concentration or a count cannot be negative, and an axis that says
   // "-25,5" for ferritin undermines every number beside it.
@@ -141,8 +190,6 @@ export default function Chart({ trend }: { trend: Trend }) {
   const y = (v: number) => PAD.top + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
 
   const band = (() => {
-    const bLow = lows.length ? Math.max(...lows) : null;
-    const bHigh = highs.length ? Math.min(...highs) : null;
     if (bLow === null && bHigh === null) return null;
     const top = y(bHigh ?? yMax);
     const bottom = y(bLow ?? yMin);
@@ -154,7 +201,11 @@ export default function Chart({ trend }: { trend: Trend }) {
   if (band?.bLow != null && (band.bLow < yMin || band.bLow > yMax)) offscreenLimits.push("dolní mez");
 
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value as number)}`).join(" ");
-  const ticks = niceTicks(yMin, yMax);
+  // A domain widened to hold the reference limits is wider than a data-scaled
+  // one, and four ticks across it leaves 20-unit gaps — the scale stops being
+  // readable as a scale. One more tick costs nothing and is asked for only by
+  // the caller that widened the domain.
+  const ticks = niceTicks(yMin, yMax, refInDomain ? 5 : 4);
   const active = hover !== null ? pts[hover] : null;
 
   return (
@@ -173,7 +224,13 @@ export default function Chart({ trend }: { trend: Trend }) {
 
         {band && (
           <g clipPath={`url(#${clipId})`}>
-            <rect x={PAD.left} y={band.top} width={innerW} height={band.height} fill="var(--band)" />
+            <rect
+              x={PAD.left}
+              y={band.top}
+              width={innerW}
+              height={band.height}
+              fill={bandTone === "neutral" ? "var(--band-neutral)" : "var(--band)"}
+            />
           </g>
         )}
 

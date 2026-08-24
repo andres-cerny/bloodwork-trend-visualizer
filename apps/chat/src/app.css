@@ -458,12 +458,21 @@
  * The composer, floating over the thread
  * ------------------------------------------------------------------ */
 
+/* The scrim, and the strip of plane above the card.
+ *
+ * The thread scrolls under the composer, so some line of clinical prose is
+ * always meeting its top edge. Meeting an opaque card edge, that line is cut
+ * through the middle of its glyphs and reads as broken text rather than as
+ * text continuing underneath something. 56px of gradient carries it out, and
+ * the padding-top keeps the last of the fade off the card's own border, so no
+ * glyph is ever half-covered and half-lit. Both palettes come from the same
+ * token as the thread's own background. */
 .dock {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0 28px calc(16px + env(safe-area-inset-bottom));
+  padding: 10px 28px calc(16px + env(safe-area-inset-bottom));
   background: var(--plane);
 }
 .dock::before {
@@ -472,8 +481,8 @@
   left: 0;
   right: 0;
   bottom: 100%;
-  height: 40px;
-  background: linear-gradient(to top, var(--plane), rgba(0, 0, 0, 0));
+  height: 56px;
+  background: linear-gradient(to top, var(--plane) 12%, rgba(0, 0, 0, 0));
   pointer-events: none;
 }
 .dock-err { margin: 0 0 8px; }
@@ -577,12 +586,28 @@
 .gate-head:hover .gate-copy { color: var(--ink-1); }
 .gate-head:hover .gate-caret { border-left-color: var(--ink-1); }
 
-.gate-box { padding: 0 16px 12px; }
+.gate-box { position: relative; padding: 0 16px 12px; }
 /* The widget's script is fetched from Cloudflare on demand, so for the first
    second the open disclosure has nothing in it. Reserving the 65px the widget
    will occupy is the difference between a composer that is loading and a
    composer that looks broken. */
 .composer-gate[data-open="true"] .gate-box { min-height: 77px; }
+/* Reserved is not enough on its own: the reserved box is a blank grey void
+   under „OVĚŘENÍ", and the app's primary control looks broken for as long as
+   the iframe takes to arrive. This fills exactly that box, and unmounts the
+   moment the widget reports itself in the slot. Absolutely placed, so the
+   widget lands at the same y whether this was ever drawn or not. */
+.gate-loading {
+  position: absolute;
+  inset: 0 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
 .composer-gate[data-open="false"] .gate-box {
   /* Clipped, never unmounted: useTurnstile renders into its ref once, from an
      effect that will not fire a second time. Unmounting the box would leave the
@@ -722,44 +747,126 @@
 .src-title { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
 .src-label { font-size: 0.86rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .src-meta { font-size: 0.75rem; color: var(--ink-muted); overflow-wrap: anywhere; }
+/* A report cited as a whole has no located row, so the card is the reference
+   and the page is behind the `+`. This is the line that says so — without it
+   the `+` is an unexplained glyph on an otherwise inert card. */
+.src-hint { margin-top: 2px; font-size: 0.73rem; color: var(--accent-ink); }
+.src-head:hover .src-hint { text-decoration: underline; }
 .src-more { flex: none; color: var(--ink-muted); font-size: 1rem; line-height: 1.2; }
 
-/* The window the row is cropped into. Nothing outside it paints; the wrapper's
-   aspect-ratio (set inline from page geometry) reserves height.
+/* Everything above this line is cited in the answer; everything below it is
+   context the reader may want and the answer never pointed at. The entries
+   below keep their identity and lose their chip, because a chip in the rail
+   with no [n] in the text is a promise the answer does not keep. */
+.src-divider {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 6px 0 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+}
+.src-divider::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border);
+}
+.src.is-context .src-head { padding-left: 12px; }
+
+/* The sheet the evidence is printed on — under a cropped row and under a
+   document excerpt alike, so the two read as the same kind of thing.
 
    The paper is framed rather than laid bare. Un-framed, a scan is a rectangle
    of undefined white bleeding into the card that holds it — on a dark page a
    600px slab with no edge, on a light one a card that seems to have no bottom.
-   The ring is an ::after because an inset box-shadow paints under the content
-   and the image would cover it. */
-.src-crop {
+
+   The 8px inset is not decoration: flush to the card, the band's ends were
+   sliced by the card's own corner radius and the printed line read as a smear
+   with rounded-off ends. */
+.src-paper {
+  /* Named once, because three rules need it: the sheet itself, the fade over
+     the band's clipped right edge, and the dark palette's override. Written as
+     a local custom property rather than repeated as a literal — the fade was
+     three hard-coded rgba() triples, and a paper colour changed in one of them
+     is a seam down the middle of the card. */
+  --paper: #fff; /* the page is paper in both palettes */
   position: relative;
   display: block;
-  overflow: hidden;
+  padding: 8px;
   border-top: 1px solid var(--border);
-  background: #fff; /* the page is paper in both palettes */
+  background: var(--paper);
 }
-.src-crop::after {
+.src-paper::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 0 0 1px var(--border);
 }
-.src-crop img { display: block; width: 100%; }
+
+/* The window the located row is cropped into. Height comes inline, from the
+   band's own geometry; the image inside is sized and offset in page pixels, so
+   the type lands at a size a person can read and the page runs off to the
+   right rather than being squeezed into the card. */
+.src-band {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.src-band img {
+  display: block;
+  max-width: none; /* the page is wider than the card, deliberately */
+}
+/* The cited row itself. A signal colour, because this is the one mark on the
+   card that means something. */
+.src-ring {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--series-1);
+}
+/* The clip is intentional, and a hard cut does not say so. Deliberately a weak
+   fade over a short run: on a narrow rail the cited value can sit against this
+   edge, and a scrim that reached full paper would take the last digit of it —
+   hence the 0.85 ceiling, applied to the element rather than baked into a
+   colour stop.
+
+   It fades to the *scan's* white, not to the card's paper: in dark mode the
+   sheet behind the band is `--surface-3` while the scan inside it is a white
+   page with the lamp turned down, and a fade written in the card's colour put
+   a dark smear over the light band. So this is white, and it is dimmed by the
+   same filter the scan is — see the dark blocks below — which lands it on
+   exactly the grey the dimmed page renders as, in both palettes, from one
+   value. */
+.src-band-fade {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  opacity: 0.85;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), #fff);
+}
+
 .src-quote {
   display: -webkit-box;
   -webkit-line-clamp: 7;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 0;
-  padding: 9px 11px 11px;
-  border-top: 1px solid var(--border);
-  color: var(--ink-2);
-  font-size: 0.8rem;
+  color: var(--ink-1);
+  font-size: 0.78rem;
   line-height: 1.5;
   white-space: pre-line;
 }
+/* The elision marks: the excerpt starts inside the document and stops inside
+   it, and neither cut is the document's. */
+.src-elide { color: var(--ink-muted); }
 .src-page {
   display: block;
   width: 100%;
@@ -781,22 +888,29 @@
  * light is forced) and the explicit switch. A rule written for one only is a
  * rule that holds for half the readers.
  */
-[data-theme="dark"] .src-crop img,
+[data-theme="dark"] .src-band img,
+[data-theme="dark"] .src-band-fade,
 [data-theme="dark"] .src-page {
   filter: brightness(0.76) contrast(1.08);
 }
-[data-theme="dark"] .src-crop { background: var(--surface-3); }
+/* One token, and the fade follows it — see `--paper` on .src-paper. */
+[data-theme="dark"] .src-paper { --paper: var(--surface-3); }
+/* The excerpt is type, not a photograph, so it cannot be dimmed by a filter —
+   it turns its own lamp down instead, to sit at the same weight as the crops. */
+[data-theme="dark"] .src-quote { color: var(--ink-2); }
 /* A shadow the colour of the page is not a shadow, and a 42%-black scrim over
    a #0d0d0c plane is not a scrim. Both need their own value here. */
 [data-theme="dark"] .chart-tip { filter: drop-shadow(0 2px 9px rgba(0, 0, 0, 0.72)); }
 [data-theme="dark"] .scrim { background: rgba(0, 0, 0, 0.66); }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .src-crop img,
+  :root:not([data-theme="light"]) .src-band img,
+  :root:not([data-theme="light"]) .src-band-fade,
   :root:not([data-theme="light"]) .src-page {
     filter: brightness(0.76) contrast(1.08);
   }
-  :root:not([data-theme="light"]) .src-crop { background: var(--surface-3); }
+  :root:not([data-theme="light"]) .src-paper { --paper: var(--surface-3); }
+  :root:not([data-theme="light"]) .src-quote { color: var(--ink-2); }
   :root:not([data-theme="light"]) .chart-tip {
     filter: drop-shadow(0 2px 9px rgba(0, 0, 0, 0.72));
   }
@@ -943,7 +1057,9 @@
 
   .topbar { padding: 8px 14px; min-height: 50px; }
   .thread { padding: 8px 16px calc(var(--dock-h, 120px) + 30px); }
-  .dock { padding: 0 16px calc(14px + env(safe-area-inset-bottom)); }
+  /* Same scrim on the phone: the thread runs under the composer there too, and
+     the screen is short enough that a cut line is always in shot. */
+  .dock { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); }
   .starters { padding: 12px 16px 0; }
 
   .send { width: 42px; height: 42px; }
@@ -984,5 +1100,6 @@
   .topbar { padding-left: 12px; padding-right: 12px; }
   .composer-row { padding-left: 13px; }
   .gate-head, .gate-box, .gate-err, .composer-note { padding-left: 13px; padding-right: 13px; }
+  .gate-loading { inset: 0 13px 12px; }
   .rail-left { width: min(300px, 88vw); }
 }
