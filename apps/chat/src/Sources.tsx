@@ -22,8 +22,15 @@
  * and date whose page is one click away. Six cards each showing the top of a
  * different A4 sheet at 5px type taught a reader nothing and cost the rail its
  * whole height.
+ *
+ * A document card had the same disease in type rather than in pixels: the
+ * excerpt is taken from the top of the sheet, so seven lines of practice,
+ * department and identity labels filled the card and the cited finding never
+ * appeared. `openExcerpt` decides where the quote begins — see excerpt.ts for
+ * why that is the only thing it is allowed to decide.
  */
 import { useEffect, useRef, useState } from "react";
+import { openExcerpt } from "./excerpt";
 
 export interface Source {
   n: number;
@@ -192,8 +199,15 @@ function SourceCard({
           marked={active}
         />
       )}
+      {/* The clamp is on the inner span, not on the quote: `overflow` on a
+          -webkit-box clips at the padding edge, so a padded clamp lets the
+          top sliver of the next line paint anyway — which is what was cutting
+          „Datum vyšetření:" through the x-height and bleeding it past the
+          card's rounded corner. */}
       {s.kind === "document" && s.excerpt && (
-        <blockquote className="src-quote">{s.excerpt}</blockquote>
+        <blockquote className="src-quote">
+          <span>{openExcerpt(s.excerpt, s.title ?? s.label)}</span>
+        </blockquote>
       )}
       {open && s.imageUrl && (
         <span className="src-sheet">

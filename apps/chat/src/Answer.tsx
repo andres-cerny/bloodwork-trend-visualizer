@@ -127,8 +127,24 @@ function inline(
  */
 const DISCRIMINATOR = /\b(\d{1,2}\.\s?\d{1,2}\.\s?\d{4})\b/;
 
+/**
+ * „narozen" is a verb, and this row stopped being a sentence.
+ *
+ * The model writes the candidates as prose („1. narozen 19. 7. 1963"), which
+ * is right for prose; rendered as numbered label rows it reads as a caption
+ * with a verb in it, against the house rule that labels are nominative. The
+ * abbreviation is the model's own register — its next turn heads the summary
+ * „Michal Novák (nar. 27. 2. 1988)".
+ *
+ * Scoped as tightly as it can be: only the participle, only where it stands
+ * immediately before the discriminating date, and only inside a candidate row.
+ * Every other word the model wrote is rendered as it wrote it.
+ */
+const BORN = /(^|\s)naroz(?:en|ena|eno)(?=\s+\d)/iu;
+
 /** The line, with its date carrying the weight. Presentation only. */
-function discriminate(body: string, key: string): ReactNode[] {
+function discriminate(line: string, key: string): ReactNode[] {
+  const body = line.replace(BORN, "$1nar.");
   const m = DISCRIMINATOR.exec(body);
   if (!m) return [body];
   return [

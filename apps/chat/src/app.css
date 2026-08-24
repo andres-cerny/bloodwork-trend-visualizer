@@ -722,11 +722,13 @@
   background: var(--series-1-soft);
   box-shadow: inset 0 0 0 2px var(--accent);
 }
+/* The quote carries the padding; the span inside it carries the clamp.
+   `overflow: hidden` on a -webkit-box clips at the *padding* edge, so a clamp
+   set here let 11px of the eighth line paint into the padding — a row of type
+   sliced through its x-height, bleeding past the card's rounded corner. On the
+   inner span there is no padding to clip into, so the cut lands on a line box
+   and never on a glyph. */
 .src-quote {
-  display: -webkit-box;
-  -webkit-line-clamp: 7;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   margin: 0;
   padding: 9px 11px 11px;
   border-top: 1px solid var(--border);
@@ -734,6 +736,12 @@
   font-size: 0.8rem;
   line-height: 1.5;
   white-space: pre-line;
+}
+.src-quote span {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .src-page { display: block; width: 100%; filter: var(--paper-dim); }
 

@@ -263,6 +263,53 @@ function useDesktop(): boolean {
   return wide;
 }
 
+/**
+ * Which palette is actually painting, as Turnstile spells it.
+ *
+ * The widget is an iframe Cloudflare styles, so it is the one surface in the
+ * app that a token cannot reach: left alone it renders white, and on the dark
+ * composer that is a 300×75 lightbox — the same "light asset dropped into a
+ * dark page" the rail's crops were fixed for.
+ *
+ * ThemeSwitch owns the state and writes it to both places: `data-theme` on the
+ * root and `bloodwork-theme` in localStorage. This reads the root, because the
+ * root is what the CSS obeys, and falls back to storage for the first paint —
+ * ThemeSwitch's effect runs after this component's initialiser, so on the very
+ * first render the attribute is not on the element yet, and reading only the
+ * attribute would mount a light widget and then rebuild it.
+ *
+ * No attribute and no stored choice is „Systém", and „Systém" is `auto`: the
+ * iframe then asks `prefers-color-scheme` for itself, which is exactly the
+ * question the missing attribute was deferring to.
+ */
+type Palette = "light" | "dark" | "auto";
+
+function readPalette(): Palette {
+  const set = document.documentElement.dataset.theme;
+  if (set === "dark" || set === "light") return set;
+  try {
+    const v = localStorage.getItem("bloodwork-theme");
+    if (v === "dark" || v === "light") return v;
+  } catch {
+    /* storage blocked — the system palette is a fine answer */
+  }
+  return "auto";
+}
+
+function usePalette(): Palette {
+  const [palette, setPalette] = useState<Palette>(readPalette);
+  useEffect(() => {
+    const sync = () => setPalette(readPalette());
+    // Once on mount, because ThemeSwitch's own effect has just run and may
+    // have set the attribute since this component rendered.
+    sync();
+    const ob = new MutationObserver(sync);
+    ob.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => ob.disconnect();
+  }, []);
+  return palette;
+}
+
 /* ------------------------------------------------------------------ *
  * The app
  * ------------------------------------------------------------------ */
@@ -307,9 +354,11 @@ export default function App() {
   }, []);
 
   const onUnlock = useCallback(() => setThread((t) => ({ ...t, error: null })), []);
+  const palette = usePalette();
   const gate = useTurnstile(
     import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined,
     onUnlock,
+    { theme: palette },
   );
 
   useEffect(() => {
@@ -600,7 +649,7 @@ export default function App() {
             ) : (
               <p className="rail-empty muted">
                 U odpovědi se tu objeví, z čeho čerpala — řádek z tištěného nálezu nebo
-                výňatek z dokumentu. Číslo [1] v textu sem odkazuje.
+                výňatek z dokumentu. Číslo na konci věty sem odkazuje.
               </p>
             )}
           </div>

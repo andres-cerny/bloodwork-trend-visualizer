@@ -41,6 +41,14 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: "chat",
+      root: "./apps/chat",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "gate",
       root: "./packages/gate",
       include: ["tests/**/*.test.ts"],
