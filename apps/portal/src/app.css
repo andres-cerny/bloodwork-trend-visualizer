@@ -1,0 +1,7 @@
+/* Placeholder sheet — the tournament's variants bring the real one.
+ * Tokens only; nothing here may define a colour. */
+.shell { max-width: 720px; margin: 0 auto; padding: 12px 16px; }
+.topbar { display: flex; align-items: center; gap: 10px; height: var(--topbar); }
+.spacer { flex: 1; }
+.picker, .timeline { list-style: none; padding: 0; }
+.picker button { padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface-1); color: var(--ink-1); }

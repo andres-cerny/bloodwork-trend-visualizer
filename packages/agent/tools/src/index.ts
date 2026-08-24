@@ -22,7 +22,7 @@ import {
   type TrendPoint,
 } from "@bw/lab-core";
 import type { DocumentStore, PatientDataSource, PatientLookup } from "@bw/datasource";
-import { citeMeasuredRow, type Cite, type SourceInfo } from "./citations";
+import { citeMeasuredRow, scrubRefs, substantiveExcerpt, type Cite, type SourceInfo } from "./citations";
 import {
   analytesListed,
   derivedComputed,
@@ -88,6 +88,12 @@ export interface ToolContext {
    * the client renders exactly what was registered, so the invention shows.
    */
   cite?: Cite;
+  /**
+   * The ref the server bound this turn's stores to, when one is bound. Set
+   * alongside `bind`; scrubRefs removes it from any outbound excerpt — the
+   * reader has a name and a chip, never an id.
+   */
+  patientRef?: string;
   /**
    * Supplied by the server. find_patient calls it on a unique match so the
    * rest of THIS turn is already scoped — "dej mi souhrn X" is one turn, not
@@ -338,7 +344,7 @@ export async function runTool(
               date: h.docDate,
               documentId: h.id,
               title: h.title,
-              excerpt: h.excerpt,
+              excerpt: scrubRefs(h.excerpt, ctx.patientRef ? [ctx.patientRef] : []),
               imageUrl: full?.pages[0]?.imageUrl ?? null,
             });
             return { ...h, src };
@@ -367,7 +373,7 @@ export async function runTool(
         date: doc.docDate,
         documentId: doc.id,
         title: doc.title,
-        excerpt: doc.bodyText.slice(0, 240),
+        excerpt: scrubRefs(substantiveExcerpt(doc.bodyText), ctx.patientRef ? [ctx.patientRef] : []),
         imageUrl: doc.pages[0]?.imageUrl ?? null,
       });
       return {

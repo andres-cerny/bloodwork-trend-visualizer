@@ -90,6 +90,15 @@ const FORBIDDEN_BY_APP = {
     ["lab domain code", /normalizeMeasurement|buildTrends|parseCzechNumber|suggestMappings/],
     ["pdf.js", /pdfjs|GlobalWorkerOptions/],
   ],
+  // The portal is the purest renderer of the three: read-only card data from
+  // the worker, no AI, no upload. Same boundary, plus the agent's stream
+  // reader has no business here — a portal that starts talking to the chat
+  // route has grown a capability nobody granted it.
+  portal: [
+    ["lab domain code", /normalizeMeasurement|buildTrends|parseCzechNumber|suggestMappings/],
+    ["pdf.js", /pdfjs|GlobalWorkerOptions/],
+    ["the chat route", /\/api\/chat/],
+  ],
 };
 
 const appName = Object.keys(FORBIDDEN_BY_APP).find((n) => DIST.includes(`apps/${n}/`));

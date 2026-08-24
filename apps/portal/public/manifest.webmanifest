@@ -1,0 +1,13 @@
+{
+  "name": "Moje CSM",
+  "short_name": "Moje CSM",
+  "description": "Karta sportovce Centra sportovní medicíny",
+  "lang": "cs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2f1ed",
+  "theme_color": "#1a4085",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

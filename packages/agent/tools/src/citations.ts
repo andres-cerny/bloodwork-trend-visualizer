@@ -109,3 +109,58 @@ export function citeMeasuredRow(
     pageH: page?.imageHeight ?? null,
   });
 }
+
+/**
+ * A committed document's first *substantive* passage, for get_document's
+ * registered source.
+ *
+ * The head slice this replaces photographed the letterhead: clinic name,
+ * address, a patient block — 240 characters with no clinical sentence in
+ * them, which is how three of six orto excerpts came to hold no substantive
+ * line (chat-ui Round 3). The reader clicking a citation wants the passage
+ * the answer leaned on; the closest deterministic guess is the document's
+ * conclusion when it declares one, else its first paragraph long enough to
+ * be prose. The full text still rides in the tool result — this only decides
+ * what the evidence card shows before the click.
+ */
+export function substantiveExcerpt(bodyText: string, limit = 240): string {
+  const clean = (s: string) => {
+    const t = s.trim().replace(/\s+/g, " ");
+    return t.length <= limit ? t : `${t.slice(0, limit - 1)}…`;
+  };
+  // The conclusion, when the document declares one — the line a doctor would
+  // quote. Matches "Závěr", "Závěr z vyšetření:", etc., at a line start.
+  const m = bodyText.match(/^\s*Závěr[^\n:]*:?\s*(\S[\s\S]*?)(?:\n\s*\n|$)/im);
+  if (m) return clean(m[1]);
+  // Else: the first paragraph that reads as prose rather than as a header —
+  // long enough, and not mostly digits and punctuation (a table row).
+  for (const para of bodyText.split(/\n\s*\n/)) {
+    const t = para.trim().replace(/\s+/g, " ");
+    if (t.length < 80) continue;
+    const letters = (t.match(/\p{L}/gu) ?? []).length;
+    if (letters / t.length < 0.5) continue;
+    return clean(t);
+  }
+  return clean(bodyText);
+}
+
+/**
+ * Strip internal patient refs from text leaving the server.
+ *
+ * A `p-…` ref surfaced once inside an excerpt payload; the client grew a
+ * guard, but an internal identifier in an outbound payload is the server's
+ * defect to prevent, not the client's to hide. Refs are server-vocabulary —
+ * the reader has a name and a chip, never an id.
+ *
+ * Two scopes, deliberately: the exact refs the caller knows (the bound
+ * patient's — always removed), and the generic slug shape only when it
+ * carries a digit (`p-novak-88`). A digitless pattern would also eat real
+ * Czech clinical text — „p-vlna" is the EKG P-wave, not a ref.
+ */
+export function scrubRefs(text: string, knownRefs: string[] = []): string {
+  let out = text;
+  for (const ref of knownRefs) {
+    if (ref) out = out.split(ref).join("");
+  }
+  return out.replace(/\bp-[a-z0-9-]*\d[a-z0-9-]*\b/g, "").replace(/[ \t]{2,}/g, " ");
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "csm-portal",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-01-01",
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Only the agent, like chat — and the portal uses even less of it: the
+  // session door and the read-only card routes. No extractor, no upload.
+  "services": [{ "binding": "AGENT", "service": "bloodwork-agent" }],
+
+  "observability": { "enabled": true }
+}

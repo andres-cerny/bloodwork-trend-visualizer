@@ -125,6 +125,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     ctx.bind = (ref: string) => {
       ctx.source = new DatabaseSource(db, ref);
       ctx.documents = new D1DocumentStore(db, ref);
+      ctx.patientRef = ref;
     };
     if (patientRef !== undefined) {
       const patient = await directory.getPatient(String(patientRef));

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <!-- The CSM chevron stack on the brand blue — the app-icon rendering of
+       CsmMark. White fading downward, as the clinic's own favicon draws it. -->
+  <rect width="192" height="192" rx="36" fill="#1a4085"/>
+  <g fill="#ffffff">
+    <polygon points="49,40 143,40 152,50 143,60 49,60 40,50" opacity="1"/>
+    <polygon points="49,68 143,68 152,78 143,88 49,88 40,78" opacity="0.78"/>
+    <polygon points="49,96 143,96 152,106 143,116 49,116 40,106" opacity="0.56"/>
+    <polygon points="49,124 143,124 152,134 143,144 49,144 40,134" opacity="0.38"/>
+    <polygon points="49,152 143,152 152,162 143,172 49,172 40,162" opacity="0.24"/>
+  </g>
+</svg>

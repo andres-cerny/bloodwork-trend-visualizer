@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { LabReport, Measurement, TrendPoint } from "@bw/lab-core";
-import { citeMeasuredRow, reportOfPoint, type SourceInfo } from "../src/citations";
+import { citeMeasuredRow, reportOfPoint, scrubRefs, substantiveExcerpt, type SourceInfo } from "../src/citations";
 
 function collector() {
   const out: SourceInfo[] = [];
@@ -183,5 +183,48 @@ describe("citeMeasuredRow", () => {
       expect(s.bbox).toBeNull();
       expect(s.pageW).toBe(s.imageUrl ? 1240 : null);
     }
+  });
+});
+
+describe("substantiveExcerpt", () => {
+  const LETTERHEAD =
+    "Centrum sportovní medicíny z.s.\nSokolská 35/1662, 120 00 Praha 2\ntel: +420 722 050 450\n\n" +
+    "Příjmení: Novák\nKřestní jméno: Michal\n\n";
+
+  it("prefers the document's own conclusion over its letterhead", () => {
+    const body =
+      LETTERHEAD +
+      "Závěr z vyšetření:\nVytrvalostní kapacita meziročně stoupla; sportu schopen bez omezení.\n\n" +
+      "Doporučení: pokračovat v tréninku.";
+    const ex = substantiveExcerpt(body);
+    expect(ex).toContain("Vytrvalostní kapacita");
+    expect(ex).not.toContain("Sokolská");
+  });
+
+  it("falls back to the first prose paragraph, skipping header blocks and table rows", () => {
+    const body =
+      LETTERHEAD +
+      "FVC 5,2 l 102 %\nFEV1 4,4 l 99 %\n\n" +
+      "Při spiroergometrickém vyšetření dosaženo maximální zátěže bez subjektivních obtíží, křivka odpovídá trénovanému vytrvalci.";
+    const ex = substantiveExcerpt(body);
+    expect(ex).toContain("spiroergometrickém");
+  });
+
+  it("caps at the limit without cutting mid-way past it", () => {
+    const long = "Závěr: " + "velmi ".repeat(100) + "dlouhý.";
+    expect(substantiveExcerpt(long).length).toBeLessThanOrEqual(240);
+  });
+
+  it("degrades to the head for a document that is all header", () => {
+    expect(substantiveExcerpt("Krátký dokument.")).toBe("Krátký dokument.");
+  });
+});
+
+describe("scrubRefs", () => {
+  it("removes digit-bearing refs by shape and known refs exactly", () => {
+    expect(scrubRefs("viz p-novak-88 a hodnota 42 µg/l")).toBe("viz a hodnota 42 µg/l");
+    expect(scrubRefs("pacient p-cerny, kontrola", ["p-cerny"])).toBe("pacient , kontrola");
+    // Real clinical text survives: the EKG P-wave is not a ref.
+    expect(scrubRefs("krevní tlak byl v normě, tzv. p-vlna EKG")).toContain("p-vlna");
   });
 });

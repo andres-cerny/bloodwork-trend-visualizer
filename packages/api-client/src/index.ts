@@ -70,6 +70,123 @@ export async function startSession(turnstileToken: string): Promise<void> {
   setSession(session);
 }
 
+// --- the patient card --------------------------------------------------------
+// Read-only JSON from /api/card/*. Types mirror the worker's responses and
+// carry no lab knowledge — a value, a flag string and a unit are data this
+// package transports, not concepts it understands.
+
+export interface CardPatient {
+  id: string;
+  fullName: string;
+  birthDate: string;
+  sex: "m" | "f";
+}
+
+export type CardVisitKind = "annual" | "blood" | "perf_test" | "thb";
+
+export interface CardVisitBase {
+  id: string;
+  visitDate: string;
+  kind: CardVisitKind;
+  title: string;
+  noteDocumentId: string | null;
+}
+
+export interface CardVisit extends CardVisitBase {
+  hasNote: boolean;
+  labCount: number;
+  outOfRange: number;
+  unconfirmed: number;
+  perfCount: number;
+}
+
+export interface CardLabRow {
+  canonicalId: string;
+  displayName: string;
+  unit: string;
+  value: number;
+  valueRaw: string;
+  flag: string;
+  refLow: number | null;
+  refHigh: number | null;
+  unconfirmed: boolean;
+  delta: number | null;
+  prevDate: string | null;
+}
+
+export interface CardPerfPoint {
+  visitId: string;
+  metricId: string;
+  displayName: string;
+  unit: string;
+  value: number;
+  refLow: number | null;
+  refHigh: number | null;
+  testDate: string;
+}
+
+export interface CardPerfRow extends CardPerfPoint {
+  delta: number | null;
+  prevDate: string | null;
+}
+
+export interface CardPageRef {
+  pageNum: number;
+  imageUrl: string;
+  width: number;
+  height: number;
+}
+
+export interface CardDocument {
+  id: string;
+  docDate: string;
+  kind: string;
+  title: string;
+  bodyText: string;
+  pages: CardPageRef[];
+}
+
+export interface CardTrendPoint {
+  date: string;
+  value: number;
+  unit: string | null;
+  flag: string;
+  refLow: number | null;
+  refHigh: number | null;
+  unconfirmed: string | null;
+}
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(path, { headers: headers() });
+  const data = (await res.json().catch(() => ({}))) as any;
+  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", data.budget);
+  return data as T;
+}
+
+const q = (params: Record<string, string>) => new URLSearchParams(params).toString();
+
+export const getCardPatients = (tenant: string) =>
+  get<{ patients: CardPatient[] }>(`/api/card/patients?${q({ tenant })}`);
+
+export const getCardVisits = (tenant: string, patient: string) =>
+  get<{ patient: CardPatient; visits: CardVisit[] }>(`/api/card/visits?${q({ tenant, patient })}`);
+
+export const getCardVisit = (tenant: string, patient: string, visit: string) =>
+  get<{ visit: CardVisitBase; labs: CardLabRow[]; perf: CardPerfRow[]; note: CardDocument | null }>(
+    `/api/card/visit?${q({ tenant, patient, visit })}`,
+  );
+
+export const getCardTrend = (tenant: string, patient: string, kind: "lab" | "perf", metric: string) =>
+  get<{
+    kind: "lab" | "perf";
+    displayName: string;
+    unit: string;
+    points: Array<CardTrendPoint | CardPerfPoint>;
+  }>(`/api/card/trend?${q({ tenant, patient, kind, metric })}`);
+
+export const getCardDocument = (tenant: string, patient: string, doc: string) =>
+  get<{ document: CardDocument }>(`/api/card/document?${q({ tenant, patient, doc })}`);
+
 /**
  * Extract one page. Pass `rowsText` for a digital PDF (no image leaves the
  * browser at all); pass the image only when the page is a scan.
