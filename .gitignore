@@ -9,6 +9,11 @@ __pycache__/
 .eval*.mjs
 .shot.mjs
 .gaps.mjs
+# An auditing agent writes its own harness into tests/e2e/ and names it `zz…`
+# so it sorts last. One got committed by a `git add -A` with a scratchpad path
+# baked into it, where it would have thrown ENOENT on every other machine —
+# and, wired into no npm script, would never have been run to find that out.
+tests/e2e/zz*.e2e.ts
 
 # Node / web build
 node_modules/
