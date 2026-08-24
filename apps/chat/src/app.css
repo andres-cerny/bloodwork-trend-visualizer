@@ -326,18 +326,24 @@
   100% { box-shadow: 0 0 0 3px var(--series-1-soft), 0 0 0 0 rgba(0, 0, 0, 0); }
 }
 
+@keyframes blip {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /*
  * Nothing here moves for a reader who asked for no movement — and nothing here
  * disappears either. The pending bullet keeps the accent fill and gains a ring
- * that simply stays, the skeleton keeps its bars, so both states still say
- * what they mean when the animation is off.
+ * that simply stays; the writing dots stop pulsing and hold the colour that was
+ * doing the work anyway, because they are the app's only signal that a turn is
+ * still running. Both states still say what they mean with the animation off.
  */
 @media (prefers-reduced-motion: reduce) {
   .step.pending .step-dot {
     animation: none;
     box-shadow: 0 0 0 3px var(--series-1-soft);
   }
-  .skel-line { animation: none; background-image: none; }
+  .writing span { animation: none; opacity: 1; }
 }
 
 .answer { font-size: 1rem; line-height: 1.65; color: var(--ink-1); }
@@ -474,50 +480,25 @@ button.candidate:hover .cand-go { color: var(--accent); }
    the line and Czech justification takes it. */
 .cite-bind { white-space: nowrap; }
 
-/* The answer that is coming, as a shape.
+/* The answer that is coming, as three dots.
  *
- * Replaces a three-dot row that sat at the top of ~900px of empty phone. The
- * bars are at the answer's own measure and rhythm, so the column reads as a
- * page being written rather than as a request that died. Shimmer travels left
- * to right across each bar; with reduced motion the sweep stops and the bars
- * stay as flat blocks, which still says „not yet" without moving.
- *
- * The bar was `--chip` on `--plane`, which is 1.03:1 in the light palette:
- * the whole state worked in dark and showed an empty column in the default
- * theme. Both the bar and its sweep are now their own tokens, set so the light
- * separation matches the one dark always had. The sweep is a translucent
- * highlight rather than two named surfaces, so it lifts the bar in either
- * palette instead of being brighter than the page in one of them. */
-.skel { display: flex; flex-direction: column; gap: 11px; margin: 18px 0 4px; }
-.skel-line {
-  display: block;
-  height: 13px;
-  border-radius: 5px;
-  background: var(--skeleton-surface);
-  background-image: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    var(--skeleton-surface-sheen) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  background-size: 260% 100%;
-  background-repeat: no-repeat;
-  animation: sweep 1.5s linear infinite;
+ * This replaced a skeleton — bars at the answer's own measure, shimmering left
+ * to right — which was the more informative of the two and lost anyway: a
+ * full-height grey mock of an unwritten answer asserts a shape the model has
+ * not committed to. Ondrej chose the dots on 2026-08-24 having watched both.
+ * They sit where the first word will, and they claim nothing but a pulse. */
+.writing { display: flex; gap: 5px; margin: 10px 0 0; }
+.writing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  animation: blip 1.2s ease-in-out infinite;
 }
-.skel-title { width: 46%; height: 19px; margin-bottom: 7px; border-radius: 6px; }
-.skel-title-2 { width: 38%; margin-top: 12px; }
-.skel-w0 { width: 100%; }
-.skel-w1 { width: 96%; }
-.skel-w2 { width: 99%; }
-.skel-w3 { width: 88%; }
-.skel-w4 { width: 62%; }
+.writing span:nth-child(2) { animation-delay: 0.18s; }
+.writing span:nth-child(3) { animation-delay: 0.36s; }
 
-@keyframes sweep {
-  from { background-position: 140% 0; }
-  to { background-position: -140% 0; }
-}
-
-/* For a screen reader the wait is one sentence, not six grey bars. */
+/* For a screen reader the wait is one sentence, not three moving dots. */
 .sr-only {
   position: absolute;
   width: 1px;

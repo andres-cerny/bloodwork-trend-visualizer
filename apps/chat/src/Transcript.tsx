@@ -89,37 +89,30 @@ function Steps({ tools, live }: { tools: ToolPart[]; live: boolean }) {
 }
 
 /**
- * The shape of the answer that is coming.
+ * Something is still coming, and nothing has been said yet.
  *
  * The gap between the last tool result and the first word is the longest
- * silence in a turn, and three small dots at the top of nine hundred empty
- * pixels do not fill it — that screen reads as a request that died. A skeleton
- * at the answer's real measure does: the column already has the proportions of
- * the thing being written, so the wait is legible as a wait.
+ * silence in a turn, and an empty column reads as a request that died. This
+ * used to be a skeleton at the answer's real measure — bars in the shape of the
+ * paragraph being written. It was the more informative of the two and it was
+ * not the one that felt right: a full-height grey mock of an answer that has
+ * not been written yet asserts a shape the model has not committed to, and it
+ * flickers into real text a line at a time. Ondrej's call, 2026-08-24, having
+ * watched both of them run. Three dots claim nothing except that the app is
+ * alive, which is the only thing this moment actually knows.
  *
- * `aria-hidden`, and the live region is the sentence beside it: a screen
- * reader gets „Agent pracuje…" once, not six announcements of a grey bar.
+ * The dots say that to an eye and nothing at all to an ear, so the sentence
+ * beside them is the live region: a screen reader gets „Asistent píše
+ * odpověď…" once, not six announcements of a moving dot.
  */
-function Skeleton({ titled }: { titled: boolean }) {
-  // Two groups, because the thing being written is a sectioned summary and
-  // one group of five bars left half a phone still empty under it. Nothing
-  // here claims how long the answer will be; it claims that an answer with
-  // headings is on its way, which is what the four steps above already say.
+function Writing() {
   return (
-    <div className="skel" aria-hidden="true">
-      {titled && <span className="skel-line skel-title" />}
-      {(titled ? [0, 1, 2, 4] : [0, 3]).map((i) => (
-        <span key={i} className={`skel-line skel-w${i}`} />
-      ))}
-      {titled && (
-        <>
-          <span className="skel-line skel-title skel-title-2" />
-          {[1, 2, 0, 4].map((i) => (
-            <span key={`b${i}`} className={`skel-line skel-w${i}`} />
-          ))}
-        </>
-      )}
-    </div>
+    <p className="writing" role="status">
+      <span className="sr-only">Asistent píše odpověď…</span>
+      <span aria-hidden="true" />
+      <span aria-hidden="true" />
+      <span aria-hidden="true" />
+    </p>
   );
 }
 
@@ -247,19 +240,7 @@ export default function Transcript({
               ),
             )}
 
-            {/* Something is still coming: the column takes the shape of it.
-                Nothing said yet — a title bar and five lines; mid-paragraph —
-                two lines continuing the measure, because a heading skeleton
-                under a heading that has already arrived is a lie about what
-                is next. */}
-            {b.streaming && (
-              <>
-                <p className="sr-only" aria-live="polite">
-                  Agent pracuje na odpovědi…
-                </p>
-                <Skeleton titled={!spoken} />
-              </>
-            )}
+            {b.streaming && <Writing />}
 
             {!railed && b.sources.length > 0 && (
               <div className="turn-sources">
