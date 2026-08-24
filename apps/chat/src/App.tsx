@@ -615,7 +615,7 @@ export default function App() {
               {TENANTS[tenant].suggestions.map((s) => (
                 <button key={s} type="button" className="starter" onClick={() => pick(s)}>
                   <span>{s}</span>
-                  <span className="followup-plus" aria-hidden="true">
+                  <span className="followup-go" aria-hidden="true">
                     ↗
                   </span>
                 </button>

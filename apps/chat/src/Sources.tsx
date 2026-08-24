@@ -16,8 +16,8 @@
  * height instead of being fitted to the card's width, which is the difference
  * between a line of a printed report and a grey smear.
  */
-import { useEffect, useRef, useState } from "react";
-import { scrollBehavior } from "./motion";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { scrollIntoNearest } from "./motion";
 import { excerptLines, excerptStart } from "./excerpt";
 
 export interface Source {
@@ -57,6 +57,37 @@ export interface Source {
  */
 const ROW_PX = 14;
 /**
+ * The floor the crop will not shrink below, whatever the card's width.
+ *
+ * 14 px of band is ~12 CSS px of type; 12 px of band is ~10.3, which is the
+ * bottom of what a printed table survives at 1×. Below this the crop stops
+ * shrinking and lets the fade take more of the row — a legible half-row beats
+ * an illegible whole one.
+ */
+const MIN_ROW_PX = 12;
+/**
+ * How far across the row the window must reach, as a fraction of its x-extent.
+ *
+ * The bbox spans the whole printed row — parametr, výsledek, jednotka,
+ * referenční rozmezí — and at a readable scale that is ~2.5 cards wide, so
+ * something is always clipped. What must never be clipped is the number the
+ * answer cited: at ROW_PX the 300 px rail cut „149" through its last digit and
+ * buried the rest under the fade, which is the crop failing at the one job it
+ * has. A Czech lab table sets the parametr at the left margin and the výsledek
+ * just past the middle, so a window reaching 0.56 of the row's width clears the
+ * value column on the narrowest card here; the unit and the reference range are
+ * what the fade is allowed to take.
+ */
+const SHOWN = 0.56;
+/**
+ * Paper kept clear at the right, in CSS px — where the fade sits.
+ *
+ * Also the fade's own width (`.src-band-fade`), so the gradient begins exactly
+ * where the crop's guaranteed content ends and covers nothing the window
+ * promised to show.
+ */
+const GUTTER = 16;
+/**
  * One printed line of context above and below, as a multiple of the row.
  *
  * Measured off the generated pages rather than guessed: a table row's ink is
@@ -71,6 +102,31 @@ const CONTEXT = 2.2;
 /** Page px kept in front of the row's first glyph, so it is not flush. */
 const BLEED_X = 6;
 
+/**
+ * The band's own width, in CSS px, as the card is actually laid out.
+ *
+ * The crop's scale depends on it — the rail is 298 px of paper and a phone is
+ * 340 — and no media query can carry that number into arithmetic. Measured in a
+ * layout effect, so the corrected scale is in place before the browser paints,
+ * and re-measured on resize; 0 until the first measurement, which the caller
+ * reads as „unknown" and answers with the unconstrained scale.
+ */
+function useBandWidth() {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setWidth(el.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, width };
+}
+
 function RowCrop({
   src,
   bbox,
@@ -84,17 +140,30 @@ function RowCrop({
   pageH: number;
   label: string;
 }) {
+  const { ref: bandRef, width: bandW } = useBandWidth();
   const [x0, y0, x1, y1] = bbox;
   const rowH = Math.max(1, y1 - y0);
-  const scale = ROW_PX / rowH;
+  const left = Math.max(0, x0 - BLEED_X);
+  const span = Math.max(1, x1 - left);
+  // Three bounds, in the order they matter: never taller than a printed line
+  // needs to be, never so small the type stops being type, and in between,
+  // whatever it takes to carry the window past the value column.
+  const fit = bandW > 0 ? (bandW - GUTTER) / (span * SHOWN) : ROW_PX / rowH;
+  const scale = Math.min(ROW_PX / rowH, Math.max(MIN_ROW_PX / rowH, fit));
   const top = Math.max(0, y0 - rowH * CONTEXT);
   const bottom = Math.min(pageH, y1 + rowH * CONTEXT);
-  const left = Math.max(0, x0 - BLEED_X);
   const px = (v: number) => `${v.toFixed(1)}px`;
+
+  // Where the ring may run to: the fade's own edge, less its 2px stroke, so the
+  // mark that means something is never drawn under the thing that dims it.
+  const ringL = (x0 - left) * scale;
+  const ringMax = bandW > 0 ? bandW - GUTTER - 2 : Infinity;
+  const clipped = ringL + (x1 - x0) * scale > ringMax;
+  const ringW = clipped ? Math.max(0, ringMax - ringL) : (x1 - x0) * scale;
 
   return (
     <span className="src-paper">
-      <span className="src-band" style={{ height: px((bottom - top) * scale) }}>
+      <span className="src-band" ref={bandRef} style={{ height: px((bottom - top) * scale) }}>
         <img
           src={src}
           alt={`Výřez řádku z tištěného nálezu — ${label}`}
@@ -104,18 +173,25 @@ function RowCrop({
           }}
         />
         {/* Which row, not just which page. The band shows three printed lines;
-            without this the reader has to guess which of them was cited. */}
+            without this the reader has to guess which of them was cited.
+
+            The row is wider than the card, so on a clipped crop this closes at
+            the crop's own edge rather than at the row's — a mark that runs off
+            the side rings nothing, and the reader cannot tell a cut ring from a
+            ring that was never drawn. What continues past it is still faintly
+            legible through the fade, which is the honest way to say so. */}
         <span
           className="src-ring"
           aria-hidden="true"
           style={{
-            left: px((x0 - left) * scale),
+            left: px(ringL),
             top: px((y0 - top) * scale),
-            width: px((x1 - x0) * scale),
+            width: px(ringW),
             height: px(rowH * scale),
           }}
         />
-        <span className="src-band-fade" aria-hidden="true" />
+        {/* Nothing to say when the whole row fits. */}
+        {clipped && <span className="src-band-fade" aria-hidden="true" />}
       </span>
     </span>
   );
@@ -129,6 +205,10 @@ function Excerpt({ excerpt, label }: { excerpt: string; label: string }) {
   const lines = excerptLines(excerpt);
   const start = excerptStart(lines, label);
   const shown = lines.slice(start);
+  // The clip held nothing but the letterhead and the patient's identification.
+  // Then there is no passage to show, and a card that shows none is telling the
+  // truth — the whole page is still behind the `+`.
+  if (shown.length === 0) return null;
   const text = shown.join("\n");
   // The registry clips the excerpt to a fixed length, so it almost always stops
   // mid-document. An elision mark is the honest way to say so — and the same
@@ -175,10 +255,10 @@ function SourceCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // A [n] that focuses an entry the reader cannot see has focused nothing.
+  // A [n] that focuses an entry the reader cannot see has focused nothing. The
+  // rail moves, or the thread does on a phone — the shell never does.
   useEffect(() => {
-    if (active)
-      ref.current?.scrollIntoView({ block: "nearest", behavior: scrollBehavior() });
+    if (active && ref.current) scrollIntoNearest(ref.current);
   }, [active]);
 
   const label = czLabel(s.label);

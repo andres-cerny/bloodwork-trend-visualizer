@@ -195,6 +195,8 @@
 .column { width: 100%; max-width: 720px; margin: 0 auto; }
 
 .topbar {
+  position: relative;
+  z-index: 1;
   flex: none;
   min-height: 52px;
   padding: 8px 28px;
@@ -202,6 +204,27 @@
 }
 .topbar .column { display: flex; align-items: center; gap: 10px; min-height: 36px; }
 .topbar-title { font-size: 0.95rem; font-weight: 600; }
+
+/* The composer's scrim, mirrored — the thread has two edges, and both of them
+   cut a line of prose in half.
+ *
+ * The thread scrolls inside its own box, so its first visible line meets the
+ * header's opaque underside at whatever height the scroll happens to stop at:
+ * on a phone „stanovena pásma A–E podle TF/rychlosti/VO₂," was sliced through
+ * its x-height at full opacity and read as broken text rather than as text
+ * continuing above. 44px of the same gradient the dock uses carries it out.
+ * Both palettes come from --plane, the thread's own background, so over an
+ * unscrolled thread this is invisible and costs nothing. */
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 44px;
+  background: linear-gradient(to bottom, var(--plane) 12%, rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
 
 /* Which patient is open. A chip, not a belief: it renders exactly what the
    server pinned, and closing it is the reader's act, not the model's. */
@@ -424,8 +447,8 @@
   cursor: pointer;
 }
 .followup:hover { color: var(--accent-ink); }
-.followup-plus { flex: none; color: var(--ink-muted); font-size: 1.15rem; line-height: 1; }
-.followup:hover .followup-plus { color: var(--accent); }
+.followup-go { flex: none; color: var(--ink-muted); font-size: 1.15rem; line-height: 1; }
+.followup:hover .followup-go { color: var(--accent); }
 
 /* Mobile: the evidence folds under its own answer instead of into a rail. */
 .turn-sources { margin-top: 20px; }
@@ -469,6 +492,7 @@
  * token as the thread's own background. */
 .dock {
   position: absolute;
+  z-index: 2; /* above the header's scrim, on a short viewport */
   left: 0;
   right: 0;
   bottom: 0;
@@ -650,7 +674,7 @@
   cursor: pointer;
 }
 .starter:hover { border-color: var(--accent); color: var(--accent-ink); }
-.starter:hover .followup-plus { color: var(--accent); }
+.starter:hover .followup-go { color: var(--accent); }
 
 /* ------------------------------------------------------------------ *
  * Right rail — the evidence
@@ -829,11 +853,14 @@
   border-radius: 3px;
   box-shadow: 0 0 0 2px var(--series-1);
 }
-/* The clip is intentional, and a hard cut does not say so. Deliberately a weak
-   fade over a short run: on a narrow rail the cited value can sit against this
-   edge, and a scrim that reached full paper would take the last digit of it —
-   hence the 0.85 ceiling, applied to the element rather than baked into a
-   colour stop.
+/* The clip is intentional, and a hard cut does not say so. It begins where the
+   crop's guaranteed content ends — Sources.tsx picks the scale so the cited
+   value clears this edge, and `GUTTER` there is this width; change one and
+   change the other, or the fade takes the last digit of the number again.
+
+   Deliberately a weak fade over a short run: what the crop dropped is the unit
+   and the reference range, and at 0.85 they stay faintly legible through it,
+   which is what says the printed row continues rather than ends.
 
    It fades to the *scan's* white, not to the card's paper: in dark mode the
    sheet behind the band is `--surface-3` while the scan inside it is a white

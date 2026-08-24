@@ -16,7 +16,7 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { excerptLines, excerptStart, isBoilerplate, fold } from "../src/excerpt";
+import { excerptLines, excerptStart, hasInternalRef, isBoilerplate, fold } from "../src/excerpt";
 
 /* ------------------------------------------------------------------ *
  * The fixtures
@@ -87,15 +87,18 @@ describe("the clamp starts at the document, not at the letterhead", () => {
       const first = lines[start];
 
       // Never the practice's name, never the department, never a repeat of the
-      // card's own title.
-      expect(fold(first)).not.toMatch(/(^| )(s r o|a s)$/);
-      expect(fold(first)).not.toBe(fold(doc.label));
+      // card's own title. (A clip that held nothing but the header clamps past
+      // its own last line and shows nothing at all — that case is below.)
+      if (first !== undefined) {
+        expect(fold(first)).not.toMatch(/(^| )(s r o|a s)$/);
+        expect(fold(first)).not.toBe(fold(doc.label));
+      }
 
       // Every line above the clamp is boilerplate — the clamp is as early as it
       // can be, so nothing clinical was skipped to reach it.
-      for (const dropped of lines.slice(0, start)) {
-        expect(isBoilerplate(dropped, doc.label)).toBe(true);
-      }
+      lines.slice(0, start).forEach((dropped, i) => {
+        expect(isBoilerplate(dropped, doc.label, lines[i + 1])).toBe(true);
+      });
     });
   }
 
@@ -114,16 +117,77 @@ describe("the clamp starts at the document, not at the letterhead", () => {
     expect(lines[excerptStart(lines, doc!.label)]).toMatch(/^Diagnóza:/);
   });
 
-  it("keeps the header when the clip contains nothing else", () => {
-    // The operating protocol's excerpt runs out inside the header. Dropping
-    // every line would leave an empty card, so the fields become the evidence
-    // and only the letterhead, the theatre and the repeated title go.
+  it("shows nothing at all when the clip contains nothing but the header", () => {
+    // The operating protocol's excerpt runs out inside the header: letterhead,
+    // theatre, repeated title, then „Pacient / Datum narození / Datum výkonu /
+    // Operatér". Those four lines prove which patient, never which passage, so
+    // the card carries its title, its date and its page link and quotes
+    // nothing. An empty excerpt is the honest one.
     const doc = docs.find((d) => d.label.startsWith("Operační protokol"));
     expect(doc).toBeDefined();
     const lines = excerptLines(doc!.excerpt);
-    const start = excerptStart(lines, doc!.label);
-    expect(lines[start]).toMatch(/^Pacient:/);
-    expect(start).toBeGreaterThan(0);
+    expect(lines.length).toBeGreaterThan(0);
+    expect(excerptStart(lines, doc!.label)).toBe(lines.length);
+  });
+
+  it("does not open the training zones on their identification block", () => {
+    // „Identifikace" has no colon, so nothing but the heading rule keeps it
+    // from reading as prose — and reading as prose is how „ID: p-hruby-1994"
+    // reached the screen.
+    const doc = docs.find((d) => d.label === "Tréninková pásma");
+    expect(doc).toBeDefined();
+    const lines = excerptLines(doc!.excerpt);
+    expect(lines).toContain("Identifikace");
+    expect(excerptStart(lines, doc!.label)).toBe(lines.length);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The identifier that must never render
+ * ------------------------------------------------------------------ */
+
+describe("the internal patient ref never reaches the screen", () => {
+  // The real line, from the real fixture — not a hand-written stand-in.
+  const idLine = () => {
+    const doc = docs.find((d) => d.label === "Tréninková pásma");
+    expect(doc).toBeDefined();
+    const line = excerptLines(doc!.excerpt).find((l) => l.startsWith("ID:"));
+    expect(line).toBe("ID: p-hruby-1994");
+    return line!;
+  };
+
+  it("recognises the ref in the fixture's own identification line", () => {
+    expect(hasInternalRef(idLine())).toBe(true);
+  });
+
+  it("clamps past it even when the line above is prose", () => {
+    // The classifier and the guard must not share a failure mode: put the ref
+    // under a heading no rule here recognises, so nothing but the guard is
+    // left to catch it.
+    const lines = ["Závěr", idLine(), "Pásma stanovena podle TF."];
+    expect(excerptStart(lines, "Tréninková pásma")).toBe(2);
+  });
+
+  it("clamps past the last of several, not the first", () => {
+    const lines = ["Závěr", idLine(), "Kontrola", "Dle protokolu p-hruby-1994."];
+    expect(excerptStart(lines, "Tréninková pásma")).toBe(4);
+  });
+
+  it("leaves every fixture excerpt free of one", () => {
+    for (const doc of docs) {
+      const lines = excerptLines(doc.excerpt);
+      for (const shown of lines.slice(excerptStart(lines, doc.label))) {
+        expect(hasInternalRef(shown)).toBe(false);
+      }
+    }
+  });
+
+  it("does not fire on Czech prose that merely contains a hyphen", () => {
+    // The guard clamps text away, so a false positive costs the reader a
+    // passage. „p-" has to start a token to count.
+    expect(hasInternalRef("Kloub je stabilní, bez výpotku")).toBe(false);
+    expect(hasInternalRef("Doporučena kontrola za 6–8 týdnů")).toBe(false);
+    expect(hasInternalRef("Hodnota pH 7,38 — bez odchylky")).toBe(false);
   });
 });
 

@@ -16,7 +16,7 @@
 import { Chart } from "@bw/ui-kit";
 import Answer from "./Answer";
 import Sources, { type Source } from "./Sources";
-import { scrollBehavior } from "./motion";
+import { scrollToTop } from "./motion";
 
 /** One thing the agent produced, in the order it produced it. */
 export type Part =
@@ -101,7 +101,7 @@ function Charts({ series }: { series: unknown }) {
           // that claim: the reader needs to see the limits and the air above
           // and below them. And once the band is most of the plot it is
           // furniture, so it stops borrowing the series colour.
-          <Chart key={`${j}-${k}`} trend={trend} refInDomain bandTone="neutral" />
+          <Chart key={`${j}-${k}`} trend={trend} refInDomain bandTone="neutral" fitLimitLabels />
         )),
       )}
     </div>
@@ -207,13 +207,12 @@ export default function Transcript({
                   aria-controls={`sources-${b.id}`}
                   onClick={(e) => {
                     // Opening a disclosure below the fold reveals evidence the
-                    // reader cannot see; bring the block to the top instead.
+                    // reader cannot see; bring the block to the top of the
+                    // thread instead — and of the thread only, never of the
+                    // shell under it (see scrollToTop).
                     const wrap = e.currentTarget.parentElement;
                     onToggleSources(b.id);
-                    if (!open)
-                      requestAnimationFrame(() =>
-                        wrap?.scrollIntoView({ block: "start", behavior: scrollBehavior() }),
-                      );
+                    if (!open) requestAnimationFrame(() => wrap && scrollToTop(wrap));
                   }}
                 >
                   <span className="sources-caret" aria-hidden="true" data-open={open} />
@@ -242,8 +241,13 @@ export default function Transcript({
                     onClick={() => onFollowup(q)}
                   >
                     <span>{q}</span>
-                    <span className="followup-plus" aria-hidden="true">
-                      +
+                    {/* „↗", the same mark the empty state's starters carry,
+                        because it is the same act: pressing this sends the
+                        question. „+" belongs to the source cards, where it
+                        expands the evidence in place — one glyph, one meaning,
+                        or the follow-up reads as an accordion. */}
+                    <span className="followup-go" aria-hidden="true">
+                      ↗
                     </span>
                   </button>
                 ))}

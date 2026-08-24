@@ -10,7 +10,7 @@
  * polyline and some dots, and this keeps full control of touch targets and the
  * mobile viewBox without shipping a dependency.
  */
-import { useId, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   czExact,
   czNum,
@@ -74,18 +74,80 @@ export interface ChartOptions {
   refInDomain?: boolean;
   /** Draw the band as furniture (`neutral`) instead of in the series colour. */
   bandTone?: "signal" | "neutral";
+  /**
+   * Keep the reference-limit labels at the size they are written as.
+   *
+   * The viewBox is 640 wide and the svg is `width: 100%`, so inside a 330 px
+   * card on a phone every user unit — text included — is drawn at about half
+   * size, and the 11-unit „dolní mez 135" lands at 5,5 px. It is the smallest
+   * type on the chart and it is the type that says what the dashed line means.
+   *
+   * Off by default, and off nothing is measured and nothing is drawn
+   * differently — the same 11 and the same words, byte for byte. On, the label
+   * is divided by the scale the browser is about to apply, and below
+   * {@link NARROW_PX} it drops to the bare number: at ~2× the words no longer
+   * fit the corner they are set in, and the caption under the plot already
+   * says which limit is which.
+   */
+  fitLimitLabels?: boolean;
 }
 
 /** Air left above and below the domain when the reference limits are in it. */
 const REF_PAD = 0.08;
+/** The size the limit labels are written at, and the size they should land at. */
+const LIMIT_PX = 11;
+/** Past this the compensation would eat the plot; no phone reaches it. */
+const MAX_TEXT_SCALE = 2.2;
+/** Narrower than this and the limit labels lose their words. */
+const NARROW_PX = 480;
+
+/**
+ * How a reference-limit label is drawn at a given rendered width.
+ *
+ * A pure function of the measurement, so the two decisions in it — the size and
+ * the words — can be checked without a layout. `width` is 0 before the first
+ * measurement and on the server, which is the same answer as „not asked".
+ */
+export function limitLabel(
+  label: string,
+  value: string,
+  width: number,
+  fit: boolean,
+): { text: string; fontSize: number } {
+  if (!fit || width <= 0) return { text: `${label} ${value}`, fontSize: LIMIT_PX };
+  const scale = Math.min(MAX_TEXT_SCALE, Math.max(1, W / width));
+  return { text: width < NARROW_PX ? value : `${label} ${value}`, fontSize: LIMIT_PX * scale };
+}
+
+/**
+ * The rendered width of the chart, in CSS px — 0 until the browser has one.
+ *
+ * `useLayoutEffect` so the corrected size is in place before the first paint;
+ * on the server there is no layout to read and `useEffect` never runs, which
+ * leaves the markup exactly as it was.
+ */
+const useMeasure = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export default function Chart({
   trend,
   refInDomain = false,
   bandTone = "signal",
+  fitLimitLabels = false,
 }: { trend: Trend } & ChartOptions) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
+  const figRef = useRef<HTMLElement>(null);
+  const [drawnW, setDrawnW] = useState(0);
+  useMeasure(() => {
+    const el = figRef.current;
+    if (!fitLimitLabels || !el) return;
+    const measure = () => setDrawnW(el.getBoundingClientRect().width);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitLimitLabels]);
   const pts = numericPoints(trend);
   if (pts.length === 0) return <p className="muted">Žádné číselné hodnoty k zobrazení.</p>;
 
@@ -209,7 +271,7 @@ export default function Chart({
   const active = hover !== null ? pts[hover] : null;
 
   return (
-    <figure style={{ margin: 0 }}>
+    <figure ref={figRef} style={{ margin: 0 }}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
@@ -241,8 +303,10 @@ export default function Chart({
         {[
           { v: band?.bHigh ?? null, label: "horní mez" },
           { v: band?.bLow ?? null, label: "dolní mez" },
-        ].map(({ v, label }, i) =>
-          v !== null && v >= yMin && v <= yMax ? (
+        ].map(({ v, label }, i) => {
+          if (v === null || v < yMin || v > yMax) return null;
+          const lab = limitLabel(label, czNum(v), drawnW, fitLimitLabels);
+          return (
             <g key={i}>
               <line
                 x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)}
@@ -250,13 +314,13 @@ export default function Chart({
               />
               <text
                 x={W - PAD.right} y={y(v) - 4} textAnchor="end"
-                fontSize={11} fill="var(--ink-muted)"
+                fontSize={lab.fontSize} fill="var(--ink-muted)"
               >
-                {label} {czNum(v)}
+                {lab.text}
               </text>
             </g>
-          ) : null,
-        )}
+          );
+        })}
 
         {ticks.map((t, i) => (
           <g key={i}>

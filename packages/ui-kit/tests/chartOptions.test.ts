@@ -23,7 +23,7 @@ import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Trend, TrendPoint } from "@bw/lab-core";
-import Chart, { type ChartOptions } from "../src/Chart";
+import Chart, { limitLabel, type ChartOptions } from "../src/Chart";
 
 /** Four hemoglobin draws, all comfortably inside a 135–175 band. */
 const trend: Trend = {
@@ -87,5 +87,58 @@ describe("Chart options", () => {
 
   it("leaves the band in the series colour unless the tone is asked for", () => {
     expect(draw({ refInDomain: true })).toContain('fill="var(--band)"');
+  });
+
+  it("draws the limit labels at 11 whether or not fitting was asked for", () => {
+    // There is no layout on the server, so the opt-in has nothing to measure
+    // and must change nothing. Every existing caller renders through here.
+    const plain = draw({ refInDomain: true });
+    expect(plain).toContain('font-size="11"');
+    expect(draw({ refInDomain: true, fitLimitLabels: true })).toBe(plain);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The size a label ends up at on the glass
+ * ------------------------------------------------------------------ */
+
+describe("limit labels, after the viewBox has been scaled", () => {
+  it("is the old label, unmeasured or unasked", () => {
+    expect(limitLabel("dolní mez", "135", 0, true)).toEqual({
+      text: "dolní mez 135",
+      fontSize: 11,
+    });
+    expect(limitLabel("dolní mez", "135", 330, false)).toEqual({
+      text: "dolní mez 135",
+      fontSize: 11,
+    });
+  });
+
+  it("puts a phone's label back at the size it was written as", () => {
+    // 640 user units drawn into 330 px is a scale of 0,516 — an 11-unit label
+    // lands at 5,7 px, which is the defect. Dividing by that scale lands it
+    // back at 11.
+    const { fontSize } = limitLabel("dolní mez", "135", 330, true);
+    expect(fontSize * (330 / 640)).toBeCloseTo(11, 5);
+  });
+
+  it("drops the words on a narrow chart and keeps them on a wide one", () => {
+    expect(limitLabel("dolní mez", "135", 330, true).text).toBe("135");
+    expect(limitLabel("horní mez", "175", 636, true).text).toBe("horní mez 175");
+  });
+
+  it("never enlarges a chart that is already wide enough", () => {
+    // The desktop card is ~636 px, near enough 1:1 — and a chart drawn wider
+    // than its viewBox must not shrink its own labels below 11.
+    const near = limitLabel("horní mez", "175", 636, true).fontSize;
+    expect(near).toBeGreaterThanOrEqual(11);
+    expect(near).toBeLessThan(11.1);
+    expect(limitLabel("horní mez", "175", 900, true).fontSize).toBe(11);
+  });
+
+  it("stops compensating before the label eats the plot", () => {
+    // A chart in a 120 px column would want 5,3×. The cap is what keeps a
+    // pathological layout from being drawn as one enormous number.
+    expect(limitLabel("horní mez", "175", 120, true).fontSize).toBe(11 * 2.2);
   });
 });
