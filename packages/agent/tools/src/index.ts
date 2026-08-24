@@ -19,8 +19,10 @@ import {
   summarizeChanges,
   validateChartSpec,
   type Trend,
+  type TrendPoint,
 } from "@bw/lab-core";
 import type { DocumentStore, PatientDataSource, PatientLookup } from "@bw/datasource";
+import { citeMeasuredRow, type Cite, type SourceInfo } from "./citations";
 import {
   analytesListed,
   derivedComputed,
@@ -31,7 +33,20 @@ import {
   patientsInDirectory,
 } from "./summaries";
 
+export * from "./citations";
 export * from "./summaries";
+
+/**
+ * How many measured rows one summary may cite.
+ *
+ * summarize_changes ranks its records out-of-range first, so the head of the
+ * list is what a doctor is being told about and the tail is "everything else
+ * was unremarkable". Citing the tail would put a card in the rail for every
+ * analyte on file — nineteen for the bloodwork demo patient — and a rail
+ * nobody can scan is a rail nobody reads. Six covers the four out-of-range
+ * parameters both demo patients have, with room for a notable move on top.
+ */
+const MAX_CITED_CHANGES = 6;
 
 export interface ToolDef {
   name: string;
@@ -72,7 +87,7 @@ export interface ToolContext {
    * [n] — a number with no registered source is the model inventing one, and
    * the client renders exactly what was registered, so the invention shows.
    */
-  cite?: (s: SourceInfo) => number;
+  cite?: Cite;
   /**
    * Supplied by the server. find_patient calls it on a unique match so the
    * rest of THIS turn is already scoped — "dej mi souhrn X" is one turn, not
@@ -81,33 +96,6 @@ export interface ToolContext {
    */
   bind?: (ref: string) => void;
 }
-
-/** One citable piece of evidence, as the client will render it. */
-export type SourceInfo =
-  | {
-      kind: "lab";
-      /** "Ferritin 22 µg/l" — what the row says, for the panel label. */
-      label: string;
-      date: string;
-      lab: string;
-      reportId: string;
-      page: number;
-      imageUrl: string | null;
-      /** Pixel box of the row on the page image, for the crop. */
-      bbox: [number, number, number, number] | null;
-      /** The page image's pixel size — the crop math needs the denominator. */
-      pageW: number | null;
-      pageH: number | null;
-    }
-  | {
-      kind: "document";
-      label: string;
-      date: string;
-      documentId: string;
-      title: string;
-      excerpt: string;
-      imageUrl: string | null;
-    };
 
 export const TOOLS: ToolDef[] = [
   {
@@ -227,15 +215,20 @@ async function allTrends(source: PatientDataSource): Promise<Map<string, Trend>>
   return trends;
 }
 
-const trendSummary = (t: Trend) => {
-  const pts = numericPoints(t);
-  return {
-    canonicalId: t.canonicalId,
-    displayName: t.displayName,
-    unit: t.unit,
-    points: pts.map((p) => ({ date: p.date, value: p.value, flag: p.flag, refLow: p.refLow, refHigh: p.refHigh })),
-  };
-};
+/**
+ * One point of a trend, as the model reads it.
+ *
+ * The projection is deliberately narrower than TrendPoint: reportId and the
+ * two doubt fields are the server's business, and the citation carries the
+ * provenance the model would otherwise be tempted to restate.
+ */
+const trendPoint = (p: TrendPoint) => ({
+  date: p.date,
+  value: p.value,
+  flag: p.flag,
+  refLow: p.refLow,
+  refHigh: p.refHigh,
+});
 
 /**
  * Run one tool.
@@ -396,63 +389,63 @@ export async function runTool(
         const id = String(input.canonicalId ?? "");
         const t = await source.getTrend(id);
         if (!t) return { ok: false, summary: `parametr ${id} nenalezen`, content: { error: "not_found", canonicalId: id } };
-        const base = trendSummary(t);
+        const pts = numericPoints(t);
+        const base = {
+          canonicalId: t.canonicalId,
+          displayName: t.displayName,
+          unit: t.unit,
+          points: pts.map(trendPoint),
+        };
         if (!ctx.cite) return { ok: true, summary: `načetl vývoj ${t.displayName}`, content: base };
-        // Each numeric point is one row on one printed report. The citation
-        // is that row: found by (analyte, date) in the lossless payloads, so
-        // the crop the reader opens is the same pixels the value came from.
+        // Each numeric point is one row on one printed report, and the
+        // citation is that row — so the crop the reader opens is the same
+        // pixels the value came from. citeMeasuredRow is the one place that
+        // knows how to say that; summarize_changes says it the same way.
         const reports = await source.reports();
-        const points = base.points.map((pt) => {
-          const rep = reports.find((r) => r.reportDate === pt.date);
-          const m = rep?.measurements.find((mm) => mm.canonicalId === id);
-          if (!rep || !m) return pt;
-          const page = rep.pages?.[(m.sourcePage ?? 1) - 1];
-          const src = ctx.cite!({
-            kind: "lab",
-            label: `${t.displayName} ${m.valueRaw} ${m.unit ?? ""}`.trim(),
-            date: pt.date ?? "",
-            lab: rep.labName ?? "",
-            reportId: rep.id,
-            page: m.sourcePage ?? 1,
-            imageUrl: page?.imageUrl ?? null,
-            bbox: (m.bbox as [number, number, number, number] | null) ?? null,
-            pageW: page?.imageWidth ?? null,
-            pageH: page?.imageHeight ?? null,
-          });
-          return { ...pt, src };
-        });
+        const points = pts.map((p) => ({
+          ...trendPoint(p),
+          src: citeMeasuredRow(ctx.cite!, reports, id, t.displayName, p),
+        }));
         return { ok: true, summary: `načetl vývoj ${t.displayName}`, content: { ...base, points } };
       }
       case "summarize_changes": {
         const reports = await source.reports();
         const trends = await allTrends(source);
-        // One source per draw: the printed report the numbers came from. The
-        // summary speaks about draws, so the citation grain is the draw.
+        const changes = summarizeChanges(trends);
+        // The citation grain is the ROW, not the draw. This used to register
+        // one source per report, which put a picture of a letterhead behind
+        // every claim: in the captured hruby-souhrn turn the model marked four
+        // different values — CK, ferritin, saturace transferinu, železo — all
+        // with the same [6], the whole page of the last draw, while the five
+        // earlier draw cards it had also been given went unreferenced. Each
+        // record here is about one analyte's two most recent results, so the
+        // evidence for it is that analyte's printed row, which is what
+        // citeMeasuredRow hands over — the same crop get_trend produces.
+        //
+        // The newer point is the one cited: the record's text names both
+        // endpoints, but the value a doctor acts on is the current one, and
+        // that is what the model marked in every captured turn. The card's
+        // label carries the value, so a marker put on the wrong endpoint shows
+        // as a mismatch on screen rather than passing silently.
         const cited = ctx.cite
-          ? reports.map((r) => ({
-              date: r.reportDate,
-              lab: r.labName,
-              src: ctx.cite!({
-                kind: "lab",
-                label: `Odběr ${r.reportDate ?? ""}`.trim(),
-                date: r.reportDate ?? "",
-                lab: r.labName ?? "",
-                reportId: r.id,
-                page: 1,
-                imageUrl: r.pages?.[0]?.imageUrl ?? null,
-                bbox: null,
-                pageW: r.pages?.[0]?.imageWidth ?? null,
-                pageH: r.pages?.[0]?.imageHeight ?? null,
-              }),
-            }))
-          : undefined;
+          ? changes.map((c, i) =>
+              i < MAX_CITED_CHANGES
+                ? { ...c, src: citeMeasuredRow(ctx.cite!, reports, c.canonicalId, c.displayName, c.newer) }
+                : c,
+            )
+          : changes;
+        // The draws stay in the payload but stop being evidence. The model
+        // needs them — it writes "6 odběrů od … do … v laboratoři X" out of
+        // this list, and nothing else carries a lab name — but a report is
+        // not proof of a value, and registering ten of them was what filled
+        // the rail with cards nothing pointed at.
         return {
           ok: true,
           summary: drawsCompared(reports.length),
           content: {
             overview: patientOverview(reports, trends),
-            changes: summarizeChanges(trends),
-            ...(cited ? { reports: cited } : {}),
+            changes: cited,
+            reports: reports.map((r) => ({ date: r.reportDate, lab: r.labName })),
           },
         };
       }

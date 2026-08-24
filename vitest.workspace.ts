@@ -65,6 +65,16 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The turn's evidence registry — the rule that one piece of evidence
+      // gets one citation number, which nothing above it can enforce.
+      name: "agent-core",
+      root: "./packages/agent/core",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       // The tool step summaries. They are the one part of a ToolResult that
       // reaches the doctor's eye verbatim rather than the model's context, so
       // their Czech is user-visible copy and gets pinned like any other.

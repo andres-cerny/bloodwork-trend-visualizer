@@ -14,10 +14,11 @@
  * of bug. It stops and says so rather than continuing quietly.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { runTool, TOOLS, type SourceInfo, type ToolContext, type ToolResult } from "@bw/agent-tools";
+import { runTool, TOOLS, type ToolContext, type ToolResult } from "@bw/agent-tools";
 import { clientFor, usageOf, type Usage } from "./client";
 import type { AgentEvent } from "./events";
 import { FOLLOWUP_SENTINEL, type Profile } from "./profiles";
+import { createSourceRegistry } from "./sources";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -158,14 +159,15 @@ export async function* runAgent(opts: {
 
   let total = zero();
 
-  // The turn's evidence registry. The loop owns numbering so it is stable
-  // across rounds and tools; tools embed the numbers in what the model reads.
+  // The turn's evidence registry — one for the whole turn, so numbering is
+  // stable across rounds and tools; tools embed the numbers in what the model
+  // reads. Its rule (one piece of evidence, one number) lives in sources.ts.
   // The context is used as handed over, NOT copied: the server's bind closure
   // mutates this same object mid-turn when find_patient resolves, and a copy
   // here would receive the closure but never the mutation.
-  const sources: Array<{ n: number } & SourceInfo> = [];
+  const { sources, cite } = createSourceRegistry();
   const ctx = data;
-  if (ctx) ctx.cite = (s: SourceInfo) => sources.push({ n: sources.length + 1, ...s });
+  if (ctx) ctx.cite = cite;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const stream = client.messages.stream({
