@@ -1,0 +1,682 @@
+[
+ {
+  "id": "d-benes-zprava-2020",
+  "patientRef": "p-benes-1974",
+  "docDate": "2020-09-15",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nPetr Beneš\nDatum narození:\n28.1.1974\nDatum vyšetření:\n15.9.2020\nVyšetřil:\nMUDr. Martin Kolář\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: otec ICHS od 62 let, matka diabetes mellitus 2. typu od 68 let.\nOA: běžná dětská onemocnění; 2011 artroskopie levého kolena; operace jiné 0; alergie 0; trvalá medikace 0; nekuřák.\nSA: běh na lyžích rekreačně-závodně (kategorie masters), dálkové běhy; 6–8 hodin tréninku týdně, kancelářské\nzaměstnání.\nNA: bez doplňků.\nSubjektivně\nBez obtíží. Přichází po delší pauze v lékařském sledování, chce posouzení před sezónou dálkových běhů.\nObjektivně\nEupnoe, bez cyanózy. Habitus atletický. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho\nměkké, nebolestivé. Dolní končetiny bez otoků.\nVýška / hmotnost: 179 cm / 81,6 kg\nTK: 128/82 mmHg\nKlidová TF: 56/min\nEKG\nEKG v klidu: sinusový rytmus 56/min, elektrická osa 58°, PR 168 ms, QRS 96 ms, QTc 408 ms, bez repolarizačních změn.\nEKG při zátěži: sinusový rytmus do 172/min, bez arytmií, bez ischemických změn, přiměřená reakce TK.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n5,58\n104\nFEV1 (l)\n4,42\n99\nFEV1/FVC — Tiffeneaův index (%)\n79\n99\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 8 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n10,6\n12,8\n14,2\nTepová frekvence (/min)\n138\n158\n172\nVO₂ (ml/kg/min)\n33,9\n42,4\n49,8\nVO₂ (l/min)\n2,77\n3,46\n4,06\nRER\n0,89\n0,99\n1,10\nVentilace (l/min)\n64\n88\n118\nSpO2 (%)\n98\n97\n96\nKrevní obraz a biochemie\nOdběr: 15.9.2020, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Glukóza: 5,12 mmol/l; S_Cholesterol: 4,82 mmol/l; S_Triacylglyceroly: 1,28 mmol/l; S_Kreatinin: 84 µmol/l;\nS_Urea: 5,10 mmol/l; S_ALT: 0,53 µkat/l; S_AST: 0,64 µkat/l; S_CRP: 1,7 mg/l; S_Ferritin: 126 µg/l;\nHEMATOLOGIE\nB_Hemoglobin: 152 g/l; B_Hematokrit: 0,435 1; B_Erytrocyty: 4,88 10^12/l; B_Leukocyty: 6,96 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nPetr Beneš, nar. 28.1.1974\nZávěr z vyšetření\nVO₂max 49,8 ml/kg/min (4,06 l/min) — výborná hodnota pro věk 46 let. EKG v klidu i při zátěži bez patologie, krevní tlak v\nklidu na horní hranici normy.\nLaboratorně bez nálezu; S_Glukóza 5,12 mmol/l a S_Cholesterol 4,82 mmol/l v normě, při rodinné anamnéze vhodné\nsledovat.\nDoporučení\nSportu schopen bez omezení.\nKontrola za 1–2 roky včetně odběru; domácí měření krevního tlaku občasně.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 120\n2–3\nI1 — základní vytrvalost\n120–132\n3–4\nI2 — vytrvalost\n132–144\n5–6\nI3 — tempo\n144–158\n6–7\nI4 — rozvoj VO₂max\nnad 158\n8–10\nMUDr. Martin Kolář\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-benes-zprava-2020_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-benes-zprava-2020_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-benes-zprava-2022",
+  "patientRef": "p-benes-1974",
+  "docDate": "2022-04-26",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nPetr Beneš\nDatum narození:\n28.1.1974\nDatum vyšetření:\n26.4.2022\nVyšetřil:\nMUDr. Martin Kolář\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: otec ICHS od 62 let, matka diabetes mellitus 2. typu od 68 let.\nOA: 2011 artroskopie levého kolena; operace jiné 0; alergie 0; trvalá medikace 0; nekuřák.\nSA: běh na lyžích masters, dálkové běhy; 5–7 hodin týdně, přes zimu více, v létě méně.\nNA: vitamin D v zimě.\nSubjektivně\nBez obtíží, sezóna dálkových běhů dokončena. Váhový přírůstek necelý kilogram za dva roky.\nObjektivně\nEupnoe, bez cyanózy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho měkké, nebolestivé.\nDolní končetiny bez otoků.\nVýška / hmotnost: 179 cm / 82,4 kg\nTK: 130/84 mmHg\nKlidová TF: 58/min\nEKG\nEKG v klidu: sinusový rytmus 58/min, elektrická osa 56°, PR 170 ms, QRS 96 ms, QTc 410 ms, bez repolarizačních změn.\nEKG při zátěži: sinusový rytmus do 170/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n5,52\n103\nFEV1 (l)\n4,35\n98\nFEV1/FVC — Tiffeneaův index (%)\n79\n99\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 8 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n10,3\n12,4\n13,8\nTepová frekvence (/min)\n136\n156\n170\nVO₂ (ml/kg/min)\n32,8\n41,0\n48,1\nVO₂ (l/min)\n2,70\n3,38\n3,96\nRER\n0,90\n0,99\n1,09\nVentilace (l/min)\n63\n86\n115\nSpO2 (%)\n98\n97\n96\nKrevní obraz a biochemie\nOdběr: 26.4.2022, Laboratoř Zelený Ostrov s.r.o.\nBIOCHEMIE\nS_Glukóza: 5,28 mmol/l; S_Cholesterol: 4,96 mmol/l; S_Triacylglyceroly: 1,36 mmol/l; S_Kreatinin: 93 µmol/l;\nS_Urea: 5,69 mmol/l; S_ALT: 0,59 µkat/l; S_AST: 0,47 µkat/l; S_CRP: 1,4 mg/l; S_Ferritin: 110 µg/l;\nHEMATOLOGIE\nB_Hemoglobin: 150 g/l; B_Hematokrit: 0,437 1; B_Erytrocyty: 4,95 10^12/l; B_Leukocyty: 6,56 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nPetr Beneš, nar. 28.1.1974\nZávěr z vyšetření\nVO₂max 48,1 ml/kg/min (3,96 l/min), mírný pokles proti roku 2020 odpovídající věku. EKG bez patologie, TK v klidu na\nhorní hranici.\nS_Glukóza 5,28 mmol/l a S_Cholesterol 4,96 mmol/l — obě hodnoty v horním pásmu normy a proti minulému odběru vyšší.\nVzhledem k rodinné anamnéze doporučena úprava stravy.\nDoporučení\nSportu schopen bez omezení.\nRedukce jednoduchých cukrů a nasycených tuků, kontrolní odběr do 18 měsíců.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 118\n2–3\nI1 — základní vytrvalost\n118–130\n3–4\nI2 — vytrvalost\n130–142\n5–6\nI3 — tempo\n142–156\n6–7\nI4 — rozvoj VO₂max\nnad 156\n8–10\nMUDr. Martin Kolář\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-benes-zprava-2022_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-benes-zprava-2022_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-benes-odber-2023-10-03",
+  "patientRef": "p-benes-1974",
+  "docDate": "2023-10-03",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nPetr Beneš\nDatum narození:\n28.1.1974\nDatum kontroly:\n3.10.2023\nZapsal:\nMUDr. Martin Kolář\nOdběr: 3.10.2023, Laboratoře Modrý Kámen s.r.o.\nHodnocení\nKontrolní odběr bez prohlídky (pacient se na komplexní vyšetření v tomto roce nedostavil). S_Glukóza 5,44 mmol/l — horní\npásmo normy, trend od roku 2020 setrvale vzestupný (5,12 → 5,28 → 5,44). S_Cholesterol 5,12 mmol/l mírně nad horní\nmezí, S_Triacylglyceroly 1,48 mmol/l v normě.\nDoporučení\nDoporučena úprava stravy a redukce hmotnosti o 2–3 kg. Objednat komplexní prohlídku na jaro; odběr glykémie nalačno u\npraktického lékaře do půl roku.\nMUDr. Martin Kolář\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-benes-odber-2023-10-03_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-benes-zprava-2025",
+  "patientRef": "p-benes-1974",
+  "docDate": "2025-05-06",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nPetr Beneš\nDatum narození:\n28.1.1974\nDatum vyšetření:\n6.5.2025\nVyšetřil:\nMUDr. Martin Kolář\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nVedlejší dg.: R73.0 — hraniční glykémie nalačno\nAnamnéza\nRA: otec ICHS od 62 let, matka diabetes mellitus 2. typu od 68 let.\nOA: 2011 artroskopie levého kolena; 2024 opakované obtíže s pravou Achillovou šlachou, konzervativně; alergie 0; trvalá\nmedikace 0; nekuřák.\nSA: běh na lyžích masters; kvůli Achillově šlaše v posledním roce méně běhu, více kola; 4–6 hodin týdně.\nNA: vitamin D v zimě.\nSubjektivně\nBez kardiálních obtíží. Achillova šlacha při běhu do 20 minut bez bolesti, delší běh zatím nezkouší. Test proveden na\nbicyklovém ergometru.\nObjektivně\nEupnoe, bez cyanózy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho měkké, nebolestivé.\nPravá Achillova šlacha palpačně mírně zesílená, nebolestivá. Dolní končetiny bez otoků.\nVýška / hmotnost: 179 cm / 83,0 kg\nTK: 134/86 mmHg\nKlidová TF: 60/min\nEKG\nEKG v klidu: sinusový rytmus 60/min, elektrická osa 54°, PR 172 ms, QRS 98 ms, QTc 412 ms, bez repolarizačních změn.\nEKG při zátěži: sinusový rytmus do 166/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n5,44\n102\nFEV1 (l)\n4,24\n96\nFEV1/FVC — Tiffeneaův index (%)\n78\n98\nSpiroergometrické parametry\nZátěžový protokol: bicyklová ergometrie, start 60 W, +20 W po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nVýkon (W)\n185\n248\n305\nTepová frekvence (/min)\n132\n152\n166\nVO₂ (ml/kg/min)\n31,2\n38,9\n45,6\nVO₂ (l/min)\n2,59\n3,23\n3,78\nRER\n0,91\n1,00\n1,08\nVentilace (l/min)\n60\n82\n108\nSpO2 (%)\n97\n96\n95\nKrevní obraz a biochemie\nOdběr: 6.5.2025, Laboratoř Zelený Ostrov s.r.o.\nBIOCHEMIE\nS_Glukóza: 5,66 mmol/l (3,90-5,60); S_Cholesterol: 5,28 mmol/l (2,90-5,00); S_Triacylglyceroly: 1,62 mmol/l;\nS_Kreatinin: 90 µmol/l; S_Urea: 5,43 mmol/l; S_ALT: 0,52 µkat/l; S_AST: 0,60 µkat/l; S_CRP: 0,7 mg/l; S_Ferritin: 126 µg/l;\nHEMATOLOGIE\nB_Hemoglobin: 149 g/l; B_Hematokrit: 0,452 1; B_Erytrocyty: 4,88 10^12/l; B_Leukocyty: 5,84 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nPetr Beneš, nar. 28.1.1974\nZávěr z vyšetření\nVO₂max 45,6 ml/kg/min (3,78 l/min) na bicyklovém ergometru, maximální výkon 305 W — nadprůměr pro věk 51 let,\npokles proti předchozím testům odpovídá věku a nižšímu objemu běhu. EKG bez patologie, TK v klidu 134/86 na horní\nhranici.\nLaboratorně S_Glukóza 5,66 mmol/l nad horní mezí a S_Cholesterol 5,28 mmol/l mírně zvýšený — trend obou hodnot je za\npět let setrvale vzestupný a při rodinné anamnéze diabetu vyžaduje řešení mimo sportovní ambulanci.\nDoporučení\nSportu schopen bez omezení, vytrvalostní zatížení je v jeho situaci naopak žádoucí.\nPředání nálezu praktickému lékaři: kontrolní glykémie nalačno, zvážit oGTT a lipidogram. Úprava stravy, kontrolní odběr u\nnás do roka.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 114\n2–3\nI1 — základní vytrvalost\n114–126\n3–4\nI2 — vytrvalost\n126–138\n5–6\nI3 — tempo\n138–152\n6–7\nI4 — rozvoj VO₂max\nnad 152\n8–10\nMUDr. Martin Kolář\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-benes-zprava-2025_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-benes-zprava-2025_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-benes-odber-2026-03-10",
+  "patientRef": "p-benes-1974",
+  "docDate": "2026-03-10",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nPetr Beneš\nDatum narození:\n28.1.1974\nDatum kontroly:\n10.3.2026\nZapsal:\nMUDr. Martin Kolář\nOdběr: 10.3.2026, Laboratoře Modrý Kámen s.r.o.\nHodnocení\nKontrolní odběr po loňské prohlídce. S_Glukóza 5,74 mmol/l nad horní mezí — již druhý odběr v řadě v pásmu hraniční\nglykémie nalačno. S_Cholesterol 5,41 mmol/l mírně zvýšený, S_Triacylglyceroly 1,68 mmol/l při horní mezi. Krevní obraz v\nnormě.\nMetabolický profil se za šest let sledování plynule posouvá nesprávným směrem; při rodinné anamnéze diabetu 2. typu jde\no jednoznačnou indikaci k systematickému řešení.\nDoporučení\nZpráva praktickému lékaři: doporučeno oGTT, HbA1c a plný lipidogram. Z naší strany trvá doporučení vytrvalostního\nzatížení 5+ hodin týdně a redukce hmotnosti. Kontrolní odběr u nás za rok.\nMUDr. Martin Kolář\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-benes-odber-2026-03-10_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-spirometrie-2022",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2022-05-10",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nDvořáková\nKřestní jméno:\nLucie\nIdentifikace:\np-dvorakova-2000\nVěk:\n22 let\nDatum narození:\n17.2.2000\nDatum návštěvy:\n10.5.2022\nPohlaví:\nžena\nVýška:\n168 cm\nHmotnost:\n58,4 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n4,28\n4,58\n107\n4,40\n4,49\n4,58\n0,7\nFEV1 (l)\n3,54\n3,86\n109\n3,72\n3,81\n3,86\n0,9\nFEV1%F (%)\n82\n84\n102\n85\n85\n84\n0,2\nPEF (l/s)\n8,1\n8,4\n104\n7,9\n8,3\n8,4\n0,4\nPodmínky měření\nDatum:\n10.5.2022\nČas:\n8:26\nTeplota:\n23,5 °C\nTlak:\n992 hPa\nVlhkost:\n46 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-spirometrie-2022_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-zprava-2022",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2022-05-10",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum vyšetření:\n10.5.2022\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: bez kardiovaskulární zátěže, náhlé úmrtí v rodině neguje.\nOA: běžná dětská onemocnění; operace 0; alergie 0; trvalá medikace 0; menstruační cyklus pravidelný.\nSA: běh na lyžích od 8 let, reprezentační družstvo; roční objem 650 hodin, v přípravě kolečkové lyže, běh, kolo.\nNA: vitamin D v zimním období.\nSubjektivně\nBez obtíží. Trénink podle plánu, regenerace dostatečná, spánek 8 hodin. Bez dušnosti, bez palpitací.\nObjektivně\nEupnoe, bez cyanózy. Štítná žláza nehmatná, karotidy bez šelestu. Dýchání sklípkové, čisté. Ozvy ohraničené, akce\npravidelná, bez šelestu. Břicho měkké, nebolestivé. Dolní končetiny bez otoků.\nVýška / hmotnost: 168 cm / 58,4 kg\nTK: 112/70 mmHg\nKlidová TF: 49/min\nEKG\nEKG v klidu: sinusová bradykardie 49/min, elektrická osa 72°, PR 152 ms, QRS 88 ms, QTc 402 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 196/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n4,58\n107\nFEV1 (l)\n3,86\n109\nFEV1/FVC — Tiffeneaův index (%)\n84\n102\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 8 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n12,4\n15,0\n17,8\nTepová frekvence (/min)\n161\n181\n196\nVO₂ (ml/kg/min)\n44,6\n53,9\n61,8\nVO₂ (l/min)\n2,60\n3,15\n3,61\nRER\n0,88\n0,98\n1,13\nVentilace (l/min)\n74\n99\n128\nSpO2 (%)\n98\n97\n96\nKrevní obraz a biochemie\nOdběr: 10.5.2022, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 78 µg/l; S_Železo: 14,8 µmol/l; S_Saturace Trf: 27,4 %; S_Kreatinin: 72 µmol/l; S_Urea: 4,76 mmol/l;\nS_Kreatinkináza: 1,67 µkat/l; S_ALT: 0,33 µkat/l; S_AST: 0,38 µkat/l; S_CRP: 0,7 mg/l; S_Glukóza: 4,50 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 138 g/l; B_Hematokrit: 0,412 1; B_Erytrocyty: 4,42 10^12/l; B_Leukocyty: 5,37 10^9/l;\nB_Trombocyty: 270 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nLucie Dvořáková, nar. 17.2.2000\nZávěr z vyšetření\nVstupní komplexní vyšetření v CSM. VO₂max 61,8 ml/kg/min (3,61 l/min) odpovídá reprezentační úrovni v běhu na lyžích.\nEKG v klidu i při zátěži bez patologie, reakce krevního tlaku fyziologická, spirometrie nadprůměrná.\nLaboratorně bez nálezu, S_Ferritin 78 µg/l — zásoby železa v normě, výchozí hodnota pro další sledování.\nDoporučení\nSportu schopna bez omezení.\nKontrolní odběr krevního obrazu a zásob železa na podzim, vzhledem k objemu tréninku dále 2× ročně.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 143\n2–3\nI1 — základní vytrvalost\n143–155\n3–4\nI2 — vytrvalost\n155–167\n5–6\nI3 — tempo\n167–181\n6–7\nI4 — rozvoj VO₂max\nnad 181\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2022_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2022_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-odber-2022-11-08",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2022-11-08",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum kontroly:\n8.11.2022\nZapsal:\nMUDr. Jana Procházková\nOdběr: 8.11.2022, Laboratoř Zelený Ostrov s.r.o.\nHodnocení\nPodzimní kontrolní odběr před zimní sezónou. Krevní obraz v normě, B_Hemoglobin 137 g/l. S_Ferritin 71 µg/l, S_Železo\n13,9 µmol/l, saturace transferinu 25,8 % — zásoby železa dostatečné, proti květnu prakticky beze změny.\nDoporučení\nBez opatření. Další odběr při jarní prohlídce.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-odber-2022-11-08_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-spirometrie-2023",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2023-05-16",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nDvořáková\nKřestní jméno:\nLucie\nIdentifikace:\np-dvorakova-2000\nVěk:\n23 let\nDatum narození:\n17.2.2000\nDatum návštěvy:\n16.5.2023\nPohlaví:\nžena\nVýška:\n168 cm\nHmotnost:\n58,1 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n4,27\n4,61\n108\n4,46\n4,57\n4,61\n0,8\nFEV1 (l)\n3,53\n3,88\n110\n3,79\n3,82\n3,88\n1,0\nFEV1%F (%)\n82\n84\n102\n85\n84\n84\n0,2\nPEF (l/s)\n8,1\n8,5\n105\n8,2\n8,4\n8,5\n0,5\nPodmínky měření\nDatum:\n16.5.2023\nČas:\n10:50\nTeplota:\n22,2 °C\nTlak:\n988 hPa\nVlhkost:\n38 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-spirometrie-2023_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-zprava-2023",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2023-05-16",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum vyšetření:\n16.5.2023\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: bez kardiovaskulární zátěže.\nOA: běžná dětská onemocnění; operace 0; alergie 0; trvalá medikace 0; menstruační cyklus pravidelný.\nSA: běh na lyžích, reprezentační družstvo; roční objem 680 hodin; sezóna dokončena bez přerušení.\nNA: vitamin D v zimním období, hořčík.\nSubjektivně\nBez obtíží, sezóna subjektivně vydařená. Regenerace dostatečná, bez dušnosti, bez palpitací.\nObjektivně\nEupnoe, bez cyanózy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho měkké, nebolestivé.\nDolní končetiny bez otoků.\nVýška / hmotnost: 168 cm / 58,1 kg\nTK: 110/68 mmHg\nKlidová TF: 48/min\nEKG\nEKG v klidu: sinusová bradykardie 48/min, elektrická osa 70°, PR 154 ms, QRS 88 ms, QTc 400 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 195/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n4,61\n108\nFEV1 (l)\n3,88\n110\nFEV1/FVC — Tiffeneaův index (%)\n84\n102\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 8 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n12,6\n15,2\n18,0\nTepová frekvence (/min)\n162\n181\n195\nVO₂ (ml/kg/min)\n45,2\n54,6\n62,5\nVO₂ (l/min)\n2,63\n3,17\n3,63\nRER\n0,89\n0,99\n1,14\nVentilace (l/min)\n75\n101\n131\nSpO2 (%)\n98\n97\n96\nKrevní obraz a biochemie\nOdběr: 16.5.2023, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 65 µg/l; S_Železo: 13,1 µmol/l; S_Saturace Trf: 24,0 %; S_Kreatinin: 70 µmol/l; S_Urea: 4,27 mmol/l;\nS_Kreatinkináza: 1,96 µkat/l; S_ALT: 0,40 µkat/l; S_AST: 0,43 µkat/l; S_CRP: 0,7 mg/l; S_Glukóza: 4,47 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 136 g/l; B_Hematokrit: 0,406 1; B_Erytrocyty: 4,36 10^12/l; B_Leukocyty: 6,63 10^9/l;\nB_Trombocyty: 278 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nLucie Dvořáková, nar. 17.2.2000\nZávěr z vyšetření\nVO₂max 62,5 ml/kg/min (3,63 l/min), proti loňskému vyšetření mírný vzestup. EKG i spirometrie bez patologie.\nS_Ferritin 65 µg/l proti 78 µg/l při vstupním vyšetření — hodnota je v referenčním rozmezí, pokles zatím odpovídá\ntréninkovému zatížení. Sledovat v podzimním odběru.\nDoporučení\nSportu schopna bez omezení.\nKontrolní odběr na podzim; při poklesu S_Ferritin pod 35 µg/l zahájit substituci železa.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 143\n2–3\nI1 — základní vytrvalost\n143–155\n3–4\nI2 — vytrvalost\n155–167\n5–6\nI3 — tempo\n167–181\n6–7\nI4 — rozvoj VO₂max\nnad 181\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2023_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2023_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-thb-2023",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2023-05-17",
+  "kind": "perf_eval",
+  "title": "Measurement Log (tHb)",
+  "bodyText": "Measurement Log\nCO-rebreathing — total haemoglobin mass\nProject\nIdentNo:\np-dvorakova-2000\nName:\nLucie Dvořáková\nTest leader:\nMUDr. Martin Kolář\nDate:\n17.5.2023\nPersonal data\nDate of birth:\n17.2.2000\nSex:\nfemale\nHeight:\n168 cm\nBody mass:\n58,1 kg\nCharacteristics\nSport:\ncross-country skiing\nTest data\n[Hb] capillary:\n13,6 g/dl\n[Hct] capillary:\n40,7 %\nCO-Hb before:\n1,0 %\nCO-Hb after:\n6,2 %\nCO application:\n58 ml\nBag volume:\n3 l\nResults\nParameter\nabsolute\nrelative\nBody mass index\n20,6 kg/m²\n—\nMCHC\n33,3 g/dl\n—\nHaemoglobin mass\n742 g\n12,8 g/kg\nErythrocyte volume\n2230 ml\n38,4 ml/kg\nPlasma volume\n3250 ml\n55,9 ml/kg\nBlood volume\n5480 ml\n94,3 ml/kg\nexport measurement #14 | 2023-05-17\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-thb-2023_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-odber-2023-11-14",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2023-11-14",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum kontroly:\n14.11.2023\nZapsal:\nMUDr. Jana Procházková\nOdběr: 14.11.2023, Laboratoř Zelený Ostrov s.r.o.\nHodnocení\nPodzimní kontrolní odběr. Krevní obraz v normě, B_Hemoglobin 135 g/l. S_Ferritin 52 µg/l — proti květnovým 65 µg/l další\npokles, hodnota je ale v referenčním rozmezí a saturace transferinu 22,1 % rovněž.\nDoporučení\nZatím bez substituce. Doporučena strava bohatší na železo; kontrola při jarní prohlídce, při obtížích dříve.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-odber-2023-11-14_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-spirometrie-2024",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2024-05-14",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nDvořáková\nKřestní jméno:\nLucie\nIdentifikace:\np-dvorakova-2000\nVěk:\n24 let\nDatum narození:\n17.2.2000\nDatum návštěvy:\n14.5.2024\nPohlaví:\nžena\nVýška:\n168 cm\nHmotnost:\n57,8 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n4,26\n4,60\n108\n4,48\n4,51\n4,60\n0,8\nFEV1 (l)\n3,52\n3,87\n110\n3,78\n3,82\n3,87\n1,0\nFEV1%F (%)\n82\n84\n102\n84\n85\n84\n0,2\nPEF (l/s)\n8,1\n8,5\n105\n8,2\n8,3\n8,5\n0,5\nPodmínky měření\nDatum:\n14.5.2024\nČas:\n10:15\nTeplota:\n21,8 °C\nTlak:\n1002 hPa\nVlhkost:\n48 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-spirometrie-2024_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-zprava-2024",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2024-05-14",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum vyšetření:\n14.5.2024\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: bez kardiovaskulární zátěže.\nOA: běžná dětská onemocnění; operace 0; alergie 0; trvalá medikace 0; menstruační cyklus pravidelný, krvácení v\nposledním roce silnější.\nSA: běh na lyžích, reprezentační družstvo; roční objem 700 hodin.\nNA: vitamin D, hořčík.\nSubjektivně\nBez výraznějších obtíží, ke konci sezóny se cítila unavenější než v minulých letech. Bez dušnosti, bez palpitací.\nObjektivně\nEupnoe, kůže a spojivky normální barvy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho\nměkké, nebolestivé. Dolní končetiny bez otoků.\nVýška / hmotnost: 168 cm / 57,8 kg\nTK: 112/70 mmHg\nKlidová TF: 50/min\nEKG\nEKG v klidu: sinusová bradykardie 50/min, elektrická osa 71°, PR 152 ms, QRS 90 ms, QTc 398 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 195/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n4,60\n108\nFEV1 (l)\n3,87\n110\nFEV1/FVC — Tiffeneaův index (%)\n84\n102\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 8 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n12,5\n15,1\n17,9\nTepová frekvence (/min)\n161\n180\n195\nVO₂ (ml/kg/min)\n44,8\n54,1\n61,9\nVO₂ (l/min)\n2,59\n3,13\n3,58\nRER\n0,89\n0,99\n1,13\nVentilace (l/min)\n75\n100\n130\nSpO2 (%)\n98\n96\n95\nKrevní obraz a biochemie\nOdběr: 14.5.2024, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 44 µg/l; S_Železo: 10,9 µmol/l; S_Saturace Trf: 20,6 %; S_Kreatinin: 72 µmol/l; S_Urea: 4,01 mmol/l;\nS_Kreatinkináza: 1,08 µkat/l; S_ALT: 0,28 µkat/l; S_AST: 0,47 µkat/l; S_CRP: 1,7 mg/l; S_Glukóza: 5,04 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 133 g/l; B_Hematokrit: 0,398 1; B_Erytrocyty: 4,28 10^12/l; B_Leukocyty: 7,00 10^9/l;\nB_Trombocyty: 233 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nLucie Dvořáková, nar. 17.2.2000\nZávěr z vyšetření\nVO₂max 61,9 ml/kg/min (3,58 l/min), funkčně beze změny. EKG, krevní tlak i spirometrie bez patologie.\nZásoby železa klesají druhou sezónu v řadě: S_Ferritin 65 → 52 → 44 µg/l za poslední tři odběry. Hodnota je stále v\nreferenčním rozmezí a krevní obraz v normě, jde tedy o trend, nikoli o nález — ale trend, který je při silnějším\nmenstruačním krvácení a vysokém objemu tréninku třeba brát vážně.\nDoporučení\nSportu schopna bez omezení.\nStrava s dostatkem železa, vitamin C k jídlům s jeho obsahem. Kontrolní odběr už na podzim; při dalším poklesu zahájit\nsubstituci, nečekat na anémii.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 142\n2–3\nI1 — základní vytrvalost\n142–154\n3–4\nI2 — vytrvalost\n154–166\n5–6\nI3 — tempo\n166–180\n6–7\nI4 — rozvoj VO₂max\nnad 180\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2024_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2024_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-thb-2024",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2024-05-15",
+  "kind": "perf_eval",
+  "title": "Measurement Log (tHb)",
+  "bodyText": "Measurement Log\nCO-rebreathing — total haemoglobin mass\nProject\nIdentNo:\np-dvorakova-2000\nName:\nLucie Dvořáková\nTest leader:\nMUDr. Martin Kolář\nDate:\n15.5.2024\nPersonal data\nDate of birth:\n17.2.2000\nSex:\nfemale\nHeight:\n168 cm\nBody mass:\n57,8 kg\nCharacteristics\nSport:\ncross-country skiing\nTest data\n[Hb] capillary:\n13,5 g/dl\n[Hct] capillary:\n40,4 %\nCO-Hb before:\n0,9 %\nCO-Hb after:\n6,1 %\nCO application:\n58 ml\nBag volume:\n3 l\nResults\nParameter\nabsolute\nrelative\nBody mass index\n20,5 kg/m²\n—\nMCHC\n33,5 g/dl\n—\nHaemoglobin mass\n738 g\n12,8 g/kg\nErythrocyte volume\n2202 ml\n38,1 ml/kg\nPlasma volume\n3248 ml\n56,2 ml/kg\nBlood volume\n5450 ml\n94,3 ml/kg\nexport measurement #21 | 2024-05-15\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-thb-2024_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-odber-2024-11-05",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2024-11-05",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum kontroly:\n5.11.2024\nZapsal:\nMUDr. Jana Procházková\nOdběr: 5.11.2024, Laboratoř Zelený Ostrov s.r.o.\nHodnocení\nPodzimní kontrolní odběr. S_Ferritin 26 µg/l — pokles pokračuje druhou sezónu (65 → 52 → 44 → 26 µg/l), S_Železo 8,4\nµmol/l a saturace 20,2 % při dolní hranici. B_Hemoglobin 128 g/l je v rozmezí, ale nejníže za dobu sledování.\nJde o vyčerpávání zásob železa při vysokém objemu tréninku a silnějším menstruačním krvácení; anémie zatím nevznikla.\nDoporučení\nZahájena perorální substituce železa obden, vitamin C k dávce. Kontrolní odběr v lednu; při poklesu tolerance zátěže hlásit\nihned.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-odber-2024-11-05_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-odber-2025-01-21",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2025-01-21",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum kontroly:\n21.1.2025\nZapsal:\nMUDr. Jana Procházková\nOdběr: 21.1.2025, Laboratoře Modrý Kámen s.r.o.\nHodnocení\nKontrolní odběr uprostřed závodního bloku. S_Ferritin 11 µg/l pod dolní mezí, S_Železo 5,9 µmol/l pod dolní mezí, saturace\ntransferinu 9,8 % výrazně snížená. B_Hemoglobin 121 g/l těsně v rozmezí — sideropenie bez anémie.\nSubjektivně těžké nohy a horší zotavení od prosince; nález obtíže vysvětluje. Substituce obden z listopadu nebyla\ndostatečná.\nDoporučení\nSubstituce železa denně, kontrola za 10–12 týdnů. Redukce tréninkového objemu o čtvrtinu a vypuštění jednotek nad\ndruhým ventilačním prahem do kontroly. Doplněno gynekologické vyšetření k posouzení menstruačních ztrát.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-odber-2025-01-21_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-odber-2025-04-15",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2025-04-15",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum kontroly:\n15.4.2025\nZapsal:\nMUDr. Jana Procházková\nOdběr: 15.4.2025, Laboratoř Zelený Ostrov s.r.o.\nHodnocení\nKontrola po 12 týdnech denní substituce. S_Ferritin 19 µg/l — stále pod dolní mezí, ale vzestup z lednových 11 µg/l.\nS_Železo 7,4 µmol/l se vrátilo do rozmezí, saturace 16,8 % ještě snížená. B_Hemoglobin 124 g/l, mírný vzestup.\nOdpověď na substituci je zřetelná, úprava ale není dokončena. Gynekologické vyšetření z února bez patologického nálezu.\nDoporučení\nPokračovat v denní substituci, plný trénink zatím neuvolňovat — rozhodnutí při květnové prohlídce.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-odber-2025-04-15_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-spirometrie-2025",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2025-05-20",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nDvořáková\nKřestní jméno:\nLucie\nIdentifikace:\np-dvorakova-2000\nVěk:\n25 let\nDatum narození:\n17.2.2000\nDatum návštěvy:\n20.5.2025\nPohlaví:\nžena\nVýška:\n168 cm\nHmotnost:\n58,6 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n4,28\n4,62\n108\n4,50\n4,54\n4,62\n0,8\nFEV1 (l)\n3,55\n3,90\n110\n3,80\n3,83\n3,90\n1,0\nFEV1%F (%)\n82\n84\n102\n84\n84\n84\n0,2\nPEF (l/s)\n8,1\n8,4\n104\n8,0\n8,1\n8,4\n0,4\nPodmínky měření\nDatum:\n20.5.2025\nČas:\n10:25\nTeplota:\n23,6 °C\nTlak:\n1005 hPa\nVlhkost:\n49 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-spirometrie-2025_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-zprava-2025",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2025-05-20",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum vyšetření:\n20.5.2025\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nVedlejší dg.: E61.1 — nedostatek železa (sideropenie bez anémie, 01/2025)\nAnamnéza\nRA: bez kardiovaskulární zátěže.\nOA: sideropenie bez anémie 01/2025, od té doby perorální substituce železa; gynekologické vyšetření 02/2025 bez\npatologického nálezu; operace 0; alergie 0.\nSA: běh na lyžích, reprezentační družstvo; zimní blok redukován o čtvrtinu podle lednového doporučení.\nNA: perorální železo denně, vitamin C, vitamin D, hořčík.\nSubjektivně\nOd března se cítí výrazně lépe, tolerance intenzivních jednotek se vrací. V lednu a únoru těžké nohy a horší zotavení, nyní\nbez obtíží.\nObjektivně\nEupnoe, kůže a spojivky normální barvy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho\nměkké, nebolestivé. Dolní končetiny bez otoků.\nVýška / hmotnost: 168 cm / 58,6 kg\nTK: 110/70 mmHg\nKlidová TF: 52/min\nEKG\nEKG v klidu: sinusová bradykardie 52/min, elektrická osa 70°, PR 150 ms, QRS 88 ms, QTc 404 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 194/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n4,62\n108\nFEV1 (l)\n3,90\n110\nFEV1/FVC — Tiffeneaův index (%)\n84\n102\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 8 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n12,0\n14,6\n17,2\nTepová frekvence (/min)\n158\n178\n194\nVO₂ (ml/kg/min)\n43,1\n52,0\n59,6\nVO₂ (l/min)\n2,53\n3,05\n3,49\nRER\n0,90\n1,00\n1,12\nVentilace (l/min)\n73\n98\n125\nSpO2 (%)\n97\n96\n95\nKrevní obraz a biochemie\nOdběr: 20.5.2025, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 27 µg/l; S_Železo: 8,8 µmol/l; S_Saturace Trf: 21,5 %; S_Kreatinin: 73 µmol/l; S_Urea: 4,15 mmol/l;\nS_Kreatinkináza: 1,36 µkat/l; S_ALT: 0,36 µkat/l; S_AST: 0,40 µkat/l; S_CRP: 1,7 mg/l; S_Glukóza: 4,70 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 127 g/l; B_Hematokrit: 0,381 1; B_Erytrocyty: 4,11 10^12/l; B_Leukocyty: 6,64 10^9/l;\nB_Trombocyty: 255 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nLucie Dvořáková, nar. 17.2.2000\nZávěr z vyšetření\nVO₂max 59,6 ml/kg/min (3,49 l/min) — pokles o 2,3 ml/kg/min proti loňsku, konzistentní se zimní sideropenií (S_Ferritin 11\nµg/l v lednu) a redukovaným tréninkem. EKG i spirometrie bez patologie.\nLaboratorně probíhající úprava: S_Ferritin 27 µg/l, S_Železo 8,8 µmol/l, B_Hemoglobin 127 g/l. Hodnoty rostou třetí odběr v\nřadě, saturace transferinu se vrátila do rozmezí.\nDoporučení\nSportu schopna bez omezení, plný tréninkový objem od června.\nV substituci železa pokračovat přes léto, kontrolní odběr v prosinci. Cílová hodnota S_Ferritin nad 50 µg/l před zimní\nsezónou.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 140\n2–3\nI1 — základní vytrvalost\n140–152\n3–4\nI2 — vytrvalost\n152–164\n5–6\nI3 — tempo\n164–178\n6–7\nI4 — rozvoj VO₂max\nnad 178\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2025_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2025_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-thb-2025",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2025-05-21",
+  "kind": "perf_eval",
+  "title": "Measurement Log (tHb)",
+  "bodyText": "Measurement Log\nCO-rebreathing — total haemoglobin mass\nProject\nIdentNo:\np-dvorakova-2000\nName:\nLucie Dvořáková\nTest leader:\nMUDr. Martin Kolář\nDate:\n21.5.2025\nPersonal data\nDate of birth:\n17.2.2000\nSex:\nfemale\nHeight:\n168 cm\nBody mass:\n58,6 kg\nCharacteristics\nSport:\ncross-country skiing\nTest data\n[Hb] capillary:\n12,7 g/dl\n[Hct] capillary:\n38,3 %\nCO-Hb before:\n1,1 %\nCO-Hb after:\n6,2 %\nCO application:\n56 ml\nBag volume:\n3 l\nResults\nParameter\nabsolute\nrelative\nBody mass index\n20,8 kg/m²\n—\nMCHC\n33,8 g/dl\n—\nHaemoglobin mass\n700 g\n11,9 g/kg\nErythrocyte volume\n2072 ml\n35,4 ml/kg\nPlasma volume\n3338 ml\n57,0 ml/kg\nBlood volume\n5410 ml\n92,3 ml/kg\nexport measurement #29 | 2025-05-21\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-thb-2025_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-odber-2025-12-09",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2025-12-09",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum kontroly:\n9.12.2025\nZapsal:\nMUDr. Jana Procházková\nOdběr: 9.12.2025, Laboratoř Zelený Ostrov s.r.o.\nHodnocení\nKontrolní odběr před vrcholem zimní sezóny. S_Ferritin 45 µg/l, S_Železo 11,6 µmol/l, saturace 24,0 % — vše v rozmezí,\nvzestup pokračuje pátý odběr v řadě. B_Hemoglobin 131 g/l.\nCílová hodnota ferritinu nad 50 µg/l z květnového doporučení zatím těsně nedosažena, trend je ale správným směrem.\nDoporučení\nPokračovat v substituci v plné dávce přes závodní období, kontrola při jarní prohlídce.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-odber-2025-12-09_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-spirometrie-2026",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2026-05-12",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nDvořáková\nKřestní jméno:\nLucie\nIdentifikace:\np-dvorakova-2000\nVěk:\n26 let\nDatum narození:\n17.2.2000\nDatum návštěvy:\n12.5.2026\nPohlaví:\nžena\nVýška:\n168 cm\nHmotnost:\n58,2 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n4,29\n4,63\n108\n4,50\n4,59\n4,63\n0,8\nFEV1 (l)\n3,55\n3,91\n110\n3,80\n3,86\n3,91\n1,0\nFEV1%F (%)\n82\n84\n102\n84\n84\n84\n0,2\nPEF (l/s)\n8,1\n8,6\n106\n8,1\n8,4\n8,6\n0,6\nPodmínky měření\nDatum:\n12.5.2026\nČas:\n8:10\nTeplota:\n23,7 °C\nTlak:\n996 hPa\nVlhkost:\n47 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-spirometrie-2026_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-zprava-2026",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2026-05-12",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nLucie Dvořáková\nDatum narození:\n17.2.2000\nDatum vyšetření:\n12.5.2026\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: bez kardiovaskulární zátěže.\nOA: sideropenie bez anémie 01/2025, plně upravena; operace 0; alergie 0.\nSA: běh na lyžích, reprezentační družstvo; sezóna 2025/26 dokončena v plném objemu, bez přerušení.\nNA: vitamin D, hořčík; železo v udržovacím režimu obden.\nSubjektivně\nBez obtíží, subjektivně nejlepší zima za poslední tři roky. Bez dušnosti, bez palpitací.\nObjektivně\nEupnoe, bez cyanózy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho měkké, nebolestivé.\nDolní končetiny bez otoků.\nVýška / hmotnost: 168 cm / 58,2 kg\nTK: 112/70 mmHg\nKlidová TF: 49/min\nEKG\nEKG v klidu: sinusová bradykardie 49/min, elektrická osa 71°, PR 152 ms, QRS 88 ms, QTc 400 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 194/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n4,63\n108\nFEV1 (l)\n3,91\n110\nFEV1/FVC — Tiffeneaův index (%)\n84\n102\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 8 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n12,5\n15,1\n17,9\nTepová frekvence (/min)\n161\n181\n194\nVO₂ (ml/kg/min)\n45,0\n54,3\n62,1\nVO₂ (l/min)\n2,62\n3,16\n3,61\nRER\n0,88\n0,99\n1,14\nVentilace (l/min)\n75\n101\n131\nSpO2 (%)\n98\n97\n96\nKrevní obraz a biochemie\nOdběr: 12.5.2026, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 58 µg/l; S_Železo: 13,2 µmol/l; S_Saturace Trf: 25,6 %; S_Kreatinin: 69 µmol/l; S_Urea: 4,59 mmol/l;\nS_Kreatinkináza: 1,06 µkat/l; S_ALT: 0,41 µkat/l; S_AST: 0,48 µkat/l; S_CRP: 1,0 mg/l; S_Glukóza: 4,72 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 134 g/l; B_Hematokrit: 0,401 1; B_Erytrocyty: 4,31 10^12/l; B_Leukocyty: 6,74 10^9/l;\nB_Trombocyty: 243 10^9/l;\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nLucie Dvořáková, nar. 17.2.2000\nZávěr z vyšetření\nVO₂max 62,1 ml/kg/min (3,61 l/min) — návrat na úroveň let 2022–2024, loňský pokles byl plně reverzibilní. EKG i\nspirometrie bez patologie.\nS_Ferritin 58 µg/l, S_Železo 13,2 µmol/l, saturace 25,6 % — zásoby železa obnoveny a stabilní přes celou zimní sezónu.\nEpizoda z ledna 2025 je uzavřena.\nDoporučení\nSportu schopna bez omezení.\nUdržovací režim substituce ponechat, odběry nadále 2× ročně — riziková kombinace vysokého objemu a menstruačních\nztrát trvá.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 143\n2–3\nI1 — základní vytrvalost\n143–155\n3–4\nI2 — vytrvalost\n155–167\n5–6\nI3 — tempo\n167–181\n6–7\nI4 — rozvoj VO₂max\nnad 181\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2026_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-zprava-2026_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-dvorakova-thb-2026",
+  "patientRef": "p-dvorakova-2000",
+  "docDate": "2026-05-13",
+  "kind": "perf_eval",
+  "title": "Measurement Log (tHb)",
+  "bodyText": "Measurement Log\nCO-rebreathing — total haemoglobin mass\nProject\nIdentNo:\np-dvorakova-2000\nName:\nLucie Dvořáková\nTest leader:\nMUDr. Martin Kolář\nDate:\n13.5.2026\nPersonal data\nDate of birth:\n17.2.2000\nSex:\nfemale\nHeight:\n168 cm\nBody mass:\n58,2 kg\nCharacteristics\nSport:\ncross-country skiing\nTest data\n[Hb] capillary:\n13,4 g/dl\n[Hct] capillary:\n40,1 %\nCO-Hb before:\n1,0 %\nCO-Hb after:\n6,2 %\nCO application:\n58 ml\nBag volume:\n3 l\nResults\nParameter\nabsolute\nrelative\nBody mass index\n20,6 kg/m²\n—\nMCHC\n33,8 g/dl\n—\nHaemoglobin mass\n748 g\n12,9 g/kg\nErythrocyte volume\n2214 ml\n38,0 ml/kg\nPlasma volume\n3306 ml\n56,8 ml/kg\nBlood volume\n5520 ml\n94,8 ml/kg\nexport measurement #36 | 2026-05-13\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-dvorakova-thb-2026_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-spirometrie-2023",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2023-06-13",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nSvoboda\nKřestní jméno:\nJakub\nIdentifikace:\np-svoboda-2002\nVěk:\n21 let\nDatum narození:\n14.3.2002\nDatum návštěvy:\n13.6.2023\nPohlaví:\nmuž\nVýška:\n184 cm\nHmotnost:\n75,0 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n5,57\n6,24\n112\n6,08\n6,18\n6,24\n1,2\nFEV1 (l)\n4,47\n5,05\n113\n4,94\n4,99\n5,05\n1,3\nFEV1%F (%)\n80\n81\n101\n81\n81\n81\n0,1\nPEF (l/s)\n10,3\n11,2\n109\n10,7\n11,0\n11,2\n0,9\nPodmínky měření\nDatum:\n13.6.2023\nČas:\n9:14\nTeplota:\n20,5 °C\nTlak:\n993 hPa\nVlhkost:\n37 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-spirometrie-2023_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-zprava-2023",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2023-06-13",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum vyšetření:\n13.6.2023\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: bez kardiovaskulární zátěže, náhlé úmrtí v rodině neguje.\nOA: běžná dětská onemocnění; 2019 zlomenina levého zápěstí, zhojena; operace 0; alergie 0; trvalá medikace 0.\nSA: běh na lyžích od 7 let, družstvo do 23 let; roční objem 780 hodin, v přípravě kolečkové lyže, běh, kolo, síla.\nNA: vitamin D v zimě.\nSubjektivně\nBez obtíží. Trénink podle plánu, bez dušnosti, bez palpitací, bez synkop.\nObjektivně\nEupnoe, bez cyanózy. Štítná žláza nehmatná, karotidy bez šelestu. Dýchání sklípkové, čisté. Ozvy ohraničené, akce\npravidelná, bez šelestu. Břicho měkké, nebolestivé. Dolní končetiny bez otoků.\nVýška / hmotnost: 184 cm / 75,0 kg\nTK: 118/72 mmHg\nKlidová TF: 43/min\nEKG\nEKG v klidu: sinusová bradykardie 43/min, elektrická osa 76°, PR 162 ms, QRS 94 ms, QTc 392 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 196/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n6,24\n112\nFEV1 (l)\n5,05\n113\nFEV1/FVC — Tiffeneaův index (%)\n81\n101\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 10 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n14,2\n17,2\n20,4\nTepová frekvence (/min)\n160\n182\n196\nVO₂ (ml/kg/min)\n50,2\n62,6\n71,2\nVO₂ (l/min)\n3,77\n4,70\n5,34\nRER\n0,87\n0,97\n1,14\nVentilace (l/min)\n96\n132\n178\nSpO2 (%)\n97\n96\n95\nKrevní obraz a biochemie\nOdběr: 13.6.2023, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 94 µg/l; S_Železo: 18,2 µmol/l; S_Saturace Trf: 30,5 %; S_Kreatinin: 90 µmol/l; S_Urea: 4,75 mmol/l;\nS_Kreatinkináza: 2,35 µkat/l; S_ALT: 0,52 µkat/l; S_AST: 0,56 µkat/l; S_CRP: 1,3 mg/l; S_Glukóza: 5,05 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 152 g/l; B_Hematokrit: 0,448 1; B_Erytrocyty: 4,95 10^12/l; B_Leukocyty: 5,60 10^9/l;\nB_Trombocyty: 269 10^9/l;\nTotal hemoglobin mass a další parametry\nParametr\nabsolutní\nrelativní\nHbmass\n1040 g\n13,9 g/kg\nObjem krve\n6890 ml\n91,9 ml/kg\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nJakub Svoboda, nar. 14.3.2002\nZávěr z vyšetření\nVO₂max 71,2 ml/kg/min (5,34 l/min) — výborná hodnota pro kategorii do 23 let. EKG v klidu i při zátěži bez patologie,\nspirometrie nadprůměrná.\nHbmass 1040 g (13,9 g/kg) odpovídá vytrvalostně trénovanému sportovci. Laboratorně bez nálezu, S_Ferritin 94 µg/l.\nDoporučení\nSportu schopen bez omezení.\nKontrolní odběr na podzim, další komplexní vyšetření za rok.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 144\n2–3\nI1 — základní vytrvalost\n144–156\n3–4\nI2 — vytrvalost\n156–168\n5–6\nI3 — tempo\n168–182\n6–7\nI4 — rozvoj VO₂max\nnad 182\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2023_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2023_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-odber-2023-11-21",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2023-11-21",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum kontroly:\n21.11.2023\nZapsal:\nMUDr. Jana Procházková\nOdběr: 21.11.2023, Laboratoř Zelený Ostrov s.r.o.\nHodnocení\nPodzimní kontrolní odběr. Krevní obraz i biochemie v normě, B_Hemoglobin 151 g/l, S_Ferritin 88 µg/l, S_Kreatinkináza\n2,80 µkat/l při plném tréninku — bez nálezu.\nDoporučení\nBez opatření, další odběr při jarní prohlídce.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-odber-2023-11-21_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-spirometrie-2024",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2024-06-11",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nSvoboda\nKřestní jméno:\nJakub\nIdentifikace:\np-svoboda-2002\nVěk:\n22 let\nDatum narození:\n14.3.2002\nDatum návštěvy:\n11.6.2024\nPohlaví:\nmuž\nVýška:\n184 cm\nHmotnost:\n75,6 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n5,56\n6,28\n113\n6,17\n6,23\n6,28\n1,3\nFEV1 (l)\n4,47\n5,10\n114\n5,02\n5,06\n5,10\n1,4\nFEV1%F (%)\n80\n81\n101\n81\n81\n81\n0,1\nPEF (l/s)\n10,4\n11,4\n110\n10,9\n11,3\n11,4\n1,0\nPodmínky měření\nDatum:\n11.6.2024\nČas:\n10:56\nTeplota:\n22,9 °C\nTlak:\n979 hPa\nVlhkost:\n37 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-spirometrie-2024_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-zprava-2024",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2024-06-11",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum vyšetření:\n11.6.2024\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: bez kardiovaskulární zátěže.\nOA: 2019 zlomenina levého zápěstí, zhojena; operace 0; alergie 0; trvalá medikace 0.\nSA: běh na lyžích, družstvo do 23 let; roční objem 820 hodin; sezóna hodnocena jako průlomová.\nNA: vitamin D v zimě, hořčík.\nSubjektivně\nBez obtíží, formu hodnotí jako nejlepší v kariéře. Bez dušnosti, bez palpitací.\nObjektivně\nEupnoe, bez cyanózy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho měkké, nebolestivé.\nDolní končetiny bez otoků.\nVýška / hmotnost: 184 cm / 75,6 kg\nTK: 118/74 mmHg\nKlidová TF: 42/min\nEKG\nEKG v klidu: sinusová bradykardie 42/min, elektrická osa 74°, PR 160 ms, QRS 94 ms, QTc 390 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 195/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n6,28\n113\nFEV1 (l)\n5,10\n114\nFEV1/FVC — Tiffeneaův index (%)\n81\n101\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 10 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n14,6\n17,8\n20,9\nTepová frekvence (/min)\n161\n183\n195\nVO₂ (ml/kg/min)\n52,0\n64,9\n73,9\nVO₂ (l/min)\n3,93\n4,91\n5,59\nRER\n0,88\n0,98\n1,15\nVentilace (l/min)\n98\n136\n184\nSpO2 (%)\n97\n96\n95\nKrevní obraz a biochemie\nOdběr: 11.6.2024, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 82 µg/l; S_Železo: 16,1 µmol/l; S_Saturace Trf: 27,2 %; S_Kreatinin: 92 µmol/l; S_Urea: 4,68 mmol/l;\nS_Kreatinkináza: 2,55 µkat/l; S_ALT: 0,48 µkat/l; S_AST: 0,48 µkat/l; S_CRP: 0,6 mg/l; S_Glukóza: 4,78 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 153 g/l; B_Hematokrit: 0,451 1; B_Erytrocyty: 4,89 10^12/l; B_Leukocyty: 5,69 10^9/l;\nB_Trombocyty: 231 10^9/l;\nTotal hemoglobin mass a další parametry\nParametr\nabsolutní\nrelativní\nHbmass\n1072 g\n14,2 g/kg\nObjem krve\n7050 ml\n93,3 ml/kg\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nJakub Svoboda, nar. 14.3.2002\nZávěr z vyšetření\nVO₂max 73,9 ml/kg/min (5,59 l/min) — vzestup o 2,7 ml/kg/min proti loňsku, prahové rychlosti posunuty výše. EKG i\nspirometrie bez patologie.\nHbmass 1072 g (14,2 g/kg), vzestup odpovídá tréninkové adaptaci. S_Ferritin 82 µg/l, zásoby železa v normě.\nDoporučení\nSportu schopen bez omezení.\nPokračovat v nastaveném plánu, kontrolní odběr na podzim.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 145\n2–3\nI1 — základní vytrvalost\n145–157\n3–4\nI2 — vytrvalost\n157–169\n5–6\nI3 — tempo\n169–183\n6–7\nI4 — rozvoj VO₂max\nnad 183\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2024_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2024_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-odber-2024-11-19",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2024-11-19",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum kontroly:\n19.11.2024\nZapsal:\nMUDr. Jana Procházková\nOdběr: 19.11.2024, Laboratoř Zelený Ostrov s.r.o.\nHodnocení\nPodzimní kontrolní odběr. B_Hemoglobin 150 g/l, krevní obraz v normě. S_Ferritin 70 µg/l — proti červnu nižší (82 µg/l),\nzatím v pásmu běžného sezónního kolísání. S_Kreatinkináza 2,95 µkat/l odpovídá tréninkovému zatížení.\nDoporučení\nBez opatření. Sledovat trend ferritinu při jarním odběru.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-odber-2024-11-19_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-spirometrie-2025",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2025-06-10",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nSvoboda\nKřestní jméno:\nJakub\nIdentifikace:\np-svoboda-2002\nVěk:\n23 let\nDatum narození:\n14.3.2002\nDatum návštěvy:\n10.6.2025\nPohlaví:\nmuž\nVýška:\n184 cm\nHmotnost:\n75,8 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n5,58\n6,30\n113\n6,15\n6,23\n6,30\n1,3\nFEV1 (l)\n4,49\n5,12\n114\n4,98\n5,07\n5,12\n1,4\nFEV1%F (%)\n80\n81\n101\n81\n81\n81\n0,1\nPEF (l/s)\n10,4\n11,4\n110\n11,0\n11,3\n11,4\n1,0\nPodmínky měření\nDatum:\n10.6.2025\nČas:\n9:26\nTeplota:\n22,5 °C\nTlak:\n1004 hPa\nVlhkost:\n36 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-spirometrie-2025_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-zprava-2025",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2025-06-10",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum vyšetření:\n10.6.2025\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nAnamnéza\nRA: bez kardiovaskulární zátěže.\nOA: 2019 zlomenina levého zápěstí, zhojena; operace 0; alergie 0; trvalá medikace 0.\nSA: běh na lyžích, družstvo do 23 let; roční objem 860 hodin — další navýšení, k tomu nově vysokoškolské studium.\nNA: vitamin D v zimě, hořčík.\nSubjektivně\nBez zdravotních obtíží, připouští horší spánek v zkouškovém období a menší chuť do nejtvrdších jednotek ke konci sezóny.\nObjektivně\nEupnoe, bez cyanózy. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho měkké, nebolestivé.\nDolní končetiny bez otoků.\nVýška / hmotnost: 184 cm / 75,8 kg\nTK: 120/74 mmHg\nKlidová TF: 44/min\nEKG\nEKG v klidu: sinusová bradykardie 44/min, elektrická osa 75°, PR 160 ms, QRS 94 ms, QTc 394 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 194/min, bez arytmií, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n6,30\n113\nFEV1 (l)\n5,12\n114\nFEV1/FVC — Tiffeneaův index (%)\n81\n101\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 10 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n14,7\n17,9\n21,0\nTepová frekvence (/min)\n161\n183\n194\nVO₂ (ml/kg/min)\n52,3\n65,2\n74,1\nVO₂ (l/min)\n3,96\n4,94\n5,62\nRER\n0,88\n0,98\n1,15\nVentilace (l/min)\n98\n137\n185\nSpO2 (%)\n97\n95\n94\nKrevní obraz a biochemie\nOdběr: 10.6.2025, Laboratoře Modrý Kámen s.r.o.\nBIOCHEMIE\nS_Ferritin: 55 µg/l; S_Železo: 12,6 µmol/l; S_Saturace Trf: 22,0 %; S_Kreatinin: 84 µmol/l; S_Urea: 5,07 mmol/l;\nS_Kreatinkináza: 3,05 µkat/l; S_ALT: 0,45 µkat/l; S_AST: 0,48 µkat/l; S_CRP: 1,4 mg/l; S_Glukóza: 4,67 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 149 g/l; B_Hematokrit: 0,441 1; B_Erytrocyty: 4,99 10^12/l; B_Leukocyty: 6,55 10^9/l;\nB_Trombocyty: 257 10^9/l;\nTotal hemoglobin mass a další parametry\nParametr\nabsolutní\nrelativní\nHbmass\n1080 g\n14,2 g/kg\nObjem krve\n7100 ml\n93,7 ml/kg\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nJakub Svoboda, nar. 14.3.2002\nZávěr z vyšetření\nVO₂max 74,1 ml/kg/min (5,62 l/min) — proti loňsku beze změny; po dvou letech růstu jde o stagnaci na vysoké úrovni.\nEKG i spirometrie bez patologie.\nS_Ferritin 55 µg/l, tedy třetí pokles v řadě (94 → 82 → 55). Hodnota je v rozmezí, ale trend spolu se stagnací výkonnosti a\nnavyšovaným objemem stojí za pozornost.\nDoporučení\nSportu schopen bez omezení.\nKontrolní odběr zásob železa na podzim spolu s kontrolním funkčním vyšetřením; zvážit, zda objem dál nenavyšovat.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 145\n2–3\nI1 — základní vytrvalost\n145–157\n3–4\nI2 — vytrvalost\n157–169\n5–6\nI3 — tempo\n169–183\n6–7\nI4 — rozvoj VO₂max\nnad 183\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2025_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2025_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-funkcni-2025",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2025-11-04",
+  "kind": "perf_eval",
+  "title": "Funkční vyšetření — souhrn",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nFunkční vyšetření — souhrn\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum vyšetření:\n4.11.2025\nVyšetřil:\nMUDr. Jana Procházková\nZátěžový protokol: běh na pásu, sklon 1 %, start 10 km/h, +0,5 km/h po 60 s, do vyčerpání\nHmotnost: 75,9 kg\nPrahové hodnoty\nParametr\nVT1\nVT2\nMax\nTepová frekvence (/min)\n160\n182\n194\nVO₂ (ml/kg/min)\n51,8\n64,6\n73,6\nVO₂ (l/min)\n3,93\n4,90\n5,59\nSpO2 (%)\n97\n95\n94\nHodnocení\nKontrolní funkční vyšetření nařízené při červnové prohlídce. VO₂max 73,6 ml/kg/min (5,59 l/min) — proti červnovým 74,1\nml/kg/min beze změny v mezích chyby měření; stagnace na vysoké úrovni trvá i po letní přípravě, což při dále navýšeném\nobjemu není očekávaný obraz.\nSubjektivně udává větší únavu než v minulých letech touto dobou. Doporučeno nezvyšovat objem a hlídat regeneraci.\nDoporučení\nJarní prohlídka v obvyklém termínu; při zhoršení tolerance zátěže v zimě přijít dříve i s odběrem.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-funkcni-2025_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-spirometrie-2026",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2026-06-09",
+  "kind": "perf_eval",
+  "title": "Spirometrie (Průtok-objem)",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nSpirometrie (Průtok-objem)\nPříjmení:\nSvoboda\nKřestní jméno:\nJakub\nIdentifikace:\np-svoboda-2002\nVěk:\n24 let\nDatum narození:\n14.3.2002\nDatum návštěvy:\n9.6.2026\nPohlaví:\nmuž\nVýška:\n184 cm\nHmotnost:\n76,5 kg\nPrůtok–objem — nejlepší zkouška\nParametr\nNál.\nBest\n%(B/N)\n1\n2\n3\nZ-skóre\nFVC (l)\n5,57\n6,29\n113\n6,17\n6,21\n6,29\n1,3\nFEV1 (l)\n4,48\n5,11\n114\n5,01\n5,07\n5,11\n1,4\nFEV1%F (%)\n80\n81\n101\n81\n82\n81\n0,1\nPEF (l/s)\n10,4\n11,3\n109\n11,0\n11,0\n11,3\n0,9\nPodmínky měření\nDatum:\n9.6.2026\nČas:\n8:14\nTeplota:\n20,3 °C\nTlak:\n999 hPa\nVlhkost:\n38 %\nSPIR_FVC_CSM · Centrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-spirometrie-2026_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-zprava-2026",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2026-06-09",
+  "kind": "perf_eval",
+  "title": "Zpráva z vyšetření",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum vyšetření:\n9.6.2026\nVyšetřil:\nMUDr. Jana Procházková\nZákladní dg.: Z02.5 — posouzení způsobilosti ke sportu\nVedlejší dg.: Z72.3 — riziko přetížení při vysokém tréninkovém objemu\nAnamnéza\nRA: bez kardiovaskulární zátěže.\nOA: 2019 zlomenina levého zápěstí, zhojena; operace 0; alergie 0; trvalá medikace 0; 02/2026 dvoutýdenní respirační\ninfekt.\nSA: běh na lyžích, družstvo do 23 let; roční objem 880 hodin; závěr sezóny hodnotí jako nevydařený.\nNA: vitamin D, hořčík.\nSubjektivně\nOd zimy horší tolerance intenzivních jednotek, na prahových úsecích subjektivně těžší nohy při stejné tepové frekvenci.\nRanní tepová frekvence o 4–5 úderů vyšší. Spánek nekvalitní. Bez dušnosti, bez palpitací.\nObjektivně\nEupnoe, mírně bledší spojivky. Dýchání sklípkové, čisté. Ozvy ohraničené, akce pravidelná, bez šelestu. Břicho měkké,\nnebolestivé. Dolní končetiny bez otoků.\nVýška / hmotnost: 184 cm / 76,5 kg\nTK: 118/74 mmHg\nKlidová TF: 47/min\nEKG\nEKG v klidu: sinusová bradykardie 47/min, elektrická osa 75°, PR 162 ms, QRS 96 ms, QTc 398 ms, bez repolarizačních\nzměn.\nEKG při zátěži: sinusový rytmus do 192/min, ojedinělé supraventrikulární extrasystoly, bez ischemických změn.\nSpirometrie\nParametr\nHodnota\n% normy\nFVC (l)\n6,29\n113\nFEV1 (l)\n5,11\n114\nFEV1/FVC — Tiffeneaův index (%)\n81\n101\nSpiroergometrické parametry\nZátěžový protokol: běh na pásu, sklon 1 %, start 10 km/h, +0,5 km/h po 60 s, do vyčerpání\nParametr\nVT1 / LT\nVT2 / MLSS\nMax / Peak\nRychlost (km/h)\n14,0\n17,0\n20,1\nTepová frekvence (/min)\n156\n178\n192\nVO₂ (ml/kg/min)\n49,5\n61,4\n70,4\nVO₂ (l/min)\n3,79\n4,70\n5,39\nRER\n0,90\n0,99\n1,12\nVentilace (l/min)\n96\n133\n176\nSpO2 (%)\n97\n95\n94\nKrevní obraz a biochemie\nOdběr: 9.6.2026, Laboratoř Zelený Ostrov s.r.o.\nBIOCHEMIE\nS_Ferritin: 32 µg/l; S_Železo: 11,3 µmol/l; S_Saturace Trf: 20,3 %; S_Kreatinin: 88 µmol/l; S_Urea: 4,81 mmol/l;\nS_Kreatinkináza: 3,10 µkat/l; S_ALT: 0,48 µkat/l; S_AST: 0,61 µkat/l; S_CRP: 1,5 mg/l; S_Glukóza: 5,10 mmol/l;\nHEMATOLOGIE\nB_Hemoglobin: 147 g/l; B_Hematokrit: 0,436 1; B_Erytrocyty: 4,81 10^12/l; B_Leukocyty: 6,21 10^9/l;\nB_Trombocyty: 221 10^9/l;\nTotal hemoglobin mass a další parametry\nMěření celkové hemoglobinové masy provedeno samostatně 10. 6. 2026, viz Measurement Log.\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 2\nCentrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZpráva z vyšetření — pokračování\nJakub Svoboda, nar. 14.3.2002\nZávěr z vyšetření\nVO₂max 70,4 ml/kg/min (5,39 l/min) — pokles o 3,7 ml/kg/min proti loňsku. Poslední tři testy tvoří sekvenci 74,1 → 73,6 →\n70,4: po stagnaci nyní zřetelný pokles, s nižšími prahovými rychlostmi i nižší maximální tepovou frekvencí.\nS_Ferritin 32 µg/l těsně nad dolní mezí, čtvrtý pokles v řadě. Spirometrie i EKG bez strukturální patologie — pokles\nvýkonnosti nemá ventilační ani kardiální vysvětlení a spolu se subjektivními obtížemi budí podezření na přetížení s\nvyčerpáváním zásob železa.\nDoporučení\nSportu schopen, ale doporučena redukce objemu o 20 % na 6 týdnů a vypuštění jednotek nad druhým ventilačním\nprahem.\nKontrolní odběr krevního obrazu, zásob železa a CK v srpnu — podle výsledku rozhodnout o substituci a dalším postupu.\nTréninkové intenzity:\nIntenzita / zóna\nTF (/min)\nRPE\nI0 — regenerace\ndo 140\n2–3\nI1 — základní vytrvalost\n140–152\n3–4\nI2 — vytrvalost\n152–164\n5–6\nI3 — tempo\n164–178\n6–7\nI4 — rozvoj VO₂max\nnad 178\n8–10\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n2 / 2",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2026_p1.png",
+    "width": 1819,
+    "height": 2573
+   },
+   {
+    "pageNum": 2,
+    "imageUrl": "/demo/csm/pages/d-svoboda-zprava-2026_p2.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-thb-2026",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2026-06-10",
+  "kind": "perf_eval",
+  "title": "Measurement Log (tHb)",
+  "bodyText": "Measurement Log\nCO-rebreathing — total haemoglobin mass\nProject\nIdentNo:\np-svoboda-2002\nName:\nJakub Svoboda\nTest leader:\nMUDr. Martin Kolář\nDate:\n10.6.2026\nPersonal data\nDate of birth:\n14.3.2002\nSex:\nmale\nHeight:\n184 cm\nBody mass:\n76,5 kg\nCharacteristics\nSport:\ncross-country skiing\nTest data\n[Hb] capillary:\n15,1 g/dl\n[Hct] capillary:\n45,0 %\nCO-Hb before:\n1,0 %\nCO-Hb after:\n6,4 %\nCO application:\n90 ml\nBag volume:\n4 l\nResults\nParameter\nabsolute\nrelative\nBody mass index\n22,6 kg/m²\n—\nMCHC\n33,7 g/dl\n—\nHaemoglobin mass\n1085 g\n14,2 g/kg\nErythrocyte volume\n3218 ml\n42,1 ml/kg\nPlasma volume\n3932 ml\n51,4 ml/kg\nBlood volume\n7150 ml\n93,5 ml/kg\nexport measurement #37 | 2026-06-10\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-thb-2026_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ },
+ {
+  "id": "d-svoboda-odber-2026-08-11",
+  "patientRef": "p-svoboda-2002",
+  "docDate": "2026-08-11",
+  "kind": "perf_eval",
+  "title": "Záznam z kontroly — krevní odběr",
+  "bodyText": "Centrum sportovní medicíny z.s.\nPod altánem 67/352, 100 00 Praha 10 · tel +420 722 050 450 · info@centrumsportmed.cz\nZáznam z kontroly — krevní odběr\nPacient:\nJakub Svoboda\nDatum narození:\n14.3.2002\nDatum kontroly:\n11.8.2026\nZapsal:\nMUDr. Jana Procházková\nOdběr: 11.8.2026, Laboratoře Modrý Kámen s.r.o.\nHodnocení\nKontrolní odběr nařízený při červnové prohlídce. S_Ferritin 18 µg/l pod dolní mezí, S_Železo 9,4 µmol/l pod dolní mezí,\nsaturace transferinu 14,8 % snížená. S_Kreatinkináza 6,80 µkat/l výrazně nad horní mezí i při deklarovaných dvou dnech\nbez intenzivního tréninku. B_Hemoglobin 144 g/l — v rozmezí, ale nejnižší za dobu sledování.\nPanel potvrzuje obavy z června: vyčerpané zásoby železa a známky svalového přetížení při klesající výkonnosti. Červnová\nredukce objemu podle sdělení pacienta dodržena jen zčásti.\nDoporučení\nZahájena denní perorální substituce železa. Přerušení intenzivního tréninku na 2 týdny, poté pouze pásma pod prvním\nventilačním prahem do kontroly. Kontrolní odběr a klinické vyšetření za 6 týdnů — podle výsledku zvážit rozšířené\nvyšetření a úpravu ročního plánu. Nutná důsledná compliance.\nMUDr. Jana Procházková\ntělovýchovný lékař\nCentrum sportovní medicíny z.s.\nUkázková data — smyšlený pacient i pracoviště, negenerováno z reálného vyšetření.\n1 / 1",
+  "pages": [
+   {
+    "pageNum": 1,
+    "imageUrl": "/demo/csm/pages/d-svoboda-odber-2026-08-11_p1.png",
+    "width": 1819,
+    "height": 2573
+   }
+  ]
+ }
+]

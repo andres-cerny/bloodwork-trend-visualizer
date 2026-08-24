@@ -315,6 +315,19 @@ real-record transcription (small, local) and the single live smoke turns
   extended (coverage regex now guards the brand constants);
   `docs/csm-protocol.md` — 14 charted metrics, shapes only, privacy-swept.
   invariant-reviewer: 2 findings, both fixed in-phase. 495 tests.
+- [x] 2026-08-24 Phase 2 (ghosts) — three skiers through the font-locked
+  pipeline (Dvořáková: ferritin arc dips to low and recovers; Svoboda:
+  out-of-range panel now + VO₂max decline; Beneš: sparse masters): 23 draws,
+  38 documents, 50 pages, 29 visits, 192 perf rows over the inventory's
+  metric ids. Proven: byte-identical regeneration; privacy grep clean
+  (no real name or lab); every report/document date maps to a visit; 174/174
+  inline-panel values match the committed lab values. Doctor names fictional
+  (Kolář, Procházková); every page carries the smyšlený-pacient footer.
+  Generator agent was cut off by the session usage limit at the finish —
+  verification completed by the orchestrator. Real-record half: transcription
+  done into git-ignored data/csm-real/ (75 values, 13 ⚠ for Ondřej's
+  spot-check in VERIFY.md, 3 image-only scans listed for OCR); the deploy-time
+  seeder extension is still open (Phase 6 work).
 - [x] 2026-08-24 Phase 3 (built early, same sitting) — `/api/card/*` routes:
   patients / visits / visit / trend / document; session-gated but NOT
   ledger-gated (a frozen AI budget keeps the card serving — pinned);
