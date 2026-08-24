@@ -66,4 +66,20 @@ describe("Chart reference range", () => {
     expect(svg).toContain('fill="var(--band-neutral)"');
     expect(svg).not.toContain('fill="var(--band)"');
   });
+
+  // `fitText` is the second opt-in on this component, and it has the same
+  // contract: the bloodwork trends tab passes neither, and its charts must
+  // render at the sizes they always did. Unmeasured — which is every render
+  // with `fitText` off, and the first paint with it on — the multiplier is
+  // exactly 1, so every font size is the integer it was written as.
+  it("leaves type size and axis padding alone unless a caller opts in", () => {
+    for (const svg of [render({ trend }), render({ trend, includeRefRange: true })]) {
+      expect(svg).toContain('font-size="13"'); // axis ticks, month labels
+      expect(svg).toContain('font-size="14"'); // the latest value
+      expect(svg).toContain('x="51"'); // the tick gutter: PAD.left − 7
+    }
+    // And the limit labels keep their words: the bare-number form is the
+    // narrow-card rendering, which only a measured `fitText` can reach.
+    expect(render({ trend, includeRefRange: true })).toContain('font-size="11"');
+  });
 });

@@ -153,6 +153,81 @@ export function foldExcerpt(text: string): string {
   return /[.!?…]$/.test(folded) ? folded : `${folded}…`;
 }
 
+/* ------------------------------------------------------------------ *
+ * Where a quote should start
+ *
+ * What the reader wants is the sentence the `[n]` was put beside. That
+ * sentence is very often not in the payload: the `sources` event carries one
+ * fixed-length excerpt taken from the top of the document, so when the answer
+ * cites „kompletní rupturu LCA" from the middle of an MR report, those words
+ * are simply not on this side of the wire. No client code can show them, and
+ * inventing them is the one thing an evidence panel may never do.
+ *
+ * What *is* possible is to stop spending the excerpt on the stationery. Every
+ * sheet in this corpus opens the same way — practice, department, the document
+ * title (which the card already carries as its own heading), then four or five
+ * identity labels — and a card that opens with nine lines of that has told the
+ * reader nothing they could not read off the card's own title. So the head is
+ * skipped up to the first line that is none of those things, and the quote
+ * starts there.
+ *
+ * The rules below only ever *choose where to begin*. No word is altered,
+ * reordered, paraphrased or dropped from the middle: what is shown is a
+ * contiguous run of the excerpt, ending where the excerpt ends, marked with a
+ * leading „…" when a head was skipped.
+ * ------------------------------------------------------------------ */
+
+/** „… s.r.o.", „… a.s." — the practice, not the patient. */
+const ORG_LINE = /(s\.\s?r\.\s?o\.|a\.\s?s\.|spol\.\s*s\s*r\.\s?o\.|z\.ú\.|o\.p\.s\.)/i;
+/** „Radiodiagnostické pracoviště", „Ortopedické oddělení — operační sál". */
+const FACILITY_LINE =
+  /\b(pracovišt[ěe]|odděl[eě]ní|ambulance|laborato[řr]|klinika|poliklinika|centrum|ústav|nemocnice|ordinace|sál)\b/i;
+/**
+ * An identity or provenance label. „Diagnóza:", „Závěr:", „RA:" are absent on
+ * purpose — those are the lines this whole function exists to reach.
+ */
+const ADMIN_LABEL =
+  /^(pacient(ka)?|jméno|příjmení|datum[^:]*|rodné\s+číslo|rč|(zdravotní\s+)?pojišťovna|id|věk|pohlaví|adresa|bydliště|terapeut(ka)?|operatér(ka)?|popsal(a)?|vyšetřil(a)?|vyhodnotil(a)?|zpracoval(a)?|provedl(a)?|(indikující|odesílající|ošetřující)\s+lékař(ka)?|lékař(ka)?|technika|přístroj|protokol|číslo\s+protokolu|kód|identifikace)\s*:/i;
+
+const squash = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+
+/** How much of the tail stands in when the excerpt is stationery end to end. */
+const TAIL_LINES = 2;
+
+function isBoilerplate(line: string, title?: string): boolean {
+  const t = line.trim();
+  if (!t) return true;
+  // The document's own title. It is the card's heading two rows above; a quote
+  // that opens by repeating it has spent a line saying nothing new.
+  if (title && squash(t) === squash(title)) return true;
+  if (ORG_LINE.test(t)) return true;
+  const words = t.split(/\s+/).length;
+  if (FACILITY_LINE.test(t) && words <= 6) return true;
+  if (ADMIN_LABEL.test(t)) return true;
+  // A bare section heading — „Anamnéza", „Provedené vyšetření". Short, no
+  // colon, no number, no sentence end: it announces content rather than being
+  // content, and the line under it is the content.
+  if (words <= 3 && !/[:.!?…]/.test(t) && !/\d/.test(t)) return true;
+  return false;
+}
+
+/**
+ * The excerpt, opened at its first substantive line.
+ *
+ * When every line is stationery — and for two of this corpus's documents every
+ * line genuinely is, because the excerpt stops before the report's first
+ * sentence — the tail is shown instead of the head. Neither end proves the
+ * citation; the tail is at least the end nearest the text that follows, and
+ * three identical letterheads in a rail are worse than three different last
+ * lines.
+ */
+export function openExcerpt(text: string, title?: string): string {
+  const lines = foldExcerpt(text).split("\n");
+  const first = lines.findIndex((l) => !isBoilerplate(l, title));
+  const from = first >= 0 ? first : Math.max(0, lines.length - TAIL_LINES);
+  return (from > 0 ? "…" : "") + lines.slice(from).join("\n");
+}
+
 function SourceCard({
   s,
   active,
@@ -237,7 +312,7 @@ function SourceCard({
           first sliver of the line after the ellipsis paint anyway. */}
       {s.kind === "document" && s.excerpt && (
         <blockquote className="src-quote">
-          <span>{foldExcerpt(s.excerpt)}</span>
+          <span>{openExcerpt(s.excerpt, s.title ?? s.label)}</span>
         </blockquote>
       )}
       {open && s.imageUrl && (

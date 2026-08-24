@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { czDate, czDatesInText } from "./dates";
-import { foldExcerpt } from "./Sources";
+import { foldExcerpt, openExcerpt } from "./Sources";
 
 describe("czDate", () => {
   it("renders the registry's ISO as a Czech date", () => {
@@ -71,5 +71,45 @@ describe("foldExcerpt", () => {
   it("never re-spaces a date inside a quote", () => {
     // The prose formatter must not reach in here: this is the paper talking.
     expect(foldExcerpt(raw)).toContain("27.2.1988");
+  });
+});
+
+describe("openExcerpt", () => {
+  const withProse =
+    "Ortopedie a fyzioterapie Podhájí s.r.o.\nPracoviště fyzioterapie\n" +
+    "Záznam z fyzioterapie\nPacient:\nMichal Novák\nDatum narození:\n27.2.1988\n" +
+    "Datum terapie:\n16.12.2024\nTerapeut:\nMgr. Petr Hlaváček\n" +
+    "Diagnóza: stav po plastice předního zkříženého vazu";
+
+  it("drops the letterhead and opens on the clinical line", () => {
+    expect(openExcerpt(withProse, "Záznam z fyzioterapie")).toBe(
+      "…Diagnóza: stav po plastice předního zkříženého vazu…",
+    );
+  });
+
+  it("shows a contiguous run of the paper's own words, unaltered", () => {
+    // The one rule the evidence panel cannot bend: what is displayed must be
+    // in the payload, in that order, spelt that way. Only the start moves.
+    const shown = openExcerpt(withProse, "Záznam z fyzioterapie").replace(/^…|…$/g, "");
+    expect(foldExcerpt(withProse).replace(/…$/, "")).toContain(shown);
+  });
+
+  it("keeps a quote that starts with content exactly where it starts", () => {
+    const prose = "Závěr: kompletní ruptura LCA.\nDoporučena artroskopie.";
+    expect(openExcerpt(prose, "MR kolena")).toBe(prose);
+  });
+
+  it("falls back to the tail when the excerpt is stationery end to end", () => {
+    // novak-dva's MR report: the registry's excerpt stops before the first
+    // sentence of the finding, so there is no cited text to reach. Two
+    // different last lines beat two identical letterheads.
+    const allHeader =
+      "Ortopedie a fyzioterapie Podhájí s.r.o.\nRadiodiagnostické pracoviště\n" +
+      "MR pravého kolenního kloubu — popis\nPacient:\nMichal Novák\n" +
+      "Datum narození:\n27.2.1988\nPopsal:\nMUDr. Eva Puchmertlová\n" +
+      "Provedené vyšetření\nTechnika:";
+    expect(openExcerpt(allHeader, "MR pravého kolenního kloubu — popis")).toBe(
+      "…Provedené vyšetření\nTechnika:…",
+    );
   });
 });

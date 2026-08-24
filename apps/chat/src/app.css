@@ -480,20 +480,25 @@ button.candidate:hover .cand-go { color: var(--accent); }
  * bars are at the answer's own measure and rhythm, so the column reads as a
  * page being written rather than as a request that died. Shimmer travels left
  * to right across each bar; with reduced motion the sweep stops and the bars
- * stay as flat blocks, which still says „not yet" without moving. */
+ * stay as flat blocks, which still says „not yet" without moving.
+ *
+ * The bar was `--chip` on `--plane`, which is 1.03:1 in the light palette:
+ * the whole state worked in dark and showed an empty column in the default
+ * theme. Both the bar and its sweep are now their own tokens, set so the light
+ * separation matches the one dark always had. The sweep is a translucent
+ * highlight rather than two named surfaces, so it lifts the bar in either
+ * palette instead of being brighter than the page in one of them. */
 .skel { display: flex; flex-direction: column; gap: 11px; margin: 18px 0 4px; }
 .skel-line {
   display: block;
   height: 13px;
   border-radius: 5px;
-  background: var(--chip);
+  background: var(--skeleton-surface);
   background-image: linear-gradient(
     90deg,
-    rgba(0, 0, 0, 0) 0%,
-    var(--surface-3) 38%,
-    var(--surface-1) 50%,
-    var(--surface-3) 62%,
-    rgba(0, 0, 0, 0) 100%
+    rgba(255, 255, 255, 0) 0%,
+    var(--skeleton-surface-sheen) 50%,
+    rgba(255, 255, 255, 0) 100%
   );
   background-size: 260% 100%;
   background-repeat: no-repeat;
@@ -889,17 +894,17 @@ button.candidate:hover .cand-go { color: var(--accent); }
   font-size: 0.8rem;
   line-height: 1.5;
 }
-/* Ten lines, not four.
+/* Six lines — and the header is no longer one of them.
  *
- * The excerpt opens with the sheet's own header — institution, department,
- * title, then four label/value pairs — and at four lines the quote ended at
- * „Pacient:…", which told the reader that the document has a patient. The
- * label lines are closed up in `foldExcerpt` and the clamp is set past them,
- * so what is visible at rest is the clinical line: „Diagnóza: stav po plastice
- * předního zkříženého vazu". */
+ * The clamp was raised to ten to reach *past* the sheet's letterhead, which
+ * meant every document card spent six to nine lines on „Ortopedie … s.r.o. /
+ * Pracoviště fyzioterapie / Pacient: … / Datum narození: …" before saying
+ * anything, and on a phone that is most of a screen per card. `openExcerpt`
+ * now drops the header instead of scrolling past it, so the clamp only has to
+ * hold real text and can come back down. */
 .src-quote span {
   display: -webkit-box;
-  -webkit-line-clamp: 10;
+  -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: pre-line;

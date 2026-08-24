@@ -153,11 +153,19 @@ function Charts({ series }: { series: unknown }) {
       {/* `includeRefRange`: here the chart arrives inside a sentence — „vše v
           pásmu normy" — and the band is the claim that sentence makes, so the
           axis has to hold the whole range or the picture argues with the
-          prose. The bloodwork trends tab does not opt in, and its charts are
+          prose.
+
+          `fitText`: and this chart is read on a phone, in a column ~326px
+          wide, where a 640-unit viewBox halves every label — the two limit
+          labels that fix above landed at ~5px, beside a 16px caption saying
+          the same numbers in words. Opted in, the type is sized after the
+          scale instead of before it.
+
+          The bloodwork trends tab opts into neither, and its charts are
           unchanged. */}
       {groups.flatMap((g, j) =>
         (g.series as never[]).map((trend, k) => (
-          <Chart key={`${j}-${k}`} trend={trend} includeRefRange />
+          <Chart key={`${j}-${k}`} trend={trend} includeRefRange fitText />
         )),
       )}
     </figure>
