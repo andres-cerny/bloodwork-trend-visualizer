@@ -32,7 +32,12 @@
     // extract until now, but chat can only reach this worker — and a token
     // proves where it was solved, so the list must name the chat host. Never
     // localhost here; .dev.vars carries that for dev.
-    "TURNSTILE_HOSTNAMES": "bloodwork-chat.andres-cerny.workers.dev,bloodwork-demo.andres-cerny.workers.dev",
+    // The four `-a/-r1/-r2/-r3` hosts are the UI tournament's candidates, put
+    // side by side for Ondrej to judge in a browser rather than in screenshots.
+    // They are shells only — one agent, one pair of databases, one ledger
+    // behind all of them — so they cost nothing extra and are deleted with a
+    // `wrangler delete` once the pick is merged.
+    "TURNSTILE_HOSTNAMES": "bloodwork-chat.andres-cerny.workers.dev,bloodwork-demo.andres-cerny.workers.dev,bloodwork-chat-a.andres-cerny.workers.dev,bloodwork-chat-r1.andres-cerny.workers.dev,bloodwork-chat-r2.andres-cerny.workers.dev,bloodwork-chat-r3.andres-cerny.workers.dev",
     "BUDGET_USD_LIMIT": "40",
     "CLINICAL_USD_LIMIT": "10",
     "SESSION_TTL_SECONDS": "1800"
