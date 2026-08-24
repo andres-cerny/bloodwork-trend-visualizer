@@ -850,8 +850,36 @@ button.candidate:hover .cand-go { color: var(--accent); }
 .src-title { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
 .src-label { font-size: 0.86rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .src-meta { font-size: 0.75rem; color: var(--ink-muted); overflow-wrap: anywhere; }
+/* A report cited as a whole has no located row, so the card is the reference
+   and the page is behind the `+`. This is the line that says so — without it
+   the `+` is an unexplained glyph on an otherwise inert card. */
+.src-hint { margin-top: 2px; font-size: 0.73rem; color: var(--accent-ink); }
+.src-head:hover .src-hint { text-decoration: underline; }
 .src-more { flex: none; color: var(--ink-muted); font-size: 1rem; line-height: 1.2; }
 .src-head:hover .src-more { color: var(--accent); }
+
+/* Everything above this line is cited in the answer; everything below it is
+   context the reader may want and the answer never pointed at. The entries
+   below keep their identity and lose their chip, because a chip in the rail
+   with no [n] in the text is a promise the answer does not keep. */
+.src-divider {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 6px 0 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+}
+.src-divider::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border);
+}
+.src.is-context .src-head { padding-left: 12px; }
 /* An entry with no located row on the page is a reference, not a photograph —
    see Sources.tsx. It gets a row's worth of rail instead of a picture's, and
    the `+` is where its page still is. */

@@ -31,9 +31,19 @@
  * and cost the reader the whole rail. Those entries are now what they honestly
  * are — a numbered reference: label, laboratory, date, and the entire page one
  * click away behind the `+`.
+ *
+ * Two things here are the mobile candidate's, kept because they were better
+ * than this one's: the page behind the `+` is named on the card („Celá strana
+ * nálezu" / „Celá strana dokumentu") rather than left to a tooltip nobody
+ * hovers, and the rail is split — what the answer actually cited above the
+ * divider, „Další podklady" below it. The crop is *not* that candidate's: it
+ * sized the row to a fixed type height and let the rest run off the card behind
+ * a fade, which reads well until the reader wants the reference range, and the
+ * reference range is the column the fade takes first.
  */
 import { useEffect, useRef, useState } from "react";
 import { czDate } from "./dates";
+import { scrollIntoNearest } from "./motion";
 
 export interface Source {
   n: number;
@@ -232,18 +242,23 @@ function SourceCard({
   s,
   active,
   open,
+  chip,
   onToggle,
 }: {
   s: Source;
   active: boolean;
   open: boolean;
+  /** Cited entries carry their [n]; context sources below the divider do not. */
+  chip: boolean;
   onToggle: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  // A [n] that focuses an entry the reader cannot see has focused nothing.
+  // A [n] that focuses an entry the reader cannot see has focused nothing. The
+  // rail moves, or the thread does on a phone — the shell never does, which is
+  // what a bare scrollIntoView could not promise.
   useEffect(() => {
-    if (active) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (active && ref.current) scrollIntoNearest(ref.current);
   }, [active]);
 
   // „Odběr 2023-02-14" over „Laboratoře Modrý Kámen s.r.o. · 14. 2. 2023" is
@@ -270,7 +285,7 @@ function SourceCard({
     <div
       className={`src${active ? " is-active" : ""}${open ? " is-open" : ""}${
         rowCrop ? "" : " is-compact"
-      }`}
+      }${chip ? "" : " is-context"}`}
       ref={ref}
       id={`src-${s.n}`}
     >
@@ -279,12 +294,25 @@ function SourceCard({
         className="src-head"
         onClick={onToggle}
         aria-expanded={open}
+        aria-controls={s.imageUrl ? `src-page-${s.n}` : undefined}
         title={open ? "Skrýt stranu" : "Zobrazit celou stranu"}
       >
-        <span className="src-n">{s.n}</span>
+        {chip && <span className="src-n">{s.n}</span>}
         <span className="src-title">
-          <span className="src-label">{label}</span>
+          <span className="src-label">
+            {chip && <span className="sr-only">Zdroj {s.n}: </span>}
+            {label}
+          </span>
           <span className="src-meta">{meta}</span>
+          {/* Without this the `+` is an unexplained glyph on a card that shows
+              no picture, and the page behind it goes undiscovered. A card that
+              did crop its row needs no such line — the picture is the promise. */}
+          {!rowCrop && s.imageUrl && (
+            <span className="src-hint">
+              {s.kind === "lab" ? "Celá strana nálezu" : "Celá strana dokumentu"}
+              {s.page ? ` — strana ${s.page}` : ""}
+            </span>
+          )}
         </span>
         {s.imageUrl && (
           <span className="src-more" aria-hidden="true">
@@ -316,7 +344,7 @@ function SourceCard({
         </blockquote>
       )}
       {open && s.imageUrl && (
-        <span className="src-page">
+        <span className="src-page" id={`src-page-${s.n}`}>
           <img src={s.imageUrl} alt={`Strana ${s.page ?? 1}`} />
         </span>
       )}
@@ -340,25 +368,59 @@ function labelWithCzechDate(label: string): string {
 export default function Sources({
   sources,
   activeCite = null,
+  citeOrder = [],
 }: {
   sources: Source[];
   /** Which entry the answer's [n] pointed at, if any. */
   activeCite?: number | null;
+  /**
+   * The `n` of every marker in the answer — which sources the prose cited.
+   *
+   * This decides *membership*, not order: everything named here is a card above
+   * the divider, everything else is „Další podklady" below it. That is what the
+   * rail used to get wrong, arriving in sample-date order so that a summary
+   * citing [6], [7] and [8] sat beside three cards with no anchor in the
+   * visible text at all.
+   *
+   * Within the cited group the cards run by their own number, not by first
+   * mention. A doctor reading [4] scans for a 4, and a rail ordered 3, 4, 5, 1,
+   * 2 makes that a hunt — the chips are the index, so the index must count.
+   *
+   * The numbers themselves are never rewritten: a chip renumbered to match its
+   * position would break the one contract the marker has, that [6] in the text
+   * and 6 in the rail are the same document.
+   */
+  citeOrder?: number[];
 }) {
   const [open, setOpen] = useState<number | null>(null);
   if (sources.length === 0) return null;
 
+  const byN = new Map(sources.map((s) => [s.n, s]));
+  const cited = citeOrder
+    .map((n) => byN.get(n))
+    .filter((s): s is Source => Boolean(s))
+    .sort((a, b) => a.n - b.n);
+  const seen = new Set(cited.map((s) => s.n));
+  const context = sources.filter((s) => !seen.has(s.n));
+
+  const card = (s: Source, chip: boolean) => (
+    <SourceCard
+      key={s.n}
+      s={s}
+      chip={chip}
+      active={activeCite === s.n}
+      open={open === s.n}
+      onToggle={() => setOpen(open === s.n ? null : s.n)}
+    />
+  );
+
   return (
     <div className="src-list">
-      {sources.map((s) => (
-        <SourceCard
-          key={s.n}
-          s={s}
-          active={activeCite === s.n}
-          open={open === s.n}
-          onToggle={() => setOpen(open === s.n ? null : s.n)}
-        />
-      ))}
+      {cited.map((s) => card(s, true))}
+      {cited.length > 0 && context.length > 0 && <p className="src-divider">Další podklady</p>}
+      {/* Nothing in the answer points here, so no chip — but the entry keeps
+          its identity, and a [n] typed into a later turn still finds it. */}
+      {context.map((s) => card(s, cited.length === 0))}
     </div>
   );
 }

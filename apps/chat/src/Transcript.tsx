@@ -172,6 +172,27 @@ function Charts({ series }: { series: unknown }) {
   );
 }
 
+/**
+ * The `n` of every marker in this turn's prose, in reading order.
+ *
+ * This is what the evidence panel groups itself by: cited above the divider,
+ * everything else below it. The panel then orders the cited group by number,
+ * not by this list. Only markers the registry actually issued count — an
+ * orphan `[9]` renders with its strike in the text and has no card to put
+ * anywhere.
+ */
+export function citeOrder(b: Block): number[] {
+  const seen: number[] = [];
+  for (const p of b.parts) {
+    if (p.kind !== "text") continue;
+    for (const m of p.text.matchAll(/\[(\d+)\]/g)) {
+      const n = Number(m[1]);
+      if (!seen.includes(n) && b.sources.some((s) => s.n === n)) seen.push(n);
+    }
+  }
+  return seen;
+}
+
 export default function Transcript({
   blocks,
   railed,
@@ -261,7 +282,11 @@ export default function Transcript({
                 </button>
                 {open && (
                   <div data-testid="sources-panel">
-                    <Sources sources={b.sources} activeCite={active} />
+                    <Sources
+                      sources={b.sources}
+                      activeCite={active}
+                      citeOrder={citeOrder(b)}
+                    />
                   </div>
                 )}
               </div>
