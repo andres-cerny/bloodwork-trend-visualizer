@@ -108,7 +108,9 @@ function Steps({ tools, live }: { tools: ToolPart[]; live: boolean }) {
 function Writing() {
   return (
     <p className="writing" role="status">
-      <span className="sr-only">Asistent píše odpověď…</span>
+      {/* „Agent", not „Asistent": the steps disclosure directly above says
+          „Kroky agenta" and „Agent pracuje…", and one actor needs one name. */}
+      <span className="sr-only">Agent píše odpověď…</span>
       <span aria-hidden="true" />
       <span aria-hidden="true" />
       <span aria-hidden="true" />

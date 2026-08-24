@@ -343,7 +343,7 @@
     animation: none;
     box-shadow: 0 0 0 3px var(--series-1-soft);
   }
-  .writing span { animation: none; opacity: 1; }
+  .writing span[aria-hidden] { animation: none; opacity: 1; }
 }
 
 .answer { font-size: 1rem; line-height: 1.65; color: var(--ink-1); }
@@ -488,15 +488,24 @@ button.candidate:hover .cand-go { color: var(--accent); }
  * not committed to. Ondrej chose the dots on 2026-08-24 having watched both.
  * They sit where the first word will, and they claim nothing but a pulse. */
 .writing { display: flex; gap: 5px; margin: 10px 0 0; }
-.writing span {
+/* `[aria-hidden]`, not `span`, because the first child of `.writing` is the
+   screen-reader sentence. A bare `span` outranks `.sr-only`, so the invisible
+   span was being given a dot's box and a dot's animation — which pushed the
+   two `nth-child` delays onto dots 1 and 2 and left dot 3 leading the ripple. */
+.writing span[aria-hidden] {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--border-strong);
+  /* `--border-strong` on `--plane` measures 1.40:1 in light and 1.78:1 in dark,
+     under the 3:1 floor for a mark carrying meaning, and worse in the default
+     theme — the same way round as the skeleton this replaced. These dots say
+     „still running", which is what the pending step bullet directly above them
+     already says in `--accent`. One signal, one colour. */
+  background: var(--accent);
   animation: blip 1.2s ease-in-out infinite;
 }
-.writing span:nth-child(2) { animation-delay: 0.18s; }
-.writing span:nth-child(3) { animation-delay: 0.36s; }
+.writing span[aria-hidden]:nth-child(3) { animation-delay: 0.18s; }
+.writing span[aria-hidden]:nth-child(4) { animation-delay: 0.36s; }
 
 /* For a screen reader the wait is one sentence, not three moving dots. */
 .sr-only {
@@ -860,7 +869,17 @@ button.candidate:hover .cand-go { color: var(--accent); }
   height: 1px;
   background: var(--border);
 }
-.src.is-context .src-head { padding-left: 12px; }
+/* A context card has no chip, so its label would start where the chip does and
+   sit 28px left of every cited label above it — a ragged edge down the rail,
+   under a divider whose whole job is to look deliberate. The indent stands in
+   for the chip's width plus its gap, so both groups share one left edge.
+
+   Must out-specify `.src.is-compact .src-head` below, which is the same weight,
+   comes later, and resets `padding-left` through the shorthand. Every context
+   card in the shipped fixtures is also `.is-compact`, so at equal specificity
+   this rule never applied at all. */
+.src.is-context.is-compact .src-head,
+.src.is-context .src-head { padding-left: 38px; }
 /* An entry with no located row on the page is a reference, not a photograph —
    see Sources.tsx. It gets a row's worth of rail instead of a picture's, and
    the `+` is where its page still is. */

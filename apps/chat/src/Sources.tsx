@@ -297,7 +297,13 @@ function SourceCard({
         aria-controls={s.imageUrl ? `src-page-${s.n}` : undefined}
         title={open ? "Skrýt stranu" : "Zobrazit celou stranu"}
       >
-        {chip && <span className="src-n">{s.n}</span>}
+        {/* The number reaches an ear through the „Zdroj n:" line below; without
+            this it arrives twice, once as a bare digit. */}
+        {chip && (
+          <span className="src-n" aria-hidden="true">
+            {s.n}
+          </span>
+        )}
         <span className="src-title">
           <span className="src-label">
             {chip && <span className="sr-only">Zdroj {s.n}: </span>}
