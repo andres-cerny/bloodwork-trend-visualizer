@@ -18,6 +18,7 @@ import {
   czMonthYear,
   prettyUnit,
   numericPoints,
+  plural,
   type Trend,
 } from "@bw/lab-core";
 
@@ -46,6 +47,27 @@ export function niceTicks(lo: number, hi: number, target = 4): number[] {
     out.push(Math.round(v / step) * step);
   }
   return out;
+}
+
+/**
+ * „další odběr" · „další 2 odběry" · „dalších 5 odběrů".
+ *
+ * Both words decline here, not just the noun, which is why this is not one
+ * `count()` call: „dalších" is the genitive plural of the adjective, and using
+ * it at every number above one — as this did — makes „dalších 2 odběrů", the
+ * five-and-up form worn by a two.
+ *
+ * Exported so it can be pinned. The phrase is otherwise buried inside a JSX
+ * ternary, where the only way to test it is to render a chart.
+ */
+export function censoredNote(n: number): string {
+  if (n === 1) return "další odběr";
+  return `${plural(n, "další", "další", "dalších")} ${n} ${plural(
+    n,
+    "odběr",
+    "odběry",
+    "odběrů",
+  )}`;
 }
 
 const W = 640;
@@ -174,7 +196,7 @@ export default function Chart({
           {censored.length === 0
             ? ` — jediné měření (${czDate(p.date)})`
             : ` — jediný číselný výsledek (${czDate(p.date)}); ` +
-              `${censored.length === 1 ? "další odběr" : `dalších ${censored.length} odběrů`} ` +
+              `${censoredNote(censored.length)} ` +
               `pod mezí stanovitelnosti (${censored.map((q) => q.valueRaw).join(", ")})`}
           {p.refLow !== null || p.refHigh !== null
             ? `, referenční rozmezí ${p.refLow !== null ? czNum(p.refLow) : ""}–${

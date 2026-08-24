@@ -443,7 +443,12 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
             ? waiting > 0
               ? `Nechte okno otevřené · ve frontě ${count(waiting, "soubor", "soubory", "souborů")}`
               : "Nechte okno otevřené."
-            : `nebo klepněte a vyberte — i více najednou · limit ukázky ${maxPages} stran`}
+            : `nebo klepněte a vyberte — i více najednou · limit ukázky ${count(
+                maxPages,
+                "strana",
+                "strany",
+                "stran",
+              )}`}
         </span>
         <input
           type="file"
