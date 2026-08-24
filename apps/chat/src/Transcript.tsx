@@ -180,12 +180,13 @@ export default function Transcript({
                   data-testid="sources-toggle"
                   aria-expanded={open}
                   onClick={(e) => {
-                    // Opening a disclosure below the fold reveals evidence the
-                    // reader cannot see; bring the block to the top instead.
+                    // Expand in place, scrolling only as far as needed: jumping
+                    // the block to the top stranded the turn's "Souvisejici"
+                    // heading alone above the dock with every row occluded.
                     const wrap = e.currentTarget.parentElement;
                     onToggleSources(b.id);
                     if (!open)
-                      requestAnimationFrame(() => wrap?.scrollIntoView({ block: "start" }));
+                      requestAnimationFrame(() => wrap?.scrollIntoView({ block: "nearest" }));
                   }}
                 >
                   <span className="sources-caret" aria-hidden="true" data-open={open} />

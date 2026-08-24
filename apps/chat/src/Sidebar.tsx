@@ -84,7 +84,7 @@ export default function Sidebar({
           <p className="muted budget">
             {budget.frozen
               ? "Rozpočet ukázky vyčerpán"
-              : `Rozpočet ukázky: zbývá ${budget.remainingUsd.toFixed(2)} $`}
+              : `Rozpočet ukázky: zbývá ${budget.remainingUsd.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`}
           </p>
         )}
         <p className="muted disclaimer">
