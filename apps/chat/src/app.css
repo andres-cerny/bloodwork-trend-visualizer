@@ -37,7 +37,7 @@
 .single-point { margin: 6px 0 0; font-size: 0.95rem; }
 .single-point strong { font-size: 1.15rem; }
 .single-point strong.out { color: var(--critical-ink); }
-.chart-tip { filter: drop-shadow(0 2px 7px rgba(20, 19, 15, 0.22)); }
+.chart-tip { filter: drop-shadow(var(--shadow-pop)); }
 
 /* ------------------------------------------------------------------ *
  * The shell
@@ -1083,18 +1083,24 @@ button.candidate:hover .cand-go { color: var(--accent); }
  * identical — the same rule the ui-kit theme test enforces on the token
  * aliases, for the same reason: a reader whose system is dark and whose choice
  * is dark must not get a different page from a reader who only chose.
+ *
+ * The paper tone itself is `--paper-dim` in @bw/ui-kit, not a hex here: it is a
+ * palette decision, this sheet may use tokens and define none, and bloodwork's
+ * verification tab lays out the same scanned pages with the same glare. Held
+ * there, the theme test covers it; held here, only these two hand-paired blocks
+ * did.
  * ------------------------------------------------------------------ */
 
 .src-crop img, .src-page img { filter: none; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .src-crop,
-  :root:not([data-theme="light"]) .src-page img { background: #e3e1dc; }
+  :root:not([data-theme="light"]) .src-page img { background: var(--paper-dim); }
   :root:not([data-theme="light"]) .src-crop img { filter: brightness(0.86) contrast(1.06); }
   :root:not([data-theme="light"]) .src-page img { filter: none; }
 }
 
 :root[data-theme="dark"] .src-crop,
-:root[data-theme="dark"] .src-page img { background: #e3e1dc; }
+:root[data-theme="dark"] .src-page img { background: var(--paper-dim); }
 :root[data-theme="dark"] .src-crop img { filter: brightness(0.86) contrast(1.06); }
 :root[data-theme="dark"] .src-page img { filter: none; }
