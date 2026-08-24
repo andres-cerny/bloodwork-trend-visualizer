@@ -143,6 +143,15 @@ function fakeD1(t: Tables): D1Like {
               };
             case SQL.pagesForDocument:
               return { results: t.pages.filter((p) => p.document_id === a[0]) as T[] };
+            case SQL.analyteNamesForPatient: {
+              const seen = new Map<string, string>();
+              for (const rep of t.reports.filter((r) => r.patient_id === a[0])) {
+                for (const m of (JSON.parse(rep.payload) as { measurements: Array<{ canonicalId: string; rawAnalyteName: string }> }).measurements) {
+                  seen.set(m.canonicalId, m.rawAnalyteName);
+                }
+              }
+              return { results: [...seen].map(([canonical_id, display_name]) => ({ canonical_id, display_name })) as T[] };
+            }
             case SQL.visitsForPatient:
               return {
                 results: t.visits

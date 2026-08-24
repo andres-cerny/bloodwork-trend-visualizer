@@ -38,7 +38,9 @@ All data through `src/data.ts`'s `CardData` — no component fetches. With
 `?fx=1` in the URL the app uses `fixtureData` over the committed fixture and
 renders **without a session or gate**; otherwise `liveData` behind the
 Turnstile gate. The camera shoots fixture mode only. The fixture holds ghost
-patients only — the real record never enters one.
+patients only — the real record never enters one. Load the fixture via
+**dynamic `import()` only when `fx=1`** — it is ~340 KB and a live visitor
+must not download it.
 
 ## URL affordances (MUST — the camera navigates by these)
 

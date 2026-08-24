@@ -24,6 +24,7 @@ import {
   D1DocumentStore,
   DatabaseSource,
   PatientDirectory,
+  SQL,
   type D1Like,
   type PerfPoint,
 } from "@bw/datasource";
@@ -92,7 +93,14 @@ export async function handleCard(
   const patient = await directory.getPatient(url.searchParams.get("patient") ?? "");
   if (!patient) return json({ error: "unknown_patient", message: "Neznámý pacient." }, 400);
 
-  const source = new DatabaseSource(db, patient.id);
+  // Czech display names come from the derived index, where the seeder wrote
+  // the registry's names — the same names every report row prints. Without
+  // the mapper a trend would introduce itself as its canonical id.
+  const names = new Map<string, string>();
+  for (const r of (await db.prepare(SQL.analyteNamesForPatient).bind(patient.id).all<Record<string, string>>()).results) {
+    names.set(r.canonical_id, r.display_name);
+  }
+  const source = new DatabaseSource(db, patient.id, (id) => names.get(id) ?? id);
   const card = new CardStore(db, patient.id);
   const documents = new D1DocumentStore(db, patient.id);
 

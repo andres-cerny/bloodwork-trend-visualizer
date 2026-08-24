@@ -93,6 +93,8 @@ function fakeD1(patients: Array<{ id: string; full_name: string; name_norm: stri
           return { results: [] };
         case SQL.allPatients:
           return { results: patients };
+        case SQL.analyteNamesForPatient:
+          return { results: patients.some((p) => p.id === a[0]) ? [{ canonical_id: "hemoglobin", display_name: "Hemoglobin" }] : [] };
         case SQL.visitsForPatient:
           return { results: TEST_VISITS.filter((v) => v.patient_id === a[0]).sort((x, y) => y.visit_date.localeCompare(x.visit_date)) };
         case SQL.perfAllForPatient:
@@ -742,6 +744,8 @@ describe("the card routes", () => {
     const viaTool = await new DatabaseSource(fakeD1(SPORT_PATIENTS) as any, "p-test").getTrend("hemoglobin");
     expect(viaRoute.points).toEqual(JSON.parse(JSON.stringify(numericPoints(viaTool!))));
     expect(viaRoute.unit).toBe(viaTool!.unit);
+    // The route introduces the trend by the seeder's display name, not its id.
+    expect(viaRoute.displayName).toBe("Hemoglobin");
   });
 
   it("a trend must state its kind — lab or perf, never a default", async () => {

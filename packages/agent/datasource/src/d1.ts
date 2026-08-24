@@ -54,6 +54,8 @@ export const SQL = {
   pagesForDocument:
     "SELECT page_num, image_url, width, height FROM document_pages " +
     "WHERE document_id = ?1 ORDER BY page_num",
+  analyteNamesForPatient:
+    "SELECT DISTINCT canonical_id, display_name FROM measurements WHERE patient_id = ?1",
   visitsForPatient:
     "SELECT id, visit_date, kind, title, note_document_id FROM visits " +
     "WHERE patient_id = ?1 ORDER BY visit_date DESC",
