@@ -30,6 +30,8 @@ export interface D1Like {
 
 export const SQL = {
   patientById: "SELECT id, full_name, birth_date, sex, note FROM patients WHERE id = ?1",
+  allPatients:
+    "SELECT id, full_name, birth_date, sex, note FROM patients ORDER BY full_name, birth_date",
   patientsByName:
     "SELECT id, full_name, name_norm, birth_date, sex, note FROM patients " +
     "WHERE name_norm LIKE ?1 ORDER BY full_name, birth_date LIMIT 8",
@@ -52,6 +54,22 @@ export const SQL = {
   pagesForDocument:
     "SELECT page_num, image_url, width, height FROM document_pages " +
     "WHERE document_id = ?1 ORDER BY page_num",
+  visitsForPatient:
+    "SELECT id, visit_date, kind, title, note_document_id FROM visits " +
+    "WHERE patient_id = ?1 ORDER BY visit_date DESC",
+  perfTrendForPatient:
+    "SELECT visit_id, metric_id, display_name, unit, value, ref_low, ref_high, test_date " +
+    "FROM perf_metrics WHERE patient_id = ?1 AND metric_id = ?2 ORDER BY test_date",
+  perfForVisit:
+    "SELECT metric_id, display_name, unit, value, ref_low, ref_high, test_date " +
+    "FROM perf_metrics WHERE patient_id = ?1 AND visit_id = ?2 ORDER BY metric_id",
+  perfAllForPatient:
+    "SELECT visit_id, metric_id, display_name, unit, value, ref_low, ref_high, test_date " +
+    "FROM perf_metrics WHERE patient_id = ?1 ORDER BY metric_id, test_date",
+  perfMetricsForPatient:
+    "SELECT metric_id, display_name, unit, COUNT(*) AS points, MAX(test_date) AS last_date " +
+    "FROM perf_metrics WHERE patient_id = ?1 GROUP BY metric_id, display_name, unit " +
+    "ORDER BY display_name",
 } as const;
 
 /**

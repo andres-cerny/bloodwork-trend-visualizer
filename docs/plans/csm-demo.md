@@ -308,6 +308,19 @@ real-record transcription (small, local) and the single live smoke turns
   build log closed (pick + Round 4); two unshipped findings carried into
   Phase 5. typecheck 0 · 477 tests · chat bundle check · docs:check green.
   Live baseline confirmed serving: bloodwork-chat.andres-cerny.workers.dev.
+- [x] 2026-08-24 Phase 1 — `visits` + `perf_metrics` (PK-guarded) in the
+  schema, proven on local D1; `CardStore` with the sibling stores' refusal
+  posture; `/csm` tenant (D1 created: `bloodwork-chat-csm`), `clinical-csm`
+  capability; CSM brand tokens + tenant layer + `CsmMark`, theme test
+  extended (coverage regex now guards the brand constants);
+  `docs/csm-protocol.md` — 14 charted metrics, shapes only, privacy-swept.
+  invariant-reviewer: 2 findings, both fixed in-phase. 495 tests.
+- [x] 2026-08-24 Phase 3 (built early, same sitting) — `/api/card/*` routes:
+  patients / visits / visit / trend / document; session-gated but NOT
+  ledger-gated (a frozen AI budget keeps the card serving — pinned);
+  cross-tenant refusal pinned; the lab-trend parity test (route ≡ tool,
+  number for number) pinned. Deferred to after Phase 2: the dev-server
+  full-card check over a seeded ghost.
 
 ## Cut lines (in order, if time compresses before the pitch)
 

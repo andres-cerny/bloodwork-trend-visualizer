@@ -9,6 +9,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../src/index";
 import { mintSession, recordSpendUsd, totalSpentUsd } from "@bw/gate";
+import { DatabaseSource } from "@bw/datasource";
+import { numericPoints } from "@bw/lab-core";
 import { SQL } from "@bw/datasource";
 
 const SECRET = "test-session-secret";
@@ -45,6 +47,18 @@ const TEST_REPORT = {
   ],
 };
 
+const TEST_VISITS = [
+  { id: "v-2024", patient_id: "p-test", visit_date: "2024-05-10", kind: "perf_test", title: "Funkční vyšetření", note_document_id: null },
+  { id: "v-2025", patient_id: "p-test", visit_date: "2025-05-02", kind: "annual", title: "Sportovní prohlídka", note_document_id: "d-note-1" },
+];
+const TEST_PERF = [
+  { patient_id: "p-test", visit_id: "v-2024", metric_id: "vo2max_rel", display_name: "VO₂max", unit: "ml/kg/min", value: 58.0, ref_low: null, ref_high: null, test_date: "2024-05-10" },
+  { patient_id: "p-test", visit_id: "v-2025", metric_id: "vo2max_rel", display_name: "VO₂max", unit: "ml/kg/min", value: 61.2, ref_low: null, ref_high: null, test_date: "2025-05-02" },
+];
+const TEST_DOCS = [
+  { id: "d-note-1", patient_id: "p-test", doc_date: "2025-05-02", kind: "perf_eval", title: "Zpráva z vyšetření", body_text: "Závěr: sportu schopen." },
+];
+
 function fakeD1(patients: Array<{ id: string; full_name: string; name_norm: string; birth_date: string }>) {
   const make = (sql: string, args: unknown[]): any => ({
     bind: (...values: unknown[]) => make(sql, values),
@@ -77,6 +91,20 @@ function fakeD1(patients: Array<{ id: string; full_name: string; name_norm: stri
         case SQL.searchDocuments:
         case SQL.pagesForDocument:
           return { results: [] };
+        case SQL.allPatients:
+          return { results: patients };
+        case SQL.visitsForPatient:
+          return { results: TEST_VISITS.filter((v) => v.patient_id === a[0]).sort((x, y) => y.visit_date.localeCompare(x.visit_date)) };
+        case SQL.perfAllForPatient:
+          return { results: TEST_PERF.filter((r) => r.patient_id === a[0]) };
+        case SQL.perfTrendForPatient:
+          return { results: TEST_PERF.filter((r) => r.patient_id === a[0] && r.metric_id === a[1]).sort((x, y) => x.test_date.localeCompare(y.test_date)) };
+        case SQL.perfForVisit:
+          return { results: TEST_PERF.filter((r) => r.patient_id === a[0] && r.visit_id === a[1]) };
+        case SQL.perfMetricsForPatient:
+          return { results: [] };
+        case SQL.documentById:
+          return { results: TEST_DOCS.filter((d) => d.id === a[0]) };
         case SQL.cohortByDirection:
           return {
             results:
@@ -108,6 +136,7 @@ function makeEnv(over: Partial<Env> = {}): Env {
     BUDGET: fakeKv(),
     DB_SPORT: fakeD1(SPORT_PATIENTS),
     DB_ORTO: fakeD1([]),
+    DB_CSM: fakeD1([]),
     // Nothing here serves evidence; the route 404s on an empty store.
     EVIDENCE: fakeKv(),
     ANTHROPIC_API_KEY: "sk-ant-test",
@@ -486,6 +515,19 @@ describe("tenancy and identity", () => {
     expect(((await res.json()) as any).error).toBe("unknown_patient");
   });
 
+  it("the third practice refuses the other practices' refs the same way", async () => {
+    // csm joined after the refusal posture was pinned; the pin extends to it
+    // so a fourth tenant cannot arrive without meeting the same test.
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "csm", patientRef: "p-test" }), s),
+      env,
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as any).error).toBe("unknown_patient");
+  });
+
   it("find_patient's unique match rides its own event, with the server's ref", async () => {
     const env = makeEnv();
     const s = await mintSession(SECRET, 600, 12);
@@ -624,5 +666,95 @@ describe("the agent's ledger is its own", () => {
       env,
     );
     expect(res.status).toBe(200);
+  });
+});
+
+describe("the card routes", () => {
+  const get = (path: string, session?: string) =>
+    new Request(`https://demo.test${path}`, {
+      method: "GET",
+      headers: session ? { "x-demo-session": session } : {},
+    });
+
+  it("refuses without a session, exactly like the agent", async () => {
+    const res = await worker.fetch(get("/api/card/patients?tenant=sport"), makeEnv());
+    expect(res.status).toBe(401);
+  });
+
+  it("refuses a tenant it does not know", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/patients?tenant=kardio", s), makeEnv());
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as any).error).toBe("unknown_tenant");
+  });
+
+  it("answers even when the AI ledger is frozen — the card is the ukázková data", async () => {
+    const env = makeEnv({ CLINICAL_USD_LIMIT: "1" });
+    await recordSpendUsd(env.BUDGET, "clinical-sport", 5);
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/patients?tenant=sport", s), env);
+    expect(res.status).toBe(200);
+  });
+
+  it("lists who exists and keeps the practice-internal note server-side", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/patients?tenant=sport", s), makeEnv());
+    const body = (await res.json()) as any;
+    expect(body.patients.map((p: any) => p.id)).toEqual(["p-test", "p-other"]);
+    expect("note" in body.patients[0]).toBe(false);
+  });
+
+  it("a ref from the other practice is refused, not an empty card", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/visits?tenant=orto&patient=p-test", s), makeEnv());
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as any).error).toBe("unknown_patient");
+  });
+
+  it("the timeline carries kinds, counts and the honest gap", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/visits?tenant=sport&patient=p-test", s), makeEnv());
+    const { visits } = (await res.json()) as any;
+    expect(visits.map((v: any) => v.id)).toEqual(["v-2025", "v-2024"]);
+    // The annual visit: one lab in range, its note, one perf result.
+    expect(visits[0]).toMatchObject({ kind: "annual", hasNote: true, labCount: 1, outOfRange: 0, perfCount: 1 });
+    // The older test: no note, no labs that day — a gap, not a defect.
+    expect(visits[1]).toMatchObject({ kind: "perf_test", hasNote: false, labCount: 0, perfCount: 1 });
+  });
+
+  it("a visit's detail carries labs, perf deltas and the note", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/visit?tenant=sport&patient=p-test&visit=v-2025", s), makeEnv());
+    const body = (await res.json()) as any;
+    expect(body.labs.map((l: any) => l.canonicalId)).toEqual(["hemoglobin"]);
+    expect(body.labs[0].delta).toBeNull(); // single draw — no previous to compare
+    expect(body.perf[0]).toMatchObject({ metricId: "vo2max_rel", value: 61.2, prevDate: "2024-05-10" });
+    expect(body.perf[0].delta).toBeCloseTo(3.2);
+    expect(body.note.title).toBe("Zpráva z vyšetření");
+  });
+
+  it("the lab trend through the route equals the tool's own, number for number", async () => {
+    // The parity the plan pins: the card API and the agent's tools must
+    // disagree about nothing.
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/trend?tenant=sport&patient=p-test&kind=lab&metric=hemoglobin", s), makeEnv());
+    const viaRoute = (await res.json()) as any;
+    const viaTool = await new DatabaseSource(fakeD1(SPORT_PATIENTS) as any, "p-test").getTrend("hemoglobin");
+    expect(viaRoute.points).toEqual(JSON.parse(JSON.stringify(numericPoints(viaTool!))));
+    expect(viaRoute.unit).toBe(viaTool!.unit);
+  });
+
+  it("a trend must state its kind — lab or perf, never a default", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/trend?tenant=sport&patient=p-test&metric=hemoglobin", s), makeEnv());
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as any).error).toBe("unknown_kind");
+  });
+
+  it("a perf trend charts oldest first", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(get("/api/card/trend?tenant=sport&patient=p-test&kind=perf&metric=vo2max_rel", s), makeEnv());
+    const body = (await res.json()) as any;
+    expect(body.points.map((p: any) => p.value)).toEqual([58.0, 61.2]);
   });
 });

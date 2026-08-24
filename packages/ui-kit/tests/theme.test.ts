@@ -50,8 +50,29 @@ describe("dark theme", () => {
     const covered = new Set(systemDark.map((d) => d.split(":")[0]));
     // Geometry tokens (radii, rail width) are not colours and never change.
     const colourish = light.filter((n) =>
-      /(plane|surface|ink|grid|border|series|status|band|chip|shadow)/.test(n),
+      /(plane|surface|ink|grid|border|series|status|band|chip|shadow|csm)/.test(n),
     );
     expect(colourish.filter((n) => !covered.has(n))).toEqual([]);
+  });
+});
+
+describe("tenant layer", () => {
+  const names = (s: string) => decls(s).map((d) => d.split(":")[0]);
+
+  it("a tenant overrides exactly the tokens the default layer defines", () => {
+    // A token added to the defaults and forgotten in a tenant block keeps the
+    // neutral accent only for that tenant — the un-branded twin of the
+    // nearly-dark page the dark test exists for.
+    const defaults = names(block(/^:root \{\s*\n\s*--tenant-accent/m));
+    const csm = names(block(/:root\[data-tenant="csm"\]/));
+    expect(csm).toEqual(defaults);
+  });
+
+  it("no tenant token leaks into the dark blocks", () => {
+    // The dark blocks' :root selectors would beat the tenant selector in the
+    // cascade and quietly un-brand dark mode — the layer comment says why.
+    const systemDark = names(block(/:root:not\(\[data-theme="light"\]\)/));
+    const forcedDark = names(block(/:root\[data-theme="dark"\]/));
+    expect([...systemDark, ...forcedDark].filter((n) => n.startsWith("--tenant-"))).toEqual([]);
   });
 });

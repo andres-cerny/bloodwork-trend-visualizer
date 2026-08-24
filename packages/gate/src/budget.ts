@@ -21,7 +21,12 @@ const SHARDS = 8;
  * eval sweep could freeze extraction — two demos, one fuse. Keyed per
  * capability, each has its own ceiling and its own failure.
  */
-export type Capability = "agent" | "extract" | "clinical-sport" | "clinical-orto";
+export type Capability =
+  | "agent"
+  | "extract"
+  | "clinical-sport"
+  | "clinical-orto"
+  | "clinical-csm";
 
 const KEY = (cap: Capability, i: number) => `spend_usd_${cap}_shard_${i}`;
 

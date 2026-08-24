@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  CardStore,
   D1DocumentStore,
   DatabaseSource,
   PatientDirectory,
@@ -80,6 +81,14 @@ interface Tables {
     body_text: string; body_norm: string;
   }>;
   pages: Array<{ document_id: string; page_num: number; image_url: string; width: number; height: number }>;
+  visits: Array<{
+    id: string; patient_id: string; visit_date: string; kind: string; title: string;
+    note_document_id: string | null;
+  }>;
+  perf: Array<{
+    patient_id: string; visit_id: string; metric_id: string; display_name: string;
+    unit: string; value: number; ref_low: number | null; ref_high: number | null; test_date: string;
+  }>;
 }
 
 /** Map-backed fake implementing exactly the queries in SQL — nothing more. */
@@ -134,6 +143,42 @@ function fakeD1(t: Tables): D1Like {
               };
             case SQL.pagesForDocument:
               return { results: t.pages.filter((p) => p.document_id === a[0]) as T[] };
+            case SQL.visitsForPatient:
+              return {
+                results: t.visits
+                  .filter((v) => v.patient_id === a[0])
+                  .sort((x, y) => y.visit_date.localeCompare(x.visit_date)) as T[],
+              };
+            case SQL.perfTrendForPatient:
+              return {
+                results: t.perf
+                  .filter((p) => p.patient_id === a[0] && p.metric_id === a[1])
+                  .sort((x, y) => x.test_date.localeCompare(y.test_date)) as T[],
+              };
+            case SQL.perfForVisit:
+              return {
+                results: t.perf
+                  .filter((p) => p.patient_id === a[0] && p.visit_id === a[1])
+                  .sort((x, y) => x.metric_id.localeCompare(y.metric_id)) as T[],
+              };
+            case SQL.perfMetricsForPatient: {
+              const mine = t.perf.filter((p) => p.patient_id === a[0]);
+              const byMetric = new Map<string, typeof mine>();
+              for (const p of mine) {
+                byMetric.set(p.metric_id, [...(byMetric.get(p.metric_id) ?? []), p]);
+              }
+              return {
+                results: [...byMetric.values()]
+                  .map((rows) => ({
+                    metric_id: rows[0].metric_id,
+                    display_name: rows[0].display_name,
+                    unit: rows[0].unit,
+                    points: rows.length,
+                    last_date: rows.map((r) => r.test_date).sort().at(-1),
+                  }))
+                  .sort((x, y) => x.display_name.localeCompare(y.display_name)) as T[],
+              };
+            }
             default:
               throw new Error(`fake D1 does not know this query: ${sql}`);
           }
@@ -169,6 +214,17 @@ function seeded(): Tables {
       },
     ],
     pages: [{ document_id: "d-eval-1", page_num: 1, image_url: "/api/evidence/d-eval-1/1", width: 1600, height: 2263 }],
+    visits: [
+      { id: "v-1", patient_id: "p-cerny", visit_date: "2025-01-10", kind: "perf_test", title: "Funkční vyšetření", note_document_id: null },
+      { id: "v-2", patient_id: "p-cerny", visit_date: "2025-06-09", kind: "annual", title: "Sportovní prohlídka", note_document_id: "d-eval-1" },
+      { id: "v-x", patient_id: "p-novak-88", visit_date: "2025-05-02", kind: "blood", title: "Odběr krve", note_document_id: null },
+    ],
+    perf: [
+      { patient_id: "p-cerny", visit_id: "v-2", metric_id: "vo2max_rel", display_name: "VO₂max", unit: "ml/kg/min", value: 61.2, ref_low: null, ref_high: null, test_date: "2025-06-09" },
+      { patient_id: "p-cerny", visit_id: "v-1", metric_id: "vo2max_rel", display_name: "VO₂max", unit: "ml/kg/min", value: 58.4, ref_low: null, ref_high: null, test_date: "2025-01-10" },
+      { patient_id: "p-cerny", visit_id: "v-2", metric_id: "thb_mass", display_name: "Hmota hemoglobinu", unit: "g", value: 1012, ref_low: null, ref_high: null, test_date: "2025-06-09" },
+      { patient_id: "p-novak-88", visit_id: "v-x", metric_id: "vo2max_rel", display_name: "VO₂max", unit: "ml/kg/min", value: 71.3, ref_low: null, ref_high: null, test_date: "2025-05-02" },
+    ],
   };
 }
 
@@ -241,5 +297,45 @@ describe("D1DocumentStore", () => {
 describe("normalizeName", () => {
   it("is the documented contract: NFD, strip marks, lowercase, collapse", () => {
     expect(normalizeName("  Ondřej   ČERNÝ ")).toBe("ondrej cerny");
+  });
+});
+
+describe("CardStore", () => {
+  const card = new CardStore(fakeD1(seeded()), "p-cerny");
+
+  it("lists visits newest first, honest gaps included", async () => {
+    const visits = await card.visits();
+    expect(visits.map((v) => v.id)).toEqual(["v-2", "v-1"]);
+    // v-2 carries its zpráva; v-1 has none — a gap, not a defect.
+    expect(visits[0].noteDocumentId).toBe("d-eval-1");
+    expect(visits[1].noteDocumentId).toBeNull();
+    expect(visits.map((v) => v.kind)).toEqual(["annual", "perf_test"]);
+  });
+
+  it("charts a metric oldest first, this patient only", async () => {
+    const trend = await card.perfTrend("vo2max_rel");
+    expect(trend.map((p) => p.value)).toEqual([58.4, 61.2]);
+    // Novák's 71.3 exists in the table and must never appear here.
+    expect(trend.some((p) => p.value === 71.3)).toBe(false);
+  });
+
+  it("scopes a visit's results by patient AND visit", async () => {
+    const atVisit = await card.perfForVisit("v-2");
+    expect(atVisit.map((p) => p.metricId)).toEqual(["thb_mass", "vo2max_rel"]);
+    // Another patient's visit id through this patient's card: empty, not theirs.
+    expect(await card.perfForVisit("v-x")).toEqual([]);
+  });
+
+  it("throws for a patient the practice does not hold, rather than an empty timeline", async () => {
+    const ghost = new CardStore(fakeD1(seeded()), "p-ghost");
+    await expect(ghost.visits()).rejects.toThrow(/unknown_patient/);
+  });
+
+  it("summarises which metrics exist and how deep each series runs", async () => {
+    const metrics = await card.listPerfMetrics();
+    expect(metrics).toEqual([
+      { metricId: "thb_mass", displayName: "Hmota hemoglobinu", unit: "g", points: 1, lastDate: "2025-06-09" },
+      { metricId: "vo2max_rel", displayName: "VO₂max", unit: "ml/kg/min", points: 2, lastDate: "2025-06-09" },
+    ]);
   });
 });

@@ -92,6 +92,16 @@ export class PatientDirectory implements PatientLookup {
       .map(toRef);
   }
 
+  /**
+   * The whole practice, for the card's picker and switcher. Fine at practice
+   * scale by the same argument as search — and it lists who exists, which is
+   * the one thing the picker legitimately needs before a patient is chosen.
+   */
+  async listPatients(): Promise<PatientRef[]> {
+    const { results } = await this.db.prepare(SQL.allPatients).all<PatientRow>();
+    return results.map(toRef);
+  }
+
   /** Validates a ref the client sent back. Null means refuse, never default. */
   async getPatient(id: string): Promise<PatientRef | null> {
     const row = await this.db.prepare(SQL.patientById).bind(id).first<PatientRow>();

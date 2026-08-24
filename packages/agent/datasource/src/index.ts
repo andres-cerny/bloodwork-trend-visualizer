@@ -33,5 +33,6 @@ export * from "./session";
 export * from "./database";
 export * from "./directory";
 export * from "./documents";
+export * from "./card";
 export { normalizeName, SQL, type D1Like, type D1Prepared, type D1Rows } from "./d1";
 export type { AnalyteDef };

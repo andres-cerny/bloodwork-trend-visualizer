@@ -11,10 +11,12 @@ import { mintSession, verifyTurnstile, TURNSTILE_ACTION } from "@bw/gate";
 import { priceUsd, resolveProfile, runAgent, toSse, type ChatTurn } from "@bw/agent-core";
 import { D1DocumentStore, DatabaseSource, PatientDirectory, type D1Like } from "@bw/datasource";
 import type { ToolContext } from "@bw/agent-tools";
+import { handleCard } from "./card";
 
 export interface Env extends BaseEnv {
   DB_SPORT: D1Database;
   DB_ORTO: D1Database;
+  DB_CSM: D1Database;
   EVIDENCE: KVNamespace;
 }
 
@@ -23,9 +25,10 @@ export interface Env extends BaseEnv {
  * posture as an unknown profile — a default here would quietly serve one
  * practice's assistant against another practice's database.
  */
-const TENANTS: Record<string, { binding: "DB_SPORT" | "DB_ORTO"; label: string }> = {
+const TENANTS: Record<string, { binding: "DB_SPORT" | "DB_ORTO" | "DB_CSM"; label: string }> = {
   sport: { binding: "DB_SPORT", label: "Sportovní medicína" },
   orto: { binding: "DB_ORTO", label: "Ortopedie a fyzioterapie" },
+  csm: { binding: "DB_CSM", label: "Centrum sportovní medicíny" },
 };
 
 /**
@@ -199,6 +202,13 @@ export default {
           "cache-control": "public, max-age=86400",
         },
       });
+    }
+    // The patient card — read-only, $0, session-gated inside the handler.
+    // Tenant resolution matches /api/chat's posture exactly: unknown refused.
+    if (url.pathname.startsWith("/api/card/") && request.method === "GET") {
+      const t = TENANTS[url.searchParams.get("tenant") ?? ""];
+      if (!t) return json({ error: "unknown_tenant", message: "Neznámá ordinace." }, 400);
+      return handleCard(request, env, env[t.binding] as unknown as D1Like);
     }
     if (url.pathname === "/api/session" && request.method === "POST") {
       return handleSession(request, env);

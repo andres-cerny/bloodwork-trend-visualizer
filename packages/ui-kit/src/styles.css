@@ -63,6 +63,17 @@
      thing off whatever it floats over: the chart tooltip is the only one. */
   --shadow-pop: 0 2px 7px rgba(20, 19, 15, 0.22);
 
+  /* CSM brand constants — Centrum sportovní medicíny, the /csm tenant.
+     Deep blue from the seven-segment wordmark, gold from the print name.
+     The brand's red is NOT here: red means „out of range" in this kit, and a
+     colour that means something is reserved for meaning it — the red lives
+     only inside the logo image. Apps never use these directly; they reach
+     them through the --tenant-* layer at the end of this file. */
+  --csm-blue: #1a4085;
+  --csm-blue-ink: #21498f;
+  --csm-blue-soft: rgba(26, 64, 133, 0.10);
+  --csm-gold: #bb955d;
+
   --rail: 316px;
   /* Cap on the reading column, so a line of prose does not run the full
      width of a workstation monitor. Collapsing the rail raises it by exactly
@@ -105,6 +116,10 @@
   /* Warm off-white: paper, not plane and not the report's own white. Dark
      enough that the knocked-back scan sits on it without a rim. */
   --dk-paper-dim: #e3e1dc;
+  --dk-csm-blue: #6f9ae0;
+  --dk-csm-blue-ink: #92b4ee;
+  --dk-csm-blue-soft: rgba(111, 154, 224, 0.16);
+  --dk-csm-gold: #c9a566;
   --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --dk-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
   --dk-shadow-lg: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
@@ -134,6 +149,10 @@
     --band-neutral: var(--dk-band-neutral);
     --chip: var(--dk-chip);
     --paper-dim: var(--dk-paper-dim);
+    --csm-blue: var(--dk-csm-blue);
+    --csm-blue-ink: var(--dk-csm-blue-ink);
+    --csm-blue-soft: var(--dk-csm-blue-soft);
+    --csm-gold: var(--dk-csm-gold);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);
@@ -164,6 +183,10 @@
     --band-neutral: var(--dk-band-neutral);
     --chip: var(--dk-chip);
     --paper-dim: var(--dk-paper-dim);
+    --csm-blue: var(--dk-csm-blue);
+    --csm-blue-ink: var(--dk-csm-blue-ink);
+    --csm-blue-soft: var(--dk-csm-blue-soft);
+    --csm-gold: var(--dk-csm-gold);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);
@@ -196,4 +219,30 @@ body {
   outline: 2px solid var(--series-1);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/*
+ * The tenant layer — the only door to a clinic's brand.
+ *
+ * Apps colour tenant-owned chrome (header, picker, brand rules) with these
+ * four and nothing else; everything clinical keeps the kit's own tokens, so
+ * a flag is a flag in every clinic. The defaults alias the kit's neutral
+ * accent, and a tenant block re-points them at brand constants that the two
+ * dark blocks above already re-alias — which is why this layer needs no dark
+ * variant of its own and no tenant token may ever appear inside those blocks:
+ * the cascade there would beat the tenant selector and quietly un-brand dark
+ * mode. It sits after the dark blocks for the same reason.
+ */
+:root {
+  --tenant-accent: var(--accent);
+  --tenant-accent-ink: var(--accent-ink);
+  --tenant-accent-soft: var(--series-1-soft);
+  --tenant-gold: var(--ink-muted);
+}
+
+:root[data-tenant="csm"] {
+  --tenant-accent: var(--csm-blue);
+  --tenant-accent-ink: var(--csm-blue-ink);
+  --tenant-accent-soft: var(--csm-blue-soft);
+  --tenant-gold: var(--csm-gold);
 }

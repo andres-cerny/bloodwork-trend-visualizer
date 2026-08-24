@@ -81,3 +81,40 @@ CREATE TABLE IF NOT EXISTS document_pages (
   height      INTEGER NOT NULL,
   PRIMARY KEY (document_id, page_num)
 );
+
+-- The patient card's spine: one row per clinic visit. DERIVED at seed time by
+-- grouping reports, documents and performance tests that share a date — the
+-- seeder computes the grouping, SQL only stores it. A visit without a note is
+-- an honest gap, not a defect: the real record has visits where only the
+-- tests survive.
+CREATE TABLE IF NOT EXISTS visits (
+  id               TEXT PRIMARY KEY,
+  patient_id       TEXT NOT NULL REFERENCES patients (id),
+  visit_date       TEXT NOT NULL,    -- ISO YYYY-MM-DD
+  kind             TEXT NOT NULL CHECK (kind IN ('annual', 'blood', 'perf_test', 'thb')),
+  title            TEXT NOT NULL,    -- Czech, as the card shows it
+  note_document_id TEXT REFERENCES documents (id)  -- the visit's zpráva, when one exists
+);
+CREATE INDEX IF NOT EXISTS idx_visits_patient ON visits (patient_id, visit_date);
+
+-- Derived: performance results as the clinic's own protocols print them —
+-- VO2max, thresholds, spirometry, tHb mass. The closed metric list lives in
+-- docs/csm-protocol.md; a metric_id not in that inventory has no business
+-- here (the app only knows what the record says). Reference bounds are
+-- carried only where the protocol itself prints one.
+CREATE TABLE IF NOT EXISTS perf_metrics (
+  patient_id   TEXT NOT NULL REFERENCES patients (id),
+  visit_id     TEXT NOT NULL REFERENCES visits (id),
+  metric_id    TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  unit         TEXT NOT NULL,
+  value        REAL NOT NULL,
+  ref_low      REAL,
+  ref_high     REAL,
+  test_date    TEXT NOT NULL,
+  -- One value per metric per visit, structurally: a re-seed that forgot the
+  -- wipe conflicts instead of silently doubling every chart point.
+  PRIMARY KEY (patient_id, visit_id, metric_id)
+);
+CREATE INDEX IF NOT EXISTS idx_perf_patient ON perf_metrics (patient_id, metric_id, test_date);
+CREATE INDEX IF NOT EXISTS idx_perf_visit ON perf_metrics (visit_id);
