@@ -32,6 +32,8 @@ export interface TurnstileOptions {
    * the absent `data-theme` is deferring to.
    */
   theme?: "light" | "dark" | "auto";
+  /** Widget locale, e.g. "cs" — absent keeps the vendor's auto-detection. */
+  language?: string;
 }
 
 export interface Turnstile {
@@ -69,6 +71,7 @@ export function useTurnstile(
   // A string, not the options object: a caller passing an inline literal must
   // not re-render the widget on every keystroke in the composer.
   const theme = options?.theme;
+  const language = options?.language;
 
   useEffect(() => {
     if (ready || !siteKey || !boxRef.current) return;
@@ -84,6 +87,7 @@ export function useTurnstile(
           // Only when asked for. Turnstile's own default is what every caller
           // got before this parameter existed.
           ...(theme ? { theme } : {}),
+          ...(language ? { language } : {}),
           callback: async (token: string) => {
             try {
               await startSession(token);
@@ -116,7 +120,7 @@ export function useTurnstile(
       if (id !== null) window.turnstile?.remove?.(id);
       el.replaceChildren();
     };
-  }, [ready, siteKey, onUnlock, theme]);
+  }, [ready, siteKey, onUnlock, theme, language]);
 
   return { boxRef, ready, available: Boolean(siteKey), error };
 }

@@ -358,7 +358,7 @@ export default function App() {
   const gate = useTurnstile(
     import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined,
     onUnlock,
-    { theme: palette },
+    { theme: palette, language: "cs" },
   );
 
   useEffect(() => {
