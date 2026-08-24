@@ -230,6 +230,14 @@ the two tracks are separable by design.
 - [x] Track B — follow-ups implemented and **promoted**: 19 cases × 3 reps zero fails, baseline 14→19; the identity_boundary flake was proven to be a five-token refusal regex, widened on captured evidence; $3.17 of the $10 cap
 - [x] Round 1 — variants A/B/C built in worktrees (branches `worktree-agent-a17364…/aeaacb…/a7c6b6…`), 34/34 camera states each; spec's `cite-1` wording pinned to the reading all three converged on
 - [x] Round 2 — blind verdict committed (`tools/ui-loop/round-2-verdict.md`): A 33 · C 31 · B 28; A wins on evidence legibility and pattern likeness, grafts taken from C (streaming) and B (row band)
-- [ ] Round 3 — refiners done; each candidate polished by its own camera→critic→fixer loop; candidates handed to Ondřej
+- [x] Round 3 — refiners done (`c23c833`, `2b0d637`); three polish loops run dry:
+  **A** (`polish-a` @ `5e5ec21`+cs, 3 rounds), **R1** (`refine-critique` @ `d4d9a76`,
+  CLEAN at pass 3), **R2** (`refine-mobile` @ `1f465e8`, 3 rounds + closing
+  micro-fixes). Critiques in `tools/ui-loop/polish/`. Server-side findings for
+  Round 4: `summarize_changes` cites odběr-level with `bbox: null` and no
+  per-parameter data; `get_document`/`search_documents` excerpts can miss the
+  cited passage (three of six orto excerpts hold no substantive line); the
+  internal `p-…` ref appeared in one excerpt payload (client guard added, but
+  the server should not ship it). Candidates handed to Ondřej — awaiting his pick
 - [ ] Ondřej's pick recorded here
 - [ ] Round 4 — merged, audited, walked through live, deployed
