@@ -43,6 +43,13 @@
      one channel colour vision never takes away. */
   --band-neutral: rgba(20, 19, 15, 0.055);
   --chip: #eeede8;
+  /* The sheet a scanned page is laid on.
+     A lab report is white, and a white rectangle on a dark page is a lamp —
+     so in the dark palette the page image is knocked back and set on paper
+     rather than on the plane. In the light palette there is nothing to knock
+     back and the tone is the plane's own. Both apps render these page images,
+     so the tone is here rather than in either of them. */
+  --paper-dim: var(--plane);
 
   --radius: 10px;
   --radius-sm: 7px;
@@ -51,6 +58,10 @@
   --shadow-sm: 0 1px 2px rgba(20, 19, 15, 0.05);
   --shadow-md: 0 2px 4px rgba(20, 19, 15, 0.05), 0 8px 20px -12px rgba(20, 19, 15, 0.22);
   --shadow-lg: 0 18px 48px -18px rgba(20, 19, 15, 0.34);
+  /* For `filter: drop-shadow`, which takes one shadow and no comma list — so
+     the two-part `--shadow-md` cannot be used there. Lifts a small floating
+     thing off whatever it floats over: the chart tooltip is the only one. */
+  --shadow-pop: 0 2px 7px rgba(20, 19, 15, 0.22);
 
   --rail: 316px;
   /* Cap on the reading column, so a line of prose does not run the full
@@ -91,9 +102,13 @@
   --dk-band: rgba(57, 135, 229, 0.14);
   --dk-band-neutral: rgba(255, 255, 255, 0.055);
   --dk-chip: #262625;
+  /* Warm off-white: paper, not plane and not the report's own white. Dark
+     enough that the knocked-back scan sits on it without a rim. */
+  --dk-paper-dim: #e3e1dc;
   --dk-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --dk-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
   --dk-shadow-lg: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
+  --dk-shadow-pop: 0 2px 7px rgba(0, 0, 0, 0.7);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -118,9 +133,11 @@
     --band: var(--dk-band);
     --band-neutral: var(--dk-band-neutral);
     --chip: var(--dk-chip);
+    --paper-dim: var(--dk-paper-dim);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);
+    --shadow-pop: var(--dk-shadow-pop);
   }
 }
 
@@ -146,9 +163,11 @@
     --band: var(--dk-band);
     --band-neutral: var(--dk-band-neutral);
     --chip: var(--dk-chip);
+    --paper-dim: var(--dk-paper-dim);
     --shadow-sm: var(--dk-shadow-sm);
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);
+    --shadow-pop: var(--dk-shadow-pop);
 }
 
 * { box-sizing: border-box; }

@@ -16,6 +16,7 @@
 import { Chart } from "@bw/ui-kit";
 import Answer from "./Answer";
 import Sources, { type Source } from "./Sources";
+import { scrollToTop } from "./motion";
 
 /** One thing the agent produced, in the order it produced it. */
 export type Part =
@@ -254,10 +255,20 @@ export default function Transcript({
                   onClick={(e) => {
                     // Opening a disclosure below the fold reveals evidence the
                     // reader cannot see; bring the block to the top instead.
+                    //
+                    // Through motion.ts, not `scrollIntoView`, which is what
+                    // that module was written for: `scrollIntoView` walks every
+                    // scrollable ancestor, and the shell is one — it is
+                    // `100dvh; overflow: hidden`, which stops a reader
+                    // scrolling it and does nothing to a script. When the
+                    // thread ran out of scroll before reaching the requested
+                    // position, the shell made up the difference by sliding the
+                    // whole app up the glass, header off the top. scrollToTop
+                    // finds the one real scroller and writes to it, and asks
+                    // whether the reader wanted motion at all.
                     const wrap = e.currentTarget.parentElement;
                     onToggleSources(b.id);
-                    if (!open)
-                      requestAnimationFrame(() => wrap?.scrollIntoView({ block: "start" }));
+                    if (!open && wrap) requestAnimationFrame(() => scrollToTop(wrap));
                   }}
                 >
                   <span className="sources-caret" aria-hidden="true" data-open={open} />
