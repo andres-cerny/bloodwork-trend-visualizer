@@ -10,7 +10,7 @@
  * polyline and some dots, and this keeps full control of touch targets and the
  * mobile viewBox without shipping a dependency.
  */
-import { useId, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   czExact,
   czNum,
@@ -54,9 +54,102 @@ const H = 240;
 // being scaled down to a ~330px phone viewport, so they need the room.
 const PAD = { top: 18, right: 18, bottom: 30, left: 58 };
 
-export default function Chart({ trend }: { trend: Trend }) {
+/**
+ * `fitText`: the smallest a chart label may end up on the glass.
+ *
+ * The viewBox is 640 wide and the svg is `width: 100%`, so on a 390px phone
+ * every user unit — text included — is drawn at about half size: an 11-unit
+ * label lands at 5.5px. Compensating by 1/scale puts each label back at the px
+ * size it was written as, and 11 is the smallest of those, so this is the
+ * floor the multiplier is derived from.
+ */
+const MIN_TEXT_PX = 11;
+/** The smallest font size drawn in the plot — the reference-limit labels. */
+const SMALLEST_LABEL = 11;
+/** Past this the compensation would eat the plot; a phone never gets there. */
+const MAX_TEXT_SCALE = 2.2;
+/** Below this the inline limit labels lose their words — see `compactLimits`. */
+const NARROW_PX = 480;
+
+/** SSR renders once and never measures; only the browser has a layout to read. */
+const useMeasureEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+export default function Chart({
+  trend,
+  includeRefRange = false,
+  fitText = false,
+}: {
+  trend: Trend;
+  /**
+   * Opt in to a y-domain that contains the whole reference range.
+   *
+   * Off by default, and the default is the byte-for-byte rendering every
+   * existing caller already has: the bloodwork trends tab scales to the data
+   * on purpose (see the note on the domain below), because a ferritin fall
+   * from 112 to 88 inside a 30–400 band is the entire reason that chart was
+   * opened, and putting 400 on the axis flattens it into a straight line.
+   *
+   * The chat app opts in, because its chart arrives *inside a sentence*: the
+   * answer says „vše v pásmu normy" two lines under a plot whose band filled
+   * every pixel and whose last point sat on the bottom axis rule. There the
+   * band is the claim being made, so the band has to be visible as a band —
+   * with paper above the upper limit and below the lower one — or the picture
+   * contradicts the prose. With it on, the tint stops being the series colour
+   * too: a band that means „normal" is not a second blue object competing with
+   * the line.
+   */
+  includeRefRange?: boolean;
+  /**
+   * Opt in to type that keeps its size after the viewBox is scaled.
+   *
+   * Off by default, and off the markup is byte-for-byte what every existing
+   * caller already renders: no measurement, no observer, every constant below
+   * multiplied by exactly 1.
+   *
+   * On, the drawn width is measured and every font size and text offset is
+   * divided by the scale the browser applied, so an 11-unit label is 11px on
+   * the glass whether the card is 640px wide or 326. The chat app opts in
+   * because its chart is inline in an answer on a 390px phone, where the
+   * labelled reference limits — the fix the whole card exists for — were
+   * landing at ~5px, a third of the caption directly beneath them.
+   */
+  fitText?: boolean;
+}) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
+  const figRef = useRef<HTMLElement>(null);
+  const [drawnW, setDrawnW] = useState<number | null>(null);
+
+  // Width, not a breakpoint: the same 1200px window renders this chart at
+  // ~560px inside a thread with an evidence rail and at ~980px without one,
+  // and it is the drawn width — never the viewport — that decides how far the
+  // type has been shrunk.
+  useMeasureEffect(() => {
+    if (!fitText) return;
+    const el = figRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const read = () => {
+      const w = el.getBoundingClientRect().width;
+      setDrawnW((prev) => (w > 0 && Math.abs((prev ?? -1) - w) > 0.5 ? w : prev));
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitText]);
+
+  // 1 until measured, so the first paint is the unscaled chart rather than a
+  // guess that then jumps.
+  const scale = fitText && drawnW !== null && drawnW > 0 ? drawnW / W : 1;
+  const k = Math.min(
+    MAX_TEXT_SCALE,
+    Math.max(1, MIN_TEXT_PX / (SMALLEST_LABEL * scale)),
+  );
+  // Under ~480px there is no room for „horní mez 175" at a readable size, and
+  // no need for it: the caption under the plot names the range in words, so
+  // the hairlines only have to say which number each one is.
+  const compactLimits = fitText && drawnW !== null && drawnW < NARROW_PX;
+
   const pts = numericPoints(trend);
   if (pts.length === 0) return <p className="muted">Žádné číselné hodnoty k zobrazení.</p>;
 
@@ -116,13 +209,40 @@ export default function Chart({ trend }: { trend: Trend }) {
   let yMin = Math.min(lo - pad, ...nearLow);
   let yMax = Math.max(hi + pad, ...nearHigh);
 
+  // Opted in: both limits are inside the plot, with air above and below them,
+  // so the band reads as a band rather than as the backdrop.
+  if (includeRefRange) {
+    const dLo = Math.min(lo, ...lows);
+    const dHi = Math.max(hi, ...highs);
+    const dPad = dHi > dLo ? (dHi - dLo) * 0.12 : pad;
+    yMin = dLo - dPad;
+    yMax = dHi + dPad;
+  }
+
   // A concentration or a count cannot be negative, and an axis that says
   // "-25,5" for ferritin undermines every number beside it.
   const canBeNegative = values.some((v) => v < 0) || lows.some((v) => v < 0);
   if (!canBeNegative && yMin < 0) yMin = 0;
 
-  const innerW = W - PAD.left - PAD.right;
-  const innerH = H - PAD.top - PAD.bottom;
+  // A domain widened to hold the whole range is a wider domain, and four ticks
+  // over it lands on a step of 20 where 10 was available — two labels for the
+  // whole axis. Only the opted-in domain asks for the denser target; the
+  // default keeps the tick count every existing chart has.
+  //
+  // Computed here, above the padding, because the gutter has to be wide enough
+  // for the widest tick label once that label has been scaled back up.
+  const ticks = niceTicks(yMin, yMax, includeRefRange ? 5 : 4);
+
+  // Padding follows the type. With `fitText` off, k is 1 and every expression
+  // below evaluates to the constant it replaced.
+  const tickChars = Math.max(1, ...ticks.map((t) => czNum(t).length));
+  const padLeft = fitText
+    ? Math.max(PAD.left, Math.ceil(tickChars * 13 * k * 0.58) + 12)
+    : PAD.left;
+  const padBottom = fitText ? Math.max(PAD.bottom, Math.ceil(13 * k * 1.35) + 8) : PAD.bottom;
+
+  const innerW = W - padLeft - PAD.right;
+  const innerH = H - PAD.top - padBottom;
 
   // Space points by DATE, not by index.
   //
@@ -136,8 +256,8 @@ export default function Chart({ trend }: { trend: Trend }) {
   const span = t1 - t0;
   const x = (i: number) =>
     pts.length === 1 || span <= 0
-      ? PAD.left + innerW / 2
-      : PAD.left + ((times[i] - t0) / span) * innerW;
+      ? padLeft + innerW / 2
+      : padLeft + ((times[i] - t0) / span) * innerW;
   const y = (v: number) => PAD.top + innerH - ((v - yMin) / (yMax - yMin || 1)) * innerH;
 
   const band = (() => {
@@ -154,11 +274,10 @@ export default function Chart({ trend }: { trend: Trend }) {
   if (band?.bLow != null && (band.bLow < yMin || band.bLow > yMax)) offscreenLimits.push("dolní mez");
 
   const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value as number)}`).join(" ");
-  const ticks = niceTicks(yMin, yMax);
   const active = hover !== null ? pts[hover] : null;
 
   return (
-    <figure style={{ margin: 0 }}>
+    <figure ref={figRef} style={{ margin: 0 }}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
@@ -168,19 +287,29 @@ export default function Chart({ trend }: { trend: Trend }) {
         onMouseLeave={() => setHover(null)}
       >
         <clipPath id={clipId}>
-          <rect x={PAD.left} y={PAD.top} width={innerW} height={innerH} />
+          <rect x={padLeft} y={PAD.top} width={innerW} height={innerH} />
         </clipPath>
 
         {band && (
           <g clipPath={`url(#${clipId})`}>
-            <rect x={PAD.left} y={band.top} width={innerW} height={band.height} fill="var(--band)" />
+            <rect
+              x={padLeft}
+              y={band.top}
+              width={innerW}
+              height={band.height}
+              fill={includeRefRange ? "var(--band-neutral)" : "var(--band)"}
+            />
           </g>
         )}
 
         {/* Draw each reference limit as a labelled line when it falls inside
             the view. The shaded band alone is ambiguous: with the axis scaled
             to the data it often fills the whole plot (saying nothing) or is
-            cropped at an edge, where the cut could be misread as the limit. */}
+            cropped at an edge, where the cut could be misread as the limit.
+
+            On a narrow card the words go and the number stays: „horní mez 175"
+            at a readable size is a third of the plot's width, and the caption
+            under the chart already says which range these two lines bound. */}
         {[
           { v: band?.bHigh ?? null, label: "horní mez" },
           { v: band?.bLow ?? null, label: "dolní mez" },
@@ -188,14 +317,20 @@ export default function Chart({ trend }: { trend: Trend }) {
           v !== null && v >= yMin && v <= yMax ? (
             <g key={i}>
               <line
-                x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)}
+                x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)}
                 stroke="var(--ink-muted)" strokeWidth={1} strokeDasharray="4 3"
               />
               <text
-                x={W - PAD.right} y={y(v) - 4} textAnchor="end"
-                fontSize={11} fill="var(--ink-muted)"
+                x={W - PAD.right} y={y(v) - 4 * k} textAnchor="end"
+                fontSize={11 * k} fill="var(--ink-muted)"
               >
-                {label} {czNum(v)}
+                {compactLimits ? (
+                  czNum(v)
+                ) : (
+                  <>
+                    {label} {czNum(v)}
+                  </>
+                )}
               </text>
             </g>
           ) : null,
@@ -203,8 +338,8 @@ export default function Chart({ trend }: { trend: Trend }) {
 
         {ticks.map((t, i) => (
           <g key={i}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
-            <text x={PAD.left - 7} y={y(t) + 4} textAnchor="end" fontSize={13} fill="var(--ink-muted)">
+            <line x1={padLeft} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
+            <text x={padLeft - 7 * k} y={y(t) + 4 * k} textAnchor="end" fontSize={13 * k} fill="var(--ink-muted)">
               {czNum(t)}
             </text>
           </g>
@@ -241,7 +376,7 @@ export default function Chart({ trend }: { trend: Trend }) {
                 strokeDasharray={p.unconfirmed ? "3 2" : undefined}
               />
               {out && (
-                <text x={x(i)} y={y(p.value as number) - 12} textAnchor="middle" fontSize={13}
+                <text x={x(i)} y={y(p.value as number) - 12 * k} textAnchor="middle" fontSize={13 * k}
                       pointerEvents="none" fill="var(--status-critical)" fontWeight={700}>
                   {p.flag === "high" ? "↑" : "↓"}
                 </text>
@@ -251,10 +386,10 @@ export default function Chart({ trend }: { trend: Trend }) {
               {i === pts.length - 1 && (
                 <text
                   pointerEvents="none"
-                  x={x(i) - 9}
-                  y={y(p.value as number) - 10}
+                  x={x(i) - 9 * k}
+                  y={y(p.value as number) - 10 * k}
                   textAnchor="end"
-                  fontSize={14}
+                  fontSize={14 * k}
                   fontWeight={700}
                   fill={out ? "var(--status-critical)" : "var(--ink-1)"}
                 >
@@ -287,19 +422,19 @@ export default function Chart({ trend }: { trend: Trend }) {
           // No text metrics inside an SVG viewBox, so the width is estimated
           // per line from its character count. Erring a little wide only
           // leaves padding; erring narrow clips the date.
-          const w = Math.max(84, ...lines.map((l, i) => l.length * (i === 1 ? 6.9 : 5.6) + 18));
-          const h = 16 + lines.length * 14;
+          const w = Math.max(84 * k, ...lines.map((l, i) => l.length * (i === 1 ? 6.9 : 5.6) * k + 18 * k));
+          const h = (16 + lines.length * 14) * k;
           const px = x(hover);
           const py = y(active.value as number);
           const left = px + 14 + w > W - PAD.right ? px - 14 - w : px + 14;
-          const top = Math.min(Math.max(PAD.top, py - h / 2), H - PAD.bottom - h);
+          const top = Math.min(Math.max(PAD.top, py - h / 2), H - padBottom - h);
           const out = active.flag === "high" || active.flag === "low";
           return (
             <g className="chart-tip" pointerEvents="none">
               {/* A guide down to the axis: with ten points a box floating
                   beside the line leaves "which one?" genuinely open. */}
               <line
-                x1={px} x2={px} y1={PAD.top} y2={H - PAD.bottom}
+                x1={px} x2={px} y1={PAD.top} y2={H - padBottom}
                 stroke="var(--ink-muted)" strokeWidth={1} strokeDasharray="3 3" opacity={0.55}
               />
               <rect x={left} y={top} width={w} height={h} rx={7}
@@ -307,9 +442,9 @@ export default function Chart({ trend }: { trend: Trend }) {
               {lines.map((l, i) => (
                 <text
                   key={i}
-                  x={left + 9}
-                  y={top + 14 + i * 14}
-                  fontSize={i === 1 ? 12.5 : 10.5}
+                  x={left + 9 * k}
+                  y={top + (14 + i * 14) * k}
+                  fontSize={(i === 1 ? 12.5 : 10.5) * k}
                   fontWeight={i === 1 ? 700 : 400}
                   fill={i === 1 ? (out ? "var(--status-critical)" : "var(--ink-1)") : "var(--ink-2)"}
                 >
@@ -323,11 +458,18 @@ export default function Chart({ trend }: { trend: Trend }) {
         {/* With real time spacing two close draws can collide, so a label is
             dropped when it would overlap the previous one. */}
         {pts.map((p, i) => {
-          const MIN_GAP = 46;
+          // The gap is a text width, so it grows with the text.
+          const MIN_GAP = 46 * k;
           const prevShown = pts.slice(0, i).reduce((acc, _, j) => (x(j) >= acc ? x(j) : acc), -Infinity);
           if (i > 0 && i < pts.length - 1 && x(i) - prevShown < MIN_GAP) return null;
+          // The last draw sits at the right edge of the plot, so a label
+          // centred on it runs off the viewBox once the type is scaled back
+          // up — „5/25" lost its final digit. Nudged in by no more than its
+          // own overhang, which is a few pixels and keeps it under its point.
+          const half = czMonthYear(p.date).length * 13 * k * 0.26;
+          const lx = fitText ? Math.min(Math.max(x(i), half), W - half) : x(i);
           return (
-            <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize={13} fill="var(--ink-muted)">
+            <text key={i} x={lx} y={H - 8} textAnchor="middle" fontSize={13 * k} fill="var(--ink-muted)">
               {czMonthYear(p.date)}
             </text>
           );
