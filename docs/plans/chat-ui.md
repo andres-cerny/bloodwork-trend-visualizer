@@ -239,5 +239,13 @@ the two tracks are separable by design.
   cited passage (three of six orto excerpts hold no substantive line); the
   internal `p-…` ref appeared in one excerpt payload (client guard added, but
   the server should not ship it). Candidates handed to Ondřej — awaiting his pick
-- [ ] Ondřej's pick recorded here
-- [ ] Round 4 — merged, audited, walked through live, deployed
+- [x] Ondřej's pick: **R1, wearing R2's signposts** — R1's critique-refined rail
+  with the mobile pass's graftable ideas (`1e09184`), landed as `53e2d18`
+- [x] Round 4 — merged and hardened on `chat-demo` (`7ed40d8` audit defects,
+  motion/colour/numeral fixes, pressable controls); of the three server-side
+  findings, the citation one shipped (`da8e490` — `citeMeasuredRow`, 42 tests,
+  eval $2.31, baseline deliberately not promoted on two recovered flakes);
+  fixtures re-captured against the deployed agent (`939dfea`). Deployed
+  2026-08-24 by Ondřej: https://bloodwork-chat.andres-cerny.workers.dev
+- [ ] Carried forward: excerpt-misses + internal `p-…` ref in excerpt payloads
+  → [csm-demo.md](csm-demo.md) Phase 5
