@@ -205,8 +205,20 @@
   overflow: hidden;
 }
 .patient-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+/* Unpinning the patient is what unscopes the whole thread, and 18×14px of ✕
+   is not a target. The chip cannot grow — it shares a 36px row with the title
+   — so the button claims the space around it instead: the padding grows, and
+   an equal negative margin gives every pixel of it back to the flex line. The
+   margin box stays 18×14, so the pill is the same pill to the pixel and the ✕
+   does not move; the box the thumb lands on is 24×26.
+   It grows leftward, into the 7px gap after the name, rather than out into the
+   chip's own padding. The chip is a pill with `overflow: hidden`, and a target
+   reaching the right-hand end of it has its two far corners clipped away by
+   the cap — about 2% of the box, and 2% that a right thumb arrives at first.
+   Leaning left keeps the whole 24×26 inside the straight part of the pill. */
 .patient-chip button {
-  padding: 0 4px;
+  padding: 6px 4px 6px 10px;
+  margin: -6px 0 -6px -6px;
   border: 0;
   background: none;
   color: var(--ink-muted);
@@ -447,19 +459,39 @@ button.candidate:hover .cand-go { color: var(--accent); }
    It is boxed at rest, not only on focus. A grey numeral riding above the
    baseline is the typography of a footnote — something the reader has already
    been trained by every printed page to skip — and this is the one thing on
-   the screen they are most meant to press. The frame is the invitation. */
+   the screen they are most meant to press. The frame is the invitation.
+
+   And being the thing they are most meant to press, it has to be pressable.
+   The chip is 19×18px, under the 24×24 floor; it cannot simply grow, because
+   it sits inline in Czech prose and a taller inline box raises the line box it
+   is in — which would re-flow every answer and leave one ragged gap in every
+   paragraph that cites.
+
+   So the target grows and the chip does not. The button is a transparent
+   24×24 box and `::before` paints the frame and fill, inset back to the 19×18
+   the chip has always been. The negative margins hand the extra 3px and 2.5px
+   straight back to the line: the margin box is still 19×18, so the advance,
+   the line box and the measure are the ones the text already had, and the
+   numeral sits on the pixel it sat on before. Everything that moved is
+   invisible. */
 .cite {
+  position: relative;
+  /* Its own stacking context, so the `z-index: -1` below lands behind the
+     numeral and not behind the page: a negative child otherwise escapes to the
+     nearest stacking context, and the chip would be painted under the thread. */
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 19px;
-  height: 18px;
-  padding: 0 4px;
-  margin: 0 0 0 3px;
+  min-width: 24px;
+  height: 24px;
+  /* The chip's own 4px of padding, its 1px frame, and the 2.5px of target that
+     now sits outside it. A two-digit marker widens box and chip together. */
+  padding: 0 7.5px;
+  margin: -3px -2.5px -3px 0.5px;
   vertical-align: 1px;
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
-  background: var(--chip);
+  border: 0;
+  background: none;
   color: var(--ink-2);
   font: inherit;
   font-size: 0.72rem;
@@ -467,13 +499,45 @@ button.candidate:hover .cand-go { color: var(--accent); }
   line-height: 1;
   cursor: pointer;
 }
-.cite:hover {
-  border-color: var(--accent);
-  background: var(--series-1-soft);
-  color: var(--accent-ink);
+/* The chip itself: what the reader sees, at the size it has always been. */
+.cite::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 3px 2.5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--chip);
 }
-.cite.is-active { border-color: var(--accent); background: var(--accent); color: #fff; }
+/* The focus ring belongs to the chip, not to the target around it: at the
+   global +2px offset it would ride 3px further out and reach the line above.
+   Pulled back inside the box it lands where it always did, and the radius —
+   which nothing paints on the button itself, only the outline reads it —
+   restores the 6px curve the global rule's 4px plus its +2px offset gave. */
+.cite:focus-visible { outline-offset: -1px; border-radius: 7px; }
+.cite:hover { color: var(--accent-ink); }
+.cite:hover::before { border-color: var(--accent); background: var(--series-1-soft); }
+.cite.is-active { color: #fff; }
+.cite.is-active::before { border-color: var(--accent); background: var(--accent); }
 .cite[data-orphan] { text-decoration: line-through; opacity: 0.65; }
+
+/* Two markers in a row — „(+89 %) [1][2]." in the ambiguity fixture — sit at a
+   pitch of 22px, three of which are the gap between them, and two 24px targets
+   centred on them would overlap by 2px: the second would quietly own the first
+   one's right edge.
+   So the pair leans apart. Only the box leans: the chip is re-inset by exactly
+   what the box moved, and the padding is skewed by the same 1.5px so the
+   numeral stays centred in the chip rather than in the box. Both chips and the
+   advance are where the line already put them — which is also why these rules
+   are harmless when the sibling combinator matches a pair that has words
+   between them.
+   Three in a row cannot be solved this way: 3×24px of target does not fit the
+   63px three chips span, so one 2px overlap would remain. The agent does not
+   write them and no fixture contains one. */
+.cite:has(+ .cite) { margin-right: -1px; margin-left: -1px; padding: 0 6px 0 9px; }
+.cite:has(+ .cite)::before { inset: 3px 1px 3px 4px; }
+.cite + .cite { margin-right: -4px; margin-left: 2px; padding: 0 9px 0 6px; }
+.cite + .cite::before { inset: 3px 4px 3px 1px; }
 
 /* The word, its marker and the full stop after it are one unbreakable run —
    see Answer.tsx. Without this the marker is the cheapest break opportunity in
