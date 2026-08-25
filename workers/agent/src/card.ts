@@ -48,12 +48,23 @@ interface VisitPerfRow extends PerfPoint {
   prevDate: string | null;
 }
 
-/** Previous numeric neighbour in a date-ordered series, for the delta rows. */
+/**
+ * Previous numeric neighbour in a date-ordered series, for the delta rows.
+ *
+ * The subtraction is rounded to six decimals before it leaves the server:
+ * IEEE 754 turns 9,4 − 11,3 into −1.9000000000000004, and a client that
+ * prints the payload verbatim then shows sixteen digits of noise to a
+ * patient. No printed lab value carries six decimals, so this rounds away
+ * only the float artefact, never information.
+ */
 function deltaFrom<T>(series: T[], index: number, value: (t: T) => number, date: (t: T) => string) {
   const prev = index > 0 ? series[index - 1] : undefined;
   return prev === undefined
     ? { delta: null, prevDate: null }
-    : { delta: value(series[index]) - value(prev), prevDate: date(prev) };
+    : {
+        delta: Math.round((value(series[index]) - value(prev)) * 1e6) / 1e6,
+        prevDate: date(prev),
+      };
 }
 
 export async function handleCard(

@@ -8,10 +8,11 @@ reaches the extractor.
 **`extract` is finished.** Stable prompts, one secret, bursty parallel load. It
 should stop changing.
 
-**`agent` grew its future**: two D1 practices (`DB_SPORT`, `DB_ORTO`, one per
-tenant so isolation is by binding, not by a WHERE clause), a KV evidence shelf for the
-one real record git never holds, and its own `/api/session` door — the chat
-shell binds only this worker, so a Turnstile token must be tradeable here.
+**`agent` grew its future**: three D1 practices (`DB_SPORT`, `DB_ORTO`,
+`DB_CSM` — isolation by binding, not by a WHERE clause), a KV evidence shelf for the
+one real record git never holds, read-only `/api/card/*` routes (session-gated,
+never ledger-gated), and its own `/api/session` door — the shells bind only
+this worker, so a Turnstile token must be tradeable here.
 The split still holds the other way: **extraction must never grow a database
 binding**, and the way to keep that true is to give it nowhere to put one.
 
@@ -34,7 +35,7 @@ capability argument differs.
 - **The ledgers are separate.** They used to share one counter, so a batch of
   uploads could freeze the chat. Pre-split `spend_usd_shard_*` keys are still
   read, so an existing deployment's history survives — but only into `agent`
-  and `extract`: the clinical ledgers (`clinical-sport`, `clinical-orto`, one
+  and `extract`: the clinical ledgers (`clinical-sport`/`-orto`/`-csm`, one
   per practice, `CLINICAL_USD_LIMIT` each) are new and must not be pre-charged
   with history they never spent. A doctor exploring one demo cannot freeze the
   other; a test pins it in both directions.

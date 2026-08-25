@@ -731,7 +731,9 @@ describe("the card routes", () => {
     expect(body.labs.map((l: any) => l.canonicalId)).toEqual(["hemoglobin"]);
     expect(body.labs[0].delta).toBeNull(); // single draw — no previous to compare
     expect(body.perf[0]).toMatchObject({ metricId: "vo2max_rel", value: 61.2, prevDate: "2024-05-10" });
-    expect(body.perf[0].delta).toBeCloseTo(3.2);
+    // Exactly 3.2, not 3.1999999999999957 — the server rounds the float
+    // artefact away before a client can print it at a patient.
+    expect(body.perf[0].delta).toBe(3.2);
     expect(body.note.title).toBe("Zpráva z vyšetření");
   });
 

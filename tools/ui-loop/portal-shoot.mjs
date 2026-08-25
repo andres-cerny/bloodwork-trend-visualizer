@@ -25,7 +25,10 @@ const fx = JSON.parse(readFileSync(FIXTURE, "utf-8"));
 const P = fx.patients[0].id; // the story-richest ghost is seeded first
 const byP = fx.byPatient[P];
 const annual = byP.visits.find((v) => v.kind === "annual" && v.hasNote);
-const gap = byP.visits.find((v) => !v.hasNote);
+// The ghosts have full note coverage (honest gaps belong to the real record),
+// so the "gap" state is the SPARSE patient's timeline — the one whose story
+// is years of nothing between visits.
+const sparse = Object.entries(fx.byPatient).sort((a, b) => a[1].visits.length - b[1].visits.length)[0][0];
 const labTrend = Object.keys(byP.trends).find((k) => k.startsWith("lab:"));
 const perfTrend = Object.keys(byP.trends).find((k) => k.startsWith("perf:vo2max"))
   ?? Object.keys(byP.trends).find((k) => k.startsWith("perf:"));
@@ -38,7 +41,7 @@ const STATES = [
   { name: "home", path: `/?fx=1&p=${P}`, viewports: [MOBILE, DESKTOP] },
   { name: "timeline", path: `/?fx=1&p=${P}&view=timeline`, viewports: [MOBILE, DESKTOP] },
   { name: "visit-annual", path: `/?fx=1&p=${P}&v=${annual?.id}`, viewports: [MOBILE, DESKTOP] },
-  { name: "visit-gap", path: `/?fx=1&p=${P}&v=${gap?.id}`, viewports: [MOBILE] },
+  { name: "timeline-sparse", path: `/?fx=1&p=${sparse}&view=timeline`, viewports: [MOBILE] },
   { name: "chart-lab", path: `/?fx=1&p=${P}&t=${labTrend}`, viewports: [MOBILE, DESKTOP] },
   { name: "chart-perf", path: `/?fx=1&p=${P}&t=${perfTrend}`, viewports: [MOBILE, DESKTOP] },
   { name: "note", path: `/?fx=1&p=${P}&v=${annual?.id}`, viewports: [MOBILE],
