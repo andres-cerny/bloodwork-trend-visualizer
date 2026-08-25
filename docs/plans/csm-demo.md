@@ -328,6 +328,25 @@ real-record transcription (small, local) and the single live smoke turns
   done into git-ignored data/csm-real/ (75 values, 13 ⚠ for Ondřej's
   spot-check in VERIFY.md, 3 image-only scans listed for OCR); the deploy-time
   seeder extension is still open (Phase 6 work).
+- [x] 2026-08-25 Phase 5 (agent half) — get_perf_trend with passage-level
+  citations; /csm in the chat client; the two carried chat-ui findings closed
+  (substantive excerpts, server-side ref scrubbing). Evals SUBAGENT-ONLY per
+  the decision: 23/23 at 3 reps, 343 local invocations, $0 API. Three prompt
+  clauses earned by captured failures — chart is lab-only, an unreachable
+  mode is not an absent record, and no identifier beyond the name (the model
+  had fabricated a rodné číslo from the birth date). Open: canonical ids leak
+  into prose; candidate line awaits its own ride.
+- [x] 2026-08-25 Phase 6 (partial) — csm ledger isolation pinned both ways;
+  portal hostname in TURNSTILE_HOSTNAMES; constraints.md gains the pitch's
+  three rules; deploy.md covers three databases and the portal. Remote csm
+  seeded (3 ghosts, 29 visits, 192 perf rows, 38 documents); agent + chat
+  deployed — /csm live, card routes refuse without a session, ledger $0/$10.
+- [x] 2026-08-25 Phase 4 rounds 1–3 — three variants built in worktrees
+  (editorial-calm / athlete-dashboard / clinical-familiar), 32-state camera,
+  blind critiques (A 22 · B 22 · C 14), then per-candidate polish loops:
+  A CLEAN at 28/30 (pass 2), B 26/30 → pass 3 on a clipped table, C 25/30 →
+  pass 3 on a chart overprint and the note-as-letter. The camera gained a
+  results-rows state after a critic could not see sparklines the code drew.
 - [x] 2026-08-24 Phase 3 (built early, same sitting) — `/api/card/*` routes:
   patients / visits / visit / trend / document; session-gated but NOT
   ledger-gated (a frozen AI budget keeps the card serving — pinned);
