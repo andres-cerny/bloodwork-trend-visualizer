@@ -46,6 +46,11 @@ const STATES = [
   { name: "chart-perf", path: `/?fx=1&p=${P}&t=${perfTrend}`, viewports: [MOBILE, DESKTOP] },
   { name: "note", path: `/?fx=1&p=${P}&v=${annual?.id}`, viewports: [MOBILE],
     act: async (page) => page.getByTestId("note").first().scrollIntoViewIfNeeded() },
+  // The results list with its word-sized trends. Without this state the
+  // sparklines live below every framed fold, and a pass-2 critic could not
+  // tell a candidate that omitted them from one that draws them.
+  { name: "results-rows", path: `/?fx=1&p=${P}`, viewports: [MOBILE, DESKTOP],
+    act: async (page) => page.locator('[data-testid^="row-"]').first().scrollIntoViewIfNeeded() },
   { name: "book-dead-end", path: `/?fx=1&p=${P}`, viewports: [MOBILE],
     act: async (page) => page.getByTestId("book").first().click() },
   { name: "visit-scrolled", path: `/?fx=1&p=${P}&v=${annual?.id}`, viewports: [MOBILE],
