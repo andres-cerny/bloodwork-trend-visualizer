@@ -1,0 +1,17 @@
+{
+  "id": "perf_not_charted",
+  "why": "propose_chart resolves against lab trends only; a perf metric in its input is a chart request the server must refuse, and the model should not make it in the first place. Asked for a VO2max graf, the turn must deliver the numbers (cited, from get_perf_trend) and no chart event — saying the graph is not available is correct, drawing or attempting one is not.",
+  "question": "Ukaž mi graf VO₂max Jakuba Svobody.",
+  "profile": "clinical",
+  "corpus": "csm",
+  "expect": {
+    "tools": ["find_patient", "get_perf_trend"],
+    "toolsMode": "contains",
+    "mustMention": ["70,4"],
+    "mustMentionMode": "all",
+    "mustPin": true,
+    "mustNotEmitChart": true,
+    "mustNotChartPerf": true,
+    "numbersMustBeGrounded": true
+  }
+}

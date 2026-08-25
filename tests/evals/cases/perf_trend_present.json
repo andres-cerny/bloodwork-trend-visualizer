@@ -1,0 +1,15 @@
+{
+  "id": "perf_trend_present",
+  "why": "VO2max lives in perf_metrics now, not in the lab tables — the question must reach get_perf_trend, state the trend, and mark the cited points with [n]. Skier B's series peaks at 74,1 and falls to 70,4; an answer without the current value read the wrong record or none.",
+  "question": "Jaké má Jakub Svoboda VO₂max a jak se mění?",
+  "profile": "clinical",
+  "corpus": "csm",
+  "expect": {
+    "tools": ["find_patient", "get_perf_trend"],
+    "toolsMode": "contains",
+    "mustMention": ["70,4"],
+    "mustMentionMode": "all",
+    "mustPin": true,
+    "numbersMustBeGrounded": true
+  }
+}

@@ -58,8 +58,15 @@ export const OUT_OF_SCOPE =
 export const NOT_DESCRIPTIVE =
   /diagnóz|diferenciáln|léčb|léčen|terapi|medikac|doporuč|měl by|měla by|mělo by|je vhodné|je nutné|je třeba|indikac|indikov|prognóz|riziko|rizik|příčin|\bproč\b|kontroln|dispenzariz/i;
 
-/** A chip offering the agent's least discoverable capability. */
-export const CHART_NUDGE = /graf|vykresl|křivk/i;
+/**
+ * A chip offering the agent's least discoverable capability.
+ *
+ * "Zobraz vývoj VO2max Kláry Šebestové v čase." and "Ukaž trend hemoglobinu…"
+ * (captured, tier-1 2026-08-25) offer exactly the chart — clicking either
+ * yields a trend with propose_chart behind it — without the word "graf", so
+ * the show-me-a-series phrasing counts too.
+ */
+export const CHART_NUDGE = /graf|vykresl|křivk|(zobraz|ukaž|ukaz)[^.?!]*\b(vývoj|trend)|(vývoj|trend)[^.?!]*v čase/i;
 
 /** Anything that is not another chart: the documents, the practice, the trend. */
 export const BEYOND_CHART =

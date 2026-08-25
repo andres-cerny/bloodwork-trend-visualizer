@@ -1,15 +1,21 @@
 {
   "id": "followups_documents_only",
-  "why": "Only the prose was read. The measured half of the record — and the chart over it — is exactly what the doctor cannot see from this answer, so it is what the proposals must offer.",
+  "why": "Only the prose was read. The measured half of the record — and the chart over it — is exactly what the doctor cannot see from this answer, so it is what the proposals must offer. Either document tool counts: listing and opening the newest zpráva reads the same prose as searching for it (amended 2026-08-25 — tier-1 showed list-then-open, with correct citations and proposals, failing on tool spelling alone).",
   "question": "Co stojí v poslední zprávě ze sportovní prohlídky Kláry Šebestové?",
   "profile": "clinical",
   "corpus": "sport",
   "expect": {
-    "tools": ["search_documents"],
-    "toolsMode": "contains",
+    "tools": [],
+    "toolsMode": "any",
     "followups": {
       "present": true,
       "chartNudgeIfChartless": true
-    }
+    },
+    "toolsAnyOf": [
+      [
+        "search_documents",
+        "get_document"
+      ]
+    ]
   }
 }

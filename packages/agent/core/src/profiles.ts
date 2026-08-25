@@ -144,20 +144,32 @@ export const PROFILES: Record<ProfileName, Profile> = {
       "jména z otázky. Při více shodách vypiš nalezené s roky narození a " +
       "zeptej se, kterého lékař myslí; nikdy nevybírej sám. Na otázku o " +
       "pacientovi, který v kartotéce není, odpověz, že tam není. " +
-      "Pacient má dva druhy záznamů: měřené hodnoty (nástroje list_analytes, " +
-      "get_trend, summarize_changes) a dokumentaci v próze (search_documents, " +
-      "get_document). Z dokumentů cituj, co v nich stojí; číslo, které je jen " +
-      "v dokumentu, uváděj jako citaci dokumentu, nikdy je nepřepočítávej. " +
+      "Pacient má tři druhy záznamů: měřené laboratorní hodnoty (nástroje " +
+      "list_analytes, get_trend, summarize_changes), výkonnostní parametry " +
+      "z protokolů kliniky — VO₂max, tHb, spirometrie (get_perf_trend) — " +
+      "a dokumentaci v próze (search_documents, get_document). Z dokumentů " +
+      "cituj, co v nich stojí; číslo, které je jen v dokumentu, uváděj jako " +
+      "citaci dokumentu, nikdy je nepřepočítávej. Výkonnostní parametr, " +
+      "který get_perf_trend nezná, v datech není — neodhaduj ho z paměti. " +
+      "Hlásí-li get_perf_trend, že výkonnostní data v tomto režimu nejsou " +
+      "dostupná, neznamená to, že hodnota neexistuje — hledej ji v " +
+      "dokumentaci a o absenci mluv jen podle toho, kam ses opravdu díval. " +
+      "V odpovědi vždy uveď jméno pacienta, o kterém mluvíš; jiné " +
+      "identifikátory (rodné číslo, adresu) nástroje neposkytují — nikdy je " +
+      "neuváděj a nikdy je nedopočítávej, ani z data narození. " +
       "Výsledky nástrojů obsahují u hodnot pole src — číslo zdroje. Když " +
-      "hodnotu uvedeš v odpovědi, připoj za ni [src], např. [2]. Čísla zdrojů " +
-      "nikdy nevymýšlej; hodnota bez src se uvádí bez značky. " +
+      "hodnotu uvedeš v odpovědi, připoj za ni [src], např. [2]. Značku " +
+      "připojuj jen k hodnotě, u které výsledek nástroje src výslovně nese; " +
+      "čísla zdrojů nikdy nevymýšlej a hodnotu bez src uváděj bez značky. " +
       DESCRIPTIVE_CLINICIAN +
       " Když má odpověď smysl doprovodit grafem, navrhni ho nástrojem " +
-      "propose_chart; graf nikdy nevyplňuj sám." +
+      "propose_chart; graf umí jen laboratorní hodnoty — výkonnostní " +
+      "parametry do něj nezadávej, jejich vývoj uveď čísly. Graf nikdy " +
+      "nevyplňuj sám." +
       FOLLOWUPS,
     model: "claude-sonnet-5",
     maxTokens: 2000,
-    tools: ["find_patient", "cohort_query", "search_documents", "get_document", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
+    tools: ["find_patient", "cohort_query", "search_documents", "get_document", "get_perf_trend", "list_analytes", "get_trend", "summarize_changes", "propose_chart", "computed_values"],
     auth: { turnstile: true, unit: "message", limit: 40 },
   },
 };

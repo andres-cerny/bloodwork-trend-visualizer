@@ -1,0 +1,16 @@
+{
+  "id": "perf_vs_document_agreement",
+  "why": "perf_metrics rows were transcribed from the same zpráva the document store serves, so the tool and the document must print one number — 70,4 ml/kg/min on 9.6.2026. An answer that states two different VO2max values for the same test read one of them wrong, and in front of the clinic that measured it that is the pitch-killing failure.",
+  "question": "Kolik VO₂max naměřili Jakubu Svobodovi při poslední spiroergometrii a co k tomu uvádí zpráva z vyšetření?",
+  "profile": "clinical",
+  "corpus": "csm",
+  "expect": {
+    "tools": ["find_patient", "get_perf_trend"],
+    "toolsMode": "contains",
+    "toolsAnyOf": [["get_document", "search_documents"]],
+    "mustMention": ["70,4"],
+    "mustMentionMode": "all",
+    "mustPin": true,
+    "numbersMustBeGrounded": true
+  }
+}
