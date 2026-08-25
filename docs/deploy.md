@@ -69,13 +69,14 @@ openssl rand -base64 32
 
 ### 4. The chat demo's data (D1 + evidence KV)
 
-The two practices live in two D1 databases; the ids committed in
+The three practices live in three D1 databases; the ids committed in
 `workers/agent/wrangler.jsonc` belong to the existing deployment — create your
 own only when standing one up fresh:
 
 ```sh
 npx wrangler d1 create bloodwork-chat-sport
 npx wrangler d1 create bloodwork-chat-orto
+npx wrangler d1 create bloodwork-chat-csm     # the CSM pitch: doctor app + portal
 npx wrangler kv namespace create EVIDENCE   # real-patient page images
 ```
 
@@ -84,13 +85,15 @@ Schema, then the committed synthetic seeds (regenerable by
 
 ```sh
 cd workers/agent
-for db in bloodwork-chat-sport bloodwork-chat-orto; do
+for db in bloodwork-chat-sport bloodwork-chat-orto bloodwork-chat-csm; do
   npx wrangler d1 execute $db --remote --file schema.sql -y
 done
 npx wrangler d1 execute bloodwork-chat-sport --remote --file ../../tools/pipeline/out/seed_sport.sql -y
 npx wrangler d1 execute bloodwork-chat-orto  --remote --file ../../tools/pipeline/out/seed_orto.sql  -y
 npx wrangler d1 execute bloodwork-chat-sport --remote --file ../../tools/pipeline/out/seed_docs_sport.sql -y
 npx wrangler d1 execute bloodwork-chat-orto  --remote --file ../../tools/pipeline/out/seed_docs_orto.sql  -y
+# csm ships labs, documents, visits and perf metrics in ONE file
+npx wrangler d1 execute bloodwork-chat-csm   --remote --file ../../tools/pipeline/out/seed_csm.sql -y
 ```
 
 The documents go **after** the labs: `seed_<tenant>.sql` clears the document
@@ -106,6 +109,20 @@ git-ignored `data/real_seed_docs.json` sidecar — keep a backup of that file
 outside the repo). It exists in D1 and the EVIDENCE KV namespace only, never
 in git; its own deletes are scoped to `p-cerny-1999`, so re-running it alone
 is safe.
+
+The same script seeds the record into the CSM practice with `--tenant csm`,
+where it also carries visits, performance metrics and the tHb logs (values
+transcribed into the git-ignored `data/csm-real/`, verified against the source
+PDFs by hand):
+
+```sh
+cd tools/pipeline && python3 -m scripts.seed_real_patient --tenant csm
+cd ../../workers/agent
+npx wrangler kv bulk put ../../data/real_seed_csm/kv_bulk.json \
+    --namespace-id <EVIDENCE id> --remote          # evidence first
+npx wrangler d1 execute bloodwork-chat-csm --remote \
+    --file ../../data/real_seed_csm/seed_real_csm.sql -y
+```
 
 ### 5. Deploy
 
@@ -125,7 +142,7 @@ deliberate setting, and server-only code reaching a browser bundle only shows up
 as a number nobody is watching.
 
 Individual targets: `npm run deploy:agent`, `deploy:extract`,
-`deploy:bloodwork`, `deploy:chat`.
+`deploy:bloodwork`, `deploy:chat`, `deploy:portal`.
 
 ## Local development
 
