@@ -257,3 +257,29 @@ read through a server-owned counter; the numbers ride inside the tool results
 the model sees; the client renders the registry exactly as sent, so a [n] the
 model invented points at nothing visibly. The live test asserts every marker
 in a real answer resolves (`tests/live/clinical.live.ts`).
+
+## The CSM pitch's three rules
+
+The two-surface demo (apps/portal + the /csm tenant) added its own. Each has
+a test; the file that pins it is named.
+
+**The card and the tools may not disagree.** Both surfaces read the same
+DatabaseSource + lab-core trends, filtered by the same `numericPoints` rule
+the charts obey; a trend through `/api/card/trend` equals `get_trend`'s,
+number for number, display name included. Deltas are computed server-side
+from each series' own previous draw — and rounded before they leave, because
+IEEE 754's `−1.9000000000000004` printed at a patient is the server's defect,
+not the client's. Pinned by the parity test in
+`workers/agent/tests/routes.test.ts`.
+
+**The app only knows what the record says.** The portal shows no AI text and
+no annotation without a document or measurement behind it: the charted metric
+list is the closed inventory in `docs/csm-protocol.md`, per-visit summaries
+are composed from counts alone, and an unexplained dip stays unexplained —
+the doctor explains it, not the app. The perf tool refuses a metric the
+record lacks rather than estimating (`packages/agent/tools/tests/perfTrend.test.ts`).
+
+**The card serves when the AI cannot.** `/api/card/*` is session-gated but
+never ledger-gated: a frozen AI budget promises „Ukázková data zůstávají
+dostupná", and the card is that data. Frozen-ledger availability and per-tenant
+freeze isolation are pinned in `workers/agent/tests/routes.test.ts`.

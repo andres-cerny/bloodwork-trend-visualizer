@@ -465,6 +465,23 @@ describe("the agent route", () => {
     expect(spent).toBeGreaterThan(0.021);
     expect(await totalSpentUsd(env.BUDGET, "agent")).toBe(0);
     expect(await totalSpentUsd(env.BUDGET, "clinical-orto")).toBe(0);
+    expect(await totalSpentUsd(env.BUDGET, "clinical-csm")).toBe(0);
+  });
+
+  it("a frozen csm ledger freezes csm alone — the pitch cannot take sport down", async () => {
+    const env = makeEnv({ CLINICAL_USD_LIMIT: "1" });
+    await recordSpendUsd(env.BUDGET, "clinical-csm", 5);
+    const s = await mintSession(SECRET, 600, 12);
+    const frozen = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "csm" }), s),
+      env,
+    );
+    expect(frozen.status).toBe(402);
+    const alive = await worker.fetch(
+      post("/api/chat", turn({ profile: "clinical", tenant: "sport", patientRef: "p-test" }), s),
+      env,
+    );
+    expect(alive.status).toBe(200);
   });
 });
 

@@ -38,7 +38,9 @@
     // They are shells only — one agent, one pair of databases, one ledger
     // behind all of them — so they cost nothing extra and are deleted with a
     // `wrangler delete` once the pick is merged.
-    "TURNSTILE_HOSTNAMES": "bloodwork-chat.andres-cerny.workers.dev,bloodwork-demo.andres-cerny.workers.dev,bloodwork-chat-a.andres-cerny.workers.dev,bloodwork-chat-r1.andres-cerny.workers.dev,bloodwork-chat-r2.andres-cerny.workers.dev,bloodwork-chat-r3.andres-cerny.workers.dev",
+    // csm-portal is the patient app — gated even though its routes cost
+    // nothing, because it serves the one real record.
+    "TURNSTILE_HOSTNAMES": "bloodwork-chat.andres-cerny.workers.dev,bloodwork-demo.andres-cerny.workers.dev,csm-portal.andres-cerny.workers.dev,bloodwork-chat-a.andres-cerny.workers.dev,bloodwork-chat-r1.andres-cerny.workers.dev,bloodwork-chat-r2.andres-cerny.workers.dev,bloodwork-chat-r3.andres-cerny.workers.dev",
     "BUDGET_USD_LIMIT": "40",
     "CLINICAL_USD_LIMIT": "10",
     "SESSION_TTL_SECONDS": "1800"
