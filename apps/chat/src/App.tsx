@@ -48,6 +48,15 @@ const TENANTS: Record<string, { label: string; blurb: string; suggestions: strin
       "Kteří pacienti mají hemoglobin pod referenčním rozmezím?",
     ],
   },
+  csm: {
+    label: "Centrum sportovní medicíny",
+    blurb: "Roční prohlídky, spiroergometrie, tHb a laboratoře běžeckého oddílu.",
+    suggestions: [
+      "Dej mi souhrn Jakuba Svobody.",
+      "Jak se vyvíjí ferritin Lucie Dvořákové?",
+      "Jaké má Jakub Svoboda VO₂max a jak se mění?",
+    ],
+  },
 };
 
 interface Patient {

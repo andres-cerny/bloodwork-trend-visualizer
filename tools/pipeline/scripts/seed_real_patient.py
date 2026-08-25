@@ -12,7 +12,8 @@ this output is applied to the remote database and evidence store at deploy time
 and never committed. Do not add its outputs to the repo, and do not teach
 ``make_chat_demo.py`` about this patient.
 
-    cd tools/pipeline && python3 -m scripts.seed_real_patient
+    cd tools/pipeline && python3 -m scripts.seed_real_patient               # sport
+    cd tools/pipeline && python3 -m scripts.seed_real_patient --tenant csm  # csm
 
 Outputs (all git-ignored):
     data/real_seed/pages/<sha16>.png   content-addressed page images, 220 DPI
@@ -25,6 +26,29 @@ that is not there yet:
         --namespace-id <EVIDENCE id> --remote
     npx wrangler d1 execute bloodwork-chat-sport --remote \
         --file ../../data/real_seed/seed_real.sql -y
+
+``--tenant csm`` is the same record for the CSM tenant (docs/plans/csm-demo.md
+Phase 2, real half), written to its own tree so the two seeds never overwrite
+each other:
+    data/real_seed_csm/pages/<sha16>.png
+    data/real_seed_csm/kv_bulk.json
+    data/real_seed_csm/seed_real_csm.sql
+
+    npx wrangler kv bulk put ../../data/real_seed_csm/kv_bulk.json \
+        --namespace-id <EVIDENCE id> --remote
+    npx wrangler d1 execute bloodwork-chat-csm --remote \
+        --file ../../data/real_seed_csm/seed_real_csm.sql -y
+
+The csm seed adds what the sport tenant never had: the tHb Measurement Logs
+from ``samples/thbmass/`` as documents, a derived ``visits`` spine over every
+artifact date, and ``perf_metrics`` rows transcribed — verbatim, no
+computation, no unit conversion — from the git-ignored, hand-verified
+``data/csm-real/perf_documents.json`` and ``thb_series.json`` (see
+``data/csm-real/VERIFY.md``). Entries flagged ``needs_ocr`` are skipped, and a
+same-date conflict is resolved in favour of the zpráva document, with the
+choice named (values never printed) in the run summary. Visit kinds and
+titles, and the closed metric list, are imported from ``make_csm_demo`` — the
+same single-home rule as ``direction_of`` and ``body_norm``.
 
 The evidence store is the KV namespace bound as ``EVIDENCE`` in
 ``workers/agent/wrangler.jsonc`` (R2 would need a dashboard opt-in this account
@@ -64,6 +88,7 @@ import argparse
 import base64
 import hashlib
 import json
+import re
 import shutil
 import sys
 import types
@@ -97,6 +122,8 @@ from archive_pipeline.storage import load_report, report_exists  # noqa: E402
 
 SAMPLES = ROOT / "samples"
 PERF = SAMPLES / "performance"
+THB = SAMPLES / "thbmass"
+CSM_REAL = ROOT / "data" / "csm-real"
 OUT = ROOT / "data" / "real_seed"
 PAGES = OUT / "pages"
 
@@ -321,9 +348,209 @@ def build_document(pdf: Path, meta: dict[str, dict[str, str]]) -> dict | None:
     }
 
 
+# --- csm: tHb logs, visits, perf metrics -------------------------------------
+# When two documents of one visit print the same metric, the one earlier in
+# this list wins (VERIFY.md's rule: the zpráva is the clinic's own summary of
+# the visit; device exports and companion headers defer to it). It also orders
+# the pick of a visit's note document.
+DOCTYPE_PREFERENCE = [
+    "lekarska_zprava", "tvl_dekurz", "funkcni_vysetreni", "cpet_export_olymp",
+    "spirometrie", "physioflow", "ekg_klidove", "moxy_export",
+    "echokardiografie", "thb_measurement_log", "xlsx",
+]
+
+
+def build_thb_document(pdf: Path) -> dict:
+    """One CO-rebreathing Measurement Log from ``samples/thbmass/``.
+
+    These exports carry their own text layer, their own printed header (the
+    title) and their own ``Date of measurement`` line — so unlike the
+    performance documents they need no DOC_META entry: everything the row
+    needs is read off the page, nothing is invented and nothing date-like has
+    to live in a committed file.
+    """
+    doc = pymupdf.open(pdf)
+    texts = [(page.get_text("text") or "").strip() for page in doc]
+    body = "\n".join(texts)
+    if not body:
+        doc.close()
+        raise SystemExit(f"{pdf.name}: no text layer — a tHb log should have one")
+    m = re.search(r"Date of measurement\s*\n?\s*(\d{2})\.(\d{2})\.(\d{4})", body)
+    if not m:
+        doc.close()
+        raise SystemExit(f"{pdf.name}: no 'Date of measurement' line found")
+    date = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+    title = next(line.strip() for line in body.splitlines() if line.strip())
+
+    pages = []
+    for i, page in enumerate(doc, start=1):
+        name, w, h = render_page(page)
+        pages.append({"pageNum": i, "imageUrl": f"/api/evidence/{name}",
+                      "width": w, "height": h})
+    doc.close()
+    return {
+        "id": f"d-cerny-thb-{date}",
+        "docDate": date,
+        "kind": "perf_eval",
+        "title": title,
+        "bodyText": body,
+        "pages": pages,
+        "docType": "thb_measurement_log",
+    }
+
+
+def load_transcription() -> tuple[list[dict], list[dict]]:
+    """The hand-verified transcription in ``data/csm-real/`` — the only
+    source ``perf_metrics`` values may come from. Refuses to run without it;
+    this script transcribes nothing itself."""
+    perf_path = CSM_REAL / "perf_documents.json"
+    thb_path = CSM_REAL / "thb_series.json"
+    for p in (perf_path, thb_path):
+        if not p.exists():
+            raise SystemExit(
+                f"{p} missing — the csm seed reads the verified transcription "
+                f"(see data/csm-real/VERIFY.md) and never extracts values itself.")
+    return (json.loads(perf_path.read_text(encoding="utf-8")),
+            json.loads(thb_path.read_text(encoding="utf-8")))
+
+
+def derive_visits(reports: list[dict], documents: list[dict],
+                  doc_meta: dict[str, dict[str, str]],
+                  perf_entries: list[dict], thb_entries: list[dict],
+                  metrics: dict[str, tuple[str, str]],
+                  visit_titles: dict[str, str],
+                  ) -> tuple[list[dict], list[dict], list[str]]:
+    """The visit spine and perf rows, derived — never authored.
+
+    A visit exists exactly where an artifact exists: a lab report, a seeded
+    document, or a transcribed measurement. A ``needs_ocr`` scan contributes
+    neither (its date only carries a visit if some other artifact lands
+    there), so no visit can point at evidence the record does not hold.
+    Kind per docs/csm-protocol.md's co-occurrence rules: annual when the date
+    has a zpráva, else perf_test for performance documents, else thb for a
+    tHb log or xlsx-only row, else blood.
+    """
+    def vid(date: str) -> str:
+        return f"v-{PID[2:]}-{date}"
+
+    # docType per seeded document id, via DOC_META's filename → id table.
+    id_by_file = {name: f"d-cerny-{e['id']}" for name, e in doc_meta.items()
+                  if e.get("id")}
+    doctype_by_doc: dict[str, str] = {
+        d["id"]: d["docType"] for d in documents if "docType" in d}
+    metric_count: dict[str, int] = {}
+    entry_date: dict[str, str] = {}  # seeded doc id → resolved visit date
+    for e in perf_entries:
+        name = unicodedata.normalize("NFC", Path(e["sourceFile"]).name)
+        did = id_by_file.get(name)
+        if did is None:
+            continue  # a scan the document builder already skipped
+        doctype_by_doc[did] = e["docType"]
+        metric_count[did] = len(e.get("metrics", []))
+        # The date DOC_META prints wins over the entry's own (which may be a
+        # file-mtime or filename guess, per VERIFY.md) — the document row and
+        # its transcribed values must land on one visit, not two.
+        entry_date[did] = doc_meta[name]["date"]
+
+    # Candidate values per (date, metric_id), from every source that prints one.
+    candidates: dict[tuple[str, str], list[dict]] = {}
+
+    def add_candidate(date: str, m: dict, doctype: str, source: str) -> None:
+        mid = m["metricId"]
+        if mid not in metrics:
+            raise SystemExit(f"{source}: metric {mid!r} is not in the "
+                             f"inventory's charted list — refusing to seed it")
+        candidates.setdefault((date, mid), []).append(
+            {"value": m["value"], "unit": m["unit"], "doctype": doctype,
+             "source": source})
+
+    for e in perf_entries:
+        if e.get("needs_ocr"):
+            continue
+        name = unicodedata.normalize("NFC", Path(e["sourceFile"]).name)
+        did = id_by_file.get(name)
+        date = entry_date[did] if did else e["date"]
+        for m in e.get("metrics", []):
+            add_candidate(date, m, e["docType"], name)
+    for row in thb_entries:
+        doctype = "thb_measurement_log" if row["source"] == "pdf" else "xlsx"
+        for m in row.get("metrics", []):
+            add_candidate(row["date"], m, doctype, f"tHb {row['source']}")
+
+    # Every artifact date gets exactly one visit.
+    dates = sorted({r["reportDate"] for r in reports}
+                   | {d["docDate"] for d in documents}
+                   | {date for date, _ in candidates})
+    docs_by_date: dict[str, list[dict]] = {}
+    for d in sorted(documents, key=lambda d: d["id"]):
+        docs_by_date.setdefault(d["docDate"], []).append(d)
+    thb_dates = ({r["date"] for r in thb_entries}
+                 | {d["docDate"] for d in documents
+                    if doctype_by_doc.get(d["id"]) == "thb_measurement_log"})
+
+    def rank(doc: dict) -> tuple[int, int, str]:
+        dt = doctype_by_doc.get(doc["id"], "")
+        pref = DOCTYPE_PREFERENCE.index(dt) if dt in DOCTYPE_PREFERENCE else 99
+        return (pref, -metric_count.get(doc["id"], 0), doc["id"])
+
+    visits = []
+    for date in dates:
+        day_docs = docs_by_date.get(date, [])
+        doctypes = {doctype_by_doc.get(d["id"], "") for d in day_docs}
+        if "lekarska_zprava" in doctypes:
+            kind = "annual"
+        elif doctypes - {"thb_measurement_log"}:
+            kind = "perf_test"
+        elif date in thb_dates:
+            kind = "thb"
+        else:
+            kind = "blood"
+        # The visit's note document: the zpráva when there is one, else the
+        # best summary the visit holds (tHb log, funkční vyšetření, …), else
+        # honestly none — the real record has visits where only tests survive.
+        note_doc = min(day_docs, key=rank)["id"] if day_docs else None
+        visits.append({"id": vid(date), "date": date, "kind": kind,
+                       "title": visit_titles[kind], "note": note_doc})
+
+    # One value per (visit, metric): identical repeats collapse silently, a
+    # true conflict is resolved by DOCTYPE_PREFERENCE and reported (sources
+    # only — never the values themselves, this summary goes to a terminal).
+    perf_rows, conflicts = [], []
+    for (date, mid) in sorted(candidates, key=lambda k: (k[0], list(metrics).index(k[1]))):
+        cands = sorted(candidates[(date, mid)],
+                       key=lambda c: (DOCTYPE_PREFERENCE.index(c["doctype"]),
+                                      c["source"]))
+        chosen = cands[0]
+        if len({c["value"] for c in cands}) > 1:
+            dropped = ", ".join(c["doctype"] for c in cands[1:])
+            conflicts.append(f"{date} {mid}: kept the {chosen['doctype']} "
+                             f"value, dropped {dropped}")
+        display, _unit = metrics[mid]
+        perf_rows.append({"visit": vid(date), "metric": mid, "display": display,
+                          "unit": chosen["unit"], "value": float(chosen["value"]),
+                          "date": date})
+
+    visit_ids = {v["id"] for v in visits}
+    doc_ids = {d["id"] for d in documents}
+    for r in perf_rows:
+        assert r["visit"] in visit_ids, r
+    for v in visits:
+        assert v["note"] is None or v["note"] in doc_ids, v
+    return visits, perf_rows, conflicts
+
+
 # --- the seed SQL ------------------------------------------------------------
 def build_sql(reports: list[dict], documents: list[dict], registry: Registry,
-              note: str) -> str:
+              note: str, visits: list[dict] | None = None,
+              perf: list[dict] | None = None) -> str:
+    # The csm tenant's two extra tables. Children first here too:
+    # perf_metrics references visits, and visits reference documents, so both
+    # wipes come before every other DELETE. With the defaults (the sport
+    # tenant) the SQL is byte-identical to what this function always built.
+    extra_deletes = [] if visits is None else [
+        f"DELETE FROM perf_metrics WHERE patient_id = {sql_str(PID)};",
+        f"DELETE FROM visits WHERE patient_id = {sql_str(PID)};",
+    ]
     lines: list[str] = [
         "-- The one real patient record — generated by",
         "-- tools/pipeline/scripts/seed_real_patient.py from the git-ignored",
@@ -337,6 +564,7 @@ def build_sql(reports: list[dict], documents: list[dict], registry: Registry,
         "-- with it and the demo would look fine until someone asked about one",
         "-- of them. Children first, so nothing is left orphaned.",
         "",
+        *extra_deletes,
         f"DELETE FROM patient_analyte_summary WHERE patient_id = {sql_str(PID)};",
         f"DELETE FROM measurements WHERE patient_id = {sql_str(PID)};",
         "DELETE FROM document_pages WHERE document_id IN "
@@ -413,17 +641,45 @@ def build_sql(reports: list[dict], documents: list[dict], registry: Registry,
                 "width, height) VALUES ("
                 f"{sql_str(d['id'])}, {p['pageNum']}, {sql_str(p['imageUrl'])}, "
                 f"{p['width']}, {p['height']});")
+
+    if visits is not None:
+        lines += ["", "-- visits: the derived spine — one row per artifact date;",
+                  "-- a NULL note_document_id is an honest gap, not a defect."]
+        for v in visits:
+            note_sql = sql_str(v["note"]) if v["note"] else "NULL"
+            lines.append(
+                "INSERT INTO visits (id, patient_id, visit_date, kind, title, "
+                "note_document_id) VALUES ("
+                f"{sql_str(v['id'])}, {sql_str(PID)}, {sql_str(v['date'])}, "
+                f"{sql_str(v['kind'])}, {sql_str(v['title'])}, {note_sql});")
+        lines += ["", "-- perf_metrics: transcribed verbatim from the verified",
+                  "-- data/csm-real/ tables; no bounds — no CSM protocol prints any."]
+        for r in perf or []:
+            lines.append(
+                "INSERT INTO perf_metrics (patient_id, visit_id, metric_id, "
+                "display_name, unit, value, ref_low, ref_high, test_date) VALUES ("
+                f"{sql_str(PID)}, {sql_str(r['visit'])}, {sql_str(r['metric'])}, "
+                f"{sql_str(r['display'])}, {sql_str(r['unit'])}, "
+                f"{sql_num(r['value'])}, NULL, NULL, {sql_str(r['date'])});")
     lines.append("")
     return "\n".join(lines)
 
 
 # --- the run -----------------------------------------------------------------
 def main() -> None:
+    global OUT, PAGES
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--force-extract", action="store_true",
                     help="re-extract every lab PDF through the API, ignoring "
                          "the archive's stored reports (costs money)")
+    ap.add_argument("--tenant", choices=("sport", "csm"), default="sport",
+                    help="which practice to seed: sport (the original sixth "
+                         "patient) or csm (adds tHb logs, visits and "
+                         "perf_metrics from the verified transcription)")
     args = ap.parse_args()
+    if args.tenant == "csm":
+        OUT = ROOT / "data" / "real_seed_csm"
+        PAGES = OUT / "pages"
 
     registry = load_registry()
     note, doc_meta = load_doc_meta()
@@ -464,10 +720,30 @@ def main() -> None:
         documents.append(d)
         print(f"  ok {pdf.name:32s} {d['docDate']}  {d['kind']:11s} "
               f"{len(d['pages'])} pages  {d['id']}")
+
+    visits: list[dict] | None = None
+    perf_rows: list[dict] | None = None
+    conflicts: list[str] = []
+    if args.tenant == "csm":
+        # Imported here, not at module scope: the sport run must not depend
+        # on the CSM corpus generator existing, and the import is the single
+        # home of the metric list and the visit vocabulary.
+        from scripts.make_csm_demo import METRICS, VISIT_TITLES
+
+        for pdf in sorted(THB.glob("*.pdf")):
+            d = build_thb_document(pdf)
+            documents.append(d)
+            print(f"  ok {pdf.name:32s} {d['docDate']}  {d['kind']:11s} "
+                  f"{len(d['pages'])} pages  {d['id']}")
+        perf_entries, thb_entries = load_transcription()
+        visits, perf_rows, conflicts = derive_visits(
+            reports, documents, doc_meta, perf_entries, thb_entries,
+            METRICS, VISIT_TITLES)
     documents.sort(key=lambda d: (d["docDate"], d["id"]))
 
-    sql = build_sql(reports, documents, registry, note)
-    (OUT / "seed_real.sql").write_text(sql, encoding="utf-8")
+    seed_name = "seed_real.sql" if args.tenant == "sport" else "seed_real_csm.sql"
+    sql = build_sql(reports, documents, registry, note, visits, perf_rows)
+    (OUT / seed_name).write_text(sql, encoding="utf-8")
 
     pngs = sorted(PAGES.glob("*.png"))
     # The upload manifest, so the evidence store is filled by one command
@@ -479,12 +755,19 @@ def main() -> None:
                if m["value"] is not None and m["canonicalId"])
     print(f"\n{len(reports)} reports, {rows} indexed measurements, "
           f"{len(documents)} documents, {len(pngs)} page images")
+    if visits is not None:
+        by_kind = {k: sum(1 for v in visits if v["kind"] == k)
+                   for k in ("annual", "perf_test", "thb", "blood")}
+        kinds = " · ".join(f"{k} {n}" for k, n in by_kind.items())
+        print(f"{len(visits)} visits ({kinds}), {len(perf_rows or [])} perf rows")
+        for c in conflicts:  # sources only — values never reach the terminal
+            print(f"  conflict: {c}")
     if skipped_labs:
         print("skipped labs:", ", ".join(f"{n} ({w})" for n, w in skipped_labs))
     if skipped_docs:
         print("skipped scans:", ", ".join(skipped_docs))
     print(f"API spend this run: ${spent[0]:.2f} (cap ${COST_CAP_USD:.2f})")
-    print(f"seed → {OUT / 'seed_real.sql'}")
+    print(f"seed → {OUT / seed_name}")
     print(f"pages → {PAGES}")
 
 

@@ -117,8 +117,8 @@ METRICS: dict[str, tuple[str, str]] = {
     "fev1":          ("FEV1", "l"),
     "fev1_pct_norm": ("FEV1 % náležité", "%"),
     "body_mass":     ("Hmotnost", "kg"),
-    "thb_mass":      ("Hb mass", "g"),
-    "thb_mass_rel":  ("Hb mass rel.", "g/kg"),
+    "thb_mass":      ("Celková hmota hemoglobinu", "g"),
+    "thb_mass_rel":  ("Relativní hmota hemoglobinu", "g/kg"),
     "blood_volume":  ("Objem krve", "ml"),
     "spo2_max":      ("SpO2 v maximu", "%"),
 }

@@ -164,3 +164,21 @@ export function scrubRefs(text: string, knownRefs: string[] = []): string {
   }
   return out.replace(/\bp-[a-z0-9-]*\d[a-z0-9-]*\b/g, "").replace(/[ \t]{2,}/g, " ");
 }
+
+/**
+ * A window around the first occurrence of a needle — the evidence excerpt for
+ * a value the document actually prints. Falls back to null when the document
+ * does not print it; the caller then shows the conclusion instead of
+ * pretending the passage exists.
+ */
+export function excerptAround(bodyText: string, needle: string, radius = 120): string | null {
+  const at = bodyText.indexOf(needle);
+  if (at < 0) return null;
+  const start = Math.max(0, at - radius);
+  const end = Math.min(bodyText.length, at + needle.length + radius);
+  return (
+    (start > 0 ? "…" : "") +
+    bodyText.slice(start, end).replace(/\s+/g, " ").trim() +
+    (end < bodyText.length ? "…" : "")
+  );
+}

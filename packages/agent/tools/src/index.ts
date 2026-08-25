@@ -21,8 +21,8 @@ import {
   type Trend,
   type TrendPoint,
 } from "@bw/lab-core";
-import type { DocumentStore, PatientDataSource, PatientLookup } from "@bw/datasource";
-import { citeMeasuredRow, scrubRefs, substantiveExcerpt, type Cite, type SourceInfo } from "./citations";
+import type { CardStore, DocumentStore, PatientDataSource, PatientLookup } from "@bw/datasource";
+import { citeMeasuredRow, excerptAround, scrubRefs, substantiveExcerpt, type Cite, type SourceInfo } from "./citations";
 import {
   analytesListed,
   derivedComputed,
@@ -89,6 +89,12 @@ export interface ToolContext {
    */
   cite?: Cite;
   /**
+   * Performance results (VO2max, tHb, spirometrie) for the bound patient —
+   * seed-time transcriptions of the clinic's own printed protocols. Absent in
+   * the session mode, like documents; a tool must degrade the same way.
+   */
+  card?: Pick<CardStore, "listPerfMetrics" | "perfTrend" | "visits">;
+  /**
    * The ref the server bound this turn's stores to, when one is bound. Set
    * alongside `bind`; scrubRefs removes it from any outbound excerpt — the
    * reader has a name and a chip, never an id.
@@ -148,6 +154,22 @@ export const TOOLS: ToolDef[] = [
       type: "object",
       properties: { query: { type: "string", description: "Hledané heslo nebo sousloví." } },
       required: ["query"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_perf_trend",
+    description:
+      "Vrátí vývoj jednoho výkonnostního parametru vybraného pacienta napříč návštěvami — " +
+      "VO₂max, hmota hemoglobinu (tHb), prahové hodnoty, spirometrie. metricId je identifikátor " +
+      "(např. 'vo2max_rel', 'thb_mass'); bez metricId vypíše, které parametry pacient má. " +
+      "Hodnoty pocházejí z protokolů kliniky; cituj je čísly [n], která výsledek nese.",
+    input_schema: {
+      type: "object",
+      properties: {
+        metricId: { type: ["string", "null"], description: "Identifikátor parametru, nebo null pro seznam." },
+      },
+      required: [],
       additionalProperties: false,
     },
   },
@@ -380,6 +402,80 @@ export async function runTool(
         ok: true,
         summary: `otevřel ${doc.title} (${doc.docDate})`,
         content: { id: doc.id, title: doc.title, docDate: doc.docDate, kind: doc.kind, text: doc.bodyText, pages: doc.pages, ...(src ? { src } : {}) },
+      };
+    }
+
+    if (name === "get_perf_trend") {
+      const card = ctx.card;
+      if (!card) {
+        return ctx.source
+          ? {
+              ok: false,
+              summary: "výkonnostní data nejsou v tomto režimu dostupná",
+              content: { error: "no_perf_data", hint: "Pokračuj s laboratorními nástroji a dokumentací; výkonnostní hodnoty nezmiňuj jako načtené." },
+            }
+          : NO_PATIENT;
+      }
+      const metricId = input.metricId == null ? null : String(input.metricId);
+      if (!metricId) {
+        const metrics = await card.listPerfMetrics();
+        return {
+          ok: true,
+          summary: `pacient má ${metrics.length} výkonnostních parametrů`,
+          content: { metrics },
+        };
+      }
+      const points = await card.perfTrend(metricId);
+      if (points.length === 0) {
+        return {
+          ok: false,
+          summary: `parametr ${metricId} nenalezen`,
+          content: { error: "not_found", metricId, hint: "Zavolej bez metricId pro seznam parametrů, které pacient má." },
+        };
+      }
+      // Each point cites the visit's own document when one exists — the
+      // zpráva or the tHb Measurement Log that printed the value. The excerpt
+      // is the passage around the printed number itself; a document that does
+      // not print it falls back to its conclusion, and a visit with no note
+      // yields an uncited point rather than an invented source (the real
+      // record has such gaps, honestly).
+      const srcByVisit = new Map<string, number>();
+      if (ctx.cite && ctx.documents) {
+        const visits = new Map((await card.visits()).map((v) => [v.id, v]));
+        for (const point of points) {
+          if (srcByVisit.has(point.visitId)) continue;
+          const noteId = visits.get(point.visitId)?.noteDocumentId;
+          if (!noteId) continue;
+          const doc = await ctx.documents.getDocument(noteId);
+          if (!doc) continue;
+          const printed = String(point.value).replace(".", ",");
+          const excerpt = excerptAround(doc.bodyText, printed) ?? substantiveExcerpt(doc.bodyText);
+          srcByVisit.set(
+            point.visitId,
+            ctx.cite({
+              kind: "document",
+              label: `${point.displayName} ${printed} ${point.unit}`,
+              date: doc.docDate,
+              documentId: doc.id,
+              title: doc.title,
+              excerpt: scrubRefs(excerpt, ctx.patientRef ? [ctx.patientRef] : []),
+              imageUrl: doc.pages[0]?.imageUrl ?? null,
+            }),
+          );
+        }
+      }
+      const out = points.map((point) => ({
+        date: point.testDate,
+        value: point.value,
+        unit: point.unit,
+        refLow: point.refLow,
+        refHigh: point.refHigh,
+        ...(srcByVisit.has(point.visitId) ? { src: srcByVisit.get(point.visitId) } : {}),
+      }));
+      return {
+        ok: true,
+        summary: `načetl vývoj ${points[0].displayName} (${points.length} měření)`,
+        content: { metricId, displayName: points[0].displayName, unit: points[0].unit, points: out },
       };
     }
 

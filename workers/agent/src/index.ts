@@ -9,7 +9,7 @@ import { budgetState, recordSpendUsd, type Capability } from "@bw/gate";
 import { guard, json, budgetLimit, maxPages, sessionTtl, type BaseEnv } from "@bw/gate/http";
 import { mintSession, verifyTurnstile, TURNSTILE_ACTION } from "@bw/gate";
 import { priceUsd, resolveProfile, runAgent, toSse, type ChatTurn } from "@bw/agent-core";
-import { D1DocumentStore, DatabaseSource, PatientDirectory, type D1Like } from "@bw/datasource";
+import { CardStore, D1DocumentStore, DatabaseSource, PatientDirectory, type D1Like } from "@bw/datasource";
 import type { ToolContext } from "@bw/agent-tools";
 import { handleCard } from "./card";
 
@@ -125,6 +125,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     ctx.bind = (ref: string) => {
       ctx.source = new DatabaseSource(db, ref);
       ctx.documents = new D1DocumentStore(db, ref);
+      ctx.card = new CardStore(db, ref);
       ctx.patientRef = ref;
     };
     if (patientRef !== undefined) {
