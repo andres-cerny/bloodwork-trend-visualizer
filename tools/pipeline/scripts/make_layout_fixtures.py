@@ -195,6 +195,44 @@ def multipage(doc):
             y += 19
 
 
+# 9 — the identity a real header carries, and the footer that repeats it with
+#     no label in front. Attacks redact.ts rather than buildRows: the name
+#     appears surname-first in the header and given-name-first in the footer,
+#     the number with its slash above and without it below. Invented, all of
+#     it — 800101/0006 is the demo generator's synthetic number, kept because
+#     it satisfies mod 11 and so decodes like a real one.
+def identity(doc):
+    page = new_page(doc)
+    page.insert_text((50, 55), "Laboratoř Vzor a.s.", fontname="djb", fontsize=13)
+    page.insert_text((50, 74), "Pacient: Novák Jan", fontname="dj", fontsize=9)
+    page.insert_text((300, 74), "Rodné číslo: 800101/0006", fontname="dj", fontsize=9)
+    page.insert_text((50, 88), "Datum narození: 1. 1. 1980", fontname="dj", fontsize=9)
+    page.insert_text((300, 88), "Bydliště: Dlouhá 12, Praha 1", fontname="dj", fontsize=9)
+    page.insert_text((50, 102), "Datum odběru: 3.6.2025", fontname="dj", fontsize=9)
+    y = 130
+    for label, x in [("Analyt", 50), ("Výsledek", 250), ("Jednotka", 330), ("Referenční meze", 420)]:
+        page.insert_text((x, y), label, fontname="djb", fontsize=9)
+    y += 20
+    for name, val, unit, ref in [
+        ("S_Glukóza", "5,32", "mmol/l", "(4,11-5,60)"),
+        ("S_Cholesterol", "6,01", "mmol/l", "(2,90-5,00)"),
+        ("S_CRP", "<1,0", "mg/l", "(1,0-5,0)"),
+        ("S_Urea", "5,62", "mmol/l", "(2,80-8,00)"),
+        ("S_Kreatinin", "89", "µmol/l", "(62-110)"),
+        ("S_ALT", "0,93", "µkat/l", "(0,17-0,78)"),
+        ("S_AST", "0,60", "µkat/l", "(0,17-0,85)"),
+        ("B_Hemoglobin", "148", "g/l", "(135-175)"),
+    ]:
+        page.insert_text((50, y), name, fontname="dj", fontsize=9)
+        page.insert_text((250, y), val, fontname="dj", fontsize=9)
+        page.insert_text((330, y), unit, fontname="dj", fontsize=9)
+        page.insert_text((420, y), ref, fontname="dj", fontsize=9)
+        y += 19
+    page.insert_text((50, 800), "Jan Novák", fontname="dj", fontsize=8)
+    page.insert_text((300, 800), "8001010006", fontname="dj", fontsize=8)
+    page.insert_text((450, 800), "strana 1/1", fontname="dj", fontsize=8)
+
+
 def scanned(doc_path: Path):
     """A page with no text layer at all — must route to the vision path."""
     src = pymupdf.open()
@@ -221,6 +259,7 @@ def main() -> None:
         ("tight_rows", tight_rows),
         ("unit_in_value", unit_in_value),
         ("multipage", multipage),
+        ("identity", identity),
     ]:
         doc = pymupdf.open()
         fn(doc)

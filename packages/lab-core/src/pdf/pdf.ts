@@ -13,6 +13,7 @@ import type { Box } from "../models";
 import { buildRows, type TextRow } from "./rows";
 
 export * from "./rows";
+export * from "./redactPage";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 

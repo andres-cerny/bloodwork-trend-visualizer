@@ -26,6 +26,7 @@ export * from "./summary";
 export * from "./patientSummary";
 export * from "./czech";
 export * from "./rodneCislo";
+export * from "./redact";
 export * from "./implausible";
 export * from "./review";
 export * from "./reconcile";

@@ -92,3 +92,46 @@ body {
   opacity: 0.6;
   cursor: default;
 }
+
+/*
+ * The logged-in shell, Phase 3: a plain top bar over a reading column. The
+ * tab strip, cards, tables and panes come from legacy.css — the bloodwork
+ * app's sheet, carried whole until the Phase 4 design replaces it.
+ */
+.mk-app { min-height: 100%; }
+.mk-topbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  height: var(--topbar); padding: 0 14px;
+  background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.mk-topbar .brand { font-weight: 650; display: flex; align-items: center; gap: 7px; }
+.mk-who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mk-main { max-width: var(--read-max); margin: 0 auto; padding: 14px; }
+@media (min-width: 820px) { .mk-main { padding: 18px 22px; } }
+.mk-main > .card { margin-bottom: 14px; }
+.mk-main .reportlist li { display: flex; align-items: center; gap: 8px; }
+.mk-main .reportlist .rl-main { flex: 1; min-width: 0; }
+
+/* The redaction review: pages full-width, boxes as buttons over them. */
+.review-page { margin: 0 0 14px; }
+.review-page figcaption { margin-bottom: 4px; }
+.review-canvas {
+  position: relative; width: 100%;
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  background: #fff;
+}
+.review-canvas img { width: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+/* Drawing mode claims the pointer: a drag paints a box instead of scrolling
+   the page. Off by default, so the page still scrolls under a thumb. */
+.review-canvas.drawing { touch-action: none; cursor: crosshair; }
+.review-box {
+  position: absolute; margin: 0; padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+  border: 2px solid var(--status-critical); border-radius: 2px;
+  cursor: pointer;
+}
+.review-canvas.drawing .review-box { pointer-events: none; }
+.review-box.draft { background: rgba(0, 0, 0, 0.5); border-style: dashed; pointer-events: none; }
+.review-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
+.review-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }

@@ -16,21 +16,38 @@
     { "binding": "DB", "database_name": "moje-krev", "database_id": "55a6597f-0c28-4a72-9381-ed7a2254e69e" }
   ],
 
-  // Phase 3 adds here: a PAGES KV namespace (redacted page images), a BUDGET
-  // KV namespace (per-user spend ledger), and a service binding EXTRACT to
-  // the `moje-krev-extract` deployment of workers/extract. Declared then rather
-  // than now so a half-configured binding cannot fail this deploy.
+  // PAGES holds the redacted page images (this account has no R2 opt-in; a
+  // page sits far under KV's value cap). BUDGET is the family's spend
+  // namespace — the same one moje-krev-extract keeps its capability ledger
+  // in, under different keys: this worker writes only the per-person monthly
+  // counters (src/ledger.ts).
+  //   npx wrangler kv namespace create moje-krev-pages
+  "kv_namespaces": [
+    { "binding": "PAGES", "id": "81db27dbf3a54384b652902d5731475f" },
+    { "binding": "BUDGET", "id": "5ff6ac11f3164679b2a7d1082f770761" }
+  ],
+
+  // The extractor, reached only through this binding. Sessions for it are
+  // minted here per page with EXTRACT_SESSION_SECRET, which must be the same
+  // string as moje-krev-extract's SESSION_SECRET.
+  "services": [{ "binding": "EXTRACT", "service": "moje-krev-extract" }],
 
   "vars": {
     // Login-link lifetime and session length. Days, not seconds: the portal's
     // session is a login, not a Turnstile page allowance.
     "SESSION_TTL_DAYS": "90",
-    "LOGIN_TOKEN_TTL_MINUTES": "15"
+    "LOGIN_TOKEN_TTL_MINUTES": "15",
+    // Per person, per calendar month. The text-layer path costs fractions of
+    // a cent per page, so this is a blast-radius cap, not a quota anyone
+    // should meet.
+    "PORTAL_USD_LIMIT": "5",
+    "MAX_PAGES_PER_REPORT": "30"
   },
 
   "observability": { "enabled": true }
 
   // Secrets: SESSION_SECRET (cookie signing; portal-specific, NOT shared with
-  // the demo workers), RESEND_API_KEY (absent in dev — set DEV_MAGIC_LINK=1
-  // in .dev.vars to have /api/auth/login return the link instead of mailing).
+  // the demo workers), EXTRACT_SESSION_SECRET (paired with moje-krev-extract),
+  // RESEND_API_KEY (absent in dev — set DEV_MAGIC_LINK=1 in .dev.vars to have
+  // /api/auth/login return the link instead of mailing).
 }

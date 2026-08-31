@@ -90,8 +90,9 @@ function fakeD1(t: Tables): D1Database {
 
 const ORIGIN = "https://moje-krev.example";
 
+const STUB = { PAGES: {} as KVNamespace, BUDGET: {} as KVNamespace, EXTRACT: {} as Fetcher, EXTRACT_SESSION_SECRET: "x" };
 function makeEnv(t: Tables): Env {
-  return { DB: fakeD1(t), SESSION_SECRET: SECRET, DEV_MAGIC_LINK: "1" };
+  return { ...STUB, DB: fakeD1(t), SESSION_SECRET: SECRET, DEV_MAGIC_LINK: "1" };
 }
 
 const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
@@ -257,7 +258,7 @@ describe("mail configuration", () => {
 
   it("with neither key nor dev flag, login fails loudly rather than pretending", async () => {
     await registerAndConfirm();
-    env = { DB: env.DB, SESSION_SECRET: SECRET };
+    env = { ...STUB, DB: env.DB, SESSION_SECRET: SECRET };
     const res = await worker.fetch(post("/api/auth/login", { email: "andres@example.com" }), env);
     expect(res.status).toBe(502);
   });

@@ -11,6 +11,9 @@
   "name": "moje-krev-extract",
   "main": "../extract/src/index.ts",
   "compatibility_date": "2025-01-01",
+  // The extract code imports node:fs/node:path through the Anthropic SDK; the
+  // demo deployment sets this too, and without it the first request throws.
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
 
   // Created at first deploy: npx wrangler kv namespace create moje-krev-budget

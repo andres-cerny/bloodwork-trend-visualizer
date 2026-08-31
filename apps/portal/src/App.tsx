@@ -1,12 +1,11 @@
 /**
  * Moje krev's walking skeleton: who are you, or the door.
  *
- * Phase 1 ends where the home screen begins — a logged-in shell with the
- * account's e-mail is the proof the whole auth loop works. Upload, verify and
- * trends arrive in later phases; this file should stay the door and nothing
- * else.
+ * This file is the door and nothing else: who are you, or the login form.
+ * Everything behind it — upload, verification, trends — is ui/Portal.tsx.
  */
 import { useEffect, useState } from "react";
+import Portal from "./ui/Portal";
 
 interface Me {
   email: string;
@@ -61,7 +60,7 @@ export default function App() {
         </main>
       );
     case "home":
-      return <Home me={screen.me} onLogout={() => setScreen({ kind: "login", notice: null })} />;
+      return <Portal email={screen.me.email} onLogout={() => setScreen({ kind: "login", notice: null })} />;
   }
 }
 
@@ -133,23 +132,6 @@ function Login({ notice, onSent }: { notice: string | null; onSent: (message: st
       </form>
       <button className="btn linkish" onClick={() => setMode(mode === "login" ? "register" : "login")}>
         {mode === "login" ? "Mám pozvánkový kód" : "Už mám účet"}
-      </button>
-    </main>
-  );
-}
-
-function Home({ me, onLogout }: { me: Me; onLogout: () => void }) {
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
-    onLogout();
-  }
-  return (
-    <main className="door">
-      <h1>Moje krev</h1>
-      <p className="sub">Přihlášení: {me.email}</p>
-      <p className="sub">Zatím tu nic není — nahrávání výsledků přijde v další fázi.</p>
-      <button className="btn" onClick={logout}>
-        Odhlásit se
       </button>
     </main>
   );
