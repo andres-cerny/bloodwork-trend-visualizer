@@ -44,3 +44,4 @@ npm run dev:extract + dev:agent + dev:bloodwork    # one terminal each
 | The invariants, in full | [docs/constraints.md](docs/constraints.md) |
 | The chat demo, planned | [docs/plans/chat-demo.md](docs/plans/chat-demo.md) |
 | The chat UI second pass | [docs/plans/chat-ui.md](docs/plans/chat-ui.md) |
+| The portal, planned | [docs/plans/portal.md](docs/plans/portal.md) |
