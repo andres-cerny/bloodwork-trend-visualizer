@@ -54,8 +54,7 @@ function changeOf(r: SummaryRecord): { text: string; dir: "up" | "down" | "flat"
 function Table({ records, trends, onShowSource, caption }: { records: SummaryRecord[]; trends: Map<string, Trend>; onShowSource?: Props["onShowSource"]; caption: string }) {
   return (
     <div className="scroll-x">
-      <table className="sum-table">
-        <caption className="sr-only">{caption}</caption>
+      <table className="sum-table" aria-label={caption}>
         <thead>
           <tr>
             <th>Parametr</th>

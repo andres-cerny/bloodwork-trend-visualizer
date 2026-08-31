@@ -11,8 +11,11 @@
  * SELECT-then-UPDATE pair.
  */
 export const SQL = {
-  inviteByCode: "SELECT code, used_by FROM invites WHERE code = ?1",
-  burnInvite: "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_by IS NULL",
+  inviteByCode: "SELECT code, used_by, used_at FROM invites WHERE code = ?1",
+  // Spent means used_at is set. used_by is unlinked when an account is
+  // deleted (the row it referenced is gone), and a code must not come back to
+  // life because of that.
+  burnInvite: "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_at IS NULL",
   userByEmail: "SELECT id, email, created_at FROM users WHERE email = ?1",
   userById: "SELECT id, email, created_at FROM users WHERE id = ?1",
   insertUser: "INSERT INTO users (id, email, created_at) VALUES (?1, ?2, ?3)",
@@ -43,6 +46,14 @@ export const SQL = {
   deletePages: "DELETE FROM report_pages WHERE report_id = ?1",
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
   saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
+
+  // Account deletion, in the order the foreign keys allow. Everything an
+  // account owns is reachable from these five; there is nothing else.
+  pageKeysForUser: "SELECT p.kv_key FROM report_pages p JOIN reports r ON r.id = p.report_id WHERE r.user_id = ?1",
+  deletePagesForUser: "DELETE FROM report_pages WHERE report_id IN (SELECT id FROM reports WHERE user_id = ?1)",
+  deleteReportsForUser: "DELETE FROM reports WHERE user_id = ?1",
+  deleteTokensForUser: "DELETE FROM login_tokens WHERE user_id = ?1",
+  unlinkInvites: "UPDATE invites SET used_by = NULL WHERE used_by = ?1",
 } as const;
 
 export interface ReportRow {

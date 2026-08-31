@@ -12,6 +12,7 @@
     "test:live": "vitest run --config tests/config/vitest.handoff.config.ts tests/live",
     "test:e2e": "npm run build:bloodwork && vitest run --config tests/config/vitest.handoff.config.ts tests/e2e/visual.e2e.ts",
     "test:audit": "npm run build:bloodwork && vitest run --config tests/config/vitest.handoff.config.ts tests/e2e/audit.e2e.ts",
+    "test:audit:portal": "npm run build:portal && vitest run --config tests/config/vitest.handoff.config.ts tests/e2e/audit-portal.e2e.ts",
     "test:handoff": "npm run test:e2e && npm run test:live",
     "check:bundle": "npm run check:bundle:bloodwork && npm run check:bundle:chat",
     "bench:stage0": "vitest run --config tests/bench/vitest.config.ts tests/bench/stage0.bench.ts",

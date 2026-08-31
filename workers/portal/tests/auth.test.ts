@@ -29,7 +29,7 @@ function fakeD1(t: Tables): D1Database {
       case SQL.inviteByCode:
         return { results: t.invites.filter((i) => i.code === a[0]), changes: 0 };
       case SQL.burnInvite: {
-        const inv = t.invites.find((i) => i.code === a[0] && i.used_by === null);
+        const inv = t.invites.find((i) => i.code === a[0] && i.used_at === null);
         if (!inv) return { results: [], changes: 0 };
         inv.used_by = a[1] as string;
         inv.used_at = a[2] as string;

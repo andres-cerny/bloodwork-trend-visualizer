@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import Portal from "./ui/Portal";
+import Privacy from "./ui/Privacy";
 
 interface Me {
   email: string;
@@ -26,6 +27,9 @@ async function fetchMe(): Promise<Me | null> {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ kind: "loading" });
+  // One public page beside the door; the shell serves index.html for any
+  // path, so this is the whole router.
+  if (location.pathname === "/soukromi") return <Privacy />;
 
   useEffect(() => {
     // The confirm redirect lands on "/" with a cookie, or back here with
@@ -133,6 +137,9 @@ function Login({ notice, onSent }: { notice: string | null; onSent: (message: st
       <button className="btn linkish" onClick={() => setMode(mode === "login" ? "register" : "login")}>
         {mode === "login" ? "Mám pozvánkový kód" : "Už mám účet"}
       </button>
+      <p className="sub" style={{ marginTop: 18 }}>
+        <a href="/soukromi">Co ukládáme, a co ne</a>
+      </p>
     </main>
   );
 }

@@ -24,16 +24,20 @@ claude "Set up Moje krev end to end per docs/moje-krev-handoff.md: (1) npm insta
 (Already cloned? Start from the `git checkout` line, after
 `git fetch origin claude/bloodwork-visualizer-planning-kn3vv5`.)
 
-## What works today (end of Phase 3)
+## What works today (end of Phase 5)
 
 Invite-only registration, magic-link login, 90-day sessions — and the whole
 upload path: a PDF opens in the browser, the identity on it (name, rodné
 číslo, birth date, address, and every repeat of them) is found and painted
 out, the reader confirms the boxes, and only the painted pages and the
-stripped rows go to the extractor. Results are stored per account:
-verification against the stored page, trends, the change summary and name
-mapping all read them back on any device. The fresh mobile-first design is
-Phase 4; the screens today are the bloodwork demo's.
+stripped rows go to the extractor; a scanned page is redacted by hand and
+read from its painted image. Results are stored per account and read back on
+any device: an overview of what is out of range with the facts beside it,
+trend charts with the out-of-range zones tinted, the change summary over two
+tables, verification against the stored page, name mapping. The account can
+export everything (JSON/CSV) and delete itself completely;
+[/soukromi](https://moje-krev.andres-cerny.workers.dev/soukromi) says in
+plain Czech what is stored and what never leaves the device.
 
 A synthetic report to try it on, with an invented identity to redact:
 `packages/lab-core/tests/fixtures/identity.pdf`. Your own reports go in

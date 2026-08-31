@@ -129,10 +129,19 @@ body {
   position: absolute; margin: 0; padding: 0;
   background: rgba(0, 0, 0, 0.92);
   border: 2px solid var(--status-critical); border-radius: 2px;
-  cursor: pointer;
+  pointer-events: none;
 }
-.review-canvas.drawing .review-box { pointer-events: none; }
-.review-box.draft { background: rgba(0, 0, 0, 0.5); border-style: dashed; pointer-events: none; }
+.review-box.draft { background: rgba(0, 0, 0, 0.5); border-style: dashed; }
+/* One chip per box, under the page: the target a finger can hit, wearing the
+   name of what its box covers. */
+.review-hits { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.review-hit {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 28px;
+  padding: 3px 10px; border: 1px solid var(--border-strong); border-radius: 999px;
+  background: var(--surface-2); color: var(--ink-1); font: inherit; font-size: 0.8rem;
+  cursor: pointer; max-width: 100%;
+}
+.review-hit:hover { background: var(--status-critical-soft); color: var(--critical-ink); border-color: var(--status-critical); }
 .review-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
 .review-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
@@ -180,7 +189,6 @@ body {
 .sum-table td.change.flat { font-weight: 400; color: var(--ink-muted); }
 .sum-table .sum-go { color: var(--ink-muted); font-size: 0.78rem; white-space: nowrap; }
 .sum-table tr:hover .sum-go { color: var(--accent-ink); }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Trendy: the stat line above each chart ----------------------------------- */
 .tc-stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 2px 0 6px; }
@@ -212,3 +220,18 @@ body {
   .mk-topbar .brand .name { display: inline; }
   .mk-topbar .mk-who { display: none; }
 }
+
+/* The privacy page: prose, readable, one column. */
+.privacy { max-width: 44rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; line-height: 1.6; }
+.privacy h1 { font-size: 1.6rem; letter-spacing: -0.01em; margin: 0.4rem 0 1rem; }
+.privacy h2 { font-size: 1.05rem; margin: 1.6rem 0 0.4rem; }
+.privacy ul { margin: 0.4rem 0; padding-left: 1.2rem; }
+.privacy li { margin: 0.25rem 0; }
+.privacy a { color: var(--accent-ink); }
+.privacy p { margin: 0.4rem 0; }
+
+/* A download is a button here, not prose — the export links wear .btn. */
+a.btn { text-decoration: none; display: inline-flex; align-items: center; color: var(--ink-1); }
+
+/* The watch list's parameter links: visually a link, target a button. */
+.watch-list .btn.linkish { padding: 8px 4px; margin: -8px -4px; min-height: 24px; }

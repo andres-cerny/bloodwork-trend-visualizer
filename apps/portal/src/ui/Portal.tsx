@@ -23,7 +23,7 @@ import {
   reviewOf,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
-import { type Budget, type Settings, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
+import { type Budget, type Settings, deleteAccount, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
 import MappingTab from "./MappingTab";
 import Overview from "./Overview";
 import SummaryTab from "./SummaryTab";
@@ -69,6 +69,7 @@ export default function Portal({ email, onLogout }: Props) {
   const [focus, setFocus] = useState<{ reportId: string; rawName: string; seq: number } | null>(null);
   const [openTrend, setOpenTrend] = useState<{ id: string; seq: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [accountPhrase, setAccountPhrase] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -381,6 +382,51 @@ export default function Portal({ email, onLogout }: Props) {
             <Panel id="reports" active={tab}>
               {uploadCard}
               {reportsCard}
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h2>Váš účet, vaše data</h2>
+                    <p className="sub" style={{ marginBottom: 0 }}>
+                      Uloženy jsou jen hodnoty a začerněné stránky — <a href="/soukromi">co ukládáme, a co ne</a>.
+                    </p>
+                  </div>
+                </div>
+                <div className="toolbar" style={{ marginBottom: 10 }}>
+                  <a className="btn small" href="/api/export" download>
+                    Stáhnout vše (JSON)
+                  </a>
+                  <a className="btn small" href="/api/export?format=csv" download>
+                    Stáhnout tabulku (CSV)
+                  </a>
+                </div>
+                {accountPhrase === null ? (
+                  <button className="btn danger small" onClick={() => setAccountPhrase("")}>
+                    Smazat účet i se vším uloženým
+                  </button>
+                ) : (
+                  <div className="runlog" role="alert">
+                    <p style={{ margin: "0 0 6px" }}>
+                      Smazání je okamžité a úplné — hodnoty, stránky, opravy i e-mail. Bez kopie, bez
+                      návratu. Napište <strong>SMAZAT</strong> a potvrďte.
+                    </p>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <input aria-label="Potvrzení smazání" value={accountPhrase} onChange={(e) => setAccountPhrase(e.target.value)} />
+                      <button
+                        className="btn danger small"
+                        disabled={accountPhrase !== "SMAZAT"}
+                        onClick={() => {
+                          deleteAccount().then(onLogout, () => setSaveError("Účet se nepodařilo smazat. Zkuste to prosím znovu."));
+                        }}
+                      >
+                        Smazat účet
+                      </button>
+                      <button className="btn small" onClick={() => setAccountPhrase(null)}>
+                        Zrušit
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </Panel>
           </>
         )}

@@ -171,20 +171,26 @@ function ReviewPage({
       >
         <img src={imageUrl} alt={`Strana ${pageNum}`} draggable={false} />
         {hits.map((h, i) => (
-          <button
-            key={i}
-            type="button"
-            className="review-box"
-            style={pct(h.box)}
-            title={`${KIND_CS[h.kind]}${h.text ? `: ${h.text}` : ""} — klepnutím odebrat`}
-            aria-label={`Odebrat pole: ${KIND_CS[h.kind]}`}
-            onClick={() => {
-              if (!drawing) onRemove(h);
-            }}
-          />
+          <span key={i} className="review-box" style={pct(h.box)} aria-hidden="true" />
         ))}
-        {draft && <div className="review-box draft" style={pct(draft)} />}
+        {draft && <span className="review-box draft" style={pct(draft)} />}
       </div>
+      {hits.length > 0 && (
+        <ul className="review-hits">
+          {/* Removal lives here, not on the boxes: a box over one printed
+              line is a few pixels tall on a phone — no finger hits it, and
+              growing it would preview more black than gets painted. A chip
+              also names what its box covers, which a black rectangle cannot. */}
+          {hits.map((h, i) => (
+            <li key={i}>
+              <button type="button" className="chip review-hit" onClick={() => onRemove(h)} aria-label={`Odebrat pole ${i + 1}: ${KIND_CS[h.kind]}${h.text ? ` ${h.text}` : ""}`}>
+                {KIND_CS[h.kind]}
+                {h.text ? ` · ${h.text}` : ""} <span aria-hidden="true">✕</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </figure>
   );
 }

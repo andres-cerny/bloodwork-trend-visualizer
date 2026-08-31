@@ -5,7 +5,7 @@ everything that needs a browser, a corpus, or an API key.
 
 | Suite | Command | Cost |
 |---|---|---|
-| `e2e/` | `test:e2e`, `test:audit` | free, needs Chromium |
+| `e2e/` | `test:e2e`, `test:audit`, `test:audit:portal` | free, needs Chromium |
 | `live/` | `test:live` | **real API**, ~$0.10 |
 | `bench/` | `bench:*` | **real API**, sweeps |
 | `evals/` | `eval` | **real API**, per case × reps |

@@ -119,8 +119,15 @@ page-image KV keys, and nothing else — because nothing else exists.
 
 ## Phases
 
-Status (2026-08-31): Phases 1–3 are built and deployed. Phase 4 starts with
-the design pass, as written; Phase 5 follows it.
+Status (2026-08-31): all five phases are built. Phase 4's design pass
+happened in code against the live app rather than as separate mockups —
+Andres reviewed each screen deployed and steered in-session (charts with the
+out-of-range zones tinted, the two-table summary under the written
+"what to look out for", one-question redaction review) — and its gate is
+`npm run test:audit:portal`: every portal screen, five widths, both
+palettes, including the redaction review reached by a real upload of the
+identity fixture. The demo app's adoption of the redesigned chart remains a
+separate later change, as planned.
 
 ### Phase 1 — worker skeleton, auth, deploy
 

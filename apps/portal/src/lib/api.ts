@@ -71,3 +71,6 @@ export const getSettings = () => request<Settings>("/api/settings");
 export const putSettings = (s: Settings) => request<{ ok: true }>("/api/settings", jsonInit("PUT", s));
 
 export const logout = () => request<void>("/api/auth/logout", { method: "POST" });
+
+/** Immediate and complete — the worker deletes rows and page images together. */
+export const deleteAccount = () => request<{ ok: true }>("/api/account", { method: "DELETE" });

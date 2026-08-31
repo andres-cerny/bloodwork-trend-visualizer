@@ -131,8 +131,8 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
 
   const inviteRow = await env.DB.prepare(SQL.inviteByCode)
     .bind(code)
-    .first<{ code: string; used_by: string | null }>();
-  if (!inviteRow || inviteRow.used_by) {
+    .first<{ code: string; used_by: string | null; used_at: string | null }>();
+  if (!inviteRow || inviteRow.used_at) {
     return json({ error: "invite_invalid", message: "Pozvánkový kód není platný." }, 403);
   }
   if (await env.DB.prepare(SQL.userByEmail).bind(normEmail).first<UserRow>()) {
@@ -396,6 +396,67 @@ async function putSettings(request: Request, env: Env, user: UserRow): Promise<R
   return json({ ok: true });
 }
 
+/* ---------------------------------------------------------------- account */
+
+/**
+ * Everything the account holds, as one file the person can keep. JSON is the
+ * stored payloads exactly; CSV is one printed row per line for a spreadsheet.
+ * Their data is theirs — and a reader of the export can also see for
+ * themselves that no name and no number is in it.
+ */
+async function exportAccount(env: Env, user: UserRow, format: string): Promise<Response> {
+  const { results } = await env.DB.prepare(SQL.reportsForUser).bind(user.id).all<ReportRow>();
+  const reports = results.map((r) => JSON.parse(r.payload) as Record<string, any>);
+  const stamp = new Date().toISOString().slice(0, 10);
+  if (format === "csv") {
+    const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = ["datum;laborator;parametr;nazev;hodnota;jednotka;rozmezi;stav;report"];
+    for (const r of reports) {
+      for (const m of r.measurements ?? []) {
+        lines.push(
+          [r.reportDate, r.labName, m.rawAnalyteName, m.canonicalId, m.valueRaw, m.unitRaw, m.refRangeRaw, m.flag, r.id].map(cell).join(";"),
+        );
+      }
+    }
+    // A BOM, so a Czech Excel opens the diacritics as diacritics.
+    return new Response(`\ufeff${lines.join("\r\n")}\r\n`, {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": `attachment; filename="moje-krev-${stamp}.csv"`,
+        "cache-control": "no-store",
+      },
+    });
+  }
+  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), email: user.email, reports }, null, 1), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "content-disposition": `attachment; filename="moje-krev-${stamp}.json"`,
+      "cache-control": "no-store",
+    },
+  });
+}
+
+/**
+ * Delete the account: every page image, every report, every login token,
+ * the user row. The invite that opened the account stays spent — a code
+ * must not come back to life because the account it paid for is gone.
+ * Immediate and complete; the cookie the request came with is a 401 from
+ * the next request on, because requireUser re-reads the row.
+ */
+async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
+  const { results } = await env.DB.prepare(SQL.pageKeysForUser).bind(user.id).all<{ kv_key: string }>();
+  await Promise.all(results.map((p) => env.PAGES.delete(p.kv_key)));
+  await env.DB.prepare(SQL.deletePagesForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteReportsForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteTokensForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteUser).bind(user.id).run();
+  return new Response(JSON.stringify({ ok: true, pagesDeleted: results.length }), {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8", "set-cookie": clearCookieHeader() },
+  });
+}
+
 /* ----------------------------------------------------------------- router */
 
 const REPORT = /^\/api\/reports\/([^/]+)$/;
@@ -434,6 +495,10 @@ export default {
         return getSettings(env, user);
       case "PUT /api/settings":
         return putSettings(request, env, user);
+      case "GET /api/export":
+        return exportAccount(env, user, url.searchParams.get("format") ?? "json");
+      case "DELETE /api/account":
+        return deleteAccount(env, user);
     }
 
     const page = PAGE.exec(url.pathname);
