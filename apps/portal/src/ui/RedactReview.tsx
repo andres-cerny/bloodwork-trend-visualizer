@@ -8,12 +8,17 @@
  * confirmed is the strongest check available, which is why this screen has
  * no skip.
  *
+ * A scanned page has no text layer at all, so on it nothing is found and
+ * nothing is claimed: the page says so, drawing is the only way to redact
+ * it, and the reader confirms each such page separately before the upload
+ * can go on. That confirmation is the whole guard for a scan.
+ *
  * Boxes live in image pixels (like every Box in lab-core) and are drawn in
  * percentages of the image, so they stay put when the pane relayouts —
  * the same lesson the verification highlight learned.
  */
-import { useState } from "react";
-import { type Box, type IdentityHit, type IdentityKind, count } from "@bw/lab-core";
+import { useRef, useState } from "react";
+import { type Box, type IdentityHit, type IdentityKind, count, plural } from "@bw/lab-core";
 import type { PreparedFile } from "../lib/upload";
 
 interface Props {
@@ -36,14 +41,21 @@ const MIN_DRAG = 6;
 
 export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
   const [hits, setHits] = useState<IdentityHit[]>(prepared.hits);
-  const [drawing, setDrawing] = useState(false);
+  const [drawing, setDrawing] = useState(prepared.scanPages.length > 0);
+  /** Scan pages the reader has explicitly confirmed. */
+  const [checked, setChecked] = useState<Set<number>>(new Set());
 
-  const blocked = prepared.unreadable.length > 0;
+  const scans = prepared.scanPages;
   const found = hits.filter((h) => h.kind !== "manual");
+  const textPages = prepared.pages.length - scans.length;
+  const allScansChecked = scans.every((p) => checked.has(p));
+
   const summary =
-    found.length === 0
-      ? "Nic jsme nenašli. Zkontrolujte hlavičku a patičku obzvlášť pečlivě — jméno a rodné číslo mohou být vytištěné jinak, než umíme přečíst."
-      : `Nalezeno: ${[...new Set(found.map((h) => KIND_CS[h.kind]))].join(", ")} — ${count(found.length, "místo", "místa", "míst")}.`;
+    textPages === 0
+      ? null
+      : found.length === 0
+        ? "Na stranách s textem jsme nic nenašli. Zkontrolujte hlavičku a patičku obzvlášť pečlivě — jméno a rodné číslo mohou být vytištěné jinak, než umíme přečíst."
+        : `Nalezeno: ${[...new Set(found.map((h) => KIND_CS[h.kind]))].join(", ")} — ${count(found.length, "místo", "místa", "míst")}.`;
 
   return (
     <section className="card review">
@@ -52,58 +64,70 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
           <h2>Kontrola anonymizace</h2>
           <p className="sub" style={{ marginBottom: 0 }}>
             {prepared.name} · {count(prepared.pages.length, "strana", "strany", "stran")}
+            {scans.length > 0 && ` · ${count(scans.length, "sken", "skeny", "skenů")}`}
           </p>
         </div>
       </div>
 
-      {blocked ? (
+      <p className="sub">
+        Černá pole se z obrázků i z textu odstraní ještě ve vašem prohlížeči. Nic z toho neuvidí
+        server ani model. Klepnutím pole odeberete; režim „Začernit“ dovolí tažením přidat další.
+      </p>
+      {summary && <p className={found.length === 0 ? "err" : "muted"}>{summary}</p>}
+      {scans.length > 0 && (
         <div className="banner warn">
-          Naskenované PDF zatím neumíme bezpečně anonymizovat — strana{" "}
-          {prepared.unreadable.join(", ")} nemá textovou vrstvu, takže jméno na ní nelze najít ani
-          zkontrolovat. Nahrajte prosím PDF přímo z laboratoře.
+          {plural(scans.length, "Strana", "Strany", "Strany")} {scans.join(", ")}{" "}
+          {scans.length === 1 ? "je sken bez textové vrstvy" : "jsou skeny bez textové vrstvy"} — jméno, rodné
+          číslo, datum narození ani adresu na {scans.length === 1 ? "ní" : "nich"} neumíme najít.
+          Začerněte je prosím tažením sami a každou takovou stranu potvrďte. Hodnoty z ní se přečtou
+          z obrázku.
         </div>
-      ) : (
-        <>
-          <p className="sub">
-            Černá pole se z obrázků i z textu odstraní ještě ve vašem prohlížeči. Nic z toho neuvidí
-            server ani model. Klepnutím pole odeberete; režim „Začernit“ dovolí tažením přidat další.
-          </p>
-          <p className={found.length === 0 ? "err" : "muted"}>{summary}</p>
-          <div className="toolbar" style={{ marginBottom: 10 }}>
-            <button
-              className={`btn${drawing ? " primary" : ""}`}
-              aria-pressed={drawing}
-              onClick={() => setDrawing((d) => !d)}
-            >
-              {drawing ? "Hotovo — konec začerňování" : "Začernit další místo"}
-            </button>
-          </div>
-        </>
       )}
+      <div className="toolbar" style={{ marginBottom: 10 }}>
+        <button className={`btn${drawing ? " primary" : ""}`} aria-pressed={drawing} onClick={() => setDrawing((d) => !d)}>
+          {drawing ? "Hotovo — konec začerňování" : "Začernit další místo"}
+        </button>
+      </div>
 
-      {prepared.pages.map((page) => (
-        <ReviewPage
-          key={page.pageNum}
-          pageNum={page.pageNum}
-          imageUrl={page.imageUrl}
-          width={page.imageWidth}
-          height={page.imageHeight}
-          drawing={drawing && !blocked}
-          hits={hits.filter((h) => h.pageNum === page.pageNum)}
-          onAdd={(box) => setHits((hs) => [...hs, { pageNum: page.pageNum, box, kind: "manual", text: "" }])}
-          onRemove={(hit) => setHits((hs) => hs.filter((h) => h !== hit))}
-        />
-      ))}
+      {prepared.pages.map((page) => {
+        const isScan = scans.includes(page.pageNum);
+        return (
+          <ReviewPage
+            key={page.pageNum}
+            pageNum={page.pageNum}
+            imageUrl={page.imageUrl}
+            width={page.imageWidth}
+            height={page.imageHeight}
+            scan={isScan}
+            checked={checked.has(page.pageNum)}
+            onChecked={(on) =>
+              setChecked((prev) => {
+                const next = new Set(prev);
+                if (on) next.add(page.pageNum);
+                else next.delete(page.pageNum);
+                return next;
+              })
+            }
+            drawing={drawing}
+            hits={hits.filter((h) => h.pageNum === page.pageNum)}
+            onAdd={(box) => setHits((hs) => [...hs, { pageNum: page.pageNum, box, kind: "manual", text: "" }])}
+            onRemove={(hit) => setHits((hs) => hs.filter((h) => h !== hit))}
+          />
+        );
+      })}
 
       <div className="review-actions">
         <button className="btn" onClick={onCancel}>
-          {blocked ? "Zavřít" : "Zrušit"}
+          Zrušit
         </button>
-        {!blocked && (
-          <button className="btn primary" onClick={() => onConfirm(hits)}>
-            Zkontrolováno, nahrát
-          </button>
-        )}
+        <button
+          className="btn primary"
+          disabled={!allScansChecked}
+          title={allScansChecked ? undefined : "Nejdřív potvrďte každou naskenovanou stranu."}
+          onClick={() => onConfirm(hits)}
+        >
+          Zkontrolováno, nahrát
+        </button>
       </div>
     </section>
   );
@@ -114,6 +138,9 @@ function ReviewPage({
   imageUrl,
   width,
   height,
+  scan,
+  checked,
+  onChecked,
   drawing,
   hits,
   onAdd,
@@ -123,12 +150,23 @@ function ReviewPage({
   imageUrl: string;
   width: number;
   height: number;
+  scan: boolean;
+  checked: boolean;
+  onChecked: (on: boolean) => void;
   drawing: boolean;
   hits: IdentityHit[];
   onAdd: (box: Box) => void;
   onRemove: (hit: IdentityHit) => void;
 }) {
-  const [draft, setDraft] = useState<{ start: [number, number]; box: Box } | null>(null);
+  // The drag in progress lives in a ref and is mirrored into state for
+  // drawing: pointer events can arrive faster than a render, and a move
+  // handler reading a stale `null` from its closure would drop the box.
+  const dragRef = useRef<{ start: [number, number]; box: Box } | null>(null);
+  const [draft, setDraft] = useState<Box | null>(null);
+  const setDrag = (d: { start: [number, number]; box: Box } | null) => {
+    dragRef.current = d;
+    setDraft(d ? d.box : null);
+  };
 
   /** Pointer position → image pixels, however wide the image is drawn. */
   const toImage = (e: React.PointerEvent<HTMLDivElement>): [number, number] => {
@@ -143,29 +181,41 @@ function ReviewPage({
   });
 
   return (
-    <figure className="review-page">
-      <figcaption className="muted">Strana {pageNum}</figcaption>
+    <figure className={`review-page${scan ? " scan" : ""}`}>
+      <figcaption className="muted">
+        Strana {pageNum}
+        {scan && " · sken — nic nenalezeno automaticky"}
+      </figcaption>
       <div
         className={`review-canvas${drawing ? " drawing" : ""}`}
         onPointerDown={(e) => {
           if (!drawing) return;
-          e.currentTarget.setPointerCapture(e.pointerId);
+          // Capture so a drag that leaves the image still ends the box. A
+          // pointer the browser does not know (a synthetic event) throws here,
+          // and losing capture is not worth losing the box.
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {
+            /* no capture, still a drag */
+          }
           const p = toImage(e);
-          setDraft({ start: p, box: [p[0], p[1], p[0], p[1]] });
+          setDrag({ start: p, box: [p[0], p[1], p[0], p[1]] });
         }}
         onPointerMove={(e) => {
-          if (!draft) return;
+          const d = dragRef.current;
+          if (!d) return;
           const p = toImage(e);
-          const [sx, sy] = draft.start;
-          setDraft({ ...draft, box: [Math.min(sx, p[0]), Math.min(sy, p[1]), Math.max(sx, p[0]), Math.max(sy, p[1])] });
+          const [sx, sy] = d.start;
+          setDrag({ start: d.start, box: [Math.min(sx, p[0]), Math.min(sy, p[1]), Math.max(sx, p[0]), Math.max(sy, p[1])] });
         }}
         onPointerUp={() => {
-          if (!draft) return;
-          const b = draft.box;
-          setDraft(null);
+          const d = dragRef.current;
+          if (!d) return;
+          setDrag(null);
+          const b = d.box;
           if (b[2] - b[0] >= MIN_DRAG && b[3] - b[1] >= MIN_DRAG) onAdd(b);
         }}
-        onPointerCancel={() => setDraft(null)}
+        onPointerCancel={() => setDrag(null)}
       >
         <img src={imageUrl} alt={`Strana ${pageNum}`} draggable={false} />
         {hits.map((h, i) => (
@@ -181,8 +231,15 @@ function ReviewPage({
             }}
           />
         ))}
-        {draft && <div className="review-box draft" style={pct(draft.box)} />}
+        {draft && <div className="review-box draft" style={pct(draft)} />}
       </div>
+      {scan && (
+        <label className="switch review-check">
+          <input type="checkbox" checked={checked} onChange={(e) => onChecked(e.target.checked)} />
+          Strana {pageNum} zkontrolována — jméno, rodné číslo, datum narození i adresa jsou začerněné
+          (nebo na ní nejsou).
+        </label>
+      )}
     </figure>
   );
 }

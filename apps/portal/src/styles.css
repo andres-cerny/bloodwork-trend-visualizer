@@ -135,3 +135,9 @@ body {
 .review-box.draft { background: rgba(0, 0, 0, 0.5); border-style: dashed; pointer-events: none; }
 .review-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
 .review-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* A scan on the review screen: nothing was found on it, and the frame says
+   so before the reader reads the caption. */
+.review-page.scan .review-canvas { border-color: var(--status-critical); box-shadow: inset 4px 0 0 var(--status-critical); }
+.review-check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; font-size: 0.9rem; cursor: pointer; }
+.review-check input { margin-top: 3px; }

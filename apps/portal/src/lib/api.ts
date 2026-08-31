@@ -43,10 +43,15 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
 
 export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
 
-export const extractPage = (rowsText: string) =>
+/**
+ * One page to the extractor: the printed rows of a digital page, or the
+ * painted image of a scan. Never both, and never an image of a page that has
+ * rows — the text path is what keeps the pixels at home.
+ */
+export const extractPage = (page: { rowsText: string } | { imageBase64: string; mediaType: string }) =>
   request<{ reads: any[]; mode: "text" | "vision"; costUsd: number; budget: Budget }>(
     "/api/extract",
-    jsonInit("POST", { rowsText }),
+    jsonInit("POST", page),
   );
 
 export const listReports = () => request<LabReport[]>("/api/reports");

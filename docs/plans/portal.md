@@ -38,7 +38,7 @@ uploads and the public demo can never freeze each other's ledger.
 | Identity at rest | **None.** Redact in the browser; the original PDF never leaves the device | Name, rodné číslo, address and birth date are painted out of the page images and stripped from the text layer *client-side*, before upload. The server holds health numbers keyed to an email, linked to no identity |
 | Consent-based storage of rodné číslo | Rejected | GDPR special-category data + national identifier on the weakest legal basis, for a field nothing needs — the login is the identity |
 | Original PDFs | Never stored, never uploaded | Verification uses redacted page images, exactly like the demo's verify tab; re-extraction later means re-uploading, an accepted cost |
-| Scans (no text layer) | Refused in MVP, with a clear Czech message | Auto-redaction reads the text layer; "found no identifiers" means nothing on pixels (the export_web_data lesson). Manual tap-to-redact can lift this later |
+| Scans (no text layer) | Accepted, redacted by hand (revised 2026-08-31; was "refused in MVP") | Auto-redaction reads the text layer, so on a scan it finds nothing and says so; the reader draws the boxes and confirms each such page explicitly before the painted image goes to the vision path. Andres's call after the first real upload — some people only have scans |
 | MVP scope | Upload → verify → trends. Nothing else | Chat agent, export, doctor share-links are all post-MVP |
 | Profiles | One person per login | Family members get their own invite code |
 | Language | Czech only | The existing hard rule; the audience; the PDFs |
@@ -156,9 +156,10 @@ on local PDFs before auth even matters.
 2. Painting in the pdf subpath: render page → fill boxes → re-encode; strip
    the matched strings from the text layer sent onward.
 3. The review screen: redacted pages full-width, tap/drag to add a box,
-   tap a box to remove a false positive, explicit Czech confirm. Refuse
-   pages with no text layer ("Naskenované PDF zatím neumíme bezpečně
-   anonymizovat…").
+   tap a box to remove a false positive, explicit Czech confirm. A page
+   with no text layer is marked as a scan, gets no automatic boxes, and
+   needs its own tick before the upload may go on (decision revised
+   2026-08-31 — see the table).
 4. **Reintroduce the fault:** a fixture whose name appears twice (header +
    footer) with the second occurrence initially missed — the test must fail
    before the rule that catches it, per the repo's guard-testing habit.

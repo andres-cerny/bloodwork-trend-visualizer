@@ -239,6 +239,11 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
 
   if (res.ok && typeof data.costUsd === "number") {
     await recordUserSpendUsd(env.BUDGET, user.id, monthOf(), data.costUsd);
+  } else if (!res.ok) {
+    // The extractor's reason, in the log as well as in the answer: a page that
+    // fails for every member of the family is a deployment problem, and the
+    // log is where the operator looks first.
+    console.error(`extract refused: ${res.status} ${data.error ?? ""} ${data.message ?? ""}`.trim());
   }
   // The extractor's own ceiling is the family's shared fuse; its message is
   // written for the demo, so it is replaced. Its `budget` is the capability

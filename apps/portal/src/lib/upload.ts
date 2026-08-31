@@ -13,9 +13,11 @@
  * image and the stripped rows, and `checkRedaction` refuses to go on if an
  * identifier can still be read from those rows.
  *
- * No vision path, on purpose. A page without a usable text layer cannot be
- * redacted by a text search, so it is not sent at all — the review screen
- * says so and stops. Manual tap-to-redact for scans is post-MVP.
+ * A scanned page has no text layer to search, so nothing is found on it
+ * automatically; the review screen says so, the reader paints the boxes by
+ * hand and confirms the page, and the painted image goes to the extractor's
+ * vision path. On such a page the reader's look is the only guard — which is
+ * why the confirmation is per page and explicit.
  */
 import {
   type IdentityHit,
@@ -37,8 +39,9 @@ export interface PreparedFile {
   name: string;
   pages: PageAssets[];
   hits: IdentityHit[];
-  /** Pages with no text layer to search — the upload cannot proceed with these. */
-  unreadable: number[];
+  /** Pages with no usable text layer: nothing was found on them automatically,
+   *  the reader must redact by hand, and they are read from the image. */
+  scanPages: number[];
   /** Pages past the per-report cap, left unread. */
   truncated: number;
 }
@@ -52,9 +55,9 @@ export async function prepareFile(file: File, maxPages: number): Promise<Prepare
   const pages: PageAssets[] = [];
   for (let p = 1; p <= n; p++) pages.push(await pageAssets(doc, p));
   await doc.destroy();
-  const unreadable = pages.filter((p) => !p.hasTextLayer || !canRedact(p.words)).map((p) => p.pageNum);
+  const scanPages = pages.filter((p) => !p.hasTextLayer || !canRedact(p.words)).map((p) => p.pageNum);
   const { hits } = findIdentity(pages.map((p) => ({ pageNum: p.pageNum, words: p.words })));
-  return { name: file.name, pages, hits, unreadable, truncated: doc.numPages - n };
+  return { name: file.name, pages, hits, scanPages, truncated: doc.numPages - n };
 }
 
 /** Paint the boxes the reader confirmed, and strip their strings everywhere. */
@@ -112,6 +115,9 @@ export async function extractReport(
   }
   const results: Array<PageResult | undefined> = new Array(pages.length);
   const failed: number[] = [];
+  /** Why the first page failed, verbatim from the server — the one line a
+   *  reader can act on when every page fails the same way. */
+  let firstError: string | null = null;
   let fatal: unknown = null;
   let done = 0;
   let next = 0;
@@ -122,8 +128,11 @@ export async function extractReport(
       const i = next++;
       if (i >= pages.length) return;
       const page = pages[i];
+      const isScan = prepared.scanPages.includes(page.pageNum);
       try {
-        const res = await extractPage(rowsAsText(page.rows));
+        const res = await extractPage(
+          isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
+        );
         const out: PageResult = { measurements: [], unverified: 0, reportDate: null, labName: null };
         for (const read of res.reads) {
           out.reportDate = out.reportDate ?? read.report_date ?? null;
@@ -135,19 +144,21 @@ export async function extractReport(
           // allowed into a trend.
           let disagreement = m.disagreement;
           let confidence = m.confidence;
-          if (!isPrintedOnPage(m.valueRaw, page.rows)) {
+          // A scan has no printed text to check against; the row keeps the
+          // model's own snippet and confidence, and no highlight.
+          if (!isScan && !isPrintedOnPage(m.valueRaw, page.rows)) {
             disagreement = `hodnota "${m.valueRaw}" není na stránce vytištěna`;
             confidence = "low";
             out.unverified += 1;
           }
           out.measurements.push({
             ...m,
-            sourceSnippet: rowTextAt(m.rowIndex, page.rows) || m.sourceSnippet,
+            sourceSnippet: (isScan ? "" : rowTextAt(m.rowIndex, page.rows)) || m.sourceSnippet,
             sourcePage: page.pageNum,
             confidence,
             disagreement,
             canonicalId: registry.match(m.rawAnalyteName),
-            bbox: rowBoxFor(m.rawAnalyteName, page.rows),
+            bbox: isScan ? null : rowBoxFor(m.rawAnalyteName, page.rows),
           });
         }
         results[i] = out;
@@ -157,6 +168,7 @@ export async function extractReport(
           return;
         }
         failed.push(page.pageNum);
+        firstError = firstError ?? (e instanceof Error ? e.message : String(e));
       }
       onProgress(++done, pages.length);
     }
@@ -165,7 +177,9 @@ export async function extractReport(
   if (fatal) throw fatal;
   // One failed page is a note on a report; every page failed is no report.
   // Storing an empty row would show "uloženo" over nothing.
-  if (!results.some(Boolean)) throw new Error("žádnou stranu se nepodařilo přečíst — report nebyl uložen");
+  if (!results.some(Boolean)) {
+    throw new Error(`žádnou stranu se nepodařilo přečíst — report nebyl uložen${firstError ? ` (${firstError})` : ""}`);
+  }
 
   const measurements: Measurement[] = [];
   let unverified = 0;
@@ -180,11 +194,15 @@ export async function extractReport(
   }
 
   const notes: string[] = [];
+  if (prepared.scanPages.length)
+    notes.push(
+      `${plural(prepared.scanPages.length, "Strana", "Strany", "Strany")} ${prepared.scanPages.join(", ")} ${plural(prepared.scanPages.length, "nemá", "nemají", "nemají")} textovou vrstvu (sken) — ${plural(prepared.scanPages.length, "přepsána", "přepsány", "přepsány")} z obrázku; hodnoty z ní nelze ověřit proti tištěnému textu, zkontrolujte je v Ověření.`,
+    );
   if (prepared.truncated > 0)
     notes.push(`Zpracováno prvních ${count(pages.length, "strana", "strany", "stran")} — dalších ${prepared.truncated} zůstalo nepřečteno.`);
   if (failed.length)
     notes.push(
-      `Nepodařilo se přečíst ${count(failed.length, "stranu", "strany", "stran")} (${failed.sort((a, b) => a - b).join(", ")}) — ostatní jsou zpracované.`,
+      `Nepodařilo se přečíst ${count(failed.length, "stranu", "strany", "stran")} (${failed.sort((a, b) => a - b).join(", ")}) — ostatní jsou zpracované.${firstError ? ` Důvod: ${firstError}` : ""}`,
     );
   if (unverified)
     notes.push(
