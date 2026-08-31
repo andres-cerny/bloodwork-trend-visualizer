@@ -14,7 +14,7 @@
   "workers_dev": false,
 
   // Created at first deploy: npx wrangler kv namespace create moje-krev-budget
-  "kv_namespaces": [{ "binding": "BUDGET", "id": "TBD-AT-FIRST-DEPLOY" }],
+  "kv_namespaces": [{ "binding": "BUDGET", "id": "5ff6ac11f3164679b2a7d1082f770761" }],
 
   "vars": {
     // Sessions are minted server-side by moje-krev-portal (a logged-in user

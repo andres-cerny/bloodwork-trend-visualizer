@@ -13,7 +13,7 @@
   // then paste the id here and apply schema.sql with
   //   npx wrangler d1 execute moje-krev --remote --file=schema.sql
   "d1_databases": [
-    { "binding": "DB", "database_name": "moje-krev", "database_id": "TBD-AT-FIRST-DEPLOY" }
+    { "binding": "DB", "database_name": "moje-krev", "database_id": "55a6597f-0c28-4a72-9381-ed7a2254e69e" }
   ],
 
   // Phase 3 adds here: a PAGES KV namespace (redacted page images), a BUDGET
