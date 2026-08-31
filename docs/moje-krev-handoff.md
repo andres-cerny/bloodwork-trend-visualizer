@@ -7,6 +7,23 @@ reports, and anything that touches Cloudflare. This file is the complete
 path from `git pull` to a working local Moje krev, and from there to a real
 deploy. The design and phase plan live in [plans/portal.md](plans/portal.md).
 
+## One command, Claude does the rest
+
+With Claude Code installed locally (`npm install -g @anthropic-ai/claude-code`),
+one paste runs the whole file — local smoke test, Cloudflare login, resources,
+secrets, deploy, first invite. Claude stops to let you click the wrangler
+browser login and to paste the two API keys; it never commits a secret.
+
+```sh
+git clone https://github.com/andres-cerny/bloodwork-trend-visualizer.git
+cd bloodwork-trend-visualizer
+git checkout claude/bloodwork-visualizer-planning-kn3vv5
+claude "Set up Moje krev end to end per docs/moje-krev-handoff.md: (1) npm install, copy workers/portal/.dev.vars.example to .dev.vars, run npm test, then prove the local loop — apply schema.sql to local D1, insert an invite, start the API worker, register via curl and confirm the dev link logs in. (2) Run npx wrangler login and wait for me to finish the browser step. (3) Create the D1 database moje-krev and KV namespace moje-krev-budget, paste the returned ids into workers/portal/wrangler.jsonc and workers/portal-extract/wrangler.jsonc, apply schema.sql --remote. (4) Secrets — moje-krev-portal gets a randomly generated SESSION_SECRET and RESEND_API_KEY (ask me to paste it; skip if I say later); moje-krev-extract gets ANTHROPIC_API_KEY (ask me to paste it), its own randomly generated SESSION_SECRET, and a placeholder TURNSTILE_SECRET_KEY. (5) npm run deploy:moje-krev. (6) Mint one invite via tools/scripts/moje-krev-invites.mjs 1 Andres --apply and print the live URL and the code. (7) Commit ONLY the wrangler.jsonc id changes and push to this branch. Never put a secret in a file, commit, or chat log."
+```
+
+(Already cloned? Start from the `git checkout` line, after
+`git fetch origin claude/bloodwork-visualizer-planning-kn3vv5`.)
+
 ## What works today (end of Phase 1)
 
 Invite-only registration, magic-link login, 90-day sessions, and a
