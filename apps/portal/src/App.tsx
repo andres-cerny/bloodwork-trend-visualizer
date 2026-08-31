@@ -1,5 +1,5 @@
 /**
- * Kapka's walking skeleton: who are you, or the door.
+ * Moje krev's walking skeleton: who are you, or the door.
  *
  * Phase 1 ends where the home screen begins — a logged-in shell with the
  * account's e-mail is the proof the whole auth loop works. Upload, verify and
@@ -50,7 +50,7 @@ export default function App() {
     case "sent":
       return (
         <main className="door">
-          <h1>Kapka</h1>
+          <h1>Moje krev</h1>
           <p className="sub">{screen.message}</p>
           <p className="sub">Odkaz platí 15 minut. Zavřít tuto záložku ničemu nevadí.</p>
           {screen.devLink && (
@@ -101,7 +101,7 @@ function Login({ notice, onSent }: { notice: string | null; onSent: (message: st
 
   return (
     <main className="door">
-      <h1>Kapka</h1>
+      <h1>Moje krev</h1>
       <p className="sub">Krevní testy v čase. Bez jména, bez rodného čísla — jen vaše hodnoty.</p>
       {notice && <p className="notice">{notice}</p>}
       <form onSubmit={submit}>
@@ -145,7 +145,7 @@ function Home({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }
   return (
     <main className="door">
-      <h1>Kapka</h1>
+      <h1>Moje krev</h1>
       <p className="sub">Přihlášení: {me.email}</p>
       <p className="sub">Zatím tu nic není — nahrávání výsledků přijde v další fázi.</p>
       <button className="btn" onClick={logout}>

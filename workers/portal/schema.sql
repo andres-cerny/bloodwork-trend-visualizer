@@ -1,4 +1,4 @@
--- Kapka: one database, one person per login. The account IS the patient —
+-- Moje krev: one database, one person per login. The account IS the patient —
 -- there is deliberately no name, birth date or rodné číslo anywhere in this
 -- schema. Identity is redacted in the browser before upload; the only
 -- identifier at rest is the login e-mail.

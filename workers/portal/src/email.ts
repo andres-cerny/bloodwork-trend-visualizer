@@ -27,13 +27,13 @@ export async function sendLoginLink(env: MailEnv, to: string, link: string): Pro
       },
       signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
-        from: env.MAIL_FROM ?? "Kapka <onboarding@resend.dev>",
+        from: env.MAIL_FROM ?? "Moje krev <onboarding@resend.dev>",
         to: [to],
-        subject: "Přihlášení do Kapky",
+        subject: "Přihlášení — Moje krev",
         text:
           `Dobrý den,\n\n` +
           `přihlásíte se otevřením tohoto odkazu (platí 15 minut):\n\n${link}\n\n` +
-          `Pokud jste o přihlášení nežádali, e-mail ignorujte — bez odkazu se nikdo nepřihlásí.\n\nKapka`,
+          `Pokud jste o přihlášení nežádali, e-mail ignorujte — bez odkazu se nikdo nepřihlásí.\n\nMoje krev`,
       }),
     }).catch(() => null);
     if (!res || !res.ok) return { sent: false, error: `resend_${res ? res.status : "unreachable"}` };

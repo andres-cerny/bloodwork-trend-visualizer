@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Mint invite codes for Kapka.
+ * Mint invite codes for Moje krev.
  *
- *   node tools/scripts/kapka-invites.mjs 3 "máma, táta, Ondřej"   # print SQL
- *   node tools/scripts/kapka-invites.mjs 3 "note" --apply         # run it remotely
+ *   node tools/scripts/moje-krev-invites.mjs 3 "máma, táta, Ondřej"   # print SQL
+ *   node tools/scripts/moje-krev-invites.mjs 3 "note" --apply         # run it remotely
  *
  * Codes are word-word-word from a small Czech-friendly list: easy to read
  * aloud over the phone, hard to guess (24^3 ≈ 14k combinations is plenty when
@@ -36,7 +36,7 @@ console.log(sql);
 if (apply) {
   execFileSync(
     "npx",
-    ["wrangler", "d1", "execute", "kapka", "--remote", `--command=${sql}`],
+    ["wrangler", "d1", "execute", "moje-krev", "--remote", `--command=${sql}`],
     { stdio: "inherit", cwd: new URL("../../workers/portal", import.meta.url).pathname },
   );
 } else {

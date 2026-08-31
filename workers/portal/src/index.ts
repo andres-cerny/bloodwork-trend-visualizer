@@ -1,5 +1,5 @@
 /**
- * Kapka's API worker: accounts and, from Phase 3, stored reports.
+ * Moje krev's API worker: accounts and, from Phase 3, stored reports.
  *
  * Auth is deliberately small: signup spends an invite code, login mails a
  * single-use link, the session is a signed cookie. No passwords exist to

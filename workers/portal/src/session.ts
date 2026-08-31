@@ -66,7 +66,7 @@ export async function verifyCookieToken(secret: string, token: string | null): P
   }
 }
 
-export const COOKIE_NAME = "kapka_session";
+export const COOKIE_NAME = "mojekrev_session";
 
 export function readCookie(request: Request): string | null {
   const header = request.headers.get("cookie");

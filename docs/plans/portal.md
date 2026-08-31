@@ -1,6 +1,6 @@
-# Plan: Kapka — bloodwork trends with accounts
+# Plan: Moje krev — bloodwork trends with accounts
 
-Design settled 2026-08-31 (planning session with Andres); named **Kapka**
+Design settled 2026-08-31 (planning session with Andres); named **Moje krev**
 the same day. A third app over the
 same deterministic layer: people log in, upload their Czech lab PDFs, verify
 the extraction, and see their trends again on every later visit. Friends and
@@ -20,7 +20,7 @@ as `apps/bloodwork` (extract → verify → trend), but:
 
 **`workers/portal`** — its API worker: auth, D1, KV for page images, and a
 service binding to **`workers/portal-extract`** — a config-only second
-deployment (`kapka-extract`) of the finished extract worker, so family
+deployment (`moje-krev-extract`) of the finished extract worker, so family
 uploads and the public demo can never freeze each other's ledger.
 
 ## Decisions already made (do not re-litigate)
@@ -28,10 +28,10 @@ uploads and the public demo can never freeze each other's ledger.
 | Decision | Choice | Why |
 |---|---|---|
 | Where | This monorepo: `apps/portal` + `workers/portal` | Reuses lab-core, extraction, gate, ui-kit; the parity CI keeps protecting the shared parsing layer |
-| Name | **Kapka** | Short, Czech, says blood without saying disease; workers `kapka` / `kapka-portal` / `kapka-extract` |
+| Name | **Moje krev** | Plain Czech, says exactly what it holds; workers `moje-krev` / `moje-krev-portal` / `moje-krev-extract` |
 | Hosting | Cloudflare free tier: Workers + D1 + KV | Free at F&F scale; KV rather than R2 because this account has no R2 opt-in (the agent worker's EVIDENCE store made the same call) — R2 is the growth path if images outgrow KV's free 1 GB |
-| Domain | `kapka.<account>.workers.dev` for now | A real domain later changes one wrangler file and the Resend sender, nothing else |
-| Extraction budget | Second deployment `kapka-extract`, own KV ledger | The demo freezing the family (or the reverse) is the cross-freeze the per-capability split exists to prevent; isolation by deployment needs zero changes to the finished worker |
+| Domain | `moje-krev.<account>.workers.dev` for now | A real domain later changes one wrangler file and the Resend sender, nothing else |
+| Extraction budget | Second deployment `moje-krev-extract`, own KV ledger | The demo freezing the family (or the reverse) is the cross-freeze the per-capability split exists to prevent; isolation by deployment needs zero changes to the finished worker |
 | First user | Andres, via the product itself | Real PDFs are uploaded through the app on his own device once deployed — the seed IS the first honest test; real data never enters the repo or a cloud dev container |
 | Signup | Invite codes issued by Andres | No open registration — nobody random spends the Claude API budget |
 | Login | Email magic link (Resend free tier), ~90-day sessions | No passwords to store or reset for a medical-data app; same HMAC construction as `@bw/gate`, portal-local claims |
@@ -79,7 +79,7 @@ browser                                          server
 4. MANDATORY review screen: user sees the
    redacted pages, taps anything missed to
    black it out, confirms
-5. upload redacted text layer ──────────────────▶ workers/portal ──▶ kapka-extract (service binding)
+5. upload redacted text layer ──────────────────▶ workers/portal ──▶ moje-krev-extract (service binding)
    upload redacted page images ─────────────────▶ KV
                                                   results (LabReport JSON) ──▶ D1
 6. original PDF is dropped; nothing with a
@@ -131,7 +131,7 @@ page-image KV keys, and nothing else — because nothing else exists.
    `POST /api/login` (email → magic link via Resend; same 200 for unknown
    email), `GET /api/login/confirm` (token → 90-day HMAC cookie),
    `POST /api/logout`. Tokens stored hashed, single-use, 15-minute expiry.
-3. Invite management: a tiny CLI (`tools/portal-invites.mjs` via wrangler d1
+3. Invite management: a tiny CLI (`tools/scripts/moje-krev-invites.mjs` via wrangler d1
    execute) — no admin UI in MVP.
 4. Extend the deploy script: portal worker after extract, shell last.
 5. Tests: fake D1 (exists from the chat demo work) + fake Resend fetch;
@@ -184,13 +184,18 @@ freezing anyone else.
 
 ### Phase 4 — the fresh UI
 
-The reason this app exists twice. Mobile-first, and the charts are the
-centrepiece, not an afterthought.
+The reason this app exists twice. Desktop and mobile are BOTH first-class
+(Andres's explicit call, 2026-08-31): it will be used daily on both, so
+"impressive" is the bar on each — a phone layout that is a squeezed desktop
+fails, and a desktop layout that is a stretched phone fails the same way.
+The charts are the centrepiece on both.
 
 1. Design pass first: mockups for home (latest draw summary + sparkline
    grid), trend detail (one parametr, full-bleed chart, reference band,
-   draw markers, hollow unconfirmed points), upload flow, verify. Approved
-   before code.
+   draw markers, hollow unconfirmed points), upload flow, verify — each
+   screen designed twice, at phone width and at desktop width (where the
+   extra room buys comparison: multi-parametr grids, chart + source side
+   by side), not scaled once. Approved before code.
 2. Chart work happens in `@bw/ui-kit` (a redesigned `Chart`), not a portal
    fork — both apps inherit the improvement, and "the model may name a
    chart, never fill one" stays enforced once. Bloodwork app adoption is a
@@ -200,8 +205,9 @@ centrepiece, not an afterthought.
 4. Extend the layout auditor to the portal's screens; five widths, both
    palettes, 4.5:1 on type — the audit is the phase gate, not a suggestion.
 
-**Gate:** `npm run test:audit` green over portal screens; a phone-sized
-walkthrough of upload → verify → trend reads clean.
+**Gate:** `npm run test:audit` green over portal screens; the
+upload → verify → trend walkthrough reads clean twice — once phone-sized,
+once desktop-sized.
 
 ### Phase 5 — trust, GDPR, launch
 
@@ -228,6 +234,11 @@ ledger caps the blast radius of any surprise.
 
 ## Launch checklist — the operator steps
 
+Step-by-step local instructions, from `git pull` to a deployed app, live in
+[../moje-krev-handoff.md](../moje-krev-handoff.md) — the cloud container
+cannot reach `api.cloudflare.com`, so deploys are local (or the environment's
+network policy is widened first).
+
 Everything below happens once, outside the repo; development never blocks on
 it. Secrets go into the claude.ai/code environment settings (for Claude to
 deploy) or stay on Andres's machine (self-deploy) — never into chat or git.
@@ -243,12 +254,12 @@ deploy) or stay on Andres's machine (self-deploy) — never into chat or git.
    then changes from `onboarding@resend.dev` in one place (`MAIL_FROM`).
 3. **First deploy** — create resources, paste ids into the two wrangler
    files, apply schema, set secrets, deploy in binding order:
-   `wrangler d1 create kapka` · `wrangler kv namespace create kapka-budget` ·
-   `wrangler d1 execute kapka --remote --file=schema.sql` ·
-   `wrangler secret put` (SESSION_SECRET on kapka-portal; ANTHROPIC_API_KEY +
-   SESSION_SECRET + TURNSTILE_SECRET_KEY placeholder on kapka-extract) ·
-   `npm run deploy:kapka`.
-4. **Invites** — `node tools/scripts/kapka-invites.mjs 1 "Andres" --apply`,
+   `wrangler d1 create moje-krev` · `wrangler kv namespace create moje-krev-budget` ·
+   `wrangler d1 execute moje-krev --remote --file=schema.sql` ·
+   `wrangler secret put` (SESSION_SECRET on moje-krev-portal; ANTHROPIC_API_KEY +
+   SESSION_SECRET + TURNSTILE_SECRET_KEY placeholder on moje-krev-extract) ·
+   `npm run deploy:moje-krev`.
+4. **Invites** — `node tools/scripts/moje-krev-invites.mjs 1 "Andres" --apply`,
    register on the phone, upload the first real PDF through the app.
 
 ## Post-MVP, in rough order

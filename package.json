@@ -38,7 +38,7 @@
     "deploy:portal-extract": "npm -w workers/portal-extract run deploy",
     "deploy:portal-api": "npm -w workers/portal run deploy",
     "deploy:portal": "npm run build:portal && npm -w apps/portal run deploy",
-    "deploy:kapka": "npm run deploy:portal-extract && npm run deploy:portal-api && npm run deploy:portal",
+    "deploy:moje-krev": "npm run deploy:portal-extract && npm run deploy:portal-api && npm run deploy:portal",
     "dev:chat": "npm -w apps/chat run dev",
     "build:chat": "npm -w apps/chat run build",
     "check:bundle:chat": "node tools/scripts/check-bundle.mjs apps/chat/dist",

@@ -8,16 +8,16 @@
   // cheapest isolation is the one the repo already trusts — by binding, not
   // by a WHERE clause. Separate name, separate KV, separate secrets; the
   // extract worker itself stays finished.
-  "name": "kapka-extract",
+  "name": "moje-krev-extract",
   "main": "../extract/src/index.ts",
   "compatibility_date": "2025-01-01",
   "workers_dev": false,
 
-  // Created at first deploy: npx wrangler kv namespace create kapka-budget
+  // Created at first deploy: npx wrangler kv namespace create moje-krev-budget
   "kv_namespaces": [{ "binding": "BUDGET", "id": "TBD-AT-FIRST-DEPLOY" }],
 
   "vars": {
-    // Sessions are minted server-side by kapka-portal (a logged-in user
+    // Sessions are minted server-side by moje-krev-portal (a logged-in user
     // replaces the demo's Turnstile), so hostnames stay unset here on
     // purpose: /api/session refuses everything, and only /api/extract with a
     // portal-minted token works.
@@ -29,6 +29,6 @@
   "observability": { "enabled": true }
 
   // Secrets: ANTHROPIC_API_KEY, SESSION_SECRET (the SAME string as
-  // kapka-portal's EXTRACT_SESSION_SECRET — that pairing is Phase 3),
+  // moje-krev-portal's EXTRACT_SESSION_SECRET — that pairing is Phase 3),
   // TURNSTILE_SECRET_KEY (any placeholder; the session route is unused).
 }

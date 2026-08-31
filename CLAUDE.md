@@ -2,7 +2,7 @@
 
 **apps/bloodwork** reads Czech lab PDFs: upload, extract, verify, trend.
 **apps/chat** is a clinical agent UI. Both talk to **workers/agent**; only
-bloodwork talks to **workers/extract**. **apps/portal** (Kapka, in progress)
+bloodwork talks to **workers/extract**. **apps/portal** (Moje krev, in progress)
 adds accounts and storage over the same core — see the plan below.
 
 ```
@@ -46,3 +46,4 @@ npm run dev:extract + dev:agent + dev:bloodwork    # one terminal each
 | The chat demo, planned | [docs/plans/chat-demo.md](docs/plans/chat-demo.md) |
 | The chat UI second pass | [docs/plans/chat-ui.md](docs/plans/chat-ui.md) |
 | The portal, planned | [docs/plans/portal.md](docs/plans/portal.md) |
+| Moje krev, run locally | [docs/moje-krev-handoff.md](docs/moje-krev-handoff.md) |

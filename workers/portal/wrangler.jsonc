@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "kapka-portal",
+  "name": "moje-krev-portal",
   "main": "src/index.ts",
   "compatibility_date": "2025-01-01",
 
@@ -9,16 +9,16 @@
   "workers_dev": false,
 
   // Created at first deploy (see docs/plans/portal.md, launch checklist):
-  //   npx wrangler d1 create kapka
+  //   npx wrangler d1 create moje-krev
   // then paste the id here and apply schema.sql with
-  //   npx wrangler d1 execute kapka --remote --file=schema.sql
+  //   npx wrangler d1 execute moje-krev --remote --file=schema.sql
   "d1_databases": [
-    { "binding": "DB", "database_name": "kapka", "database_id": "TBD-AT-FIRST-DEPLOY" }
+    { "binding": "DB", "database_name": "moje-krev", "database_id": "TBD-AT-FIRST-DEPLOY" }
   ],
 
   // Phase 3 adds here: a PAGES KV namespace (redacted page images), a BUDGET
   // KV namespace (per-user spend ledger), and a service binding EXTRACT to
-  // the `kapka-extract` deployment of workers/extract. Declared then rather
+  // the `moje-krev-extract` deployment of workers/extract. Declared then rather
   // than now so a half-configured binding cannot fail this deploy.
 
   "vars": {

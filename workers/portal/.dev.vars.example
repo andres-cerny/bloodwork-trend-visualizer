@@ -1,0 +1,8 @@
+# Copy to .dev.vars (git-ignored) for local development.
+# Any random string works locally; production gets a real one via
+#   npx wrangler secret put SESSION_SECRET
+SESSION_SECRET=local-dev-secret-change-me
+
+# Dev-only: /api/auth/login returns the magic link in the response instead of
+# sending e-mail. Never set in production; a real RESEND_API_KEY wins anyway.
+DEV_MAGIC_LINK=1

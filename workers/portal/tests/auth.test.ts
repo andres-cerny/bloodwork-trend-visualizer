@@ -88,7 +88,7 @@ function fakeD1(t: Tables): D1Database {
   return { prepare: (sql: string) => make(sql, []) } as unknown as D1Database;
 }
 
-const ORIGIN = "https://kapka.example";
+const ORIGIN = "https://moje-krev.example";
 
 function makeEnv(t: Tables): Env {
   return { DB: fakeD1(t), SESSION_SECRET: SECRET, DEV_MAGIC_LINK: "1" };
@@ -217,7 +217,7 @@ describe("sessions", () => {
   it("refuses a tampered cookie and a wrong-secret cookie", async () => {
     const cookie = await registerAndConfirm();
     const forged = await mintCookieToken("some-other-secret", tables.users[0].id, 3600);
-    for (const c of [cookie.slice(0, -2) + "xx", `kapka_session=${forged}`, "kapka_session=nonsense"]) {
+    for (const c of [cookie.slice(0, -2) + "xx", `mojekrev_session=${forged}`, "mojekrev_session=nonsense"]) {
       const res = await worker.fetch(get("/api/me", { cookie: c }), env);
       expect(res.status).toBe(401);
     }

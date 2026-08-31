@@ -1,5 +1,5 @@
 /**
- * Kapka's shell: static assets, and a door to the portal API worker.
+ * Moje krev's shell: static assets, and a door to the portal API worker.
  *
  * Same shape as the bloodwork shell — it holds no secrets and calls no API;
  * the request is forwarded rather than rebuilt so the method, cookies and
