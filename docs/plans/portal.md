@@ -119,6 +119,9 @@ page-image KV keys, and nothing else — because nothing else exists.
 
 ## Phases
 
+Status (2026-08-31): Phases 1–3 are built and deployed. Phase 4 starts with
+the design pass, as written; Phase 5 follows it.
+
 ### Phase 1 — worker skeleton, auth, deploy
 
 `workers/portal` + a walking-skeleton `apps/portal` (login → empty home).
@@ -165,6 +168,16 @@ text layer and no identity pixels at the known coordinates; a real sample
 checked by eye locally.
 
 ### Phase 3 — upload, extract, store, verify
+
+*As built:* extraction is proxied a page at a time (`POST /api/extract`)
+rather than assembled server-side — the worker mints a one-page session for
+the binding, books the extractor's reported cost to the person's monthly
+ledger, and hands the reads back; the client keeps interpreting them with
+lab-core exactly as the demo does, then stores the finished `LabReport`
+(`PUT /api/reports/:id`) and each painted page. Same contract, same ledger,
+progress per page for free, and the parsing layer stays in the client where
+it already lives. The worker's one look inside a payload is to empty the
+identity fields.
 
 1. `POST /api/reports`: redacted text layer in, extract via service binding
    (portal worker holds the extract session contract; `consumePage` stays

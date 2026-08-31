@@ -24,11 +24,20 @@ claude "Set up Moje krev end to end per docs/moje-krev-handoff.md: (1) npm insta
 (Already cloned? Start from the `git checkout` line, after
 `git fetch origin claude/bloodwork-visualizer-planning-kn3vv5`.)
 
-## What works today (end of Phase 1)
+## What works today (end of Phase 3)
 
-Invite-only registration, magic-link login, 90-day sessions, and a
-placeholder home screen. Upload/verify/trends are Phases 2–3; the current
-gate to see working is: register → link → logged in → survives restart.
+Invite-only registration, magic-link login, 90-day sessions — and the whole
+upload path: a PDF opens in the browser, the identity on it (name, rodné
+číslo, birth date, address, and every repeat of them) is found and painted
+out, the reader confirms the boxes, and only the painted pages and the
+stripped rows go to the extractor. Results are stored per account:
+verification against the stored page, trends, the change summary and name
+mapping all read them back on any device. The fresh mobile-first design is
+Phase 4; the screens today are the bloodwork demo's.
+
+A synthetic report to try it on, with an invented identity to redact:
+`packages/lab-core/tests/fixtures/identity.pdf`. Your own reports go in
+through the same screen; the original file never leaves the device.
 
 ## Run it locally
 
@@ -56,7 +65,14 @@ Open http://localhost:5173 → „Mám pozvánkový kód" → code `moje-prvni-4
 your e-mail. With `DEV_MAGIC_LINK=1` the confirmation screen shows a
 „Vývojové přihlášení" link instead of sending mail — click it and you are
 in. Local D1 state persists in `workers/portal/.wrangler/`, so you stay
-registered across restarts.
+registered across restarts. (It is keyed by the `database_id` in
+wrangler.jsonc — change that and you start from an empty local database.)
+
+Locally, everything up to the extractor works: the redaction review, the
+painted pages, storage in the local D1 and KV. The extract call itself needs
+`moje-krev-extract`, which the local worker cannot reach (`EXTRACT` shows
+"not connected"), so a local upload ends with „žádnou stranu se nepodařilo
+přečíst". Real extraction is tested against the deployed stack.
 
 Tests and checks, same as CI: `npm test` (the portal suite is
 `npx vitest run --project portal`) · `npm run typecheck` · `npm run docs:check`.
@@ -82,12 +98,14 @@ cd workers/portal
 npx wrangler d1 create moje-krev             # paste database_id into wrangler.jsonc
 npx wrangler d1 execute moje-krev --remote --file=schema.sql
 npx wrangler secret put SESSION_SECRET       # e.g. output of: openssl rand -base64 32
+npx wrangler secret put EXTRACT_SESSION_SECRET  # the SAME string as moje-krev-extract's SESSION_SECRET
 npx wrangler secret put RESEND_API_KEY       # from resend.com, free tier
+npx wrangler kv namespace create moje-krev-pages    # paste id into wrangler.jsonc (PAGES)
 
 cd ../portal-extract                          # needed from Phase 3 on; harmless now
 npx wrangler kv namespace create moje-krev-budget   # paste id into wrangler.jsonc
 npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put SESSION_SECRET       # its own pairing with the portal, Phase 3
+npx wrangler secret put SESSION_SECRET       # = the portal's EXTRACT_SESSION_SECRET
 npx wrangler secret put TURNSTILE_SECRET_KEY # any placeholder; route unused
 
 cd ../..
