@@ -203,3 +203,50 @@ describe("identity.pdf through pdf.js", () => {
     expect(canRedact(await fixturePage("scanned.pdf"))).toBe(false);
   });
 });
+
+/*
+ * Header layouts copied (as shapes, with invented values) from the reports
+ * this app was first tried on. Each of these leaked before it was here.
+ */
+describe("layouts seen on real reports", () => {
+  it("reads the date after a label whose item ends in punctuation — Narozen(a):", () => {
+    const { hits } = findIdentity(page([
+      w("Jméno:", 50, 60), w("Jan", 90, 60), w("Novák", 110, 60), w("Žadatel:", 300, 60), w("Dostal", 350, 60),
+      w("ID:", 50, 74), w("9908031234", 90, 74), w("Pojišťovna:", 300, 74), w("111", 380, 74),
+      w("Narozen(a):", 50, 88), w("04.03.1999", 120, 88), w("Výška:", 300, 88), w("Hmotnost:", 400, 88),
+      ...filler(130),
+    ]));
+    expect(hits.find((h) => h.kind === "birth-date")?.text).toBe("04.03.1999");
+    expect(hits.find((h) => h.kind === "name")?.text).toBe("Jan Novák");
+    expect(hits.filter((h) => h.kind === "rodne-cislo").map((h) => h.text)).toContain("9908031234");
+  });
+
+  it("reads a rodné číslo printed as spaced digits, after RČ# :", () => {
+    const words = [
+      w("RČ# :", 50, 60), w("9 9 0 8 0 3 1 2 3 4", 90, 60), w("Věk :", 300, 60), w("26", 340, 60),
+      w("Pacient :", 50, 74), w("Jan Novák", 110, 74), w("Lékař :", 300, 74), w("Dostal Jiří", 350, 74),
+      ...filler(130),
+      w("9 9 0 8 0 3 1 2 3 4", 400, 800),
+    ];
+    const { hits, strings } = findIdentity(page(words));
+    const rc = hits.filter((h) => h.kind === "rodne-cislo" || h.text.startsWith("9 9"));
+    expect(rc.length).toBeGreaterThanOrEqual(2);
+    expect(strings).toEqual(expect.arrayContaining(["9908031234", "990803/1234"]));
+    expect(survivingIdentity(stripIdentity(words, hits, strings), strings)).toEqual([]);
+  });
+
+  it("leaves a phone number alone, even one that decodes as a pre-1954 number", () => {
+    // 60 / 31 (the 2004 male series) / 23 — a valid nine-digit form, and
+    // exactly the shape "tel: 603 312 345" prints in.
+    const { hits } = findIdentity(page([w("tel: 603 312 345", 50, 60), ...filler(130)]));
+    expect(hits).toEqual([]);
+    // Labelled, the same digits are an identifier whatever their spacing.
+    const labelled = findIdentity(page([w("Rodné číslo:", 50, 60), w("603 312 345", 130, 60), ...filler(130)]));
+    expect(labelled.hits.map((h) => h.kind)).toContain("rodne-cislo");
+  });
+
+  it("does not take 'ID ord.' for an identifier label", () => {
+    const { hits } = findIdentity(page([w("ID ord.", 300, 60), w("0", 380, 60), ...filler(130)]));
+    expect(hits).toEqual([]);
+  });
+});

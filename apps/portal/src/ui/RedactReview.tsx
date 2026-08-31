@@ -9,16 +9,17 @@
  * no skip.
  *
  * A scanned page has no text layer at all, so on it nothing is found and
- * nothing is claimed: the page says so, drawing is the only way to redact
- * it, and the reader confirms each such page separately before the upload
- * can go on. That confirmation is the whole guard for a scan.
+ * nothing is claimed: its caption says so and drawing is the only way to
+ * redact it. The screen asks one question and explains nothing else — the
+ * first version explained itself in three paragraphs and a per-page tick,
+ * and the reader had to click past them to see the page.
  *
  * Boxes live in image pixels (like every Box in lab-core) and are drawn in
  * percentages of the image, so they stay put when the pane relayouts —
  * the same lesson the verification highlight learned.
  */
 import { useRef, useState } from "react";
-import { type Box, type IdentityHit, type IdentityKind, count, plural } from "@bw/lab-core";
+import { type Box, type IdentityHit, type IdentityKind, count } from "@bw/lab-core";
 import type { PreparedFile } from "../lib/upload";
 
 interface Props {
@@ -41,92 +42,47 @@ const MIN_DRAG = 6;
 
 export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
   const [hits, setHits] = useState<IdentityHit[]>(prepared.hits);
-  const [drawing, setDrawing] = useState(prepared.scanPages.length > 0);
-  /** Scan pages the reader has explicitly confirmed. */
-  const [checked, setChecked] = useState<Set<number>>(new Set());
-
+  // Drawing starts on when nothing was found on some page — on a scan that is
+  // always — because drawing is then the only way to redact it.
+  const [drawing, setDrawing] = useState(prepared.scanPages.length > 0 || prepared.hits.length === 0);
   const scans = prepared.scanPages;
-  const found = hits.filter((h) => h.kind !== "manual");
-  const textPages = prepared.pages.length - scans.length;
-  const allScansChecked = scans.every((p) => checked.has(p));
-
-  const summary =
-    textPages === 0
-      ? null
-      : found.length === 0
-        ? "Na stranách s textem jsme nic nenašli. Zkontrolujte hlavičku a patičku obzvlášť pečlivě — jméno a rodné číslo mohou být vytištěné jinak, než umíme přečíst."
-        : `Nalezeno: ${[...new Set(found.map((h) => KIND_CS[h.kind]))].join(", ")} — ${count(found.length, "místo", "místa", "míst")}.`;
 
   return (
     <section className="card review">
       <div className="card-head">
         <div>
-          <h2>Kontrola anonymizace</h2>
+          <h2>Je vše osobní začerněné?</h2>
           <p className="sub" style={{ marginBottom: 0 }}>
             {prepared.name} · {count(prepared.pages.length, "strana", "strany", "stran")}
-            {scans.length > 0 && ` · ${count(scans.length, "sken", "skeny", "skenů")}`}
+            {scans.length > 0 && ` · ${count(scans.length, "sken", "skeny", "skenů")} — začerněte ručně`}
           </p>
         </div>
-      </div>
-
-      <p className="sub">
-        Černá pole se z obrázků i z textu odstraní ještě ve vašem prohlížeči. Nic z toho neuvidí
-        server ani model. Klepnutím pole odeberete; režim „Začernit“ dovolí tažením přidat další.
-      </p>
-      {summary && <p className={found.length === 0 ? "err" : "muted"}>{summary}</p>}
-      {scans.length > 0 && (
-        <div className="banner warn">
-          {plural(scans.length, "Strana", "Strany", "Strany")} {scans.join(", ")}{" "}
-          {scans.length === 1 ? "je sken bez textové vrstvy" : "jsou skeny bez textové vrstvy"} — jméno, rodné
-          číslo, datum narození ani adresu na {scans.length === 1 ? "ní" : "nich"} neumíme najít.
-          Začerněte je prosím tažením sami a každou takovou stranu potvrďte. Hodnoty z ní se přečtou
-          z obrázku.
-        </div>
-      )}
-      <div className="toolbar" style={{ marginBottom: 10 }}>
-        <button className={`btn${drawing ? " primary" : ""}`} aria-pressed={drawing} onClick={() => setDrawing((d) => !d)}>
-          {drawing ? "Hotovo — konec začerňování" : "Začernit další místo"}
+        <button className={`btn small${drawing ? " primary" : ""}`} aria-pressed={drawing} onClick={() => setDrawing((d) => !d)}>
+          {drawing ? "Hotovo" : "Začernit"}
         </button>
       </div>
 
-      {prepared.pages.map((page) => {
-        const isScan = scans.includes(page.pageNum);
-        return (
-          <ReviewPage
-            key={page.pageNum}
-            pageNum={page.pageNum}
-            imageUrl={page.imageUrl}
-            width={page.imageWidth}
-            height={page.imageHeight}
-            scan={isScan}
-            checked={checked.has(page.pageNum)}
-            onChecked={(on) =>
-              setChecked((prev) => {
-                const next = new Set(prev);
-                if (on) next.add(page.pageNum);
-                else next.delete(page.pageNum);
-                return next;
-              })
-            }
-            drawing={drawing}
-            hits={hits.filter((h) => h.pageNum === page.pageNum)}
-            onAdd={(box) => setHits((hs) => [...hs, { pageNum: page.pageNum, box, kind: "manual", text: "" }])}
-            onRemove={(hit) => setHits((hs) => hs.filter((h) => h !== hit))}
-          />
-        );
-      })}
+      {prepared.pages.map((page) => (
+        <ReviewPage
+          key={page.pageNum}
+          pageNum={page.pageNum}
+          imageUrl={page.imageUrl}
+          width={page.imageWidth}
+          height={page.imageHeight}
+          scan={scans.includes(page.pageNum)}
+          drawing={drawing}
+          hits={hits.filter((h) => h.pageNum === page.pageNum)}
+          onAdd={(box) => setHits((hs) => [...hs, { pageNum: page.pageNum, box, kind: "manual", text: "" }])}
+          onRemove={(hit) => setHits((hs) => hs.filter((h) => h !== hit))}
+        />
+      ))}
 
       <div className="review-actions">
         <button className="btn" onClick={onCancel}>
           Zrušit
         </button>
-        <button
-          className="btn primary"
-          disabled={!allScansChecked}
-          title={allScansChecked ? undefined : "Nejdřív potvrďte každou naskenovanou stranu."}
-          onClick={() => onConfirm(hits)}
-        >
-          Zkontrolováno, nahrát
+        <button className="btn primary" onClick={() => onConfirm(hits)}>
+          Ano, nahrát
         </button>
       </div>
     </section>
@@ -139,8 +95,6 @@ function ReviewPage({
   width,
   height,
   scan,
-  checked,
-  onChecked,
   drawing,
   hits,
   onAdd,
@@ -151,8 +105,6 @@ function ReviewPage({
   width: number;
   height: number;
   scan: boolean;
-  checked: boolean;
-  onChecked: (on: boolean) => void;
   drawing: boolean;
   hits: IdentityHit[];
   onAdd: (box: Box) => void;
@@ -184,7 +136,7 @@ function ReviewPage({
     <figure className={`review-page${scan ? " scan" : ""}`}>
       <figcaption className="muted">
         Strana {pageNum}
-        {scan && " · sken — nic nenalezeno automaticky"}
+        {scan && " · sken — nic nenalezeno, začerněte ručně"}
       </figcaption>
       <div
         className={`review-canvas${drawing ? " drawing" : ""}`}
@@ -233,13 +185,6 @@ function ReviewPage({
         ))}
         {draft && <div className="review-box draft" style={pct(draft)} />}
       </div>
-      {scan && (
-        <label className="switch review-check">
-          <input type="checkbox" checked={checked} onChange={(e) => onChecked(e.target.checked)} />
-          Strana {pageNum} zkontrolována — jméno, rodné číslo, datum narození i adresa jsou začerněné
-          (nebo na ní nejsou).
-        </label>
-      )}
     </figure>
   );
 }

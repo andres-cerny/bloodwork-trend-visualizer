@@ -114,6 +114,16 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The portal client's pure helpers: how a page's reads become rows,
+      // which is where a highlight lands on the wrong printed row.
+      name: "portal-app",
+      root: "./apps/portal",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "portal",
       root: "./workers/portal",
       include: ["tests/**/*.test.ts"],

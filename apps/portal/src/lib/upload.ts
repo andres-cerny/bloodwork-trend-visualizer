@@ -28,12 +28,12 @@ import {
   count,
   findIdentity,
   plural,
-  reconcile,
   stringsOf,
   survivingIdentity,
 } from "@bw/lab-core";
 import type { PageAssets, RedactedPage } from "@bw/lab-core/pdf";
 import { extractPage, isFatalApiError, putPage, putReport } from "./api";
+import { type PageResult, interpretPage } from "./interpret";
 
 export interface PreparedFile {
   name: string;
@@ -105,14 +105,8 @@ export async function extractReport(
   registry: Registry,
   onProgress: (done: number, total: number) => void,
 ): Promise<ExtractOutcome> {
-  const { isPrintedOnPage, rowBoxFor, rowTextAt, rowsAsText } = await import("@bw/lab-core/pdf");
+  const { rowsAsText } = await import("@bw/lab-core/pdf");
 
-  interface PageResult {
-    measurements: Measurement[];
-    unverified: number;
-    reportDate: string | null;
-    labName: string | null;
-  }
   const results: Array<PageResult | undefined> = new Array(pages.length);
   const failed: number[] = [];
   /** Why the first page failed, verbatim from the server — the one line a
@@ -133,34 +127,7 @@ export async function extractReport(
         const res = await extractPage(
           isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
         );
-        const out: PageResult = { measurements: [], unverified: 0, reportDate: null, labName: null };
-        for (const read of res.reads) {
-          out.reportDate = out.reportDate ?? read.report_date ?? null;
-          out.labName = out.labName ?? read.lab_name ?? null;
-        }
-        for (const m of reconcile(res.reads)) {
-          // Provenance: a transcribed value must literally appear on the
-          // page. Anything that does not is flagged for review rather than
-          // allowed into a trend.
-          let disagreement = m.disagreement;
-          let confidence = m.confidence;
-          // A scan has no printed text to check against; the row keeps the
-          // model's own snippet and confidence, and no highlight.
-          if (!isScan && !isPrintedOnPage(m.valueRaw, page.rows)) {
-            disagreement = `hodnota "${m.valueRaw}" není na stránce vytištěna`;
-            confidence = "low";
-            out.unverified += 1;
-          }
-          out.measurements.push({
-            ...m,
-            sourceSnippet: (isScan ? "" : rowTextAt(m.rowIndex, page.rows)) || m.sourceSnippet,
-            sourcePage: page.pageNum,
-            confidence,
-            disagreement,
-            canonicalId: registry.match(m.rawAnalyteName),
-            bbox: isScan ? null : rowBoxFor(m.rawAnalyteName, page.rows),
-          });
-        }
+        const out = interpretPage(res.reads, page.rows, page.pageNum, isScan, (raw) => registry.match(raw));
         results[i] = out;
       } catch (e) {
         if (isFatalApiError(e)) {

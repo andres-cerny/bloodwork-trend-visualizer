@@ -95,7 +95,7 @@ export function fold(s: string): string {
 const LABEL_RE = new RegExp(
   String.raw`(?<![a-z0-9])(?:` +
     String.raw`(?<birth>datum narozeni|datum nar\.?|dat\. ?nar\.?|narozena|narozen|nar\.)|` +
-    String.raw`(?<rc>rodne cislo|rod\.? ?cislo|rod\. ?c\.|r\. ?c\.|rc|cislo pojistence|c\. ?pojistence|c\. ?poj\.|identifikace pacienta|id pacienta)|` +
+    String.raw`(?<rc>rodne cislo|rod\.? ?cislo|rod\. ?c\.|r\. ?c\.|rc|cislo pojistence|c\. ?pojistence|c\. ?poj\.|identifikace pacienta|id pacienta|id(?=\s*:))|` +
     String.raw`(?<addr>trvale bydliste|trvaly pobyt|bydliste|adresa pacienta|adresa|ulice)|` +
     String.raw`(?<name>jmeno a prijmeni|prijmeni a jmeno|jmeno pacienta|pacient/ka|pacientka|pacient|prijmeni|jmeno|nemocny|klient)` +
     String.raw`)(?![a-z0-9])\s*:?\s*`,
@@ -111,8 +111,10 @@ const STARTS_WITH_LABEL = new RegExp(`^${LABEL_RE.source.replace(/^\(\?<!\[a-z0-
  *  that matters: it sits right after the name on many headers. */
 const OTHER_LABEL_RE = /^[^\d:]{2,40}:/;
 
-/** Rodné číslo as printed: six digits, an optional slash, three or four more. */
-const RC_RE = /\d{6}\s?\/?\s?\d{3,4}/g;
+/** Rodné číslo as printed: six digits, an optional slash, three or four
+ *  more — and one lab prints it as spaced digits, "9 9 0 8 0 3 1 2 3 4",
+ *  which the compact pattern walked straight past. */
+const RC_RE = /\d(?:\s?\d){5}\s?\/?\s?\d(?:\s?\d){2,3}/g;
 const DATE_RE = /\d{1,2}\.\s?\d{1,2}\.\s?(?:\d{4}|\d{2})(?!\d)|\d{4}-\d{2}-\d{2}/;
 
 const kindOf = (m: RegExpMatchArray): IdentityKind => {
@@ -182,6 +184,15 @@ export function identityVariants(value: string): string[] {
   const out = new Set<string>([v, v.replace(/\//g, ""), v.replace(/\s*\/\s*/g, " / ")]);
   out.add(v.replace(/\.\s+/g, "."));
   out.add(v.replace(/\.(?=\d)/g, ". "));
+  // A number: its digits alone, and with the slash where a rodné číslo has
+  // one — whatever spacing the page used.
+  if (/^[\d\s/]+$/.test(v)) {
+    const d = v.replace(/\D/g, "");
+    if (d.length >= 6) {
+      out.add(d);
+      out.add(`${d.slice(0, 6)}/${d.slice(6)}`);
+    }
+  }
   const parts = v.split(" ").filter(Boolean);
   if (parts.length > 1) {
     out.add([...parts].reverse().join(" "));
@@ -249,21 +260,25 @@ export function findIdentity(pages: PageWords[]): IdentityFindings {
           let value = cell.slice(start, end);
           const boxes: Box[] = [];
 
-          if (value.trim()) {
-            // The value sits in the same item as its label. Box only the
-            // value: painting over "Pacient:" too would hide from the review
-            // screen what the box is for.
-            const raw = validValue(kind, value);
-            if (!raw) continue;
-            const at = value.indexOf(raw);
+          // The value sits in the same item as its label. Box only the
+          // value: painting over "Pacient:" too would hide from the review
+          // screen what the box is for.
+          const inCell = validValue(kind, value);
+          if (inCell) {
+            const at = value.indexOf(inCell);
             const a = start + (at >= 0 ? at : 0);
-            const b = at >= 0 ? a + raw.length : end;
-            push({ pageNum: page.pageNum, box: subBox(box, cell, a, b), kind, text: raw });
+            const b = at >= 0 ? a + inCell.length : end;
+            push({ pageNum: page.pageNum, box: subBox(box, cell, a, b), kind, text: inCell });
             continue;
           }
 
-          // The label ends its item; the value is the next item or items on
-          // the row, up to the next label of any kind.
+          // Nothing usable in the item itself: the label ends it, or what is
+          // left is punctuation — "Narozen(a):", "RČ# :" — which used to be
+          // taken for the value and, found wanting, ended the search. Six
+          // reports leaked a birth date that way. The value is the next item
+          // or items on the row, up to the next label of any kind.
+          if (k + 1 < matches.length) continue;
+          value = /[a-z0-9]/.test(fold(value)) ? value : "";
           for (let cj = ci + 1; cj < cells.length; cj++) {
             const next = cells[cj];
             if (OTHER_LABEL_RE.test(fold(next)) || STARTS_WITH_LABEL.test(fold(next))) break;
@@ -280,6 +295,13 @@ export function findIdentity(pages: PageWords[]): IdentityFindings {
         // that is what separates it from a sample number.
         for (const m of cell.matchAll(RC_RE)) {
           if (!parseRodneCislo(m[0])) continue;
+          // Nine digits in groups of three is how a phone number is printed,
+          // and enough of them decode to a pre-1954 date to box the lab's
+          // switchboard on every report. A nine-digit number is taken bare
+          // only when it is printed as one word; with a label it is always
+          // taken.
+          const digits = m[0].replace(/\D/g, "");
+          if (digits.length === 9 && !m[0].includes("/") && /\s/.test(m[0])) continue;
           push({
             pageNum: page.pageNum,
             box: subBox(box, cell, m.index!, m.index! + m[0].length),

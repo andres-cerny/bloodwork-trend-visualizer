@@ -117,7 +117,7 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
     const { registry, maxPages, onReport, onBudget } = propsRef.current;
     // pdf.js is ~1.4 MB and only the upload path needs it, so it is pulled in
     // on first use rather than shipped in the landing bundle.
-    const { isPrintedOnPage, loadPdf, pageAssets, rowBoxFor, rowsAsText, rowTextAt } =
+    const { isPrintedOnPage, loadPdf, pageAssets, rowBoxAt, rowBoxFor, rowsAsText, rowTextAt } =
       await import("@bw/lab-core/pdf");
     const doc = await loadPdf(job.file);
     const pageCount = Math.min(doc.numPages, maxPages);
@@ -264,7 +264,7 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
           confidence,
           disagreement,
           canonicalId: registry.match(m.rawAnalyteName),
-          bbox: rowBoxFor(m.rawAnalyteName, assets.rows),
+          bbox: rowBoxAt(m.rowIndex, assets.rows) ?? rowBoxFor(m.rawAnalyteName, assets.rows)
         });
       }
       return out;

@@ -198,15 +198,35 @@ export function isPrintedOnPage(value: string, rows: TextRow[]): boolean {
   return false;
 }
 
-/** Row bbox whose cells contain this analyte name — exact, no text search. */
+/**
+ * The row a `row_index` refers to, as a box — exact by construction, the
+ * way `rowTextAt` is. Prefer this to `rowBoxFor` wherever the model returned
+ * an index: a name search can only guess, and it guessed wrong on a page
+ * where two analytes share a first word.
+ */
+export function rowBoxAt(index: number | undefined, rows: TextRow[]): Box | null {
+  if (index === undefined || index < 0 || index >= rows.length) return null;
+  return rows[index].box;
+}
+
+/**
+ * Row bbox whose cells contain this analyte name — exact, no text search.
+ *
+ * Two passes, in this order. A row that contains the whole name wins; only
+ * when none does is a row accepted because the name starts with its first
+ * cell — the fallback for a name pdf.js split across items. Taken in one
+ * pass, the fallback fired first: "S_Bilirubin konjugovaný" starts with
+ * "S_Bilirubin", and so does the celkový row two lines above it, which got
+ * the highlight while the transcript named the other.
+ */
 export function rowBoxFor(rawName: string, rows: TextRow[]): Box | null {
   const needle = rawName.replace(/\s+/g, "").toLowerCase();
   if (!needle) return null;
+  const joined = (r: TextRow) => r.cells.join("").replace(/\s+/g, "").toLowerCase();
+  for (const r of rows) if (joined(r).includes(needle)) return r.box;
   for (const r of rows) {
-    const joined = r.cells.join("").replace(/\s+/g, "").toLowerCase();
-    if (joined.includes(needle) || needle.includes(r.cells[0]?.replace(/\s+/g, "").toLowerCase() ?? "\u0000")) {
-      return r.box;
-    }
+    const first = r.cells[0]?.replace(/\s+/g, "").toLowerCase() ?? "";
+    if (first && needle.includes(first)) return r.box;
   }
   return null;
 }
