@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
+import { loginConfirm, peekConfirm } from "./lib/api";
 
 interface Me {
   email: string;
@@ -17,6 +18,7 @@ type Screen =
   | { kind: "loading" }
   | { kind: "login"; notice: string | null }
   | { kind: "sent"; message: string; devLink: string | null }
+  | { kind: "confirm"; token: string; email: string }
   | { kind: "home"; me: Me };
 
 async function fetchMe(): Promise<Me | null> {
@@ -33,9 +35,20 @@ export default function App() {
 
   useEffect(() => {
     // The confirm redirect lands on "/" with a cookie, or back here with
+    const params = new URLSearchParams(location.search);
     // ?prihlaseni=neplatne when the link was spent or expired.
-    const invalidLink = new URLSearchParams(location.search).get("prihlaseni") === "neplatne";
-    if (invalidLink) history.replaceState(null, "", "/");
+    const invalidLink = params.get("prihlaseni") === "neplatne";
+    // ?potvrdit=TOKEN: the magic link bounced here. Name the account before
+    // logging in, so a link opened by the wrong person can be refused.
+    const token = params.get("potvrdit");
+    if (invalidLink || token) history.replaceState(null, "", "/");
+    if (token) {
+      void peekConfirm(token).then(
+        ({ email }) => setScreen({ kind: "confirm", token, email }),
+        () => setScreen({ kind: "login", notice: "Odkaz už neplatí. Nechte si poslat nový." }),
+      );
+      return;
+    }
     void fetchMe().then((me) =>
       setScreen(
         me
@@ -63,9 +76,40 @@ export default function App() {
           )}
         </main>
       );
+    case "confirm":
+      return <Confirm email={screen.email} token={screen.token} onDone={(me) => setScreen({ kind: "home", me })} onFail={() => setScreen({ kind: "login", notice: "Odkaz už neplatí. Nechte si poslat nový." })} />;
     case "home":
       return <Portal email={screen.me.email} onLogout={() => setScreen({ kind: "login", notice: null })} />;
   }
+}
+
+function Confirm({ email, token, onDone, onFail }: { email: string; token: string; onDone: (me: Me) => void; onFail: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function login() {
+    setBusy(true);
+    setError(null);
+    try {
+      await loginConfirm(token);
+      const me = await fetchMe();
+      if (me) onDone(me);
+      else onFail();
+    } catch {
+      onFail();
+    }
+  }
+  return (
+    <main className="door">
+      <h1>Moje krev</h1>
+      <p className="sub">Přihlásit se do účtu:</p>
+      <p className="sub"><strong>{email}</strong></p>
+      <p className="sub">Pokud to není váš e-mail, odkaz nepoužívejte — někdo vám ho mohl poslat, aby vaše výsledky skončily v jeho účtu.</p>
+      {error && <p className="notice">{error}</p>}
+      <button className="btn primary" disabled={busy} onClick={login}>
+        Přihlásit se jako {email}
+      </button>
+    </main>
+  );
 }
 
 function Login({ notice, onSent }: { notice: string | null; onSent: (message: string, devLink: string | null) => void }) {

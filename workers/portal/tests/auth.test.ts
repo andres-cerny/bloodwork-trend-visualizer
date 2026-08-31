@@ -117,14 +117,17 @@ beforeEach(() => {
   env = makeEnv(tables);
 });
 
+/** The token carried by a dev magic link. */
+const tokenOf = (devLink: string) => new URL(devLink).searchParams.get("token")!;
+
 /** Runs register → confirm and returns the session cookie value. */
 async function registerAndConfirm(email = "andres@example.com"): Promise<string> {
   const reg = await worker.fetch(post("/api/auth/register", { invite: "RODINA-1", email }), env);
   expect(reg.status).toBe(200);
   const { devLink } = (await reg.json()) as { devLink: string };
-  const confirm = await worker.fetch(get(devLink.replace(ORIGIN, "")), env);
-  expect(confirm.status).toBe(302);
-  expect(confirm.headers.get("location")).toBe("/");
+  // The GET only bounces to the app; the session is minted by the explicit POST.
+  const confirm = await worker.fetch(post("/api/auth/confirm", { token: tokenOf(devLink), login: true }), env);
+  expect(confirm.status).toBe(200);
   const cookie = confirm.headers.get("set-cookie")!;
   expect(cookie).toContain("HttpOnly");
   return cookie.split(";")[0];
@@ -190,26 +193,54 @@ describe("login", () => {
 });
 
 describe("confirm", () => {
-  it("spends a link exactly once", async () => {
+  async function freshLink(): Promise<string> {
     await registerAndConfirm();
     const login = await worker.fetch(post("/api/auth/login", { email: "andres@example.com" }), env);
-    const { devLink } = (await login.json()) as { devLink: string };
+    return tokenOf(((await login.json()) as { devLink: string }).devLink);
+  }
 
-    const first = await worker.fetch(get(devLink.replace(ORIGIN, "")), env);
-    expect(first.headers.get("location")).toBe("/");
+  it("logs nobody in on the bare GET — it only carries the token to the app", async () => {
+    const token = await freshLink();
+    const res = await worker.fetch(get(`/api/auth/confirm?token=${token}`), env);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(`/?potvrdit=${token}`);
+    expect(res.headers.get("set-cookie")).toBeNull();
+    // This link's own token is unspent: the GET logged nobody in.
+    const hash = tables.tokens.find((t) => t.used_at === null);
+    expect(hash).toBeDefined();
+  });
 
-    const second = await worker.fetch(get(devLink.replace(ORIGIN, "")), env);
-    expect(second.headers.get("location")).toBe("/?prihlaseni=neplatne");
+  it("names the account on peek without spending, then mints on login", async () => {
+    const token = await freshLink();
+    const peek = await worker.fetch(post("/api/auth/confirm", { token }), env);
+    expect(peek.status).toBe(200);
+    expect(await peek.json()).toEqual({ email: "andres@example.com" });
+    expect(peek.headers.get("set-cookie")).toBeNull();
+    expect(tables.tokens.some((t) => t.used_at === null)).toBe(true);
+
+    const done = await worker.fetch(post("/api/auth/confirm", { token, login: true }), env);
+    expect(done.status).toBe(200);
+    expect(done.headers.get("set-cookie")).toContain("HttpOnly");
+  });
+
+  it("spends a link exactly once", async () => {
+    const token = await freshLink();
+    const first = await worker.fetch(post("/api/auth/confirm", { token, login: true }), env);
+    expect(first.status).toBe(200);
+    const second = await worker.fetch(post("/api/auth/confirm", { token, login: true }), env);
+    expect(second.status).toBe(401);
     expect(second.headers.get("set-cookie")).toBeNull();
   });
 
   it("refuses an expired link", async () => {
-    await registerAndConfirm();
-    const login = await worker.fetch(post("/api/auth/login", { email: "andres@example.com" }), env);
-    const { devLink } = (await login.json()) as { devLink: string };
+    const token = await freshLink();
     for (const t of tables.tokens) t.expires_at = Math.floor(Date.now() / 1000) - 1;
+    const res = await worker.fetch(post("/api/auth/confirm", { token, login: true }), env);
+    expect(res.status).toBe(401);
+  });
 
-    const res = await worker.fetch(get(devLink.replace(ORIGIN, "")), env);
+  it("a GET without a token bounces as invalid", async () => {
+    const res = await worker.fetch(get("/api/auth/confirm"), env);
     expect(res.headers.get("location")).toBe("/?prihlaseni=neplatne");
   });
 });

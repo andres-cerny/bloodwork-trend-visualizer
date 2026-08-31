@@ -179,7 +179,11 @@ export async function extractReport(
   return {
     report: {
       id,
-      sourceFile: prepared.name,
+      // Never the original filename: lab downloads are named after the
+      // patient ("vysledky_Novak.pdf"), which would carry identity to the
+      // server through the one field the redaction does not touch. A date is
+      // all the report list needs, and the worker enforces this too.
+      sourceFile: reportDate ? `report-${reportDate}.pdf` : "report.pdf",
       reportDate,
       labName,
       // Never filled here, and emptied again by the worker if they were.

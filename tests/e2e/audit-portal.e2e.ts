@@ -79,7 +79,7 @@ const SCREENS: Screen[] = [
     go: async (page) => {
       await tab(page, "Ověření").click();
       await page.waitForTimeout(300);
-      await page.locator("tr.row-pick").nth(2).click();
+      await page.locator("#tabpanel-verify tr.row-pick").nth(2).click();
       await page.waitForTimeout(600);
     },
   },

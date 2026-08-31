@@ -41,6 +41,11 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+/** Magic-link confirm, two steps: peek names the account, login mints the
+ *  session. The GET the mail client follows only redirects here. */
+export const peekConfirm = (token: string) => request<{ email: string }>("/api/auth/confirm", jsonInit("POST", { token }));
+export const loginConfirm = (token: string) => request<{ ok: true }>("/api/auth/confirm", jsonInit("POST", { token, login: true }));
+
 export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
 
 /**

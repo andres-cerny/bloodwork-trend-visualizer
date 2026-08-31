@@ -169,27 +169,48 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   return issueLoginLink(env, new URL(request.url).origin, user);
 }
 
-async function handleConfirm(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-  const token = url.searchParams.get("token") ?? "";
-  const fail = () =>
-    new Response(null, { status: 302, headers: { location: "/?prihlaseni=neplatne" } });
-  if (!token) return fail();
+/**
+ * The magic link is a GET a mail client follows, so it must not log anyone in
+ * on its own: a GET the account owner never clicked — pasted into a message,
+ * a redirect — would otherwise silently drop a 90-day session for whoever
+ * minted the token into whoever opened the link. That is session fixation:
+ * the victim then stores their blood results into the attacker's account.
+ *
+ * So GET only bounces to the app carrying the token; the session is minted by
+ * an explicit POST from a screen that first names the account it is about to
+ * log in as. Cross-device login still works — you open the link on your
+ * phone, see your own e-mail, and tap once. Spending still happens exactly
+ * once, in the POST, under the same conditional UPDATE.
+ */
+function confirmGet(request: Request): Response {
+  const token = new URL(request.url).searchParams.get("token") ?? "";
+  const to = token ? `/?potvrdit=${encodeURIComponent(token)}` : "/?prihlaseni=neplatne";
+  return new Response(null, { status: 302, headers: { location: to } });
+}
 
-  const row = await env.DB.prepare(SQL.loginTokenByHash)
-    .bind(await sha256Hex(token))
-    .first<LoginTokenRow>();
-  if (!row || row.used_at !== null || row.expires_at < now()) return fail();
+async function confirmPost(request: Request, env: Env): Promise<Response> {
+  const { token, login } = (await request.json().catch(() => ({}))) as { token?: string; login?: boolean };
+  const bad = () => json({ error: "invalid", message: "Odkaz už neplatí. Nechte si poslat nový." }, 401);
+  if (typeof token !== "string" || !token) return bad();
+
+  const row = await env.DB.prepare(SQL.loginTokenByHash).bind(await sha256Hex(token)).first<LoginTokenRow>();
+  if (!row || row.used_at !== null || row.expires_at < now()) return bad();
+  const user = await env.DB.prepare(SQL.userById).bind(row.user_id).first<UserRow>();
+  if (!user) return bad();
+
+  // The interstitial's first call names the account without spending the
+  // token — so the person can see whose account this logs into and refuse.
+  if (!login) return json({ email: user.email });
 
   // Spend before minting: a link that lost this race logs nobody in twice.
   const spent = await env.DB.prepare(SQL.spendLoginToken).bind(row.token_hash, now()).run();
-  if (!spent.meta || spent.meta.changes !== 1) return fail();
+  if (!spent.meta || spent.meta.changes !== 1) return bad();
 
   const ttl = sessionTtlSeconds(env);
   const cookie = await mintCookieToken(env.SESSION_SECRET, row.user_id, ttl);
-  return new Response(null, {
-    status: 302,
-    headers: { location: "/", "set-cookie": setCookieHeader(cookie, ttl) },
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8", "set-cookie": setCookieHeader(cookie, ttl) },
   });
 }
 
@@ -288,14 +309,18 @@ function sanitizeReport(id: string, body: unknown): Record<string, unknown> | nu
       imageHeight: typeof p.imageHeight === "number" ? p.imageHeight : 0,
     });
   }
+  const reportDate = typeof r.reportDate === "string" ? r.reportDate : null;
   return {
     ...r,
     patientName: null,
     patientId: null,
     pages,
-    reportDate: typeof r.reportDate === "string" ? r.reportDate : null,
+    reportDate,
     labName: typeof r.labName === "string" ? r.labName : null,
-    sourceFile: typeof r.sourceFile === "string" ? r.sourceFile : "",
+    // Derived, never the client's string: a lab PDF's own filename routinely
+    // carries the patient's name, and the server cannot inspect it for
+    // identity — so it is replaced with a date, not trusted.
+    sourceFile: reportDate ? `report-${reportDate}.pdf` : "report.pdf",
   };
 }
 
@@ -473,7 +498,9 @@ export default {
       case "POST /api/auth/login":
         return handleLogin(request, env);
       case "GET /api/auth/confirm":
-        return handleConfirm(request, env);
+        return confirmGet(request);
+      case "POST /api/auth/confirm":
+        return confirmPost(request, env);
       case "POST /api/auth/logout":
         return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
     }

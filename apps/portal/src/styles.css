@@ -235,3 +235,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 
 /* The watch list's parameter links: visually a link, target a button. */
 .watch-list .btn.linkish { padding: 8px 4px; margin: -8px -4px; min-height: 24px; }
+
+/* Links in the app and on the privacy page take the ink accent, which is
+   legible on both grounds — a bare <a> was browser-blue at 1.85:1 on dark. */
+.mk-main a, .door a { color: var(--accent-ink); }
