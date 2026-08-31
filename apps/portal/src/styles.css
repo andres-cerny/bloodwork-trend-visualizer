@@ -141,3 +141,74 @@ body {
 .review-page.scan .review-canvas { border-color: var(--status-critical); box-shadow: inset 4px 0 0 var(--status-critical); }
 .review-check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; font-size: 0.9rem; cursor: pointer; }
 .review-check input { margin-top: 3px; }
+
+/* Přehled: the watch strip and the grid of every parameter --------------- */
+.watch-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 12px; }
+.watch-head h2 { margin: 0; }
+.watch { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.watch.grid-all { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+.tile {
+  display: flex; flex-direction: column; gap: 5px; min-width: 0;
+  padding: 12px 14px; margin: 0;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); color: inherit; font: inherit; text-align: left;
+  cursor: pointer; box-shadow: var(--shadow-sm);
+  transition: border-color 110ms ease, box-shadow 110ms ease;
+}
+.tile:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+/* A red edge, not a red card: the value carries the colour and the edge
+   says which tiles to read first when the strip is scrolled past. */
+.tile.out { box-shadow: inset 4px 0 0 var(--status-critical), var(--shadow-sm); }
+.tile.out:hover { box-shadow: inset 4px 0 0 var(--status-critical), var(--shadow-md); }
+.tile-name { font-weight: 600; font-size: 0.88rem; line-height: 1.25; }
+.tile-value { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tile-value .unit { font-size: 0.78rem; font-weight: 500; color: var(--ink-muted); margin-left: 4px; letter-spacing: 0; }
+.tile.out .tile-value { color: var(--critical-ink); }
+.tile-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tile-facts li:first-child { color: var(--critical-ink); font-weight: 600; }
+.tile .spark { display: block; width: 100%; height: 40px; margin-top: 2px; border-radius: 4px; overflow: hidden; }
+.grid-all .tile-value { font-size: 1.1rem; }
+.grid-all .spark { height: 32px; }
+.prose { margin: 0; font-size: 0.95rem; line-height: 1.55; max-width: 72ch; }
+
+/* Souhrn: the watch list under the prose, and the two tables -------------- */
+.watch-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+.watch-list .btn.linkish { padding: 0; font-weight: 600; text-decoration: none; }
+.watch-list .out, .num .out { color: var(--critical-ink); }
+.sum-table .spark { display: block; width: 96px; height: 28px; }
+.sum-table td.change { font-weight: 600; white-space: nowrap; }
+.sum-table td.change.flat { font-weight: 400; color: var(--ink-muted); }
+.sum-table .sum-go { color: var(--ink-muted); font-size: 0.78rem; white-space: nowrap; }
+.sum-table tr:hover .sum-go { color: var(--accent-ink); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Trendy: the stat line above each chart ----------------------------------- */
+.tc-stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 2px 0 6px; }
+.tc-stat .big { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.tc-stat .big .unit { font-size: 0.85rem; font-weight: 500; color: var(--ink-muted); letter-spacing: 0; }
+.tc-stat .big.out { color: var(--critical-ink); }
+.tc-stat .delta { font-size: 0.86rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tc-stat .range { font-size: 0.8rem; color: var(--ink-muted); }
+.mk-foot { margin-top: 18px; }
+
+/* The tab strip becomes a bottom bar on a phone ---------------------------- */
+@media (max-width: 819.98px) {
+  .tabs-wrap {
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 30;
+    margin: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border); border-bottom: none;
+  }
+  nav.tabs { gap: 2px; justify-content: space-between; }
+  nav.tabs button {
+    flex: 1 1 0; min-width: 0; padding: 8px 2px; border-radius: 8px;
+    font-size: 0.7rem; line-height: 1.15; white-space: normal; text-align: center;
+  }
+  .mk-main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+
+/* On a phone the name is the brand and the e-mail is noise; on a desktop
+   there is room for both. */
+@media (max-width: 819.98px) {
+  .mk-topbar .brand .name { display: inline; }
+  .mk-topbar .mk-who { display: none; }
+}

@@ -9,13 +9,14 @@
  * out-of-range ones offered as one-click chips because those are what a doctor
  * opens this for.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
-import { Chart } from "@bw/ui-kit";
+import { TrendChart } from "@bw/ui-kit";
 import Flag from "./Flag";
 import {
   czExact,
   czNum,
+  latestTwo,
   numericPoints,
   suspectPoints,
   unconfirmedPoints,
@@ -52,15 +53,21 @@ function noteFor(t: Trend): string | undefined {
 export default function TrendsTab({
   trends,
   unmappedNames = [],
+  open = null,
 }: {
   trends: Map<string, Trend>;
   unmappedNames?: string[];
+  /** A parameter another screen asked to see; `seq` makes a repeat a new ask. */
+  open?: { id: string; seq: number } | null;
 }) {
   const unmappedCount = unmappedNames.length;
   const all = useMemo(() => sortTrends([...trends.values()]), [trends]);
   // Chosen analytes, in the order they were added.
   const [shownIds, setShownIds] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
+  useEffect(() => {
+    if (open) setShownIds((prev) => (prev.includes(open.id) ? prev : [open.id, ...prev]));
+  }, [open]);
 
   if (all.length === 0)
     return <p className="sub">Zatím není co zobrazit — reporty nemají datum odběru nebo přiřazené parametry.</p>;
@@ -191,7 +198,8 @@ export default function TrendsTab({
                 </p>
               )}
 
-              <Chart trend={t} />
+              <StatLine trend={t} />
+              <TrendChart trend={t} />
               <details style={{ marginTop: 8 }}>
                 <summary className="muted" style={{ cursor: "pointer" }}>
                   Tabulka hodnot
@@ -232,5 +240,37 @@ export default function TrendsTab({
         </div>
       )}
     </>
+  );
+}
+
+/** The current value, its status, the step since the previous draw, the range. */
+function StatLine({ trend }: { trend: Trend }) {
+  const [older, newer] = latestTwo(trend);
+  if (!newer) return null;
+  const out = newer.flag === "high" || newer.flag === "low";
+  const delta = older ? (newer.value as number) - (older.value as number) : null;
+  const pct = older && older.value ? Math.round((Math.abs(delta as number) / Math.abs(older.value)) * 100) : null;
+  const range =
+    newer.refLow !== null || newer.refHigh !== null
+      ? `rozmezí ${newer.refLow !== null ? czNum(newer.refLow) : ""}–${newer.refHigh !== null ? czNum(newer.refHigh) : ""}`
+      : null;
+  return (
+    <div className="tc-stat">
+      <span className={`big${out ? " out" : ""}`}>
+        {czExact(newer.value, newer.valueRaw)} <span className="unit">{prettyUnit(trend.unit)}</span>
+      </span>
+      <Flag flag={newer.flag} />
+      {older && delta !== null && (
+        <span className="delta">
+          {delta > 0 ? "↗ +" : delta < 0 ? "↘ −" : ""}
+          {czNum(Math.abs(delta))}
+          {pct !== null && pct > 0 ? ` (${delta > 0 ? "+" : "−"}${pct} %)` : ""} od {czDate(older.date)}
+        </span>
+      )}
+      <span className="range">
+        {czDate(newer.date)}
+        {range ? ` · ${range}` : ""}
+      </span>
+    </div>
   );
 }

@@ -13,4 +13,5 @@
  */
 export { default as ThemeSwitch } from "./ThemeSwitch";
 export { default as Chart, niceTicks } from "./Chart";
+export { default as TrendChart, Sparkline, trendDomain } from "./TrendChart";
 export * from "./useTurnstile";

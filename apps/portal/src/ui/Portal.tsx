@@ -1,13 +1,15 @@
 /**
  * The logged-in app: one person's reports, and the screens over them.
  *
- * The screens are the bloodwork demo's — verification, trends, the change
- * summary, name mapping — because the clinical core is the same and those
- * four were argued over with clinicians (apps/bloodwork/docs/design-notes.md).
- * What is new is where the data lives: every report arrives from the account
- * and every change goes back to it, so the same trend is there on the next
- * device. The fresh, mobile-first layout is Phase 4; this shell is the
- * plainest thing that makes the round trip true.
+ * Přehled is what is out of range now and every parameter at a glance;
+ * Trendy, Souhrn změn, Ověření and Přiřazení názvů are the demo's screens
+ * (argued over with clinicians — apps/bloodwork/docs/design-notes.md) over
+ * the stored payloads; Reporty is where PDFs come in and go out. Every
+ * report arrives from the account and every change goes back to it, so the
+ * same trend is there on the next device.
+ *
+ * On a phone the tab strip is a bottom bar; on a desktop it stays at the top.
+ * Same buttons, same `hidden` panels — CSS decides where the strip sits.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -23,18 +25,20 @@ import {
 import { ThemeSwitch } from "@bw/ui-kit";
 import { type Budget, type Settings, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
 import MappingTab from "./MappingTab";
+import Overview from "./Overview";
 import SummaryTab from "./SummaryTab";
 import TrendsTab from "./TrendsTab";
 import UploadFlow from "./UploadFlow";
 import VerifyTab from "./VerifyTab";
 
-type TabId = "home" | "trends" | "summary" | "verify" | "mapping";
+type TabId = "home" | "trends" | "summary" | "verify" | "mapping" | "reports";
 const TABS: Array<[TabId, string]> = [
-  ["home", "🩸 Přehled"],
-  ["trends", "📈 Trendy"],
-  ["summary", "📝 Souhrn změn"],
-  ["verify", "🔍 Ověření"],
-  ["mapping", "🗂️ Přiřazení názvů"],
+  ["home", "Přehled"],
+  ["trends", "Trendy"],
+  ["summary", "Souhrn"],
+  ["verify", "Ověření"],
+  ["mapping", "Přiřazení"],
+  ["reports", "Reporty"],
 ];
 
 /** Mounted whether or not it is active; `hidden` keeps its state and takes it
@@ -63,6 +67,7 @@ export default function Portal({ email, onLogout }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);
   const [focus, setFocus] = useState<{ reportId: string; rawName: string; seq: number } | null>(null);
+  const [openTrend, setOpenTrend] = useState<{ id: string; seq: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
@@ -199,6 +204,12 @@ export default function Portal({ email, onLogout }: Props) {
     [reports, showSource],
   );
 
+  const showTrend = useCallback((canonicalId: string) => {
+    setOpenTrend({ id: canonicalId, seq: Date.now() });
+    setTab("trends");
+    window.scrollTo({ top: 0 });
+  }, []);
+
   async function remove(id: string) {
     setConfirmDelete(null);
     try {
@@ -217,6 +228,83 @@ export default function Portal({ email, onLogout }: Props) {
   const hasData = reports.length > 0;
   const frozen = budget?.frozen ?? false;
   const sorted = useMemo(() => [...reports].sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? "")), [reports]);
+
+  const uploadCard = registry && (
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h2>Nahrát výsledky</h2>
+          <p className="sub" style={{ marginBottom: 0 }}>
+            PDF z laboratoře — přepíše se, ověří proti stránce a přidá do trendů.
+          </p>
+        </div>
+      </div>
+      <UploadFlow
+        registry={registry}
+        maxPages={maxPages}
+        frozen={frozen}
+        onStored={(r) =>
+          setReports((prev) => {
+            const at = prev.findIndex((p) => p.id === r.id);
+            if (at < 0) return [...prev, r];
+            const next = [...prev];
+            next[at] = r;
+            return next;
+          })
+        }
+        onBudget={setBudget}
+      />
+    </div>
+  );
+
+  const reportsCard = (
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h2>
+            Uložené reporty <span className="n">{reports.length}</span>
+          </h2>
+        </div>
+      </div>
+      {reports.length === 0 ? (
+        <p className="muted">Zatím nic. Nahrajte první PDF výše.</p>
+      ) : (
+        <ul className="reportlist">
+          {sorted.map((r) => (
+            <li key={r.id}>
+              <button className="rl-main btn linkish" style={{ textAlign: "left", textDecoration: "none", padding: "2px 0" }} onClick={() => showSource(r.id, "")} title="Otevřít v Ověření">
+                <span className="rl-date" style={{ display: "block", color: "var(--ink-1)" }}>
+                  {czDate(r.reportDate)}
+                </span>
+                <span className="rl-meta">
+                  {r.labName ?? r.sourceFile} · {count(r.measurements.length, "hodnota", "hodnoty", "hodnot")}
+                </span>
+              </button>
+              {confirmDelete === r.id ? (
+                <span style={{ display: "inline-flex", gap: 6 }}>
+                  <button className="btn danger small" onClick={() => void remove(r.id)}>
+                    Smazat
+                  </button>
+                  <button className="btn small" onClick={() => setConfirmDelete(null)}>
+                    Zrušit
+                  </button>
+                </span>
+              ) : (
+                <button className="rl-x" aria-label={`Smazat report ${czDate(r.reportDate)}`} title="Smazat" onClick={() => setConfirmDelete(r.id)}>
+                  ✕
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {budget && (
+        <p className="muted" style={{ margin: "10px 0 0" }}>
+          Zpracování tento měsíc: {budget.spentUsd.toFixed(2)} / {budget.budgetUsd} USD
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <div className="mk-app">
@@ -258,15 +346,7 @@ export default function Portal({ email, onLogout }: Props) {
               }}
             >
               {TABS.map(([id, label]) => (
-                <button
-                  key={id}
-                  role="tab"
-                  id={`tab-${id}`}
-                  aria-controls={`tabpanel-${id}`}
-                  aria-selected={tab === id}
-                  tabIndex={tab === id ? 0 : -1}
-                  onClick={() => setTab(id)}
-                >
+                <button key={id} role="tab" id={`tab-${id}`} aria-controls={`tabpanel-${id}`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)}>
                   {label}
                 </button>
               ))}
@@ -276,105 +356,40 @@ export default function Portal({ email, onLogout }: Props) {
 
         {!registry ? (
           !loadError && <p className="muted">Načítám…</p>
+        ) : !hasData ? (
+          <>
+            {uploadCard}
+            {reportsCard}
+          </>
         ) : (
           <>
-            <Panel id="home" active={hasData ? tab : "home"}>
-              <div className="card">
-                <div className="card-head">
-                  <div>
-                    <h2>Nahrát výsledky</h2>
-                    <p className="sub" style={{ marginBottom: 0 }}>
-                      PDF z laboratoře — přepíše se, ověří proti stránce a přidá do trendů.
-                    </p>
-                  </div>
-                </div>
-                <UploadFlow
-                  registry={registry}
-                  maxPages={maxPages}
-                  frozen={frozen}
-                  onStored={(r) =>
-                    setReports((prev) => {
-                      const at = prev.findIndex((p) => p.id === r.id);
-                      if (at < 0) return [...prev, r];
-                      const next = [...prev];
-                      next[at] = r;
-                      return next;
-                    })
-                  }
-                  onBudget={setBudget}
-                />
-              </div>
-
-              <div className="card">
-                <div className="card-head">
-                  <div>
-                    <h2>
-                      Uložené reporty <span className="n">{reports.length}</span>
-                    </h2>
-                  </div>
-                </div>
-                {reports.length === 0 ? (
-                  <p className="muted">Zatím nic. Nahrajte první PDF výše.</p>
-                ) : (
-                  <ul className="reportlist">
-                    {sorted.map((r) => (
-                      <li key={r.id}>
-                        <button className="rl-main btn linkish" style={{ textAlign: "left", textDecoration: "none", padding: "2px 0" }} onClick={() => showSource(r.id, "")} title="Otevřít v Ověření">
-                          <span className="rl-date" style={{ display: "block", color: "var(--ink-1)" }}>
-                            {czDate(r.reportDate)}
-                          </span>
-                          <span className="rl-meta">
-                            {r.labName ?? r.sourceFile} · {count(r.measurements.length, "hodnota", "hodnoty", "hodnot")}
-                          </span>
-                        </button>
-                        {confirmDelete === r.id ? (
-                          <span className="row" style={{ display: "inline-flex", gap: 6 }}>
-                            <button className="btn danger small" onClick={() => void remove(r.id)}>
-                              Smazat
-                            </button>
-                            <button className="btn small" onClick={() => setConfirmDelete(null)}>
-                              Zrušit
-                            </button>
-                          </span>
-                        ) : (
-                          <button className="rl-x" aria-label={`Smazat report ${czDate(r.reportDate)}`} title="Smazat" onClick={() => setConfirmDelete(r.id)}>
-                            ✕
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {budget && (
-                  <p className="muted" style={{ margin: "10px 0 0" }}>
-                    Zpracování tento měsíc: {budget.spentUsd.toFixed(2)} / {budget.budgetUsd} USD
-                  </p>
-                )}
-              </div>
+            <Panel id="home" active={tab}>
+              <Overview reports={reports} trends={trends} onOpenTrend={showTrend} />
             </Panel>
-
-            {hasData && (
-              <>
-                <Panel id="trends" active={tab}>
-                  <TrendsTab trends={trends} unmappedNames={unmappedNames} />
-                </Panel>
-                <Panel id="summary" active={tab}>
-                  <SummaryTab trends={trends} onShowSource={showAnalyteSource} />
-                </Panel>
-                <Panel id="verify" active={tab}>
-                  <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />
-                </Panel>
-                <Panel id="mapping" active={tab}>
-                  <MappingTab reports={reports} registry={registry} onMap={acceptMapping} onUndoMap={undoMapping} onShowSource={showSource} />
-                </Panel>
-              </>
-            )}
-
-            <p className="muted" style={{ marginTop: 18 }}>
-              Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model pouze přepisuje,
-              co je vytištěno. Uloženy jsou jen hodnoty a začerněné stránky — bez jména, bez rodného čísla.
-            </p>
+            <Panel id="trends" active={tab}>
+              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} />
+            </Panel>
+            <Panel id="summary" active={tab}>
+              <SummaryTab reports={reports} trends={trends} onShowSource={showAnalyteSource} />
+            </Panel>
+            <Panel id="verify" active={tab}>
+              <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />
+            </Panel>
+            <Panel id="mapping" active={tab}>
+              <MappingTab reports={reports} registry={registry} onMap={acceptMapping} onUndoMap={undoMapping} onShowSource={showSource} />
+            </Panel>
+            <Panel id="reports" active={tab}>
+              {uploadCard}
+              {reportsCard}
+            </Panel>
           </>
+        )}
+
+        {registry && (
+          <p className="muted mk-foot">
+            Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model pouze přepisuje, co je
+            vytištěno. Uloženy jsou jen hodnoty a začerněné stránky — bez jména, bez rodného čísla.
+          </p>
         )}
       </main>
     </div>
