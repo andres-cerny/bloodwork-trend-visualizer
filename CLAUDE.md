@@ -2,7 +2,8 @@
 
 **apps/bloodwork** reads Czech lab PDFs: upload, extract, verify, trend.
 **apps/chat** is a clinical agent UI. Both talk to **workers/agent**; only
-bloodwork talks to **workers/extract**.
+bloodwork talks to **workers/extract**. **apps/portal** (Kapka, in progress)
+adds accounts and storage over the same core — see the plan below.
 
 ```
 apps/ packages/ workers/   the product

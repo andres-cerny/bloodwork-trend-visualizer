@@ -1,0 +1,94 @@
+/*
+ * Phase-1 shell styles only. Anything here may use a token; nothing here may
+ * define one — the palette and both themes come from @bw/ui-kit/styles.css.
+ * The real design pass is Phase 4; this is the minimum for the door to read
+ * cleanly on a phone.
+ */
+
+body {
+  margin: 0;
+  background: var(--plane);
+  color: var(--ink-1);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.door {
+  max-width: 22rem;
+  margin: 0 auto;
+  padding: 4rem 1.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.door h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.door .sub {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.door .notice {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--status-critical-soft);
+  color: var(--critical-ink);
+}
+
+.door form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.door label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+
+.door input {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--ink-1);
+  font: inherit;
+}
+
+.door .btn {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--ink-1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.door .btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface-1);
+}
+
+.door .btn.linkish {
+  background: none;
+  border: none;
+  color: var(--accent-ink);
+  text-align: left;
+  padding: 0.25rem 0;
+  text-decoration: underline;
+}
+
+.door .btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

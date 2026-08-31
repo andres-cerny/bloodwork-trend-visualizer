@@ -1,0 +1,34 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+
+  // A second deployment of workers/extract — CONFIG ONLY, zero code of its
+  // own. The demo and the portal must not share a ledger: a family's batch of
+  // uploads freezing the public demo (or the demo freezing the family) is the
+  // exact cross-freeze the per-capability split exists to prevent, and the
+  // cheapest isolation is the one the repo already trusts — by binding, not
+  // by a WHERE clause. Separate name, separate KV, separate secrets; the
+  // extract worker itself stays finished.
+  "name": "kapka-extract",
+  "main": "../extract/src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "workers_dev": false,
+
+  // Created at first deploy: npx wrangler kv namespace create kapka-budget
+  "kv_namespaces": [{ "binding": "BUDGET", "id": "TBD-AT-FIRST-DEPLOY" }],
+
+  "vars": {
+    // Sessions are minted server-side by kapka-portal (a logged-in user
+    // replaces the demo's Turnstile), so hostnames stay unset here on
+    // purpose: /api/session refuses everything, and only /api/extract with a
+    // portal-minted token works.
+    "BUDGET_USD_LIMIT": "15",
+    "MAX_PAGES_PER_SESSION": "30",
+    "SESSION_TTL_SECONDS": "1800"
+  },
+
+  "observability": { "enabled": true }
+
+  // Secrets: ANTHROPIC_API_KEY, SESSION_SECRET (the SAME string as
+  // kapka-portal's EXTRACT_SESSION_SECRET — that pairing is Phase 3),
+  // TURNSTILE_SECRET_KEY (any placeholder; the session route is unused).
+}

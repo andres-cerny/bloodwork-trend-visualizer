@@ -1,0 +1,36 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "kapka-portal",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+
+  // No assets. Reachable only through the app shell's service binding, so
+  // there is no second public origin to defend and no CORS.
+  "workers_dev": false,
+
+  // Created at first deploy (see docs/plans/portal.md, launch checklist):
+  //   npx wrangler d1 create kapka
+  // then paste the id here and apply schema.sql with
+  //   npx wrangler d1 execute kapka --remote --file=schema.sql
+  "d1_databases": [
+    { "binding": "DB", "database_name": "kapka", "database_id": "TBD-AT-FIRST-DEPLOY" }
+  ],
+
+  // Phase 3 adds here: a PAGES KV namespace (redacted page images), a BUDGET
+  // KV namespace (per-user spend ledger), and a service binding EXTRACT to
+  // the `kapka-extract` deployment of workers/extract. Declared then rather
+  // than now so a half-configured binding cannot fail this deploy.
+
+  "vars": {
+    // Login-link lifetime and session length. Days, not seconds: the portal's
+    // session is a login, not a Turnstile page allowance.
+    "SESSION_TTL_DAYS": "90",
+    "LOGIN_TOKEN_TTL_MINUTES": "15"
+  },
+
+  "observability": { "enabled": true }
+
+  // Secrets: SESSION_SECRET (cookie signing; portal-specific, NOT shared with
+  // the demo workers), RESEND_API_KEY (absent in dev — set DEV_MAGIC_LINK=1
+  // in .dev.vars to have /api/auth/login return the link instead of mailing).
+}

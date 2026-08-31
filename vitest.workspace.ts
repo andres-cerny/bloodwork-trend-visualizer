@@ -114,6 +114,14 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: "portal",
+      root: "./workers/portal",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "extract",
       root: "./workers/extract",
       include: ["tests/**/*.test.ts"],

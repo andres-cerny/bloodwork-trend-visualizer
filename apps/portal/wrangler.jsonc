@@ -1,0 +1,20 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "kapka",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-01-01",
+
+  // The dev domain for now: kapka.<account>.workers.dev. A real domain later
+  // changes this file and the Resend sender, nothing else.
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "services": [{ "binding": "PORTAL", "service": "kapka-portal" }],
+
+  "observability": { "enabled": true }
+}

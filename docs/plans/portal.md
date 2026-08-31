@@ -1,6 +1,7 @@
-# Plan: the portal — bloodwork trends with accounts
+# Plan: Kapka — bloodwork trends with accounts
 
-Design settled 2026-08-31 (planning session with Andres). A third app over the
+Design settled 2026-08-31 (planning session with Andres); named **Kapka**
+the same day. A third app over the
 same deterministic layer: people log in, upload their Czech lab PDFs, verify
 the extraction, and see their trends again on every later visit. Friends and
 family first; built so growing doesn't mean rebuilding.
@@ -17,17 +18,23 @@ as `apps/bloodwork` (extract → verify → trend), but:
 - **A fresh UI.** Mobile-first, cleaner than the current app — especially the
   charts. Czech only, same token discipline, new layout and chart design.
 
-**`workers/portal`** — its API worker: auth, D1 (`DB_PORTAL`), an R2 bucket
-for page images, and a service binding to the existing `extract` worker.
+**`workers/portal`** — its API worker: auth, D1, KV for page images, and a
+service binding to **`workers/portal-extract`** — a config-only second
+deployment (`kapka-extract`) of the finished extract worker, so family
+uploads and the public demo can never freeze each other's ledger.
 
 ## Decisions already made (do not re-litigate)
 
 | Decision | Choice | Why |
 |---|---|---|
 | Where | This monorepo: `apps/portal` + `workers/portal` | Reuses lab-core, extraction, gate, ui-kit; the parity CI keeps protecting the shared parsing layer |
-| Hosting | Cloudflare free tier: Workers + D1 + R2 | Free at F&F scale (100k req/day, 5 GB D1, 10 GB R2); matches every deploy script already here |
+| Name | **Kapka** | Short, Czech, says blood without saying disease; workers `kapka` / `kapka-portal` / `kapka-extract` |
+| Hosting | Cloudflare free tier: Workers + D1 + KV | Free at F&F scale; KV rather than R2 because this account has no R2 opt-in (the agent worker's EVIDENCE store made the same call) — R2 is the growth path if images outgrow KV's free 1 GB |
+| Domain | `kapka.<account>.workers.dev` for now | A real domain later changes one wrangler file and the Resend sender, nothing else |
+| Extraction budget | Second deployment `kapka-extract`, own KV ledger | The demo freezing the family (or the reverse) is the cross-freeze the per-capability split exists to prevent; isolation by deployment needs zero changes to the finished worker |
+| First user | Andres, via the product itself | Real PDFs are uploaded through the app on his own device once deployed — the seed IS the first honest test; real data never enters the repo or a cloud dev container |
 | Signup | Invite codes issued by Andres | No open registration — nobody random spends the Claude API budget |
-| Login | Email magic link (Resend free tier), ~90-day sessions | No passwords to store or reset for a medical-data app; reuses `@bw/gate` HMAC sessions |
+| Login | Email magic link (Resend free tier), ~90-day sessions | No passwords to store or reset for a medical-data app; same HMAC construction as `@bw/gate`, portal-local claims |
 | Identity at rest | **None.** Redact in the browser; the original PDF never leaves the device | Name, rodné číslo, address and birth date are painted out of the page images and stripped from the text layer *client-side*, before upload. The server holds health numbers keyed to an email, linked to no identity |
 | Consent-based storage of rodné číslo | Rejected | GDPR special-category data + national identifier on the weakest legal basis, for a field nothing needs — the login is the identity |
 | Original PDFs | Never stored, never uploaded | Verification uses redacted page images, exactly like the demo's verify tab; re-extraction later means re-uploading, an accepted cost |
@@ -54,7 +61,7 @@ for page images, and a service binding to the existing `extract` worker.
   hodnota…").
 - **Signal colours draw, ink colours are for type**; every rule ships in both
   palettes; the layout audit gates UI phases at five widths.
-- **Tests stay plain node** — fake D1/KV/R2, no miniflare;
+- **Tests stay plain node** — fake D1/KV, no miniflare;
   `@cloudflare/workers-types` stays alone in `types`.
 - **Czech, nominative, no verbs** in labels; parametr, never analyt.
 
@@ -72,8 +79,8 @@ browser                                          server
 4. MANDATORY review screen: user sees the
    redacted pages, taps anything missed to
    black it out, confirms
-5. upload redacted text layer ──────────────────▶ workers/portal ──▶ extract (service binding)
-   upload redacted page images ─────────────────▶ R2
+5. upload redacted text layer ──────────────────▶ workers/portal ──▶ kapka-extract (service binding)
+   upload redacted page images ─────────────────▶ KV
                                                   results (LabReport JSON) ──▶ D1
 6. original PDF is dropped; nothing with a
    name on it ever left the device
@@ -99,14 +106,16 @@ invites      (code TEXT PK, note, created_at, used_by → users, used_at)
 login_tokens (token_hash TEXT PK, user_id → users, expires_at, used_at)
 reports      (id TEXT PK, user_id → users, report_date, lab_name,
               payload TEXT, created_at)      -- full LabReport JSON, source of truth
-report_pages (report_id → reports, page_num, r2_key, width, height)
+report_pages (report_id → reports, page_num, kv_key, width, height)
 ```
+
+The authoritative copy is `workers/portal/schema.sql`.
 
 No `measurements` index: the chat demo needed SQL cohort queries; the portal
 reads one user's payloads into lab-core in the client, exactly as
 `apps/bloodwork` reads session state today. Sessions are stateless HMAC
 cookies (`@bw/gate`), not rows. Deleting a user deletes their reports, their
-R2 objects, and nothing else — because nothing else exists.
+page-image KV keys, and nothing else — because nothing else exists.
 
 ## Phases
 
@@ -115,7 +124,7 @@ R2 objects, and nothing else — because nothing else exists.
 `workers/portal` + a walking-skeleton `apps/portal` (login → empty home).
 
 1. Scaffold both from the bloodwork app/worker pair; wrangler bindings:
-   `DB_PORTAL`, `PAGES` (R2), `EXTRACT` (service binding), `BUDGET` (KV),
+   `DB` (D1), `PAGES` (KV), `EXTRACT` (service binding), `BUDGET` (KV),
    secrets `SESSION_SECRET`, `RESEND_API_KEY`. `workers_dev: false` on the
    worker; the app shell is the only public origin.
 2. Auth routes: `POST /api/register` (invite code + email → user, burn code),
@@ -159,11 +168,11 @@ checked by eye locally.
 
 1. `POST /api/reports`: redacted text layer in, extract via service binding
    (portal worker holds the extract session contract; `consumePage` stays
-   extract's), normalized `LabReport` back, payload to D1, images to R2
+   extract's), normalized `LabReport` back, payload to D1, images to KV
    (`user_id/report_id/page_n.webp`), spend recorded against a per-user
    monthly ledger (`PORTAL_USD_LIMIT`, the existing KV ledger pattern).
-2. `GET /api/reports` (payload list), `GET /api/pages/:report/:n` (R2
-   stream, owner-checked), `DELETE /api/reports/:id` (row + R2 objects).
+2. `GET /api/reports` (payload list), `GET /api/pages/:report/:n` (KV
+   read, owner-checked), `DELETE /api/reports/:id` (row + KV keys).
 3. The verify screen reads stored images + payload — same bbox-crop pattern
    the demo's VerifyTab proved; corrections re-derive through lab-core in the
    client and persist as a payload update.
@@ -196,8 +205,8 @@ walkthrough of upload → verify → trend reads clean.
 
 ### Phase 5 — trust, GDPR, launch
 
-1. Account deletion: one button, deletes user + reports + R2 objects +
-   learned synonyms, immediately and verifiably (test walks the fake R2).
+1. Account deletion: one button, deletes user + reports + page images +
+   learned synonyms, immediately and verifiably (test walks the fake KV).
 2. Data export: `GET /api/export` — the user's payloads as one JSON/CSV.
    Their data is theirs; this also makes "we store no identity" auditable.
 3. A plain-Czech privacy page: what is stored (numbers + redacted images,
@@ -216,6 +225,31 @@ Cloudflare, Resend: 0 Kč on free tiers. Claude API: extraction only — the
 text-layer path is cheap (fractions of a cent per page); a family uploading
 a decade of reports is a few dollars once, then near-zero. The per-user
 ledger caps the blast radius of any surprise.
+
+## Launch checklist — the operator steps
+
+Everything below happens once, outside the repo; development never blocks on
+it. Secrets go into the claude.ai/code environment settings (for Claude to
+deploy) or stay on Andres's machine (self-deploy) — never into chat or git.
+
+1. **Cloudflare API token** — dash.cloudflare.com → My Profile → API Tokens →
+   Create Token → Custom, scoped to this account only: Workers Scripts:Edit,
+   D1:Edit, Workers KV Storage:Edit, Account Settings:Read. Store as
+   `CLOUDFLARE_API_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`, from the dashboard's
+   right rail) in the environment settings — or skip and run deploys locally.
+2. **Resend** — resend.com, free tier. An API key alone delivers only to the
+   account owner's address — enough for the first weeks. Verifying a real
+   domain (DNS records Resend prints) lifts that for the family; the sender
+   then changes from `onboarding@resend.dev` in one place (`MAIL_FROM`).
+3. **First deploy** — create resources, paste ids into the two wrangler
+   files, apply schema, set secrets, deploy in binding order:
+   `wrangler d1 create kapka` · `wrangler kv namespace create kapka-budget` ·
+   `wrangler d1 execute kapka --remote --file=schema.sql` ·
+   `wrangler secret put` (SESSION_SECRET on kapka-portal; ANTHROPIC_API_KEY +
+   SESSION_SECRET + TURNSTILE_SECRET_KEY placeholder on kapka-extract) ·
+   `npm run deploy:kapka`.
+4. **Invites** — `node tools/scripts/kapka-invites.mjs 1 "Andres" --apply`,
+   register on the phone, upload the first real PDF through the app.
 
 ## Post-MVP, in rough order
 
