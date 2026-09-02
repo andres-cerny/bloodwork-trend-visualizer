@@ -326,3 +326,22 @@ Two things the live test caught that no amount of benchmarking would have:
 
 Not recommended: chasing `effort`, `thinking`, or a different model tier for
 speed. The measurements say there is nothing there.
+
+### Built the same day: parallel files and streamed rows (not deployed)
+
+Ondřej chose to keep both readers. The wait was attacked from the other two
+sides instead, in `apps/portal`:
+
+- **A confirmed file reads in the background** while the next one is
+  reviewed, and every file's pages share one limiter of 8
+  (`apps/portal/src/lib/inflight.ts`). A five-file backlog is one page-time
+  plus the reviews, not five page-times.
+- **Rows stream.** `stream: true` on `/api/extract` makes the extract
+  worker answer NDJSON: each row the moment a reader finishes writing it
+  (eager tool-input streaming, `packages/extraction/src/partial.ts` finds
+  the closed objects in the fragments), then a final line that is exactly
+  the buffered answer. The portal worker passes lines through and books the
+  cost from the last one; the upload screen shows the distinct-row count and
+  the last few rows as they land. Nothing provisional is stored — the final
+  message is parsed whole, as before. A worker without the switch still
+  answers JSON and the client reads it the old way, so deploy order is free.

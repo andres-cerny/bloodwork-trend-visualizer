@@ -50,11 +50,13 @@ interface Screen {
 }
 
 const SCREENS: Screen[] = [
-  { name: "přehled", go: async () => {} },
+  // Souhrn is the landing tab since Přehled was dropped — its tile wall said
+  // what the summary groups and tables already say.
+  { name: "souhrn (výchozí)", go: async () => {} },
   {
-    name: "trendy (chart opened from a tile)",
+    name: "trendy (chart opened from a sparkline)",
     go: async (page) => {
-      await page.locator(".watch .tile").first().click();
+      await page.locator(".sum-table .sparkbtn").first().click();
       await page.waitForSelector(".tc svg", { timeout: 10_000 });
       await page.waitForTimeout(300);
     },
@@ -65,13 +67,6 @@ const SCREENS: Screen[] = [
       await tab(page, "Trendy").click();
       await page.getByRole("button", { name: /Přidat parametr/ }).click();
       await page.waitForTimeout(250);
-    },
-  },
-  {
-    name: "souhrn",
-    go: async (page) => {
-      await tab(page, "Souhrn").click();
-      await page.waitForTimeout(300);
     },
   },
   {

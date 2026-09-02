@@ -25,6 +25,10 @@
     // purpose: /api/session refuses everything, and only /api/extract with a
     // portal-minted token works.
     "BUDGET_USD_LIMIT": "15",
+    // TEXT_READERS is deliberately unset: both readers on every page. Haiku
+    // alone measured equal on the text path (docs/extraction-speed.md,
+    // 2026-09-02), and the switch is kept for the day cost matters more than
+    // the second opinion — Ondřej's call was to keep two readers.
     "MAX_PAGES_PER_SESSION": "30",
     "SESSION_TTL_SECONDS": "1800"
   },

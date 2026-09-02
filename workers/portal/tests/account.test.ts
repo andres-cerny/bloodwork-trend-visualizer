@@ -159,9 +159,9 @@ describe("export", () => {
     const bytes = new Uint8Array(await res.arrayBuffer());
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     const lines = new TextDecoder().decode(bytes).trim().split("\r\n");
-    expect(lines[0]).toBe("datum;laborator;parametr;nazev;hodnota;jednotka;rozmezi;stav;report");
+    expect(lines[0]).toBe("datum;laborator;parametr;nazev;hodnota;jednotka;rozmezi;stav;overeno;report");
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toBe('"2026-03-04";"Lab";"S_Glukóza";"glukoza";"5,32";"mmol/l";"(4,11-5,60)";"normal";"r-1"');
+    expect(lines[1]).toBe('"2026-03-04";"Lab";"S_Glukóza";"glukoza";"5,32";"mmol/l";"(4,11-5,60)";"normal";"";"r-1"');
   });
 
   it("is each account's own", async () => {

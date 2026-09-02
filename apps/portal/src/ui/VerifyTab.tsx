@@ -160,6 +160,9 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
       ...base,
       valueRaw: draft,
       corrected: true,
+      // A new number is a new question — an earlier confirmation vouched for
+      // the value it saw, not for whatever replaced it.
+      confirmed: false,
       disagreement: null,
       // Snapshot on the first correction only, so undo always returns to what
       // the document said rather than to an earlier hand-edit.
@@ -183,10 +186,30 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
       ...base,
       valueRaw: orig.valueRaw,
       corrected: false,
+      confirmed: false,
       original: null,
     });
     setDraft(orig.valueRaw);
     onCorrect(report.id, picked, { ...next, disagreement: orig.disagreement, confidence: orig.confidence });
+  }
+
+  // "This exact value is what the page says." Stored as a fact rather than a
+  // same-value correction, because the implausibility chip is recomputed from
+  // the value on every render — only a persistent flag can settle it. The
+  // snapshot makes the confirmation undoable through the same channel as a
+  // correction.
+  function confirmValue() {
+    if (picked === null) return;
+    const base = report.measurements[picked];
+    onCorrect(report.id, picked, {
+      ...base,
+      confirmed: true,
+      original: base.original ?? {
+        valueRaw: base.valueRaw,
+        disagreement: base.disagreement,
+        confidence: base.confidence,
+      },
+    });
   }
 
   return (
@@ -251,6 +274,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                           );
                         })()}
                         {m.corrected && <span className="chip">ručně opraveno</span>}
+                        {m.confirmed && !m.corrected && <span className="chip">potvrzeno</span>}
                       </span>
                     </td>
                     <td className="num">
@@ -282,16 +306,25 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                   type="text" value={draft} onChange={(e) => setDraft(e.target.value)}
                   aria-label="Opravit hodnotu"
                 />
-                <button
-                  className="btn primary"
-                  onClick={save}
-                  disabled={draft === sel.valueRaw || check.severity === "reject"}
-                >
-                  Opravit
-                </button>
+                {/* An unchanged value on a doubted row is not a dead end: the
+                    reader who checked the page and found the transcript right
+                    needs a way to say so. */}
+                {draft === sel.valueRaw && !sel.confirmed && needsReview(review(sel)) ? (
+                  <button className="btn primary" onClick={confirmValue}>
+                    Potvrdit
+                  </button>
+                ) : (
+                  <button
+                    className="btn primary"
+                    onClick={save}
+                    disabled={draft === sel.valueRaw || check.severity === "reject"}
+                  >
+                    Opravit
+                  </button>
+                )}
                 {sel.original && (
                   <button className="btn" onClick={undo}>
-                    Vrátit původní ({sel.original.valueRaw})
+                    {sel.corrected ? `Vrátit původní (${sel.original.valueRaw})` : "Zrušit potvrzení"}
                   </button>
                 )}
               </div>
@@ -361,12 +394,22 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                 <div
                   ref={hlRef}
                   className="hl"
-                  style={{
-                    left: `${(sel.bbox[0] / page.imageWidth) * 100}%`,
-                    top: `${(sel.bbox[1] / page.imageHeight) * 100}%`,
-                    width: `${((sel.bbox[2] - sel.bbox[0]) / page.imageWidth) * 100}%`,
-                    height: `${((sel.bbox[3] - sel.bbox[1]) / page.imageHeight) * 100}%`,
-                  }}
+                  style={(() => {
+                    // The bbox ends at the glyph baseline the text layer
+                    // reported, so a ring drawn on it exactly cuts through
+                    // descenders. Bleed a fraction of the row's own height —
+                    // more below, where the descenders are — still expressed
+                    // in percentages of the image, so it cannot go stale.
+                    const h = sel.bbox[3] - sel.bbox[1];
+                    const padTop = Math.max(2, h * 0.12);
+                    const padBottom = Math.max(3, h * 0.28);
+                    return {
+                      left: `${(sel.bbox[0] / page.imageWidth) * 100}%`,
+                      top: `${((sel.bbox[1] - padTop) / page.imageHeight) * 100}%`,
+                      width: `${((sel.bbox[2] - sel.bbox[0]) / page.imageWidth) * 100}%`,
+                      height: `${((h + padTop + padBottom) / page.imageHeight) * 100}%`,
+                    };
+                  })()}
                 />
               )}
               </div>

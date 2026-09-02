@@ -357,10 +357,12 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--gri
 th {
   color: var(--ink-muted); font-weight: 650; font-size: 0.7rem;
   text-transform: uppercase; letter-spacing: 0.06em;
-  position: sticky; top: 0; background: var(--surface-1); z-index: 1;
 }
 tbody tr:last-child td { border-bottom: none; }
 td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* A header sits where its numbers sit. Left-aligned headers over
+   right-aligned columns read as two unrelated rows. */
+th.num { text-align: right; }
 tr.row-pick { cursor: pointer; }
 tr.row-pick:hover td { background: var(--surface-2); }
 tr.row-pick[aria-selected="true"] td { background: var(--series-1-soft); }
@@ -406,6 +408,12 @@ tr.row-pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var
    * table instead of disappearing under the tab strip.
    */
   .verify .table-pane .scroll-x { max-height: calc(100vh - var(--topbar) - 190px); overflow-y: auto; }
+  /* Sticky only where a scrollport exists to stick to. Sticky against the
+     page viewport, the header floated over its rows and slid under the
+     sticky tab strip. */
+  .verify .table-pane .scroll-x th {
+    position: sticky; top: 0; background: var(--surface-1); z-index: 1;
+  }
 }
 
 /* Trends ------------------------------------------------------------------- */
@@ -418,8 +426,9 @@ tr.row-pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var
   .trend-grid.multi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* One chart alone does not need 1100px of width; past about 860 the line just
-   stretches and the eye has further to travel between points. */
-.trend-grid:not(.multi) { max-width: 880px; }
+   stretches and the eye has further to travel between points. Centered, so
+   the capped card does not leave the right half of a wide screen dead. */
+.trend-grid:not(.multi) { max-width: 880px; margin-left: auto; margin-right: auto; }
 .trend-card { margin-bottom: 0; }
 .trend-card h3 .unit { color: var(--ink-muted); font-weight: 400; font-size: 0.85rem; }
 .trend-card h3 .spacer { flex: 1 1 auto; }

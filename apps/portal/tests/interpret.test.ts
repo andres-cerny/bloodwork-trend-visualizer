@@ -64,4 +64,41 @@ describe("interpretPage", () => {
     expect(out.reportDate).toBe("2025-08-15");
     expect(out.labName).toBe("SPADIA LAB, a.s.");
   });
+
+  it("moves a drifted row index to the row that carries the value, and highlights that row", () => {
+    // Reintroduces the fault: a reader numbered the page one too high.
+    const out = interpretPage([read("a", [{ n: "S_Bilirubin konjugovaný", v: "3,9", i: 2 }])], rows, 1, false, match);
+    expect(out.repaired).toBe(1);
+    expect(out.measurements[0].rowIndex).toBe(1);
+    expect(out.measurements[0].bbox).toEqual(rows[1].box);
+    expect(out.measurements[0].sourceSnippet).toBe("S_Bilirubin konjugovaný 3,9 µmol/l (1,5-5,0)");
+  });
+
+  it("replaces a misspelt name with the printed one, and maps the printed one", () => {
+    const out = interpretPage([read("a", [{ n: "S_Bilirubin konjugovany-x", v: "3,9", i: 1 }])], rows, 1, false, match);
+    expect(out.renamed).toBe(1);
+    expect(out.measurements[0].rawAnalyteName).toBe("S_Bilirubin konjugovaný");
+    expect(out.measurements[0].canonicalId).toBe("bilirubin");
+  });
+
+  it("surfaces printed rows no read returned: numeric ones as unread, qualitative ones as unparsed rows", () => {
+    const page = [...rows, row(["S_TSH", "málo", "materiálu"], 180)];
+    const out = interpretPage([read("a", [{ n: "S_Bilirubin celkový", v: "8,8", i: 0 }])], page, 1, false, match);
+    expect(out.unread).toEqual([1, 2]);
+    expect(out.qualitative).toBe(1);
+    const q = out.measurements.find((m) => m.rawAnalyteName === "S_TSH")!;
+    expect(q.valueRaw).toBe("málo materiálu");
+    expect(q.value).toBeNull();
+    expect(q.confidence).toBe("low");
+    expect(q.bbox).toEqual(page[3].box);
+    expect(q.sourcePage).toBe(1);
+  });
+
+  it("checks nothing on a scan — no repair, no rename, no unread rows", () => {
+    const out = interpretPage([read("a", [{ n: "S_Bilirubin konjugovany-x", v: "3,9", i: 2 }])], rows, 3, true, match);
+    expect(out.repaired).toBe(0);
+    expect(out.renamed).toBe(0);
+    expect(out.unread).toEqual([]);
+    expect(out.measurements[0].rawAnalyteName).toBe("S_Bilirubin konjugovany-x");
+  });
 });

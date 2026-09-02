@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import worker, { type Env } from "../src/index";
 import { SQL } from "../src/db";
 import { mintCookieToken } from "../src/session";
-import { recordUserSpendUsd, monthOf } from "../src/ledger";
+import { recordUserSpendUsd, monthOf, userBudget } from "../src/ledger";
 import { verifySession } from "@bw/gate";
 
 const SECRET = "test-portal-secret";
@@ -128,6 +128,28 @@ function fakeExtract(reply: { status: number; body: unknown }) {
   return { fetcher, calls };
 }
 
+/** The extractor answering as a stream: rows, then the whole answer on the last line. */
+function fakeExtractStream(lines: unknown[]) {
+  const calls: Array<{ session: string | null; body: string }> = [];
+  const fetcher = {
+    fetch: async (req: Request) => {
+      calls.push({ session: req.headers.get("x-demo-session"), body: await req.text() });
+      const enc = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(ctrl) {
+          // Deliberately split across chunks mid-line, as a network would.
+          const text = lines.map((l) => JSON.stringify(l) + "\n").join("");
+          ctrl.enqueue(enc.encode(text.slice(0, 20)));
+          ctrl.enqueue(enc.encode(text.slice(20)));
+          ctrl.close();
+        },
+      });
+      return new Response(body, { status: 200, headers: { "content-type": "application/x-ndjson; charset=utf-8" } });
+    },
+  } as unknown as Fetcher;
+  return { fetcher, calls };
+}
+
 const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
 const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
 
@@ -197,6 +219,26 @@ describe("extract proxy", () => {
     expect(data.costUsd).toBe(0.0123);
     // The budget in the answer is the person's ledger, not the extractor's.
     expect(data.budget).toMatchObject({ spentUsd: 0.0123, budgetUsd: 5 });
+  });
+
+  it("passes a streamed answer through line by line, and books the cost from the last line", async () => {
+    const stream = fakeExtractStream([
+      { type: "row", model: "claude-haiku-4-5", row: { raw_analyte_name: "S_Glukóza", value_raw: "5,32" } },
+      { type: "done", reads: [], mode: "text", costUsd: 0.0123, budget: { spentUsd: 99 } },
+    ]);
+    env.EXTRACT = stream.fetcher;
+    const res = await call(A, "POST", "/api/extract", { rowsText: "0\tS_Glukóza | 5,32", stream: true });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("x-ndjson");
+    expect(JSON.parse(stream.calls[0].body).stream).toBe(true);
+
+    const lines = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toEqual({ type: "row", model: "claude-haiku-4-5", row: { raw_analyte_name: "S_Glukóza", value_raw: "5,32" } });
+    // The last line carries the person's ledger, not the extractor's, and the
+    // cost has been booked by the time the stream closes.
+    expect(lines[1]).toMatchObject({ type: "done", costUsd: 0.0123, budget: { spentUsd: 0.0123, budgetUsd: 5 } });
+    expect((await userBudget(env.BUDGET, A.id, 5)).spentUsd).toBe(0.0123);
   });
 
   it("freezes the person who spent the month's allowance, and nobody else", async () => {

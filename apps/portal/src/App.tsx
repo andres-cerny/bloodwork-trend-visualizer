@@ -65,8 +65,7 @@ export default function App() {
       return <Login notice={screen.notice} onSent={(message, devLink) => setScreen({ kind: "sent", message, devLink })} />;
     case "sent":
       return (
-        <main className="door">
-          <h1>Moje krev</h1>
+        <Door>
           <p className="sub">{screen.message}</p>
           <p className="sub">Odkaz platí 15 minut. Zavřít tuto záložku ničemu nevadí.</p>
           {screen.devLink && (
@@ -74,13 +73,28 @@ export default function App() {
               <a href={screen.devLink}>Vývojové přihlášení</a>
             </p>
           )}
-        </main>
+        </Door>
       );
     case "confirm":
       return <Confirm email={screen.email} token={screen.token} onDone={(me) => setScreen({ kind: "home", me })} onFail={() => setScreen({ kind: "login", notice: "Odkaz už neplatí. Nechte si poslat nový." })} />;
     case "home":
       return <Portal email={screen.me.email} onLogout={() => setScreen({ kind: "login", notice: null })} />;
   }
+}
+
+/** The centered card every logged-out state shares: mark, wordmark, content. */
+function Door({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="door">
+      <div className="door-card">
+        <span className="door-mark" aria-hidden="true">
+          🩸
+        </span>
+        <h1>Moje krev</h1>
+        {children}
+      </div>
+    </main>
+  );
 }
 
 function Confirm({ email, token, onDone, onFail }: { email: string; token: string; onDone: (me: Me) => void; onFail: () => void }) {
@@ -99,8 +113,7 @@ function Confirm({ email, token, onDone, onFail }: { email: string; token: strin
     }
   }
   return (
-    <main className="door">
-      <h1>Moje krev</h1>
+    <Door>
       <p className="sub">Přihlásit se do účtu:</p>
       <p className="sub"><strong>{email}</strong></p>
       <p className="sub">Pokud to není váš e-mail, odkaz nepoužívejte — někdo vám ho mohl poslat, aby vaše výsledky skončily v jeho účtu.</p>
@@ -108,7 +121,7 @@ function Confirm({ email, token, onDone, onFail }: { email: string; token: strin
       <button className="btn primary" disabled={busy} onClick={login}>
         Přihlásit se jako {email}
       </button>
-    </main>
+    </Door>
   );
 }
 
@@ -147,8 +160,7 @@ function Login({ notice, onSent }: { notice: string | null; onSent: (message: st
   }
 
   return (
-    <main className="door">
-      <h1>Moje krev</h1>
+    <Door>
       <p className="sub">Krevní testy v čase. Bez jména, bez rodného čísla — jen vaše hodnoty.</p>
       {notice && <p className="notice">{notice}</p>}
       <form onSubmit={submit}>
@@ -181,9 +193,9 @@ function Login({ notice, onSent }: { notice: string | null; onSent: (message: st
       <button className="btn linkish" onClick={() => setMode(mode === "login" ? "register" : "login")}>
         {mode === "login" ? "Mám pozvánkový kód" : "Už mám účet"}
       </button>
-      <p className="sub" style={{ marginTop: 18 }}>
+      <p className="door-foot sub">
         <a href="/soukromi">Co ukládáme, a co ne</a>
       </p>
-    </main>
+    </Door>
   );
 }

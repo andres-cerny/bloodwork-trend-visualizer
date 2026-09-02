@@ -213,20 +213,38 @@ export function rowBoxAt(index: number | undefined, rows: TextRow[]): Box | null
  * Row bbox whose cells contain this analyte name — exact, no text search.
  *
  * Two passes, in this order. A row that contains the whole name wins; only
- * when none does is a row accepted because the name starts with its first
- * cell — the fallback for a name pdf.js split across items. Taken in one
- * pass, the fallback fired first: "S_Bilirubin konjugovaný" starts with
- * "S_Bilirubin", and so does the celkový row two lines above it, which got
- * the highlight while the transcript named the other.
+ * when none does is a row considered because the name starts with its first
+ * cell — the fallback for a name pdf.js split across items. The fallback
+ * scores every such row by how much of the name its leading cells consume,
+ * in order: "S_Bilirubin konjugovaný" consumes 11 characters of the celkový
+ * row's first cell but 22 of the konjugovaný row's first two, so sharing a
+ * first word no longer hands the highlight to whichever row is printed
+ * first. Two rows consuming equally means the page cannot tell them apart,
+ * and then this returns null — no highlight beats a wrong one.
  */
 export function rowBoxFor(rawName: string, rows: TextRow[]): Box | null {
   const needle = rawName.replace(/\s+/g, "").toLowerCase();
   if (!needle) return null;
   const joined = (r: TextRow) => r.cells.join("").replace(/\s+/g, "").toLowerCase();
   for (const r of rows) if (joined(r).includes(needle)) return r.box;
+  let best: { box: Box; consumed: number } | null = null;
+  let tied = false;
   for (const r of rows) {
     const first = r.cells[0]?.replace(/\s+/g, "").toLowerCase() ?? "";
-    if (first && needle.includes(first)) return r.box;
+    if (!first || !needle.startsWith(first)) continue;
+    let consumed = 0;
+    let acc = "";
+    for (const cell of r.cells) {
+      acc += cell.replace(/\s+/g, "").toLowerCase();
+      if (!needle.startsWith(acc)) break;
+      consumed = acc.length;
+    }
+    if (!best || consumed > best.consumed) {
+      best = { box: r.box, consumed };
+      tied = false;
+    } else if (consumed === best.consumed) {
+      tied = true;
+    }
   }
-  return null;
+  return best && !tied ? best.box : null;
 }

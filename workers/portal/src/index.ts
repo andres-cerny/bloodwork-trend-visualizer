@@ -251,20 +251,68 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
       body,
     }),
   );
-  const data = (await res.json().catch(() => ({}))) as {
-    costUsd?: number;
-    error?: string;
-    message?: string;
-    budget?: unknown;
-  };
+  // Streamed answer: rows as they are written, then a final "done" line
+  // that is the buffered answer. Lines pass through untouched except the
+  // last, which is where the cost is booked and the person's budget added —
+  // the same two things the buffered path does to its one object.
+  const type = res.headers.get("content-type") ?? "";
+  if (res.ok && type.includes("x-ndjson") && res.body) {
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+    let tail = "";
+    const rewrite = async (text: string): Promise<string> => {
+      let ev: Record<string, unknown>;
+      try {
+        ev = JSON.parse(text);
+      } catch {
+        return text;
+      }
+      if (ev.type !== "done" && ev.type !== "error") return text;
+      const { type: _t, ...data } = ev;
+      const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer);
+      return JSON.stringify({ type: ev.type, ...shaped });
+    };
+    const through = new TransformStream<Uint8Array, Uint8Array>({
+      async transform(chunk, ctrl) {
+        tail += dec.decode(chunk, { stream: true });
+        let nl: number;
+        while ((nl = tail.indexOf("\n")) >= 0) {
+          const one = tail.slice(0, nl);
+          tail = tail.slice(nl + 1);
+          ctrl.enqueue(enc.encode((await rewrite(one)) + "\n"));
+        }
+      },
+      async flush(ctrl) {
+        if (tail.trim()) ctrl.enqueue(enc.encode((await rewrite(tail)) + "\n"));
+      },
+    });
+    return new Response(res.body.pipeThrough(through), {
+      status: 200,
+      headers: { "content-type": type, "cache-control": "no-store" },
+    });
+  }
 
-  if (res.ok && typeof data.costUsd === "number") {
+  const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
+  return json(await settle(env, user, res.status, data), res.status);
+}
+
+interface ExtractAnswer {
+  costUsd?: number;
+  error?: string;
+  message?: string;
+  budget?: unknown;
+}
+
+/** Book the extractor's cost to the person and answer with their ledger. */
+async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer): Promise<Record<string, unknown>> {
+  const limit = usdLimit(env);
+  if (status === 200 && typeof data.costUsd === "number") {
     await recordUserSpendUsd(env.BUDGET, user.id, monthOf(), data.costUsd);
-  } else if (!res.ok) {
+  } else if (status !== 200) {
     // The extractor's reason, in the log as well as in the answer: a page that
     // fails for every member of the family is a deployment problem, and the
     // log is where the operator looks first.
-    console.error(`extract refused: ${res.status} ${data.error ?? ""} ${data.message ?? ""}`.trim());
+    console.error(`extract refused: ${status} ${data.error ?? ""} ${data.message ?? ""}`.trim());
   }
   // The extractor's own ceiling is the family's shared fuse; its message is
   // written for the demo, so it is replaced. Its `budget` is the capability
@@ -273,10 +321,7 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
     data.error === "budget_exhausted"
       ? "Zpracování je dočasně pozastaveno — společný limit je vyčerpán."
       : data.message;
-  return json(
-    { ...data, ...(message !== undefined ? { message } : {}), budget: await userBudget(env.BUDGET, user.id, limit) },
-    res.status,
-  );
+  return { ...data, ...(message !== undefined ? { message } : {}), budget: await userBudget(env.BUDGET, user.id, limit) };
 }
 
 /* ---------------------------------------------------------------- reports */
@@ -435,11 +480,11 @@ async function exportAccount(env: Env, user: UserRow, format: string): Promise<R
   const stamp = new Date().toISOString().slice(0, 10);
   if (format === "csv") {
     const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = ["datum;laborator;parametr;nazev;hodnota;jednotka;rozmezi;stav;report"];
+    const lines = ["datum;laborator;parametr;nazev;hodnota;jednotka;rozmezi;stav;overeno;report"];
     for (const r of reports) {
       for (const m of r.measurements ?? []) {
         lines.push(
-          [r.reportDate, r.labName, m.rawAnalyteName, m.canonicalId, m.valueRaw, m.unitRaw, m.refRangeRaw, m.flag, r.id].map(cell).join(";"),
+          [r.reportDate, r.labName, m.rawAnalyteName, m.canonicalId, m.valueRaw, m.unitRaw, m.refRangeRaw, m.flag, m.corrected ? "opraveno" : m.confirmed ? "potvrzeno" : "", r.id].map(cell).join(";"),
         );
       }
     }

@@ -103,7 +103,9 @@ export async function startPortal(port: number, apiPort = port + 100): Promise<H
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(String(e)));
       await page.goto(base, { waitUntil: "load" });
-      await page.waitForSelector(".watch", { timeout: 20_000 });
+      // Souhrn is the landing tab; its change tables render once the
+      // account's reports have loaded and trends are built.
+      await page.waitForSelector(".sum-table", { timeout: 20_000 });
       (page as any).__errors = errors;
       return page;
     },

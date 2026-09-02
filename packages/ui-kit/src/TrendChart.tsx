@@ -14,8 +14,10 @@
  * off the plot and is named in the caption instead.
  *
  * Colour is never the only channel: an out-of-range point is red *and* sits
- * in the tinted zone *and* carries an arrow; an unconfirmed one is hollow
- * *and* named in the caption. Text takes ink tokens; only marks take signal.
+ * beyond the neutral-tinted zone *and* carries an arrow; an unconfirmed one
+ * is hollow *and* named in the caption. Text takes ink tokens; only marks
+ * take signal — the zones themselves are neutral, so the points stay the
+ * loudest thing in the plot.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { czDate, czExact, czMonthYear, czNum, numericPoints, prettyUnit, type Trend, type TrendPoint } from "@bw/lab-core";
@@ -78,6 +80,48 @@ export function trendDomain(pts: TrendPoint[], air = 0.12): Domain {
   return { yMin, yMax, bLow, bHigh, offPlot };
 }
 
+const fmt = (v: number) => String(Math.round(v * 10) / 10);
+
+/**
+ * Monotone cubic interpolation (Fritsch–Carlson) as an SVG path.
+ *
+ * A polyline between sparse draws reads as jagged noise; a Catmull-Rom
+ * smooth overshoots, and an overshoot here draws values that were never
+ * measured — a curve dipping below a limit between two in-range points would
+ * be a lie. Fritsch–Carlson tangents never overshoot the data: between two
+ * points the curve stays inside their value interval, pinned by the test.
+ */
+export function monotonePath(points: Array<[number, number]>): string {
+  const n = points.length;
+  if (n === 0) return "";
+  if (n === 1) return `M${fmt(points[0][0])},${fmt(points[0][1])}`;
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(points[i + 1][0] - points[i][0]);
+    slope.push(dx[i] !== 0 ? (points[i + 1][1] - points[i][1]) / dx[i] : 0);
+  }
+  const tangent: number[] = [slope[0]];
+  for (let i = 1; i < n - 1; i++) {
+    if (slope[i - 1] * slope[i] <= 0) tangent.push(0);
+    else {
+      const w1 = 2 * dx[i] + dx[i - 1];
+      const w2 = dx[i] + 2 * dx[i - 1];
+      tangent.push((w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]));
+    }
+  }
+  tangent.push(slope[n - 2]);
+  let d = `M${fmt(points[0][0])},${fmt(points[0][1])}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d +=
+      `C${fmt(points[i][0] + h)},${fmt(points[i][1] + tangent[i] * h)}` +
+      ` ${fmt(points[i + 1][0] - h)},${fmt(points[i + 1][1] - tangent[i + 1] * h)}` +
+      ` ${fmt(points[i + 1][0])},${fmt(points[i + 1][1])}`;
+  }
+  return d;
+}
+
 /** Points spaced by date, not by index — time on the time axis. */
 function xScale(pts: TrendPoint[], left: number, width: number): (i: number) => number {
   const times = pts.map((p) => Date.parse(p.date)).map((v) => (Number.isFinite(v) ? v : 0));
@@ -137,9 +181,23 @@ export default function TrendChart({ trend }: { trend: Trend }) {
   const y = (v: number) => PAD.top + innerH - ((v - d.yMin) / (d.yMax - d.yMin || 1)) * innerH;
   const inView = (v: number | null): v is number => v !== null && v >= d.yMin && v <= d.yMax;
 
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value as number)}`).join(" ");
+  const xy: Array<[number, number]> = pts.map((p, i) => [x(i), y(p.value as number)]);
+  const line = monotonePath(xy);
+  const baseline = PAD.top + innerH;
+  const area = `${line} L${fmt(xy[xy.length - 1][0])},${fmt(baseline)} L${fmt(xy[0][0])},${fmt(baseline)} Z`;
   const active = hover !== null ? pts[hover] : null;
   const unit = prettyUnit(trend.unit);
+
+  // One hit surface for the whole plot instead of a circle per point: no dead
+  // zones between points, and the nearest point answers. Touch keeps the tap
+  // toggle; the move handler is mouse-only so a tap does not set-then-unset.
+  const nearest = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    for (let i = 1; i < pts.length; i++) if (Math.abs(x(i) - px) < Math.abs(x(best) - px)) best = i;
+    return best;
+  };
 
   return (
     <figure ref={figRef} className="tc" style={{ margin: 0 }}>
@@ -149,20 +207,31 @@ export default function TrendChart({ trend }: { trend: Trend }) {
         role="img"
         aria-label={`Vývoj ${trend.displayName}${unit ? ` v ${unit}` : ""}`}
         style={{ display: "block", touchAction: "pan-y" }}
-        onMouseLeave={() => setHover(null)}
+        onPointerMove={(e) => { if (e.pointerType === "mouse") setHover(nearest(e)); }}
+        onPointerLeave={() => setHover(null)}
+        onClick={(e) => { const i = nearest(e); setHover((h) => (h === i ? null : i)); }}
       >
+        <defs>
+          <linearGradient id={`${clipId}-fill`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--series-1)" stopOpacity="0.18" />
+            <stop offset="1" stopColor="var(--series-1)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
         <clipPath id={clipId}>
           <rect x={padLeft} y={PAD.top} width={innerW} height={innerH} />
         </clipPath>
 
-        {/* Beyond each limit, the status tint. Inside the range the paper is
-            left alone: the band is where nothing needs saying. */}
+        {/* Beyond each limit, a neutral tint. Inside the range the paper is
+            left alone: the band is where nothing needs saying. The tint is
+            deliberately not the status colour — a zone is geography, and red
+            painted across half the plot left nothing for the points that
+            actually violate the limit. */}
         <g clipPath={`url(#${clipId})`}>
           {inView(d.bHigh) && (
-            <rect x={padLeft} y={PAD.top} width={innerW} height={Math.max(0, y(d.bHigh) - PAD.top)} fill="var(--status-critical-soft)" />
+            <rect x={padLeft} y={PAD.top} width={innerW} height={Math.max(0, y(d.bHigh) - PAD.top)} fill="var(--band-neutral)" />
           )}
           {inView(d.bLow) && (
-            <rect x={padLeft} y={y(d.bLow)} width={innerW} height={Math.max(0, PAD.top + innerH - y(d.bLow))} fill="var(--status-critical-soft)" />
+            <rect x={padLeft} y={y(d.bLow)} width={innerW} height={Math.max(0, PAD.top + innerH - y(d.bLow))} fill="var(--band-neutral)" />
           )}
         </g>
 
@@ -181,7 +250,7 @@ export default function TrendChart({ trend }: { trend: Trend }) {
         ].map(({ v, label }, i) =>
           inView(v) ? (
             <g key={i}>
-              <line x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--status-critical)" strokeWidth={1} strokeDasharray="4 3" opacity={0.7} />
+              <line x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="4 3" />
               <text x={W - PAD.right} y={y(v) + (i === 0 ? -5 : 13) * k} textAnchor="end" fontSize={11 * k} fill="var(--critical-ink)">
                 {label} {czNum(v)}
               </text>
@@ -189,7 +258,8 @@ export default function TrendChart({ trend }: { trend: Trend }) {
           ) : null,
         )}
 
-        <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={area} fill={`url(#${clipId}-fill)`} clipPath={`url(#${clipId})`} />
+        <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
 
         {pts.map((p, i) => {
           const out = isOut(p);
@@ -198,7 +268,15 @@ export default function TrendChart({ trend }: { trend: Trend }) {
           const cy = y(p.value as number);
           return (
             <g key={i}>
-              <circle cx={cx} cy={cy} r={16} fill="transparent" onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onClick={() => setHover((h) => (h === i ? null : i))} />
+              {last && (
+                <circle
+                  pointerEvents="none"
+                  cx={cx}
+                  cy={cy}
+                  r={11}
+                  fill={out ? "var(--status-critical-soft)" : "var(--series-1-soft)"}
+                />
+              )}
               <circle
                 pointerEvents="none"
                 cx={cx}
@@ -262,18 +340,28 @@ export default function TrendChart({ trend }: { trend: Trend }) {
           );
         })()}
 
-        {pts.map((p, i) => {
+        {(() => {
+          // The newest date always labels, and wins its space: earlier labels
+          // inside its gap are dropped. Exempting the last label from the gap
+          // check while keeping its neighbour drew the two on top of each
+          // other whenever the series ends in draws close together.
           const MIN_GAP = 46 * k;
-          const prevShown = pts.slice(0, i).reduce((acc, _, j) => (x(j) >= acc ? x(j) : acc), -Infinity);
-          if (i > 0 && i < pts.length - 1 && x(i) - prevShown < MIN_GAP) return null;
-          const half = czMonthYear(p.date).length * 12 * k * 0.26;
-          const lx = Math.min(Math.max(x(i), half), W - half);
-          return (
-            <text key={i} x={lx} y={H - 7} textAnchor="middle" fontSize={12 * k} fill="var(--ink-muted)">
-              {czMonthYear(p.date)}
-            </text>
-          );
-        })}
+          const lastI = pts.length - 1;
+          const shown: number[] = [];
+          for (let i = 0; i < lastI; i++) {
+            if (shown.length === 0 || x(i) - x(shown[shown.length - 1]) >= MIN_GAP) shown.push(i);
+          }
+          const labels = [...shown.filter((i) => x(lastI) - x(i) >= MIN_GAP), lastI];
+          return labels.map((i) => {
+            const half = czMonthYear(pts[i].date).length * 12 * k * 0.26;
+            const lx = Math.min(Math.max(x(i), half), W - half);
+            return (
+              <text key={i} x={lx} y={H - 7} textAnchor="middle" fontSize={12 * k} fill="var(--ink-muted)">
+                {czMonthYear(pts[i].date)}
+              </text>
+            );
+          });
+        })()}
       </svg>
 
       <figcaption className="muted" style={{ minHeight: "1.4em", marginTop: 4 }}>
@@ -296,6 +384,7 @@ export default function TrendChart({ trend }: { trend: Trend }) {
  * where the line has been relative to the range.
  */
 export function Sparkline({ trend, width = 120, height = 40 }: { trend: Trend; width?: number; height?: number }) {
+  const gradId = useId();
   const pts = numericPoints(trend);
   if (pts.length === 0) return null;
   const d = trendDomain(pts, 0.18);
@@ -304,13 +393,22 @@ export function Sparkline({ trend, width = 120, height = 40 }: { trend: Trend; w
   const y = (v: number) => P + (height - P * 2) - ((v - d.yMin) / (d.yMax - d.yMin || 1)) * (height - P * 2);
   const inView = (v: number | null): v is number => v !== null && v >= d.yMin && v <= d.yMax;
   const last = pts[pts.length - 1];
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.value as number).toFixed(1)}`).join(" ");
+  const xy: Array<[number, number]> = pts.map((p, i) => [x(i), y(p.value as number)]);
+  const line = monotonePath(xy);
+  const area = `${line} L${fmt(xy[xy.length - 1][0])},${fmt(height - P)} L${fmt(xy[0][0])},${fmt(height - P)} Z`;
   return (
     <svg className="spark" viewBox={`0 0 ${width} ${height}`} width={width} height={height} preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      {inView(d.bHigh) && <rect x={0} y={0} width={width} height={Math.max(0, y(d.bHigh))} fill="var(--status-critical-soft)" />}
-      {inView(d.bLow) && <rect x={0} y={y(d.bLow)} width={width} height={Math.max(0, height - y(d.bLow))} fill="var(--status-critical-soft)" />}
-      {inView(d.bHigh) && <line x1={0} x2={width} y1={y(d.bHigh)} y2={y(d.bHigh)} stroke="var(--status-critical)" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />}
-      {inView(d.bLow) && <line x1={0} x2={width} y1={y(d.bLow)} y2={y(d.bLow)} stroke="var(--status-critical)" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />}
+      <defs>
+        <linearGradient id={`${gradId}-s`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--series-1)" stopOpacity="0.2" />
+          <stop offset="1" stopColor="var(--series-1)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Neutral zones, no limit lines: at 30px tall two dashed red rules
+          were most of the picture, and the picture is the line. */}
+      {inView(d.bHigh) && <rect x={0} y={0} width={width} height={Math.max(0, y(d.bHigh))} fill="var(--band-neutral)" />}
+      {inView(d.bLow) && <rect x={0} y={y(d.bLow)} width={width} height={Math.max(0, height - y(d.bLow))} fill="var(--band-neutral)" />}
+      {pts.length > 1 && <path d={area} fill={`url(#${gradId}-s)`} />}
       {pts.length > 1 && <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />}
       <circle
         cx={x(pts.length - 1)}

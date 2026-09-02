@@ -12,23 +12,48 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/* The door is a centered card on the plane: one column, one clear action.
+   Every logged-out state (login, sent, confirm) wears the same card. */
 .door {
-  max-width: 22rem;
-  margin: 0 auto;
-  padding: 4rem 1.25rem 2rem;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.door-card {
+  width: 100%;
+  max-width: 23.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.8rem;
+  padding: 2.1rem 1.9rem 1.6rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.door-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  font-size: 23px;
+  border-radius: 13px;
+  background: var(--status-critical-soft);
 }
 
 .door h1 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.7rem;
+  letter-spacing: -0.02em;
 }
 
 .door .sub {
   margin: 0;
   color: var(--ink-2);
+  line-height: 1.5;
 }
 
 .door .notice {
@@ -55,7 +80,7 @@ body {
 }
 
 .door input {
-  padding: 0.6rem 0.7rem;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-1);
@@ -63,8 +88,14 @@ body {
   font: inherit;
 }
 
+.door input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
 .door .btn {
-  padding: 0.6rem 0.9rem;
+  padding: 0.7rem 0.9rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-1);
@@ -77,6 +108,13 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--surface-1);
+  font-weight: 600;
+  transition: background-color 110ms ease, border-color 110ms ease;
+}
+
+.door .btn.primary:hover:not(:disabled) {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
 }
 
 .door .btn.linkish {
@@ -84,13 +122,33 @@ body {
   border: none;
   color: var(--accent-ink);
   text-align: left;
-  padding: 0.25rem 0;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.door .btn.linkish:hover {
   text-decoration: underline;
 }
 
 .door .btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.door .door-foot {
+  margin-top: 0.3rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--grid);
+  font-size: 0.88rem;
+}
+
+.door .door-foot a {
+  color: var(--ink-muted);
+}
+
+.door .door-foot a:hover {
+  color: var(--accent-ink);
 }
 
 /*
@@ -151,44 +209,43 @@ body {
 .review-check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; font-size: 0.9rem; cursor: pointer; }
 .review-check input { margin-top: 3px; }
 
-/* Přehled: the watch strip and the grid of every parameter --------------- */
-.watch-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 12px; }
-.watch-head h2 { margin: 0; }
-.watch { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
-.watch.grid-all { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
-.tile {
-  display: flex; flex-direction: column; gap: 5px; min-width: 0;
-  padding: 12px 14px; margin: 0;
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--surface-2); color: inherit; font: inherit; text-align: left;
-  cursor: pointer; box-shadow: var(--shadow-sm);
-  transition: border-color 110ms ease, box-shadow 110ms ease;
-}
-.tile:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
-/* A red edge, not a red card: the value carries the colour and the edge
-   says which tiles to read first when the strip is scrolled past. */
-.tile.out { box-shadow: inset 4px 0 0 var(--status-critical), var(--shadow-sm); }
-.tile.out:hover { box-shadow: inset 4px 0 0 var(--status-critical), var(--shadow-md); }
-.tile-name { font-weight: 600; font-size: 0.88rem; line-height: 1.25; }
-.tile-value { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.tile-value .unit { font-size: 0.78rem; font-weight: 500; color: var(--ink-muted); margin-left: 4px; letter-spacing: 0; }
-.tile.out .tile-value { color: var(--critical-ink); }
-.tile-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.tile-facts li:first-child { color: var(--critical-ink); font-weight: 600; }
-.tile .spark { display: block; width: 100%; height: 40px; margin-top: 2px; border-radius: 4px; overflow: hidden; }
-.grid-all .tile-value { font-size: 1.1rem; }
-.grid-all .spark { height: 32px; }
 .prose { margin: 0; font-size: 0.95rem; line-height: 1.55; max-width: 72ch; }
 
-/* Souhrn: the watch list under the prose, and the two tables -------------- */
-.watch-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
-.watch-list .btn.linkish { padding: 0; font-weight: 600; text-decoration: none; }
-.watch-list .out, .num .out { color: var(--critical-ink); }
-.sum-table .spark { display: block; width: 96px; height: 28px; }
+/* Count beside a heading: a chip, not a stray digit — "Mimo rozmezí 7" read
+   as one garbled phrase. */
+h2 .n, .sum-group h3 .n {
+  display: inline-block; min-width: 22px; padding: 1px 8px; margin-left: 6px;
+  border-radius: 999px; background: var(--chip); color: var(--ink-2);
+  font-size: 0.76rem; font-weight: 600; text-align: center; vertical-align: 2px;
+  letter-spacing: 0;
+}
+
+/* Souhrn: what moved against the range, grouped by direction -------------- */
+.sum-groups { display: grid; gap: 12px 20px; margin-top: 2px; }
+@media (min-width: 1080px) {
+  .sum-groups { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); align-items: start; }
+}
+.sum-group h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; font-size: 0.95rem; }
+.sum-group.worse h3 { color: var(--critical-ink); }
+.sum-group.better h3 { color: var(--accent-ink); }
+.sum-group .gicon { flex: 0 0 auto; }
+.sum-moves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; font-size: 0.9rem; }
+.sum-moves .btn.linkish, .sum-moves .sum-open { padding: 0; font-weight: 600; text-decoration: none; }
+.sum-moves .out, .num .out { color: var(--critical-ink); }
+
+/* Souhrn tables ------------------------------------------------------------ */
+.sum-table .spark { display: block; width: 104px; height: 30px; }
 .sum-table td.change { font-weight: 600; white-space: nowrap; }
 .sum-table td.change.flat { font-weight: 400; color: var(--ink-muted); }
-.sum-table .sum-go { color: var(--ink-muted); font-size: 0.78rem; white-space: nowrap; }
-.sum-table tr:hover .sum-go { color: var(--accent-ink); }
+.sum-table .sum-go { color: var(--ink-muted); font-size: 0.78rem; white-space: nowrap; text-decoration: none; }
+.sum-table .sum-go:hover, .sum-table .sum-go:focus-visible { color: var(--accent-ink); }
+/* The sparkline is a door to the chart, and looks like one on approach. */
+.sparkbtn {
+  display: block; background: none; border: 0; padding: 2px; margin: -2px;
+  cursor: pointer; border-radius: 6px;
+}
+.sparkbtn:hover { background: var(--surface-2); }
+.sparkbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Trendy: the stat line above each chart ----------------------------------- */
 .tc-stat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 2px 0 6px; }
@@ -233,8 +290,8 @@ body {
 /* A download is a button here, not prose — the export links wear .btn. */
 a.btn { text-decoration: none; display: inline-flex; align-items: center; color: var(--ink-1); }
 
-/* The watch list's parameter links: visually a link, target a button. */
-.watch-list .btn.linkish { padding: 8px 4px; margin: -8px -4px; min-height: 24px; }
+/* The group rows' parameter links: visually a link, target a button. */
+.sum-moves .btn.linkish { padding: 8px 4px; margin: -8px -4px; min-height: 24px; }
 
 /* Links in the app and on the privacy page take the ink accent, which is
    legible on both grounds — a bare <a> was browser-blue at 1.85:1 on dark. */

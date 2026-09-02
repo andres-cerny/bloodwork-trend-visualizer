@@ -38,6 +38,13 @@ export interface Measurement {
   escalated: boolean;
   disagreement: string | null;
   corrected: boolean;
+  /**
+   * A human looked at the printed page and vouched for this exact value.
+   * `reviewOf` returns ok for a confirmed measurement, so every doubt channel
+   * (chips, worklist, hollow trend dots, the held-back banner) clears at once.
+   * Editing the value afterwards resets it — a new number is a new question.
+   */
+  confirmed?: boolean;
 
   /** Precomputed at build time (src/locate.py) or derived from pdf.js. */
   bbox: Box | null;

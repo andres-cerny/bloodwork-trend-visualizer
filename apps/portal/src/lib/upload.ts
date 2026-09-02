@@ -32,7 +32,8 @@ import {
   survivingIdentity,
 } from "@bw/lab-core";
 import type { PageAssets, RedactedPage } from "@bw/lab-core/pdf";
-import { extractPage, isFatalApiError, putPage, putReport } from "./api";
+import { type ProvisionalRow, extractPage, isFatalApiError, putPage, putReport } from "./api";
+import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
 
 export interface PreparedFile {
@@ -89,9 +90,15 @@ export interface ExtractOutcome {
   notes: string[];
 }
 
-/** How many pages are in flight at once. Enough to make a long report a few
- *  waves rather than a queue; small enough for a phone. */
-const IN_FLIGHT = 4;
+/**
+ * How many pages are in flight at once — across every file being read, not
+ * per file. A confirmed file extracts in the background while the reader
+ * reviews the next one, so their pages share this ceiling. Eight is what the
+ * demo measured as saturating without failed calls; a phone holds only the
+ * painted pages, which are already rendered by then.
+ */
+const IN_FLIGHT = 8;
+const pageSlots = createLimiter(IN_FLIGHT);
 
 /**
  * Read every page through the extractor and assemble the report — the same
@@ -104,6 +111,8 @@ export async function extractReport(
   pages: RedactedPage[],
   registry: Registry,
   onProgress: (done: number, total: number) => void,
+  /** A row as a reader writes it — for the screen only; the page's final read is what is kept. */
+  onRow?: (pageNum: number, row: ProvisionalRow) => void,
 ): Promise<ExtractOutcome> {
   const { rowsAsText } = await import("@bw/lab-core/pdf");
 
@@ -114,33 +123,33 @@ export async function extractReport(
   let firstError: string | null = null;
   let fatal: unknown = null;
   let done = 0;
-  let next = 0;
 
-  const worker = async () => {
-    for (;;) {
-      if (fatal) return;
-      const i = next++;
-      if (i >= pages.length) return;
-      const page = pages[i];
-      const isScan = prepared.scanPages.includes(page.pageNum);
-      try {
-        const res = await extractPage(
-          isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
-        );
-        const out = interpretPage(res.reads, page.rows, page.pageNum, isScan, (raw) => registry.match(raw));
-        results[i] = out;
-      } catch (e) {
-        if (isFatalApiError(e)) {
-          fatal = e;
-          return;
+  // Every page asks for a slot at once; the shared limiter decides the order.
+  // A fatal error (the ledger froze) stops pages not yet started; pages
+  // already in flight are allowed to land.
+  await Promise.all(
+    pages.map((page, i) =>
+      pageSlots.run(async () => {
+        if (fatal) return;
+        const isScan = prepared.scanPages.includes(page.pageNum);
+        try {
+          const res = await extractPage(
+            isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
+            onRow ? (row) => onRow(page.pageNum, row) : undefined,
+          );
+          results[i] = interpretPage(res.reads, page.rows, page.pageNum, isScan, (raw) => registry.match(raw));
+        } catch (e) {
+          if (isFatalApiError(e)) {
+            fatal = e;
+            return;
+          }
+          failed.push(page.pageNum);
+          firstError = firstError ?? (e instanceof Error ? e.message : String(e));
         }
-        failed.push(page.pageNum);
-        firstError = firstError ?? (e instanceof Error ? e.message : String(e));
-      }
-      onProgress(++done, pages.length);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(IN_FLIGHT, pages.length) }, worker));
+        onProgress(++done, pages.length);
+      }),
+    ),
+  );
   if (fatal) throw fatal;
   // One failed page is a note on a report; every page failed is no report.
   // Storing an empty row would show "uloženo" over nothing.
@@ -150,12 +159,17 @@ export async function extractReport(
 
   const measurements: Measurement[] = [];
   let unverified = 0;
+  let qualitative = 0;
+  /** "strana 2: řádky 14, 15" — printed rows that look like results and no read returned. */
+  const unread: string[] = [];
   let reportDate: string | null = null;
   let labName: string | null = null;
-  for (const r of results) {
+  for (const [i, r] of results.entries()) {
     if (!r) continue;
     measurements.push(...r.measurements);
     unverified += r.unverified;
+    qualitative += r.qualitative;
+    if (r.unread.length) unread.push(`strana ${pages[i].pageNum}: ${plural(r.unread.length, "řádek", "řádky", "řádky")} ${r.unread.map((n) => n + 1).join(", ")}`);
     reportDate = reportDate ?? r.reportDate;
     labName = labName ?? r.labName;
   }
@@ -171,6 +185,10 @@ export async function extractReport(
     notes.push(
       `Nepodařilo se přečíst ${count(failed.length, "stranu", "strany", "stran")} (${failed.sort((a, b) => a - b).join(", ")}) — ostatní jsou zpracované.${firstError ? ` Důvod: ${firstError}` : ""}`,
     );
+  if (unread.length)
+    notes.push(`Některé vytištěné řádky vypadají jako výsledky, ale nebyly přečteny (${unread.join("; ")}) — zkontrolujte je na stránce v Ověření.`);
+  if (qualitative)
+    notes.push(`${count(qualitative, "řádek", "řádky", "řádků")} bez číselné hodnoty (např. „málo materiálu") ${plural(qualitative, "je uveden", "jsou uvedeny", "je uvedeno")} k ověření.`);
   if (unverified)
     notes.push(
       `${count(unverified, "hodnota", "hodnoty", "hodnot")} ${plural(unverified, "nesouhlasí", "nesouhlasí", "nesouhlasí")} s textem na stránce — ${plural(unverified, "označena", "označeny", "označeno")} k ověření.`,

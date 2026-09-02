@@ -48,16 +48,71 @@ export const loginConfirm = (token: string) => request<{ ok: true }>("/api/auth/
 
 export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
 
+/** A row as the reader wrote it, before its page is finished. Provisional. */
+export interface ProvisionalRow {
+  raw_analyte_name?: string;
+  value_raw?: string;
+  unit_raw?: string;
+  row_index?: number;
+}
+
+export interface ExtractResult {
+  reads: any[];
+  mode: "text" | "vision";
+  costUsd: number;
+  budget: Budget;
+}
+
 /**
  * One page to the extractor: the printed rows of a digital page, or the
  * painted image of a scan. Never both, and never an image of a page that has
  * rows — the text path is what keeps the pixels at home.
+ *
+ * With `onRow` the page is asked for as a stream: one JSON object per line,
+ * rows as each reader writes them, then a final line that is the whole
+ * answer. Only that last line is returned — the rows before it are for the
+ * screen. A worker that does not stream yet answers with plain JSON, which
+ * is read the old way, so the two can be deployed in either order.
  */
-export const extractPage = (page: { rowsText: string } | { imageBase64: string; mediaType: string }) =>
-  request<{ reads: any[]; mode: "text" | "vision"; costUsd: number; budget: Budget }>(
-    "/api/extract",
-    jsonInit("POST", page),
-  );
+export async function extractPage(
+  page: { rowsText: string } | { imageBase64: string; mediaType: string },
+  onRow?: (row: ProvisionalRow, model: string) => void,
+): Promise<ExtractResult> {
+  if (!onRow) return request<ExtractResult>("/api/extract", jsonInit("POST", page));
+
+  const res = await fetch("/api/extract", jsonInit("POST", { ...page, stream: true }));
+  const type = res.headers.get("content-type") ?? "";
+  if (!res.ok || !type.includes("x-ndjson") || !res.body) {
+    const data = (await res.json().catch(() => ({}))) as ExtractResult & { message?: string; error?: string };
+    if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget);
+    return data;
+  }
+
+  let final: ExtractResult | null = null;
+  const handle = (text: string) => {
+    if (!text.trim()) return;
+    const ev = JSON.parse(text) as { type: string; model?: string; row?: ProvisionalRow; message?: string; error?: string; budget?: Budget };
+    if (ev.type === "row" && ev.row) onRow(ev.row, ev.model ?? "");
+    else if (ev.type === "done") final = ev as unknown as ExtractResult;
+    else if (ev.type === "error") throw new ApiError(ev.message ?? "Čtení stránky selhalo.", ev.error ?? "unknown", 502, ev.budget);
+  };
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let tail = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    tail += done ? dec.decode() : dec.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = tail.indexOf("\n")) >= 0) {
+      handle(tail.slice(0, nl));
+      tail = tail.slice(nl + 1);
+    }
+    if (done) break;
+  }
+  handle(tail);
+  if (!final) throw new ApiError("Čtení stránky se přerušilo — zkuste to znovu.", "stream_ended", 502);
+  return final;
+}
 
 export const listReports = () => request<LabReport[]>("/api/reports");
 

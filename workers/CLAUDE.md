@@ -5,8 +5,11 @@ reaches the extractor.
 
 ## What each may bind to
 
-**`extract` is finished.** Stable prompts, one secret, bursty parallel load. It
-should stop changing.
+**`extract` is finished.** Stable prompts, one secret, bursty parallel load. Two
+additive request/config switches since (2026-09-02): `stream: true` in the body
+answers NDJSON — rows as written, then the buffered answer as the last line —
+and `TEXT_READERS="cheap"` reads born-digital pages with Haiku alone (unset
+everywhere; kept for the day cost outranks the second opinion).
 
 **`agent` grew its future**: two D1 practices (`DB_SPORT`, `DB_ORTO`, one per
 tenant so isolation is by binding, not by a WHERE clause), a KV evidence shelf for the
