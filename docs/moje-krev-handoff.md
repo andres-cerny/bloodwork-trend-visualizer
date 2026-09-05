@@ -18,7 +18,7 @@ browser login and to paste the two API keys; it never commits a secret.
 git clone https://github.com/andres-cerny/bloodwork-trend-visualizer.git
 cd bloodwork-trend-visualizer
 git checkout claude/bloodwork-visualizer-planning-kn3vv5
-claude "Set up Moje krev end to end per docs/moje-krev-handoff.md: (1) npm install, copy workers/portal/.dev.vars.example to .dev.vars, run npm test, then prove the local loop — apply schema.sql to local D1, insert an invite, start the API worker, register via curl and confirm the dev link logs in. (2) Run npx wrangler login and wait for me to finish the browser step. (3) Create the D1 database moje-krev and KV namespace moje-krev-budget, paste the returned ids into workers/portal/wrangler.jsonc and workers/portal-extract/wrangler.jsonc, apply schema.sql --remote. (4) Secrets — moje-krev-portal gets a randomly generated SESSION_SECRET and RESEND_API_KEY (ask me to paste it; skip if I say later); moje-krev-extract gets ANTHROPIC_API_KEY (ask me to paste it), its own randomly generated SESSION_SECRET, and a placeholder TURNSTILE_SECRET_KEY. (5) npm run deploy:moje-krev. (6) Mint one invite via tools/scripts/moje-krev-invites.mjs 1 Andres --apply and print the live URL and the code. (7) Commit ONLY the wrangler.jsonc id changes and push to this branch. Never put a secret in a file, commit, or chat log."
+claude "Set up Moje krev end to end per docs/moje-krev-handoff.md: (1) npm install, copy workers/portal/.dev.vars.example to .dev.vars, run npm test, then prove the local loop — apply schema.sql to local D1, insert a sign-up code, start the API worker, register via curl with e-mail and password and confirm the cookie reads /api/me. (2) Run npx wrangler login and wait for me to finish the browser step. (3) Create the D1 database moje-krev and KV namespace moje-krev-budget, paste the returned ids into workers/portal/wrangler.jsonc and workers/portal-extract/wrangler.jsonc, apply schema.sql --remote. (4) Secrets — moje-krev-portal gets a randomly generated SESSION_SECRET; moje-krev-extract gets ANTHROPIC_API_KEY (ask me to paste it), its own randomly generated SESSION_SECRET, and a placeholder TURNSTILE_SECRET_KEY. (5) npm run deploy:moje-krev. (6) Mint one sign-up link via tools/scripts/moje-krev-invites.mjs 1 Andres --apply and print it. (7) Commit ONLY the wrangler.jsonc id changes and push to this branch. Never put a secret in a file, commit, or chat log."
 ```
 
 (Already cloned? Start from the `git checkout` line, after
@@ -26,8 +26,8 @@ claude "Set up Moje krev end to end per docs/moje-krev-handoff.md: (1) npm insta
 
 ## What works today (end of Phase 5)
 
-Invite-only registration, magic-link login, 90-day sessions — and the whole
-upload path: a PDF opens in the browser, the identity on it (name, rodné
+Invite-only registration through a link that lives 24 hours, e-mail +
+password login, 90-day sessions — and the whole upload path: a PDF opens in the browser, the identity on it (name, rodné
 číslo, birth date, address, and every repeat of them) is found and painted
 out, the reader confirms the boxes, and only the painted pages and the
 stripped rows go to the extractor; a scanned page is redacted by hand and
@@ -53,23 +53,24 @@ npm install
 # 1. Local secrets (git-ignored):
 cp workers/portal/.dev.vars.example workers/portal/.dev.vars
 
-# 2. Local database — schema plus one invite code:
+# 2. Local database — schema plus one sign-up link:
 cd workers/portal
 npx wrangler d1 execute moje-krev --local --file=schema.sql
-npx wrangler d1 execute moje-krev --local \
-  --command "INSERT INTO invites (code, note, created_at) VALUES ('moje-prvni-42','já','2026-08-31')"
 cd ../..
+node tools/scripts/moje-krev-invites.mjs 1 "já" --origin http://localhost:5173
+#   prints an INSERT and a link; run the INSERT against the local database:
+#   npx wrangler d1 execute moje-krev --local --command "<the INSERT>"   (from workers/portal)
 
 # 3. Two terminals:
 npm run dev:portal-api     # the API worker on :8789
 npm run dev:portal         # Vite on :5173, /api proxied to :8789
 ```
 
-Open http://localhost:5173 → „Mám pozvánkový kód" → code `moje-prvni-42` +
-your e-mail. With `DEV_MAGIC_LINK=1` the confirmation screen shows a
-„Vývojové přihlášení" link instead of sending mail — click it and you are
-in. Local D1 state persists in `workers/portal/.wrangler/`, so you stay
-registered across restarts. (It is keyed by the `database_id` in
+Open the printed link (`/registrace?kod=…`) → e-mail, password twice,
+„Vytvořit účet" — and you are in. From then on the front page logs you in
+with e-mail and password; a forgotten password is a second link, minted with
+`--email you@example.com`, that opens `/heslo?kod=…`. Local D1 state persists
+in `workers/portal/.wrangler/`, so you stay registered across restarts. (It is keyed by the `database_id` in
 wrangler.jsonc — change that and you start from an empty local database.)
 
 Locally, everything up to the extractor works: the redaction review, the
@@ -103,7 +104,6 @@ npx wrangler d1 create moje-krev             # paste database_id into wrangler.j
 npx wrangler d1 execute moje-krev --remote --file=schema.sql
 npx wrangler secret put SESSION_SECRET       # e.g. output of: openssl rand -base64 32
 npx wrangler secret put EXTRACT_SESSION_SECRET  # the SAME string as moje-krev-extract's SESSION_SECRET
-npx wrangler secret put RESEND_API_KEY       # from resend.com, free tier
 npx wrangler kv namespace create moje-krev-pages    # paste id into wrangler.jsonc (PAGES)
 
 cd ../portal-extract                          # needed from Phase 3 on; harmless now
@@ -114,13 +114,12 @@ npx wrangler secret put TURNSTILE_SECRET_KEY # any placeholder; route unused
 
 cd ../..
 npm run deploy:moje-krev                      # extract → portal API → shell, in order
-node tools/scripts/moje-krev-invites.mjs 1 "Andres" --apply
+node tools/scripts/moje-krev-invites.mjs 1 "Andres" --apply    # prints the link to send
 ```
 
-The app then lives at `https://moje-krev.<your-account>.workers.dev`.
-Resend note: an API key alone delivers only to your own address — enough
-while you are the only user; verify a domain in Resend before family joins,
-then set `MAIL_FROM` on moje-krev-portal.
+The app then lives at `https://moje-krev.<your-account>.workers.dev`. There
+is no mail: every link — sign-up or set-password — is one you mint and send
+yourself, and it lives 24 hours.
 
 **To let the cloud session deploy instead:** in claude.ai/code environment
 settings, allow `api.cloudflare.com` in the network policy and add

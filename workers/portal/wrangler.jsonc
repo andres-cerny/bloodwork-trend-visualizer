@@ -33,10 +33,9 @@
   "services": [{ "binding": "EXTRACT", "service": "moje-krev-extract" }],
 
   "vars": {
-    // Login-link lifetime and session length. Days, not seconds: the portal's
-    // session is a login, not a Turnstile page allowance.
+    // Session length. Days, not seconds: the portal's session is a login,
+    // not a Turnstile page allowance.
     "SESSION_TTL_DAYS": "90",
-    "LOGIN_TOKEN_TTL_MINUTES": "15",
     // Per person, per calendar month. The text-layer path costs fractions of
     // a cent per page, so this is a blast-radius cap, not a quota anyone
     // should meet.
@@ -47,7 +46,7 @@
   "observability": { "enabled": true }
 
   // Secrets: SESSION_SECRET (cookie signing; portal-specific, NOT shared with
-  // the demo workers), EXTRACT_SESSION_SECRET (paired with moje-krev-extract),
-  // RESEND_API_KEY (absent in dev — set DEV_MAGIC_LINK=1 in .dev.vars to have
-  // /api/auth/login return the link instead of mailing).
+  // the demo workers), EXTRACT_SESSION_SECRET (paired with moje-krev-extract).
+  // RESEND_API_KEY and MAIL_FROM may still be set from the magic-link days;
+  // nothing reads them.
 }

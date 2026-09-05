@@ -20,7 +20,7 @@ export default function Privacy() {
       <ul>
         <li>naměřené hodnoty, jednotky a referenční meze z vašich výsledků,</li>
         <li>začerněné obrázky stránek — kvůli ověření přepisu proti dokumentu,</li>
-        <li>přihlašovací e-mail a vaše ruční opravy a přiřazení názvů.</li>
+        <li>přihlašovací e-mail, otisk hesla (heslo samo ne) a vaše ruční opravy a přiřazení názvů.</li>
       </ul>
       <p>
         Nic víc. V databázi není sloupec pro jméno, rodné číslo, datum narození ani adresu —

@@ -47,9 +47,17 @@ interface Screen {
   name: string;
   go: (page: Page) => Promise<void>;
   skip?: string[];
+  /** A screen outside the logged-in shell: where to open, and what says it is up. */
+  at?: { path: string; ready: string };
 }
 
 const SCREENS: Screen[] = [
+  // The door, as the two links the operator sends open it. The login form
+  // itself shares these classes and this card; the fake API answers /api/me,
+  // so it cannot be reached here without a second server, and is not.
+  { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
+  { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
+  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
   // Souhrn is the landing tab since Přehled was dropped — its tile wall said
   // what the summary groups and tables already say.
   { name: "souhrn (výchozí)", go: async () => {} },
@@ -150,7 +158,7 @@ for (const [vpName, viewport] of VIEWPORTS) {
     describe(`${vpName} · ${theme}`, () => {
       for (const screen of SCREENS) {
         it(`${screen.name} has no layout flaws`, async () => {
-          const page = await app.open(viewport);
+          const page = await app.open(viewport, screen.at);
           await setTheme(page, theme);
           try {
             await screen.go(page);

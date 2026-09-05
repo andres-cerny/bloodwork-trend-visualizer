@@ -13,7 +13,8 @@ body {
 }
 
 /* The door is a centered card on the plane: one column, one clear action.
-   Every logged-out state (login, sent, confirm) wears the same card. */
+   Every logged-out state (login, sign-up link, set-password link) wears the
+   same card. */
 .door {
   min-height: 100dvh;
   display: grid;
@@ -88,6 +89,13 @@ body {
   font: inherit;
 }
 
+/* The one rule a password has, said before the first mistake rather than
+   after it. Ink for type, a step smaller than the label. */
+.door .hint {
+  color: var(--ink-2);
+  font-size: 0.82rem;
+}
+
 .door input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -107,7 +115,7 @@ body {
 .door .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--surface-1);
+  color: var(--on-accent);
   font-weight: 600;
   transition: background-color 110ms ease, border-color 110ms ease;
 }

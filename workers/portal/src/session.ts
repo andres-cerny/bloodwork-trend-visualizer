@@ -91,7 +91,9 @@ export function clearCookieHeader(): string {
   return `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 }
 
-/** Random 256-bit token for a magic link; only its hash is stored. */
+/** Random 256-bit token as base64url (43 characters); only its hash is ever
+ *  stored. Named for the magic link it once carried; today it mints the
+ *  "Sdílet s AI" share links, which keep the same property. */
 export function newLoginToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);

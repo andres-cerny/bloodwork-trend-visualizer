@@ -2,35 +2,49 @@
 -- there is deliberately no name, birth date or rodné číslo anywhere in this
 -- schema. Identity is redacted in the browser before upload; the only
 -- identifier at rest is the login e-mail.
+--
+-- This file is the schema for a fresh database. The live database is moved
+-- forward by the files in migrations/, which are additive and each applied
+-- once — a column added here must also be added there.
 
 CREATE TABLE IF NOT EXISTS users (
-  id         TEXT PRIMARY KEY,          -- crypto.randomUUID()
-  email      TEXT UNIQUE NOT NULL,      -- lowercased
-  created_at TEXT NOT NULL,             -- ISO 8601
-  settings   TEXT                       -- JSON: learned synonyms, prefs
+  id             TEXT PRIMARY KEY,      -- crypto.randomUUID()
+  email          TEXT UNIQUE NOT NULL,  -- lowercased
+  created_at     TEXT NOT NULL,         -- ISO 8601
+  settings       TEXT,                  -- JSON: learned synonyms, prefs
+  -- PBKDF2-SHA256 (src/password.ts): hex digest, hex 16-byte salt, and the
+  -- iteration count the row was hashed with, so the count can rise without
+  -- re-hashing everyone. All three NULL means the account cannot log in
+  -- until a set-password link is used.
+  password_hash  TEXT,
+  password_salt  TEXT,
+  password_iters INTEGER
 );
 
--- Signup is invite-only: a code is minted by the operator, burned by exactly
--- one registration. used_by is set atomically (UPDATE ... WHERE used_by IS
--- NULL), which is what makes a code single-use under a race.
+-- Every door into an account is a code the operator mints: unbound (user_id
+-- NULL) it opens a new account, bound it sets that account's password. Both
+-- live 24 hours (expires_at; NULL on codes minted before links expired) and
+-- both burn on exactly one use — used_at is set atomically (UPDATE ... WHERE
+-- used_at IS NULL), which is what makes a code single-use under a race.
 CREATE TABLE IF NOT EXISTS invites (
   code       TEXT PRIMARY KEY,
   note       TEXT,                      -- who this was minted for, free text
   created_at TEXT NOT NULL,
   used_by    TEXT REFERENCES users(id),
-  used_at    TEXT
+  used_at    TEXT,
+  expires_at TEXT,                      -- ISO 8601
+  user_id    TEXT REFERENCES users(id)  -- set on a set-password link
 );
 
--- Magic-link tokens. Only the SHA-256 of the token is stored, so a database
--- read never yields a working login link. Single-use, enforced the same way
--- as invites (UPDATE ... WHERE used_at IS NULL).
-CREATE TABLE IF NOT EXISTS login_tokens (
-  token_hash TEXT PRIMARY KEY,
-  user_id    TEXT NOT NULL REFERENCES users(id),
-  created_at INTEGER NOT NULL,          -- epoch seconds
-  expires_at INTEGER NOT NULL,
-  used_at    INTEGER
+-- Failed logins per e-mail, whether or not the e-mail has an account: ten in
+-- fifteen minutes and the address waits. Rows are pruned as they age out
+-- and cleared on a successful login.
+CREATE TABLE IF NOT EXISTS login_failures (
+  email TEXT NOT NULL,
+  at    INTEGER NOT NULL                -- epoch seconds
 );
+
+CREATE INDEX IF NOT EXISTS login_failures_by_email ON login_failures (email, at);
 
 -- The lossless truth: one LabReport JSON per upload, exactly the shape
 -- lab-core produced it in. Trends, review, derived values are computed from

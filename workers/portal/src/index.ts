@@ -1,10 +1,12 @@
 /**
  * Moje krev's API worker: accounts, and the reports they own.
  *
- * Auth is deliberately small: signup spends an invite code, login mails a
- * single-use link, the session is a signed cookie. No passwords exist to
- * leak, and no route ever confirms whether an e-mail is registered — the
- * login answer is the same sentence either way.
+ * Auth is deliberately small: e-mail and password, the session a signed
+ * cookie. Sign-up is a link the operator sends — a code that lives 24 hours
+ * and spends once — and so is a forgotten password: the same kind of code,
+ * bound to the account it resets. No route ever confirms whether an e-mail
+ * is registered: a wrong password and an unknown address get one sentence,
+ * and a spent, expired or foreign code gets another, whichever it was.
  *
  * Storage is deliberately dumb: the client builds a LabReport with lab-core
  * and this worker keeps it, whole, keyed to the account. Trends, review and
@@ -21,9 +23,9 @@
  * learn which tokens ever existed.
  */
 import { mintSession } from "@bw/gate";
-import { SQL, type AiShareRow, type LoginTokenRow, type PageRow, type ReportRow, type UserRow } from "./db";
-import { sendLoginLink, type MailEnv } from "./email";
+import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type UserRow } from "./db";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
+import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import {
   clearCookieHeader,
   mintCookieToken,
@@ -34,7 +36,7 @@ import {
   verifyCookieToken,
 } from "./session";
 
-export interface Env extends MailEnv {
+export interface Env {
   DB: D1Database;
   /** Redacted page images, keyed `${uid}/${reportId}/page_${n}`. */
   PAGES: KVNamespace;
@@ -46,7 +48,6 @@ export interface Env extends MailEnv {
   /** Paired with moje-krev-extract's SESSION_SECRET; mints its page sessions. */
   EXTRACT_SESSION_SECRET: string;
   SESSION_TTL_DAYS?: string;
-  LOGIN_TOKEN_TTL_MINUTES?: string;
   PORTAL_USD_LIMIT?: string;
   MAX_PAGES_PER_REPORT?: string;
 }
@@ -58,7 +59,6 @@ const json = (data: unknown, status = 200) =>
   });
 
 const sessionTtlSeconds = (env: Env) => (parseInt(env.SESSION_TTL_DAYS ?? "90", 10) || 90) * 86400;
-const tokenTtlSeconds = (env: Env) => (parseInt(env.LOGIN_TOKEN_TTL_MINUTES ?? "15", 10) || 15) * 60;
 const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "5") || 5;
 const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "30", 10) || 30;
 
@@ -74,13 +74,26 @@ const MAX_PAGE_BYTES = 4 * 1024 * 1024;
 const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const MAX_EXTRACT_BYTES = 6 * 1024 * 1024;
 
+/** Length is the only password rule; it is a demo and length is the rule
+ *  that helps. The ceiling bounds the hash's CPU, nothing else. */
+const MIN_PASSWORD = 8;
+const MAX_PASSWORD = 256;
+/** Ten wrong tries on one e-mail in fifteen minutes, and that e-mail waits
+ *  fifteen minutes — whether or not it has an account. */
+const LOCKOUT_FAILURES = 10;
+const LOCKOUT_WINDOW_SECONDS = 15 * 60;
+
 /** Enough to catch typos; the delivered link is the real verification. */
 const looksLikeEmail = (s: unknown): s is string =>
   typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
+const passwordOk = (s: unknown): s is string =>
+  typeof s === "string" && s.length >= MIN_PASSWORD && s.length <= MAX_PASSWORD;
+
 const REPORT_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 const now = () => Math.floor(Date.now() / 1000);
+const nowIso = () => new Date().toISOString();
 
 /**
  * The uid is re-read from the database on every authed request, not trusted
@@ -95,129 +108,134 @@ async function requireUser(request: Request, env: Env): Promise<UserRow | null> 
 
 const unauthorized = () => json({ error: "unauthorized", message: "Přihlaste se prosím." }, 401);
 
-/** Create a login token for the user and mail (or, in dev, return) the link. */
-async function issueLoginLink(env: Env, origin: string, user: UserRow): Promise<Response> {
-  // At most 5 links per user per hour. Not a security boundary — the token is
-  // unguessable — but a cap on how much mail a stuck retry loop can send.
-  const since = now() - 3600;
-  const recent = await env.DB.prepare(SQL.countRecentLoginTokens)
-    .bind(user.id, since)
-    .first<{ n: number }>();
-  if ((recent?.n ?? 0) >= 5) {
-    return json({ error: "too_many_requests", message: "Příliš mnoho žádostí. Zkuste to za hodinu." }, 429);
-  }
+/* ------------------------------------------------------------------- auth */
 
-  const token = newLoginToken();
-  await env.DB.prepare(SQL.insertLoginToken)
-    .bind(await sha256Hex(token), user.id, now(), now() + tokenTtlSeconds(env))
-    .run();
+/** Every way a code can be no good gets this one answer. */
+const inviteDead = (status = 403) =>
+  json({ error: "invite_invalid", message: "Odkaz už neplatí. Napište mi a pošlu nový." }, status);
 
-  const link = `${origin}/api/auth/confirm?token=${token}`;
-  const result = await sendLoginLink(env, user.email, link);
-  if (!result.sent && "error" in result) {
-    return json({ error: "mail_failed", message: "Odkaz se nepodařilo odeslat. Zkuste to prosím znovu." }, 502);
-  }
-  return json({
-    ok: true,
-    message: "Pokud e-mail známe, poslali jsme na něj přihlašovací odkaz.",
-    ...("devLink" in result ? { devLink: result.devLink } : {}),
-  });
-}
+/** Wrong password and unknown e-mail: one sentence, one status. */
+const badLogin = () => json({ error: "invalid_login", message: "E-mail nebo heslo nesouhlasí." }, 401);
 
-async function handleRegister(request: Request, env: Env): Promise<Response> {
-  const { invite, email } = (await request.json().catch(() => ({}))) as {
-    invite?: string;
-    email?: string;
-  };
-  if (typeof invite !== "string" || !invite.trim() || !looksLikeEmail(email)) {
-    return json({ error: "bad_request", message: "Vyplňte pozvánkový kód a platný e-mail." }, 400);
-  }
-  const normEmail = email.trim().toLowerCase();
-  const code = invite.trim();
-
-  const inviteRow = await env.DB.prepare(SQL.inviteByCode)
-    .bind(code)
-    .first<{ code: string; used_by: string | null; used_at: string | null }>();
-  if (!inviteRow || inviteRow.used_at) {
-    return json({ error: "invite_invalid", message: "Pozvánkový kód není platný." }, 403);
-  }
-  if (await env.DB.prepare(SQL.userByEmail).bind(normEmail).first<UserRow>()) {
-    return json(
-      { error: "email_taken", message: "Tento e-mail už účet má. Přihlaste se odkazem." },
-      409,
-    );
-  }
-
-  const user: UserRow = { id: crypto.randomUUID(), email: normEmail, created_at: new Date().toISOString() };
-  await env.DB.prepare(SQL.insertUser).bind(user.id, user.email, user.created_at).run();
-
-  // The conditional UPDATE is the single-use guarantee. Losing the race means
-  // another registration spent this code between our check and now — undo the
-  // user row rather than leaving an account no invite paid for.
-  const burned = await env.DB.prepare(SQL.burnInvite).bind(code, user.id, user.created_at).run();
-  if (!burned.meta || burned.meta.changes !== 1) {
-    await env.DB.prepare(SQL.deleteUser).bind(user.id).run();
-    return json({ error: "invite_invalid", message: "Pozvánkový kód není platný." }, 403);
-  }
-
-  return issueLoginLink(env, new URL(request.url).origin, user);
-}
-
-async function handleLogin(request: Request, env: Env): Promise<Response> {
-  const { email } = (await request.json().catch(() => ({}))) as { email?: string };
-  if (!looksLikeEmail(email)) {
-    return json({ error: "bad_request", message: "Zadejte platný e-mail." }, 400);
-  }
-  const user = await env.DB.prepare(SQL.userByEmail).bind(email.trim().toLowerCase()).first<UserRow>();
-  // The same sentence whether the account exists or not, so the login form
-  // cannot be used to enumerate who has one.
-  if (!user) return json({ ok: true, message: "Pokud e-mail známe, poslali jsme na něj přihlašovací odkaz." });
-  return issueLoginLink(env, new URL(request.url).origin, user);
-}
-
-/**
- * The magic link is a GET a mail client follows, so it must not log anyone in
- * on its own: a GET the account owner never clicked — pasted into a message,
- * a redirect — would otherwise silently drop a 90-day session for whoever
- * minted the token into whoever opened the link. That is session fixation:
- * the victim then stores their blood results into the attacker's account.
- *
- * So GET only bounces to the app carrying the token; the session is minted by
- * an explicit POST from a screen that first names the account it is about to
- * log in as. Cross-device login still works — you open the link on your
- * phone, see your own e-mail, and tap once. Spending still happens exactly
- * once, in the POST, under the same conditional UPDATE.
- */
-function confirmGet(request: Request): Response {
-  const token = new URL(request.url).searchParams.get("token") ?? "";
-  const to = token ? `/?potvrdit=${encodeURIComponent(token)}` : "/?prihlaseni=neplatne";
-  return new Response(null, { status: 302, headers: { location: to } });
-}
-
-async function confirmPost(request: Request, env: Env): Promise<Response> {
-  const { token, login } = (await request.json().catch(() => ({}))) as { token?: string; login?: boolean };
-  const bad = () => json({ error: "invalid", message: "Odkaz už neplatí. Nechte si poslat nový." }, 401);
-  if (typeof token !== "string" || !token) return bad();
-
-  const row = await env.DB.prepare(SQL.loginTokenByHash).bind(await sha256Hex(token)).first<LoginTokenRow>();
-  if (!row || row.used_at !== null || row.expires_at < now()) return bad();
-  const user = await env.DB.prepare(SQL.userById).bind(row.user_id).first<UserRow>();
-  if (!user) return bad();
-
-  // The interstitial's first call names the account without spending the
-  // token — so the person can see whose account this logs into and refuse.
-  if (!login) return json({ email: user.email });
-
-  // Spend before minting: a link that lost this race logs nobody in twice.
-  const spent = await env.DB.prepare(SQL.spendLoginToken).bind(row.token_hash, now()).run();
-  if (!spent.meta || spent.meta.changes !== 1) return bad();
-
+/** A 200 with the session cookie set — the end of register, login and reset. */
+async function loggedIn(env: Env, uid: string): Promise<Response> {
   const ttl = sessionTtlSeconds(env);
-  const cookie = await mintCookieToken(env.SESSION_SECRET, row.user_id, ttl);
+  const cookie = await mintCookieToken(env.SESSION_SECRET, uid, ttl);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { "content-type": "application/json; charset=utf-8", "set-cookie": setCookieHeader(cookie, ttl) },
   });
+}
+
+/** The invite row if it exists, is unspent and has not run out; else null. */
+async function liveInvite(env: Env, code: unknown): Promise<InviteRow | null> {
+  if (typeof code !== "string" || !code.trim()) return null;
+  const row = await env.DB.prepare(SQL.inviteByCode).bind(code.trim()).first<InviteRow>();
+  if (!row || row.used_at !== null) return null;
+  if (row.expires_at !== null && row.expires_at <= nowIso()) return null;
+  return row;
+}
+
+/** Spend the code for this account. False means someone else got there first. */
+async function burnInvite(env: Env, code: string, uid: string): Promise<boolean> {
+  const burned = await env.DB.prepare(SQL.burnInvite).bind(code, uid, nowIso()).run();
+  return !!burned.meta && burned.meta.changes === 1;
+}
+
+/** What kind of link this is, so the page can show the right form or the refusal. */
+async function inviteKind(env: Env, rawCode: string): Promise<Response> {
+  let code: string;
+  try {
+    code = decodeURIComponent(rawCode);
+  } catch {
+    // A malformed percent-escape is not a code; it is not a crash either.
+    return inviteDead(404);
+  }
+  const invite = await liveInvite(env, code);
+  if (!invite) return inviteDead(404);
+  return json({ kind: invite.user_id ? "password" : "signup" });
+}
+
+async function handleRegister(request: Request, env: Env): Promise<Response> {
+  const { code, email, password } = (await request.json().catch(() => ({}))) as {
+    code?: string;
+    email?: string;
+    password?: string;
+  };
+  if (!looksLikeEmail(email) || !passwordOk(password)) {
+    return json({ error: "bad_request", message: `Vyplňte platný e-mail a heslo o nejméně ${MIN_PASSWORD} znacích.` }, 400);
+  }
+  const invite = await liveInvite(env, code);
+  // A bound code is a set-password link; it opens no new account.
+  if (!invite || invite.user_id !== null) return inviteDead();
+
+  const normEmail = email.trim().toLowerCase();
+  // The same refusal as a dead code: a person holding a link must not learn
+  // from it which addresses already have an account.
+  if (await env.DB.prepare(SQL.userByEmail).bind(normEmail).first<UserRow>()) return inviteDead();
+
+  const record = await hashPassword(password);
+  const uid = crypto.randomUUID();
+  await env.DB.prepare(SQL.insertUser).bind(uid, normEmail, nowIso(), record.hash, record.salt, record.iters).run();
+
+  // The conditional UPDATE is the single-use guarantee. Losing the race means
+  // another registration spent this code between our check and now — undo the
+  // user row rather than leaving an account no invite paid for.
+  if (!(await burnInvite(env, invite.code, uid))) {
+    await env.DB.prepare(SQL.deleteUser).bind(uid).run();
+    return inviteDead();
+  }
+  return loggedIn(env, uid);
+}
+
+async function handleLogin(request: Request, env: Env): Promise<Response> {
+  const { email, password } = (await request.json().catch(() => ({}))) as { email?: string; password?: string };
+  if (!looksLikeEmail(email) || typeof password !== "string" || password.length > MAX_PASSWORD) {
+    return json({ error: "bad_request", message: "Zadejte e-mail a heslo." }, 400);
+  }
+  const normEmail = email.trim().toLowerCase();
+
+  const since = now() - LOCKOUT_WINDOW_SECONDS;
+  const recent = await env.DB.prepare(SQL.countLoginFailures).bind(normEmail, since).first<{ n: number }>();
+  if ((recent?.n ?? 0) >= LOCKOUT_FAILURES) {
+    return json({ error: "locked", message: "Příliš mnoho pokusů. Zkuste to znovu za 15 minut." }, 429);
+  }
+
+  const user = await env.DB.prepare(SQL.userByEmail).bind(normEmail).first<UserRow>();
+  // An account without a password (made before passwords existed) is
+  // verified against the dummy like an unknown address: same time, same no.
+  const record =
+    user && user.password_hash && user.password_salt && user.password_iters
+      ? { hash: user.password_hash, salt: user.password_salt, iters: user.password_iters }
+      : DUMMY_RECORD;
+  const ok = (await verifyPassword(password, record)) && record !== DUMMY_RECORD;
+  if (!ok || !user) {
+    await env.DB.prepare(SQL.insertLoginFailure).bind(normEmail, now()).run();
+    await env.DB.prepare(SQL.pruneLoginFailures).bind(since).run();
+    return badLogin();
+  }
+  await env.DB.prepare(SQL.clearLoginFailures).bind(normEmail).run();
+  return loggedIn(env, user.id);
+}
+
+/** A set-password link: the code names the account, the password replaces
+ *  whatever it had — including nothing. Reports are not touched. */
+async function handleSetPassword(request: Request, env: Env): Promise<Response> {
+  const { code, password } = (await request.json().catch(() => ({}))) as { code?: string; password?: string };
+  if (!passwordOk(password)) {
+    return json({ error: "bad_request", message: `Heslo musí mít nejméně ${MIN_PASSWORD} znaků.` }, 400);
+  }
+  const invite = await liveInvite(env, code);
+  if (!invite || invite.user_id === null) return inviteDead();
+  const user = await env.DB.prepare(SQL.userById).bind(invite.user_id).first<UserRow>();
+  if (!user) return inviteDead();
+
+  // Spend before writing: a link that lost this race changes nothing.
+  if (!(await burnInvite(env, invite.code, user.id))) return inviteDead();
+  const record = await hashPassword(password);
+  await env.DB.prepare(SQL.setPassword).bind(user.id, record.hash, record.salt, record.iters).run();
+  await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
+  return loggedIn(env, user.id);
 }
 
 /* ---------------------------------------------------------------- extract */
@@ -513,19 +531,21 @@ async function exportAccount(env: Env, user: UserRow, format: string): Promise<R
 }
 
 /**
- * Delete the account: every page image, every report, every login token,
- * every AI share, the user row. The invite that opened the account stays spent — a code
- * must not come back to life because the account it paid for is gone.
- * Immediate and complete; the cookie the request came with is a 401 from
- * the next request on, because requireUser re-reads the row.
+ * Delete the account: every page image, every report, every AI share, the
+ * failure counter on its e-mail, the user row. The invite that opened the
+ * account stays spent — a code must not come back to life because the
+ * account it paid for is gone — and a set-password link bound to it is
+ * unbound, so it opens nothing. Immediate and complete; the cookie the
+ * request came with is a 401 from the next request on, because requireUser
+ * re-reads the row.
  */
 async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   const { results } = await env.DB.prepare(SQL.pageKeysForUser).bind(user.id).all<{ kv_key: string }>();
   await Promise.all(results.map((p) => env.PAGES.delete(p.kv_key)));
   await env.DB.prepare(SQL.deletePagesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteReportsForUser).bind(user.id).run();
-  await env.DB.prepare(SQL.deleteTokensForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteSharesForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
   await env.DB.prepare(SQL.deleteUser).bind(user.id).run();
   return new Response(JSON.stringify({ ok: true, pagesDeleted: results.length }), {
@@ -605,6 +625,7 @@ async function revokeShare(env: Env, user: UserRow): Promise<Response> {
 /* ----------------------------------------------------------------- router */
 
 const REPORT = /^\/api\/reports\/([^/]+)$/;
+const INVITE = /^\/api\/auth\/invite\/([^/]+)$/;
 const PAGE = /^\/api\/(?:reports|pages)\/([^/]+)\/(\d{1,3})$/;
 
 export default {
@@ -623,13 +644,13 @@ export default {
         return handleRegister(request, env);
       case "POST /api/auth/login":
         return handleLogin(request, env);
-      case "GET /api/auth/confirm":
-        return confirmGet(request);
-      case "POST /api/auth/confirm":
-        return confirmPost(request, env);
+      case "POST /api/auth/password":
+        return handleSetPassword(request, env);
       case "POST /api/auth/logout":
         return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
     }
+    const invite = INVITE.exec(url.pathname);
+    if (invite && request.method === "GET") return inviteKind(env, invite[1]);
 
     // Everything below is the account's own data.
     const user = await requireUser(request, env);

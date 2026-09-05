@@ -24,7 +24,12 @@ export const DESKTOP = { width: 1200, height: 900 };
 export const WIDE = { width: 1512, height: 950 };
 
 export interface Harness {
-  open(viewport: { width: number; height: number }): Promise<Page>;
+  /**
+   * Open the app and wait until it has rendered. Without `at`, the app's
+   * landing screen; with it, a path and the selector that says it is up —
+   * for screens outside the logged-in shell, like the portal's door.
+   */
+  open(viewport: { width: number; height: number }, at?: { path: string; ready: string }): Promise<Page>;
   stop(): Promise<void>;
 }
 

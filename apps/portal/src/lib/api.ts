@@ -41,10 +41,18 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-/** Magic-link confirm, two steps: peek names the account, login mints the
- *  session. The GET the mail client follows only redirects here. */
-export const peekConfirm = (token: string) => request<{ email: string }>("/api/auth/confirm", jsonInit("POST", { token }));
-export const loginConfirm = (token: string) => request<{ ok: true }>("/api/auth/confirm", jsonInit("POST", { token, login: true }));
+/** Which form a link opens. A dead link is an ApiError with status 404. */
+export const checkInvite = (code: string) =>
+  request<{ kind: "signup" | "password" }>(`/api/auth/invite/${encodeURIComponent(code)}`);
+
+/** Each of the three mints the session cookie on success; the caller then
+ *  reads /api/me, which is the only thing that says who is logged in. */
+export const register = (code: string, email: string, password: string) =>
+  request<{ ok: true }>("/api/auth/register", jsonInit("POST", { code, email, password }));
+export const login = (email: string, password: string) =>
+  request<{ ok: true }>("/api/auth/login", jsonInit("POST", { email, password }));
+export const setPassword = (code: string, password: string) =>
+  request<{ ok: true }>("/api/auth/password", jsonInit("POST", { code, password }));
 
 export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
 
