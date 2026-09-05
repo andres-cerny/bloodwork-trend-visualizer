@@ -27,7 +27,6 @@ interface Tables {
   shares: ShareRow[];
   reports: Array<{ id: string; user_id: string }>;
   pages: Array<{ report_id: string; kv_key: string }>;
-  tokens: Array<{ user_id: string }>;
   invites: Array<{ code: string; used_by: string | null }>;
 }
 
@@ -69,7 +68,7 @@ function fakeD1(t: Tables): D1Database {
       case SQL.pageKeysForUser:
       case SQL.deletePagesForUser:
       case SQL.deleteReportsForUser:
-      case SQL.deleteTokensForUser:
+      case SQL.clearLoginFailures:
       case SQL.unlinkInvites:
         return { results: [], changes: 0 };
       case SQL.deleteUser: {
@@ -120,7 +119,7 @@ const page = (url: string) => worker.fetch(new Request(url), env);
 const tokenOf = (url: string) => /\/ai\/([^/]+)\.md$/.exec(url)![1];
 
 beforeEach(() => {
-  tables = { users: [{ ...A }, { ...B }], shares: [], reports: [], pages: [], tokens: [], invites: [] };
+  tables = { users: [{ ...A }, { ...B }], shares: [], reports: [], pages: [], invites: [] };
   env = { DB: fakeD1(tables), PAGES: kv(), BUDGET: kv(), EXTRACT: {} as Fetcher, SESSION_SECRET: SECRET, EXTRACT_SESSION_SECRET: "x" };
 });
 
