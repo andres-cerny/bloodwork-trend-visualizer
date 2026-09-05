@@ -45,6 +45,15 @@ export default function Privacy() {
         zpracování má měsíční strop na osobu.
       </p>
 
+      <h2>Sdílet s AI — jen když chcete</h2>
+      <p>
+        Na záložce Sdílet s AI si můžete vytvořit dočasný odkaz na prostý text s vašimi hodnotami,
+        jednotkami, referenčními mezemi a daty odběrů — bez jména, bez e-mailu, bez obrázků stránek.
+        Odkaz platí 24 hodin, kdykoli ho zrušíte, a nový nahrazuje starý. Je náhodný a nikde
+        zveřejněný není: kdo ho nezná, nic neuvidí. Čte ho asistent, kterému ho sami vložíte — a
+        u něj platí podmínky jeho provozovatele, ne naše.
+      </p>
+
       <h2>Vaše data jsou vaše</h2>
       <ul>
         <li>

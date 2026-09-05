@@ -47,12 +47,23 @@ export const SQL = {
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
   saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
 
+  // Sdílet s AI: the snapshot is stored as sent and served as stored. The
+  // public read is by hash only — the row never says whose it is to the
+  // reader, and the worker never inspects the text.
+  insertShare:
+    "INSERT INTO ai_shares (token_hash, user_id, snapshot, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+  shareByHash: "SELECT snapshot, expires_at, revoked_at FROM ai_shares WHERE token_hash = ?1",
+  liveShareForUser:
+    "SELECT expires_at FROM ai_shares WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?2 ORDER BY created_at DESC LIMIT 1",
+  revokeSharesForUser: "UPDATE ai_shares SET revoked_at = ?2 WHERE user_id = ?1 AND revoked_at IS NULL",
+
   // Account deletion, in the order the foreign keys allow. Everything an
-  // account owns is reachable from these five; there is nothing else.
+  // account owns is reachable from these six; there is nothing else.
   pageKeysForUser: "SELECT p.kv_key FROM report_pages p JOIN reports r ON r.id = p.report_id WHERE r.user_id = ?1",
   deletePagesForUser: "DELETE FROM report_pages WHERE report_id IN (SELECT id FROM reports WHERE user_id = ?1)",
   deleteReportsForUser: "DELETE FROM reports WHERE user_id = ?1",
   deleteTokensForUser: "DELETE FROM login_tokens WHERE user_id = ?1",
+  deleteSharesForUser: "DELETE FROM ai_shares WHERE user_id = ?1",
   unlinkInvites: "UPDATE invites SET used_by = NULL WHERE used_by = ?1",
 } as const;
 
@@ -79,4 +90,10 @@ export interface LoginTokenRow {
   user_id: string;
   expires_at: number;
   used_at: number | null;
+}
+
+export interface AiShareRow {
+  snapshot: string;
+  expires_at: number;
+  revoked_at: number | null;
 }

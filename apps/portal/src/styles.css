@@ -176,30 +176,46 @@ body {
 .review-page figcaption { margin-bottom: 4px; }
 .review-canvas {
   position: relative; width: 100%;
-  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 8px;
   background: #fff;
 }
-.review-canvas img { width: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+.review-canvas img { width: 100%; display: block; border-radius: 7px; user-select: none; -webkit-user-drag: none; }
 /* Drawing mode claims the pointer: a drag paints a box instead of scrolling
    the page. Off by default, so the page still scrolls under a thumb. */
 .review-canvas.drawing { touch-action: none; cursor: crosshair; }
+/*
+ * A box is three things over the page: the ink, which is exactly what will
+ * be painted and nothing a finger can hit; a transparent button over the
+ * box's own band of the page (RedactReview's hitZone), so a box over one
+ * printed line on a phone can be tapped without previewing more black than
+ * gets painted; and, once selected, the ✕ at its top-right corner — a fixed
+ * 32px square, inside the box when the box is that tall, above it when it
+ * is thinner.
+ */
 .review-box {
-  position: absolute; margin: 0; padding: 0;
+  position: absolute; margin: 0; padding: 0; pointer-events: none;
   background: rgba(0, 0, 0, 0.92);
   border: 2px solid var(--status-critical); border-radius: 2px;
-  pointer-events: none;
 }
 .review-box.draft { background: rgba(0, 0, 0, 0.5); border-style: dashed; }
-/* One chip per box, under the page: the target a finger can hit, wearing the
-   name of what its box covers. */
-.review-hits { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.review-box.selected { outline: 2px solid var(--accent); outline-offset: 2px; }
 .review-hit {
-  display: inline-flex; align-items: center; gap: 5px; min-height: 28px;
-  padding: 3px 10px; border: 1px solid var(--border-strong); border-radius: 999px;
-  background: var(--surface-2); color: var(--ink-1); font: inherit; font-size: 0.8rem;
-  cursor: pointer; max-width: 100%;
+  position: absolute; margin: 0; padding: 0; border: 0;
+  background: transparent; cursor: pointer;
 }
-.review-hit:hover { background: var(--status-critical-soft); color: var(--critical-ink); border-color: var(--status-critical); }
+.review-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.review-x {
+  position: absolute; z-index: 2; transform: translate(calc(-100% - 2px), 2px);
+  width: 32px; height: 32px; margin: 0; padding: 0;
+  display: inline-grid; place-items: center;
+  border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--surface-1); color: var(--critical-ink);
+  font: inherit; font-size: 1rem; font-weight: 700; line-height: 1;
+  box-shadow: var(--shadow-sm); cursor: pointer;
+}
+.review-x.above { transform: translate(-100%, calc(-100% - 3px)); }
+.review-x:hover, .review-x:focus-visible { background: var(--status-critical-soft); border-color: var(--status-critical); }
+.review-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .review-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
 .review-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
@@ -256,6 +272,53 @@ h2 .n, .sum-group h3 .n {
 .tc-stat .range { font-size: 0.8rem; color: var(--ink-muted); }
 .mk-foot { margin-top: 18px; }
 
+/* Sdílet s AI ------------------------------------------------------------- */
+/* The one new element: the sentence to copy. The runlog's ground and size,
+   a monospace face, a URL that may break anywhere, and one tap selects it
+   whole. */
+.ai-line {
+  margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-3); border: 1px solid var(--border);
+  font: 0.84rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--ink-1); overflow-wrap: anywhere; user-select: all;
+}
+.ai-foot {
+  margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--grid);
+  color: var(--ink-2); font-size: 0.85rem;
+}
+.ai-share details > summary {
+  cursor: pointer; color: var(--ink-2); font-size: 0.84rem; font-weight: 500; list-style: none;
+  padding: 4px 0; min-height: 24px;
+}
+.ai-share details > summary::-webkit-details-marker { display: none; }
+.ai-share details > summary::before { content: "▸ "; color: var(--ink-muted); }
+.ai-share details[open] > summary::before { content: "▾ "; }
+/* The stored text, exactly, for anyone who wants to read the whole of it. */
+.ai-raw {
+  margin: 8px 0 0; padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-3); color: var(--ink-1);
+  font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 50vh; overflow: auto;
+}
+.ai-share .btn svg { flex: 0 0 auto; }
+.ai-share .ai-unit { display: none; }
+/* Each draw in the preview is an unbreakable unit; on a phone they stack —
+   ten draws wrapped into a narrow column made each row a screen tall. */
+.ai-share .ai-vals span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ai-share .ai-vals span:not(:last-child)::after { content: "; "; white-space: normal; }
+@media (max-width: 819.98px) {
+  .ai-share .ai-vals span { display: block; }
+  .ai-share .ai-vals span:not(:last-child)::after { content: none; }
+  /* Sized to its content, not stretched: stretched, the three name columns
+     took the whole width and the values sat off-screen in the scroller. */
+  .ai-share table { width: auto; min-width: 100%; font-size: 0.8rem; }
+  .ai-share th, .ai-share td { padding: 6px 5px; }
+  .ai-share th:first-child, .ai-share td:first-child { padding-left: 0; }
+  /* The unit moves under the name: its own column left the values off-screen. */
+  .ai-share .ai-unit-col { display: none; }
+  .ai-share .ai-unit { display: block; }
+}
+
 /* The tab strip becomes a bottom bar on a phone ---------------------------- */
 @media (max-width: 819.98px) {
   .tabs-wrap {
@@ -269,6 +332,11 @@ h2 .n, .sum-group h3 .n {
     font-size: 0.7rem; line-height: 1.15; white-space: normal; text-align: center;
   }
   .mk-main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+/* Six tabs at 360px: measured, the strip needs this one rule and no more;
+   below 320px it would have to scroll, which is not supported. */
+@media (max-width: 374.98px) {
+  nav.tabs button { font-size: 0.66rem; padding: 8px 0; }
 }
 
 /* On a phone the name is the brand and the e-mail is noise; on a desktop

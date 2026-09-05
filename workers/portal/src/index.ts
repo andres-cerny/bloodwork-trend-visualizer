@@ -13,9 +13,15 @@
  * The one thing this worker does read out of a payload is the identity
  * fields, to make sure they are empty: identity is redacted in the browser,
  * and a client that forgot is corrected here rather than trusted.
+ *
+ * One page is public: /ai/<token>.md, the text a person's own AI assistant
+ * fetches when they paste their share link. It sits above the login gate,
+ * answers by the token's hash alone, and says the same 404 for a token that
+ * is expired, revoked, unknown or malformed — the page must not be a way to
+ * learn which tokens ever existed.
  */
 import { mintSession } from "@bw/gate";
-import { SQL, type LoginTokenRow, type PageRow, type ReportRow, type UserRow } from "./db";
+import { SQL, type AiShareRow, type LoginTokenRow, type PageRow, type ReportRow, type UserRow } from "./db";
 import { sendLoginLink, type MailEnv } from "./email";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import {
@@ -508,7 +514,7 @@ async function exportAccount(env: Env, user: UserRow, format: string): Promise<R
 
 /**
  * Delete the account: every page image, every report, every login token,
- * the user row. The invite that opened the account stays spent — a code
+ * every AI share, the user row. The invite that opened the account stays spent — a code
  * must not come back to life because the account it paid for is gone.
  * Immediate and complete; the cookie the request came with is a 401 from
  * the next request on, because requireUser re-reads the row.
@@ -519,12 +525,81 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   await env.DB.prepare(SQL.deletePagesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteReportsForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteTokensForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteSharesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
   await env.DB.prepare(SQL.deleteUser).bind(user.id).run();
   return new Response(JSON.stringify({ ok: true, pagesDeleted: results.length }), {
     status: 200,
     headers: { "content-type": "application/json; charset=utf-8", "set-cookie": clearCookieHeader() },
   });
+}
+
+/* --------------------------------------------------------------- AI share */
+
+/** 24 hours: the link is a bearer key to health numbers. */
+const SHARE_TTL_SECONDS = 24 * 3600;
+/** A thirty-report account is well under 100 KB; the cap is against abuse. */
+const MAX_SHARE_BYTES = 512 * 1024;
+/** newLoginToken is 32 random bytes as base64url: 43 characters, exactly. */
+const SHARE_PAGE = /^\/ai\/([A-Za-z0-9_-]{43})\.md$/;
+
+const sharePageNotFound = () =>
+  new Response("Not found\n", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex" },
+  });
+
+/**
+ * The public page. Anything under /ai/ that is not exactly a live token's
+ * page is the same 404 — one body, one status, one set of headers — so an
+ * attacker probing tokens learns nothing from the shape of the refusal.
+ */
+async function serveSharePage(env: Env, pathname: string): Promise<Response> {
+  const m = SHARE_PAGE.exec(pathname);
+  if (!m) return sharePageNotFound();
+  const row = await env.DB.prepare(SQL.shareByHash).bind(await sha256Hex(m[1])).first<AiShareRow>();
+  if (!row || row.revoked_at !== null || row.expires_at <= now()) return sharePageNotFound();
+  return new Response(row.snapshot, {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex",
+    },
+  });
+}
+
+/**
+ * Mint: revoke whatever this person had, store the hash and the text they
+ * sent, hand back the URL once. The text is theirs, built by their browser
+ * from their own payloads; this worker stores it and never reads it.
+ */
+async function createShare(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const raw = await request.text();
+  if (raw.length > MAX_SHARE_BYTES) return json({ error: "too_large", message: "Text je příliš dlouhý." }, 413);
+  let text: unknown;
+  try {
+    text = (JSON.parse(raw) as { text?: unknown }).text;
+  } catch {
+    return json({ error: "bad_request", message: "Neplatný požadavek." }, 400);
+  }
+  if (typeof text !== "string" || !text.trim()) return json({ error: "bad_request", message: "Není co sdílet." }, 400);
+
+  const t = now();
+  await env.DB.prepare(SQL.revokeSharesForUser).bind(user.id, t).run();
+  const token = newLoginToken();
+  const expiresAt = t + SHARE_TTL_SECONDS;
+  await env.DB.prepare(SQL.insertShare).bind(await sha256Hex(token), user.id, text, t, expiresAt).run();
+  return json({ url: `${new URL(request.url).origin}/ai/${token}.md`, expiresAt: new Date(expiresAt * 1000).toISOString() });
+}
+
+async function getShare(env: Env, user: UserRow): Promise<Response> {
+  const row = await env.DB.prepare(SQL.liveShareForUser).bind(user.id, now()).first<{ expires_at: number }>();
+  return json(row ? { expiresAt: new Date(row.expires_at * 1000).toISOString() } : null);
+}
+
+async function revokeShare(env: Env, user: UserRow): Promise<Response> {
+  await env.DB.prepare(SQL.revokeSharesForUser).bind(user.id, now()).run();
+  return json({ ok: true });
 }
 
 /* ----------------------------------------------------------------- router */
@@ -536,6 +611,12 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const route = `${request.method} ${url.pathname}`;
+
+    // The one public page, above the gate: a share link works without a
+    // login, which is the whole point of it.
+    if (url.pathname.startsWith("/ai/")) {
+      return request.method === "GET" || request.method === "HEAD" ? serveSharePage(env, url.pathname) : sharePageNotFound();
+    }
 
     switch (route) {
       case "POST /api/auth/register":
@@ -571,6 +652,12 @@ export default {
         return exportAccount(env, user, url.searchParams.get("format") ?? "json");
       case "DELETE /api/account":
         return deleteAccount(env, user);
+      case "POST /api/ai-share":
+        return createShare(request, env, user);
+      case "GET /api/ai-share":
+        return getShare(env, user);
+      case "DELETE /api/ai-share":
+        return revokeShare(env, user);
     }
 
     const page = PAGE.exec(url.pathname);

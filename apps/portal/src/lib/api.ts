@@ -134,3 +134,13 @@ export const logout = () => request<void>("/api/auth/logout", { method: "POST" }
 
 /** Immediate and complete — the worker deletes rows and page images together. */
 export const deleteAccount = () => request<{ ok: true }>("/api/account", { method: "DELETE" });
+
+/** Sdílet s AI: the text is built here from the account's own payloads and
+ *  stored verbatim; the URL comes back once. */
+export interface AiShare {
+  url: string;
+  expiresAt: string;
+}
+export const createAiShare = (text: string) => request<AiShare>("/api/ai-share", jsonInit("POST", { text }));
+export const getAiShare = () => request<{ expiresAt: string } | null>("/api/ai-share");
+export const revokeAiShare = () => request<{ ok: true }>("/api/ai-share", { method: "DELETE" });

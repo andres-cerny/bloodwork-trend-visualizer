@@ -27,18 +27,23 @@ import {
 import { ThemeSwitch } from "@bw/ui-kit";
 import { type Budget, type Settings, deleteAccount, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
 import MappingTab from "./MappingTab";
+import ShareTab from "./ShareTab";
 import SummaryTab from "./SummaryTab";
 import TrendsTab from "./TrendsTab";
 import UploadFlow from "./UploadFlow";
 import VerifyTab from "./VerifyTab";
 
-type TabId = "trends" | "summary" | "verify" | "mapping" | "reports";
+type TabId = "trends" | "summary" | "verify" | "mapping" | "reports" | "share";
+// Six labels fit a 390px phone only if the last one cannot wrap: written
+// with non-breaking spaces, or the bold active label breaks into two lines
+// and the bar jumps in height exactly when this tab is chosen.
 const TABS: Array<[TabId, string]> = [
   ["summary", "Souhrn"],
   ["trends", "Trendy"],
   ["verify", "Ověření"],
   ["mapping", "Přiřazení"],
   ["reports", "Reporty"],
+  ["share", "Sdílet\u00a0s\u00a0AI"],
 ];
 
 /** Mounted whether or not it is active; `hidden` keeps its state and takes it
@@ -381,6 +386,9 @@ export default function Portal({ email, onLogout }: Props) {
             </Panel>
             <Panel id="mapping" active={tab}>
               <MappingTab reports={reports} registry={registry} onMap={acceptMapping} onUndoMap={undoMapping} onShowSource={showSource} />
+            </Panel>
+            <Panel id="share" active={tab}>
+              <ShareTab reports={reports} trends={trends} />
             </Panel>
             <Panel id="reports" active={tab}>
               {uploadCard}

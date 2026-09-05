@@ -214,6 +214,11 @@ Its check reads the PDF text layer. It cannot catch an identifier that exists
 only as pixels — a stamp, a signature, a handwritten note. **Look at
 `web/public/demo/pages/` before deploying.**
 
+The portal's AI share page (`/ai/<token>.md`, the Sdílet s AI tab) carries
+values, units, ranges and draw dates only — never a page image, never an
+identity, never a report id; `packages/lab-core/tests/aiShare.test.ts` and
+`workers/portal/tests/aiShare.test.ts` pin the absences.
+
 ## A security review found one real defect
 
 The redaction guard above could not detect the case it existed for: redaction

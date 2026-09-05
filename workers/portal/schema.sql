@@ -57,3 +57,20 @@ CREATE TABLE IF NOT EXISTS report_pages (
   height    INTEGER,
   PRIMARY KEY (report_id, page_num)
 );
+
+-- Sdílet s AI: a snapshot of the person's values as one text page, behind
+-- a random token their AI assistant fetches. The text is built in the
+-- browser and stored verbatim — the worker never reads a value out of a
+-- payload — so the preview is exactly what is served. Only the SHA-256 of
+-- the token is stored, like login tokens; the link lives 24 hours, one live
+-- link per person (minting revokes the previous), and can be revoked.
+CREATE TABLE IF NOT EXISTS ai_shares (
+  token_hash TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  snapshot   TEXT NOT NULL,
+  created_at INTEGER NOT NULL,          -- epoch seconds
+  expires_at INTEGER NOT NULL,
+  revoked_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS ai_shares_by_user ON ai_shares (user_id, created_at);

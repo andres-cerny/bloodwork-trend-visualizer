@@ -63,6 +63,15 @@ function fakeApi(port: number): Promise<Server> {
       case "POST /api/auth/logout":
         res.writeHead(204);
         return res.end();
+      // Sdílet s AI: no link on arrival; minting answers a link-shaped URL
+      // with a 24-hour expiry. Nothing is stored, nothing is fetched.
+      case "GET /api/ai-share":
+        return json(res, null);
+      case "POST /api/ai-share":
+        return json(res, {
+          url: `http://localhost/ai/${"k7QmR2vX9pLw3f".repeat(4).slice(0, 43)}.md`,
+          expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        });
     }
     // Writes are acknowledged and forgotten; the audit reads, it does not keep.
     if (req.method === "PUT" || req.method === "DELETE") return json(res, { ok: true });

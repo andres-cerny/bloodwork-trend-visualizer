@@ -93,6 +93,23 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    name: "sdílet s AI (bez odkazu)",
+    go: async (page) => {
+      await tab(page, "Sdílet s AI").click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    name: "sdílet s AI (odkaz, náhled otevřený)",
+    go: async (page) => {
+      await tab(page, "Sdílet s AI").click();
+      await page.getByRole("button", { name: "Vytvořit odkaz pro AI" }).click();
+      await page.waitForSelector(".ai-line", { timeout: 10_000 });
+      await page.getByText("Co AI uvidí").click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
     // The one screen with a page image and boxes over it. The upload stops
     // here for the reader's look, so the audit can reach it without the
     // extractor: the file is read in the browser, nothing is sent.
@@ -102,6 +119,20 @@ const SCREENS: Screen[] = [
       await page.locator('input[type="file"]').setInputFiles(FIXTURE);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.waitForTimeout(500);
+    },
+  },
+  {
+    // A box selected: its ✕ is a control too, and must be reachable and
+    // uncovered at every width — a thin box puts it above the ink.
+    name: "kontrola anonymizace (pole vybrané)",
+    go: async (page) => {
+      await tab(page, "Reporty").click();
+      await page.locator('input[type="file"]').setInputFiles(FIXTURE);
+      await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+      await page.waitForTimeout(500);
+      await page.getByRole("button", { name: "Začerněné pole 1" }).first().click();
+      await page.waitForSelector(".review-x", { timeout: 5_000 });
+      await page.waitForTimeout(200);
     },
   },
 ];

@@ -16,6 +16,7 @@ interface Tables {
   tokens: Array<{ token_hash: string; user_id: string }>;
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string }>;
+  shares: Array<{ token_hash: string; user_id: string }>;
 }
 
 function fakeD1(t: Tables): D1Database {
@@ -44,6 +45,11 @@ function fakeD1(t: Tables): D1Database {
         const before = t.tokens.length;
         t.tokens = t.tokens.filter((k) => k.user_id !== a[0]);
         return { results: [], changes: before - t.tokens.length };
+      }
+      case SQL.deleteSharesForUser: {
+        const before = t.shares.length;
+        t.shares = t.shares.filter((s) => s.user_id !== a[0]);
+        return { results: [], changes: before - t.shares.length };
       }
       case SQL.unlinkInvites: {
         let n = 0;
@@ -128,6 +134,7 @@ beforeEach(() => {
       { report_id: "r-2", page_num: 1, kv_key: "u-a/r-2/page_1" },
       { report_id: "r-9", page_num: 1, kv_key: "u-b/r-9/page_1" },
     ],
+    shares: [{ token_hash: "ha", user_id: "u-a" }, { token_hash: "hb", user_id: "u-b" }],
   };
   pages = fakeKv(["u-a/r-1/page_1", "u-a/r-2/page_1", "u-b/r-9/page_1"]);
   env = {
@@ -180,6 +187,7 @@ describe("delete account", () => {
     expect(tables.reports.map((r) => r.id)).toEqual(["r-9"]);
     expect(tables.pages.map((p) => p.kv_key)).toEqual(["u-b/r-9/page_1"]);
     expect(tables.tokens.map((t) => t.user_id)).toEqual(["u-b"]);
+    expect(tables.shares.map((s) => s.user_id)).toEqual(["u-b"]);
     expect([...pages._store.keys()]).toEqual(["u-b/r-9/page_1"]);
   });
 

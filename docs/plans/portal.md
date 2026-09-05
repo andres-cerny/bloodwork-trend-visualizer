@@ -6,6 +6,9 @@ same deterministic layer: people log in, upload their Czech lab PDFs, verify
 the extraction, and see their trends again on every later visit. Friends and
 family first; built so growing doesn't mean rebuilding.
 
+Continued in [moje-krev-round-2.md](moje-krev-round-2.md) (2026-09-05): charts,
+redaction review, the AI share tab.
+
 ## What is being built
 
 **`apps/portal`** — a logged-in bloodwork trend visualizer. Same clinical core
