@@ -225,7 +225,7 @@ body {
 .review-x:hover, .review-x:focus-visible { background: var(--status-critical-soft); border-color: var(--status-critical); }
 .review-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .review-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
-.review-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.review-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 /* A scan on the review screen: nothing was found on it, and the frame says
    so before the reader reads the caption. */
