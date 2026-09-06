@@ -38,6 +38,7 @@
     "deploy:chat": "npm run build:chat && npm run check:bundle:chat && npm -w apps/chat run deploy",
     "eval": "vitest run --config tests/config/vitest.eval.config.ts",
     "docs:check": "node tools/scripts/check-docs.mjs",
+    "check:links": "node tools/scripts/check-learn-more.mjs",
     "prepare": "git config core.hooksPath .githooks || true",
     "dev:portal": "npm -w apps/portal run dev",
     "build:portal": "npm -w apps/portal run build",

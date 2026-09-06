@@ -22,6 +22,7 @@ import {
   type Trend,
   count,
   czDate,
+  learnMoreUrl,
   plural,
   prettyUnit,
 } from "@bw/lab-core";
@@ -155,6 +156,21 @@ export default function TrendsTab({
               <h3>
                 <span>{t.displayName}</span>
                 {t.unit && <span className="unit">{prettyUnit(t.unit)}</span>}
+                {/* What the parameter measures, explained by someone with a
+                    medical guarantor behind them. Absent, not disabled, when
+                    no page is known to explain it. */}
+                {learnMoreUrl(t.canonicalId) && (
+                  <a
+                    className="learn-more"
+                    href={learnMoreUrl(t.canonicalId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Lab Tests Online — nové okno"
+                    aria-label={`O parametru ${t.displayName}, Lab Tests Online, nové okno`}
+                  >
+                    O parametru ↗
+                  </a>
+                )}
                 <span className="spacer" />
                 {outNow(t) && <span className="chip alert">mimo rozmezí</span>}
                 <button

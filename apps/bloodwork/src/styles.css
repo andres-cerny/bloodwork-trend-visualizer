@@ -422,6 +422,16 @@ tr.row-pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var
 .trend-grid:not(.multi) { max-width: 880px; }
 .trend-card { margin-bottom: 0; }
 .trend-card h3 .unit { color: var(--ink-muted); font-weight: 400; font-size: 0.85rem; }
+/* "O parametru": a text link, not a button. It is the only outbound link in
+   the app and sits in a heading, so it is sized like the unit beside it and
+   coloured as a link — reading it as a control would put it in competition
+   with the ✕ and the range chip on the same line. Inline, so the auditor
+   treats it as text (the 24px target floor exempts inline links). */
+.trend-card h3 .learn-more {
+  font-weight: 400; font-size: 0.8rem; color: var(--accent-ink);
+  text-decoration: underline; text-underline-offset: 2px; white-space: nowrap;
+}
+.trend-card h3 .learn-more:hover { text-decoration-thickness: 2px; }
 .trend-card h3 .spacer { flex: 1 1 auto; }
 .chart-note { margin: 8px 0 0; font-size: 0.78rem; color: var(--ink-muted); }
 

@@ -177,6 +177,18 @@ control**. Guarded by the auditor screen *trends (picker open over a chart)*,
 which is a different screen from *trends (picker open)* for exactly this
 reason: with nothing plotted the toolbar does not wrap and the bug is invisible.
 
+**Each card offers "O parametru", and it leaves the app.** The header shows a
+name and a unit, and for most readers that is the whole explanation they will
+get. The link goes to the parameter's article on Lab Tests Online CZ — the
+patient-education site run and guaranteed by the Czech Society of Clinical
+Biochemistry — rather than to a paragraph of our own, because explaining a
+test to a patient wants a medical guarantor, and their terms allow linking but
+not copying. The map from parameter to article is curated by hand in
+`packages/lab-core/src/learnMore.ts`; a parameter without a clearly matching
+article gets no link at all rather than a search page. It is a text link, not
+a button: on that line it would compete with the range chip and the ✕.
+`npm run check:links` proves every article still answers.
+
 ## The hover readout is on the chart, not under it
 
 Pointing at a measurement shows a small box with the draw date, the value with
