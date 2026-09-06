@@ -214,10 +214,18 @@ Its check reads the PDF text layer. It cannot catch an identifier that exists
 only as pixels — a stamp, a signature, a handwritten note. **Look at
 `web/public/demo/pages/` before deploying.**
 
-The portal's AI share page (`/ai/<token>.md`, the Sdílet s AI tab) carries
-values, units, ranges and draw dates only — never a page image, never an
-identity, never a report id; `packages/lab-core/tests/aiShare.test.ts` and
-`workers/portal/tests/aiShare.test.ts` pin the absences.
+The portal's AI share page (`/ai/<token>`, the Sdílet s AI tab) carries
+values, units, ranges and draw dates, and — only if the person filled it in —
+the context they wrote about themselves (sex, an age band, height, weight,
+activity, medicines, diagnoses, smoking, alcohol, a note); never a page
+image, never a report id, and never an identity the app adds — no e-mail,
+no name from a report, no file name. The four free-text fields are the
+person's own words, sent as typed, and capped. `packages/lab-core/tests/aiShare.test.ts`,
+`packages/lab-core/tests/aiContext.test.ts` and
+`workers/portal/tests/aiShare.test.ts` pin the absences. The page is HTML
+with the text in a `<pre>` — ChatGPT's browser refuses a `text/markdown`
+file — and a fetcher whose `Accept` asks for text gets the stored text byte
+for byte.
 
 ## A security review found one real defect
 

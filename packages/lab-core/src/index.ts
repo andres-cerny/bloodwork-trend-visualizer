@@ -35,5 +35,6 @@ export * from "./correction";
 export * from "./chartSpec";
 export * from "./pdf/rows";
 export * from "./chatContext";
+export * from "./aiContext";
 export * from "./aiShare";
 export * from "./watch";

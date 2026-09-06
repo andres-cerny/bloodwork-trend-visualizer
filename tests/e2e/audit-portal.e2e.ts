@@ -119,6 +119,26 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // The context card, saved: the form fills, Uložit collapses it to the
+    // summary line. The fake API acknowledges the PUT and keeps nothing.
+    name: "sdílet s AI (kontext uložený)",
+    go: async (page) => {
+      await tab(page, "Sdílet s AI").click();
+      await page.getByRole("button", { name: "Muž" }).click();
+      await page.getByLabel("Věk").selectOption("30-34");
+      await page.getByLabel("Zajímá mě").selectOption("both");
+      await page.getByLabel("Výška").fill("178");
+      await page.getByLabel("Váha").fill("76");
+      await page.getByLabel("Pohyb").fill("Silniční kolo 6–8 h týdně, 2× posilovna");
+      await page.getByRole("button", { name: "Kreatin" }).click();
+      await page.getByRole("button", { name: "Vitamin D" }).click();
+      await page.getByLabel("Alkohol").selectOption("sometimes");
+      await page.getByRole("button", { name: "Uložit a přidat k odkazu" }).click();
+      await page.waitForSelector(".ctx-summary", { timeout: 10_000 });
+      await page.waitForTimeout(300);
+    },
+  },
+  {
     // The one screen with a page image and boxes over it. The upload stops
     // here for the reader's look, so the audit can reach it without the
     // extractor: the file is read in the browser, nothing is sent.

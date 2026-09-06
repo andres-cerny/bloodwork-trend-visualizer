@@ -24,6 +24,8 @@ function fakeD1(t: Tables): D1Database {
     switch (sql) {
       case SQL.userById:
         return { results: t.users.filter((u) => u.id === a[0]), changes: 0 };
+      case SQL.settingsForUser:
+        return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ settings: u.settings })), changes: 0 };
       case SQL.reportsForUser:
         return { results: t.reports.filter((r) => r.user_id === a[0]).map((r) => ({ id: r.id, payload: r.payload })), changes: 0 };
       case SQL.pageKeysForUser: {
@@ -160,10 +162,18 @@ describe("export", () => {
     const res = await call(A, "GET", "/api/export");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="moje-krev-\d{4}-\d{2}-\d{2}\.json"/);
-    const body = (await res.json()) as { email: string; reports: Array<{ id: string; patientName: unknown }> };
+    const body = (await res.json()) as { email: string; aiContext: unknown; reports: Array<{ id: string; patientName: unknown }> };
     expect(body.email).toBe("a@example.com");
     expect(body.reports.map((r) => r.id)).toEqual(["r-1", "r-2"]);
     expect(body.reports.every((r) => r.patientName === null)).toBe(true);
+    expect(body.aiContext).toBeNull();
+  });
+
+  it("carries the AI context when the person wrote one — the export is everything", async () => {
+    tables.users[0].settings = JSON.stringify({ learned: { glukoza: ["S_Glukóza"] }, aiContext: { sex: "m", ageBand: "30-34", note: "po závodě" } });
+    const body = (await (await call(A, "GET", "/api/export")).json()) as { aiContext: unknown; learned?: unknown };
+    expect(body.aiContext).toEqual({ sex: "m", ageBand: "30-34", note: "po závodě" });
+    expect(body.learned).toBeUndefined();
   });
 
   it("flattens to one printed row per CSV line, with a BOM for Excel", async () => {

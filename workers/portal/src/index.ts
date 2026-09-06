@@ -16,11 +16,13 @@
  * fields, to make sure they are empty: identity is redacted in the browser,
  * and a client that forgot is corrected here rather than trusted.
  *
- * One page is public: /ai/<token>.md, the text a person's own AI assistant
+ * One page is public: /ai/<token>, the text a person's own AI assistant
  * fetches when they paste their share link. It sits above the login gate,
  * answers by the token's hash alone, and says the same 404 for a token that
  * is expired, revoked, unknown or malformed — the page must not be a way to
- * learn which tokens ever existed.
+ * learn which tokens ever existed. It is HTML by default, because ChatGPT's
+ * browser opens HTML and refuses "a Markdown file"; a fetcher that asks for
+ * text/markdown gets the stored text byte for byte.
  */
 import { mintSession } from "@bw/gate";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type UserRow } from "./db";
@@ -494,13 +496,18 @@ async function putSettings(request: Request, env: Env, user: UserRow): Promise<R
 
 /**
  * Everything the account holds, as one file the person can keep. JSON is the
- * stored payloads exactly; CSV is one printed row per line for a spreadsheet.
+ * stored payloads exactly, plus the AI context if they wrote one; CSV is one
+ * printed row per line for a spreadsheet.
  * Their data is theirs — and a reader of the export can also see for
  * themselves that no name and no number is in it.
  */
 async function exportAccount(env: Env, user: UserRow, format: string): Promise<Response> {
   const { results } = await env.DB.prepare(SQL.reportsForUser).bind(user.id).all<ReportRow>();
   const reports = results.map((r) => JSON.parse(r.payload) as Record<string, any>);
+  // The AI context is the person's own words about themselves; what they
+  // wrote, they can take with them.
+  const settingsRow = await env.DB.prepare(SQL.settingsForUser).bind(user.id).first<{ settings: string | null }>();
+  const aiContext = settingsRow?.settings ? ((JSON.parse(settingsRow.settings) as { aiContext?: unknown }).aiContext ?? null) : null;
   const stamp = new Date().toISOString().slice(0, 10);
   if (format === "csv") {
     const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
@@ -521,7 +528,7 @@ async function exportAccount(env: Env, user: UserRow, format: string): Promise<R
       },
     });
   }
-  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), email: user.email, reports }, null, 1), {
+  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), email: user.email, aiContext, reports }, null, 1), {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "content-disposition": `attachment; filename="moje-krev-${stamp}.json"`,
@@ -560,8 +567,52 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
 const SHARE_TTL_SECONDS = 24 * 3600;
 /** A thirty-report account is well under 100 KB; the cap is against abuse. */
 const MAX_SHARE_BYTES = 512 * 1024;
-/** newLoginToken is 32 random bytes as base64url: 43 characters, exactly. */
-const SHARE_PAGE = /^\/ai\/([A-Za-z0-9_-]{43})\.md$/;
+/**
+ * newLoginToken is 32 random bytes as base64url: 43 characters, exactly.
+ * The `.md` suffix is the shape links had until 2026-09-06; a link minted
+ * before that deploy lives at most 24 hours, so the suffix can go from this
+ * pattern once that day has passed.
+ */
+const SHARE_PAGE = /^\/ai\/([A-Za-z0-9_-]{43})(?:\.md)?$/;
+
+const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * Whether the fetcher asked for the text rather than a page: text/markdown
+ * or text/plain named ahead of text/html in Accept. No header, `*\/*`, or a
+ * browser's HTML-first list all get the page.
+ */
+function wantsText(accept: string | null): boolean {
+  if (!accept) return false;
+  const a = accept.toLowerCase();
+  const at = (type: string) => {
+    const i = a.indexOf(type);
+    return i < 0 ? Number.POSITIVE_INFINITY : i;
+  };
+  return Math.min(at("text/markdown"), at("text/plain")) < at("text/html");
+}
+
+/**
+ * The page around the text: a heading for a human who opens the link, the
+ * snapshot in one <pre>, escaped — lab text carries values like "<0,5",
+ * which would otherwise swallow the rest of the line as a tag. No script,
+ * no stylesheet, nothing fetched.
+ */
+const sharePageHtml = (snapshot: string) =>
+  `<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moje krev — výsledky pro AI</title>
+</head>
+<body>
+<h1>Moje krev — výsledky pro AI</h1>
+<pre style="white-space:pre-wrap">${escapeHtml(snapshot)}</pre>
+</body>
+</html>
+`;
 
 const sharePageNotFound = () =>
   new Response("Not found\n", {
@@ -574,16 +625,18 @@ const sharePageNotFound = () =>
  * page is the same 404 — one body, one status, one set of headers — so an
  * attacker probing tokens learns nothing from the shape of the refusal.
  */
-async function serveSharePage(env: Env, pathname: string): Promise<Response> {
+async function serveSharePage(env: Env, pathname: string, accept: string | null): Promise<Response> {
   const m = SHARE_PAGE.exec(pathname);
   if (!m) return sharePageNotFound();
   const row = await env.DB.prepare(SQL.shareByHash).bind(await sha256Hex(m[1])).first<AiShareRow>();
   if (!row || row.revoked_at !== null || row.expires_at <= now()) return sharePageNotFound();
-  return new Response(row.snapshot, {
+  const text = wantsText(accept);
+  return new Response(text ? row.snapshot : sharePageHtml(row.snapshot), {
     headers: {
-      "content-type": "text/markdown; charset=utf-8",
+      "content-type": text ? "text/markdown; charset=utf-8" : "text/html; charset=utf-8",
       "cache-control": "no-store",
       "x-robots-tag": "noindex",
+      vary: "accept",
     },
   });
 }
@@ -594,6 +647,19 @@ async function serveSharePage(env: Env, pathname: string): Promise<Response> {
  * from their own payloads; this worker stores it and never reads it.
  */
 async function createShare(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const text = await shareText(request);
+  if (text instanceof Response) return text;
+
+  const t = now();
+  await env.DB.prepare(SQL.revokeSharesForUser).bind(user.id, t).run();
+  const token = newLoginToken();
+  const expiresAt = t + SHARE_TTL_SECONDS;
+  await env.DB.prepare(SQL.insertShare).bind(await sha256Hex(token), user.id, text, t, expiresAt).run();
+  return json({ url: `${new URL(request.url).origin}/ai/${token}`, expiresAt: new Date(expiresAt * 1000).toISOString() });
+}
+
+/** The text a share request carries, or the refusal to send back. */
+async function shareText(request: Request): Promise<string | Response> {
   const raw = await request.text();
   if (raw.length > MAX_SHARE_BYTES) return json({ error: "too_large", message: "Text je příliš dlouhý." }, 413);
   let text: unknown;
@@ -603,13 +669,21 @@ async function createShare(request: Request, env: Env, user: UserRow): Promise<R
     return json({ error: "bad_request", message: "Neplatný požadavek." }, 400);
   }
   if (typeof text !== "string" || !text.trim()) return json({ error: "bad_request", message: "Není co sdílet." }, 400);
+  return text;
+}
 
-  const t = now();
-  await env.DB.prepare(SQL.revokeSharesForUser).bind(user.id, t).run();
-  const token = newLoginToken();
-  const expiresAt = t + SHARE_TTL_SECONDS;
-  await env.DB.prepare(SQL.insertShare).bind(await sha256Hex(token), user.id, text, t, expiresAt).run();
-  return json({ url: `${new URL(request.url).origin}/ai/${token}.md`, expiresAt: new Date(expiresAt * 1000).toISOString() });
+/**
+ * Replace the live link's text without minting: the person saved something
+ * that belongs on the page — their AI context — and the URL they may have
+ * pasted already should serve the newer text. No live link: 404, and the
+ * client mints instead if it wants to.
+ */
+async function updateShare(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const text = await shareText(request);
+  if (text instanceof Response) return text;
+  const { meta } = await env.DB.prepare(SQL.updateLiveShare).bind(user.id, text, now()).run();
+  if (!meta.changes) return json({ error: "not_found", message: "Žádný platný odkaz." }, 404);
+  return json({ ok: true });
 }
 
 async function getShare(env: Env, user: UserRow): Promise<Response> {
@@ -636,7 +710,7 @@ export default {
     // The one public page, above the gate: a share link works without a
     // login, which is the whole point of it.
     if (url.pathname.startsWith("/ai/")) {
-      return request.method === "GET" || request.method === "HEAD" ? serveSharePage(env, url.pathname) : sharePageNotFound();
+      return request.method === "GET" || request.method === "HEAD" ? serveSharePage(env, url.pathname, request.headers.get("accept")) : sharePageNotFound();
     }
 
     switch (route) {
@@ -677,6 +751,8 @@ export default {
         return createShare(request, env, user);
       case "GET /api/ai-share":
         return getShare(env, user);
+      case "PUT /api/ai-share":
+        return updateShare(request, env, user);
       case "DELETE /api/ai-share":
         return revokeShare(env, user);
     }

@@ -13,6 +13,7 @@
  * never carries: a name, an e-mail, a report id, a page image. A test pins
  * the absences.
  */
+import { aiContextBlock, goalSentence, normalizeAiContext, type AiContext } from "./aiContext";
 import { contextTable } from "./chatContext";
 import type { LabReport } from "./models";
 import type { Trend, TrendPoint } from "./trends";
@@ -34,6 +35,13 @@ Formát dat: jeden řádek na analyt. Sloupce: analyt | jednotka | referenční 
 const shareStatus = (p: TrendPoint): string | null =>
   p.flag === "high" ? "H" : p.flag === "low" ? "L" : p.flag === "normal" ? "norm" : null;
 
-export function buildAiShare(reports: LabReport[], trends: Map<string, Trend>): string {
-  return `${AI_SHARE_HEADER}\n\n${contextTable(reports, trends, shareStatus)}\n`;
+/** The header, with the goal's line added to "Jak se mnou pracuj" when there is one. */
+export function aiShareHeader(context?: AiContext | null): string {
+  const goal = goalSentence(normalizeAiContext(context).goal);
+  return goal ? AI_SHARE_HEADER.replace("\n\nFormát dat:", `\n${goal}\n\nFormát dat:`) : AI_SHARE_HEADER;
+}
+
+export function buildAiShare(reports: LabReport[], trends: Map<string, Trend>, context?: AiContext | null): string {
+  const about = aiContextBlock(context);
+  return `${aiShareHeader(context)}\n\n${about ? `${about}\n\n` : ""}${contextTable(reports, trends, shareStatus)}\n`;
 }

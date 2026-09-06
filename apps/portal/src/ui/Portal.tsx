@@ -13,8 +13,9 @@
  * On a phone the tab strip is a bottom bar; on a desktop it stays at the top.
  * Same buttons, same `hidden` panels — CSS decides where the strip sits.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type AiContext,
   type AnalyteDef,
   type LabReport,
   type Measurement,
@@ -26,6 +27,7 @@ import {
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
 import { type Budget, type Settings, deleteAccount, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
+import { mergeSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
 import ShareTab from "./ShareTab";
 import SummaryTab from "./SummaryTab";
@@ -65,6 +67,13 @@ export default function Portal({ email, onLogout }: Props) {
   const [reports, setReports] = useState<LabReport[]>([]);
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [learned, setLearned] = useState<Record<string, string[]>>({});
+  // The whole settings blob, because PUT /api/settings replaces it: a save
+  // of one field must carry the others (lib/settings.ts).
+  const settingsRef = useRef<Settings>({});
+  // Writes go out one after another: two quick saves whose PUTs crossed
+  // would leave the server with whichever landed last, not the newest.
+  const settingsQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [tab, setTab] = useState<TabId>("summary");
   const [budget, setBudget] = useState<Budget | null>(null);
   const [maxPages, setMaxPages] = useState(30);
@@ -86,10 +95,12 @@ export default function Portal({ email, onLogout }: Props) {
           getStatus(),
         ]);
         const reg = new Registry(defs);
-        const l = (settings as Settings).learned ?? {};
+        settingsRef.current = settings as Settings;
+        const l = settingsRef.current.learned ?? {};
         for (const [cid, names] of Object.entries(l)) for (const n of names) reg.addSynonym(cid, n);
         setRegistry(reg);
         setLearned(l);
+        setAiContext(settingsRef.current.aiContext ?? null);
         setReports(rs);
         setBudget(status.budget);
         setMaxPages(status.maxPages);
@@ -165,10 +176,31 @@ export default function Portal({ email, onLogout }: Props) {
     [persist],
   );
 
-  const saveLearned = useCallback((next: Record<string, string[]>) => {
-    setLearned(next);
-    putSettings({ learned: next }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
+  /** Every settings write: merge into what the account holds, then PUT the whole. */
+  const saveSettings = useCallback((patch: Partial<Settings>) => {
+    settingsRef.current = mergeSettings(settingsRef.current, patch);
+    const whole = settingsRef.current;
+    const p = settingsQueue.current.then(() => putSettings(whole));
+    settingsQueue.current = p.catch(() => undefined);
+    return p;
   }, []);
+
+  const saveLearned = useCallback(
+    (next: Record<string, string[]>) => {
+      setLearned(next);
+      saveSettings({ learned: next }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
+    },
+    [saveSettings],
+  );
+
+  const saveAiContext = useCallback(
+    async (next: AiContext) => {
+      const value = Object.keys(next).length ? next : undefined;
+      await saveSettings({ aiContext: value });
+      setAiContext(value ?? null);
+    },
+    [saveSettings],
+  );
 
   const acceptMapping = useCallback(
     (rawName: string, canonicalId: string) => {
@@ -388,7 +420,7 @@ export default function Portal({ email, onLogout }: Props) {
               <MappingTab reports={reports} registry={registry} onMap={acceptMapping} onUndoMap={undoMapping} onShowSource={showSource} />
             </Panel>
             <Panel id="share" active={tab}>
-              <ShareTab reports={reports} trends={trends} />
+              <ShareTab reports={reports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />
             </Panel>
             <Panel id="reports" active={tab}>
               {uploadCard}

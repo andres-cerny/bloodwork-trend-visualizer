@@ -61,6 +61,9 @@ export const SQL = {
   liveShareForUser:
     "SELECT expires_at FROM ai_shares WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?2 ORDER BY created_at DESC LIMIT 1",
   revokeSharesForUser: "UPDATE ai_shares SET revoked_at = ?2 WHERE user_id = ?1 AND revoked_at IS NULL",
+  // The live link's text replaced in place: the URL the person may already
+  // have pasted somewhere keeps working, now with the newer text.
+  updateLiveShare: "UPDATE ai_shares SET snapshot = ?2 WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?3",
 
   // Account deletion, in the order the foreign keys allow. Everything an
   // account owns is reachable from these, plus the failure counter keyed by

@@ -2,7 +2,7 @@
  * Talking to the portal worker. Cookie-authenticated, so there is no token
  * to hold; the one thing worth knowing here is which errors end an upload.
  */
-import type { LabReport } from "@bw/lab-core";
+import type { AiContext, LabReport } from "@bw/lab-core";
 
 export interface Budget {
   spentUsd: number;
@@ -15,6 +15,8 @@ export interface Budget {
 export interface Settings {
   /** canonicalId → raw names the reader mapped to it, in acceptance order. */
   learned?: Record<string, string[]>;
+  /** What the person told their AI assistant about themselves, once. */
+  aiContext?: AiContext;
 }
 
 export class ApiError extends Error {
@@ -150,5 +152,7 @@ export interface AiShare {
   expiresAt: string;
 }
 export const createAiShare = (text: string) => request<AiShare>("/api/ai-share", jsonInit("POST", { text }));
+/** Replace the live link's text in place — the URL the person may already have pasted stays. */
+export const updateAiShare = (text: string) => request<{ ok: true }>("/api/ai-share", jsonInit("PUT", { text }));
 export const getAiShare = () => request<{ expiresAt: string } | null>("/api/ai-share");
 export const revokeAiShare = () => request<{ ok: true }>("/api/ai-share", { method: "DELETE" });

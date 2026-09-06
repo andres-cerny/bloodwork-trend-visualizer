@@ -54,6 +54,11 @@ function fakeD1(t: Tables): D1Database {
             .map((s) => ({ expires_at: s.expires_at })),
           changes: 0,
         };
+      case SQL.updateLiveShare: {
+        let n = 0;
+        for (const s of t.shares) if (s.user_id === a[0] && s.revoked_at === null && s.expires_at > (a[2] as number)) (s.snapshot = a[1] as string), n++;
+        return { results: [], changes: n };
+      }
       case SQL.revokeSharesForUser: {
         let n = 0;
         for (const s of t.shares) if (s.user_id === a[0] && s.revoked_at === null) (s.revoked_at = a[1] as number), n++;
@@ -115,8 +120,10 @@ const api = async (user: { id: string } | null, method: string, path: string, bo
     env,
   );
 const mint = async (user: { id: string } = A, text = TEXT) => (await (await api(user, "POST", "/api/ai-share", { text })).json()) as { url: string; expiresAt: string };
-const page = (url: string) => worker.fetch(new Request(url), env);
-const tokenOf = (url: string) => /\/ai\/([^/]+)\.md$/.exec(url)![1];
+const page = (url: string, accept?: string) => worker.fetch(new Request(url, accept ? { headers: { accept } } : undefined), env);
+const tokenOf = (url: string) => /\/ai\/([^/.]+)$/.exec(url)![1];
+/** The text inside the page's <pre>, entities and all. */
+const preOf = (html: string) => /<pre[^>]*>([\s\S]*?)<\/pre>/.exec(html)![1];
 
 beforeEach(() => {
   tables = { users: [{ ...A }, { ...B }], shares: [], reports: [], pages: [], invites: [] };
@@ -134,7 +141,7 @@ describe("minting", () => {
     const { url, expiresAt } = await mint();
     const token = tokenOf(url);
     expect(token).toHaveLength(43);
-    expect(url).toBe(`https://portal/ai/${token}.md`);
+    expect(url).toBe(`https://portal/ai/${token}`);
     expect(tables.shares).toHaveLength(1);
     expect(tables.shares[0].token_hash).toBe(await sha256Hex(token));
     expect(tables.shares[0].token_hash).not.toContain(token);
@@ -162,6 +169,31 @@ describe("minting", () => {
     expect(live.expiresAt).toBe(second.expiresAt);
   });
 
+  it("replaces the live link's text in place, under the same URL", async () => {
+    const { url, expiresAt } = await mint();
+    const res = await api(A, "PUT", "/api/ai-share", { text: TEXT + "O mně:\n- Věk: 30–34 let\n" });
+    expect(res.status).toBe(200);
+    expect(await (await page(url, "text/markdown")).text()).toBe(TEXT + "O mně:\n- Věk: 30–34 let\n");
+    expect(tables.shares).toHaveLength(1);
+    expect(await (await api(A, "GET", "/api/ai-share")).json()).toEqual({ expiresAt });
+    // Someone else's PUT does not reach it.
+    expect((await api(B, "PUT", "/api/ai-share", { text: "theirs" })).status).toBe(404);
+    expect(await (await page(url, "text/markdown")).text()).not.toBe("theirs");
+  });
+
+  it("refuses to update when there is no live link, and refuses the same bad texts as a mint", async () => {
+    expect((await api(A, "PUT", "/api/ai-share", { text: TEXT })).status).toBe(404);
+    const { url } = await mint();
+    tables.shares[0].expires_at = Math.floor(Date.now() / 1000) - 1;
+    expect((await api(A, "PUT", "/api/ai-share", { text: TEXT })).status).toBe(404);
+    expect((await page(url)).status).toBe(404);
+    await mint();
+    expect((await api(A, "PUT", "/api/ai-share", { text: "  " })).status).toBe(400);
+    expect((await api(A, "PUT", "/api/ai-share", "not json")).status).toBe(400);
+    expect((await api(A, "PUT", "/api/ai-share", { text: "x".repeat(600 * 1024) })).status).toBe(413);
+    expect((await api(null, "PUT", "/api/ai-share", { text: TEXT })).status).toBe(401);
+  });
+
   it("reports the live link's expiry, or null", async () => {
     expect(await (await api(A, "GET", "/api/ai-share")).json()).toBeNull();
     const { expiresAt } = await mint();
@@ -172,14 +204,52 @@ describe("minting", () => {
 });
 
 describe("the public page", () => {
-  it("answers a live token with the stored text, uncached and unindexed, without a login", async () => {
+  it("answers a live token with a page holding the stored text, uncached and unindexed, without a login", async () => {
     const { url } = await mint();
     const res = await page(url);
     expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
-    expect(await res.text()).toBe(TEXT);
+    const html = await res.text();
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(html).toContain('<html lang="cs">');
+    expect(preOf(html)).toBe(TEXT);
+    // Nothing of the text outside the <pre>, and nothing fetched from anywhere.
+    expect(html.replace(preOf(html), "")).not.toContain("glukoza");
+    expect(html).not.toMatch(/<script|<link|src=|url\(/);
+  });
+
+  it("hands the stored text byte for byte to a fetcher that asks for text", async () => {
+    const { url } = await mint();
+    for (const accept of ["text/markdown", "text/plain", "text/markdown, text/html;q=0.9", "text/plain;q=0.9, */*;q=0.1"]) {
+      const res = await page(url, accept);
+      expect(res.status, accept).toBe(200);
+      expect(res.headers.get("content-type"), accept).toBe("text/markdown; charset=utf-8");
+      expect(res.headers.get("vary"), accept).toBe("accept");
+      expect(await res.text(), accept).toBe(TEXT);
+    }
+    // A browser's list names HTML first; a wildcard names nothing.
+    for (const accept of ["text/html,application/xhtml+xml,*/*;q=0.8", "*/*", "text/html, text/plain;q=0.5"]) {
+      expect((await page(url, accept)).headers.get("content-type"), accept).toBe("text/html; charset=utf-8");
+    }
+  });
+
+  it("escapes the text in the page, so a value like <0,5 survives", async () => {
+    const hostile = "crp | mg/l | <0,5 & >10 | 2025-08-13: <0,5\n<script>alert(1)</script>\n";
+    const { url } = await mint(A, hostile);
+    const html = await (await page(url)).text();
+    expect(html).not.toContain("<script>");
+    expect(preOf(html)).toBe("crp | mg/l | &lt;0,5 &amp; &gt;10 | 2025-08-13: &lt;0,5\n&lt;script&gt;alert(1)&lt;/script&gt;\n");
+    expect(await (await page(url, "text/markdown")).text()).toBe(hostile);
+  });
+
+  it("still serves the .md shape of a live link, for links minted before the page became HTML", async () => {
+    const { url } = await mint();
+    const res = await page(`${url}.md`);
+    expect(res.status).toBe(200);
+    expect(preOf(await res.text())).toBe(TEXT);
+    expect(await (await page(`${url}.md`, "text/markdown")).text()).toBe(TEXT);
   });
 
   it("carries neither the e-mail nor any word from the users table", async () => {
@@ -200,21 +270,24 @@ describe("the public page", () => {
     const refusals: Response[] = [];
 
     // Unknown: a well-formed token nobody minted.
-    refusals.push(await page(`https://portal/ai/${"A".repeat(43)}.md`));
-    // Malformed: wrong length, wrong alphabet, no extension, empty.
-    refusals.push(await page(`https://portal/ai/${token.slice(1)}.md`));
-    refusals.push(await page(`https://portal/ai/${token}x.md`));
-    refusals.push(await page(`https://portal/ai/${token.slice(0, 42)}$.md`));
-    refusals.push(await page(`https://portal/ai/${token}`));
+    refusals.push(await page(`https://portal/ai/${"A".repeat(43)}`));
+    // Malformed: wrong length, wrong alphabet, another extension, empty.
+    refusals.push(await page(`https://portal/ai/${token.slice(1)}`));
+    refusals.push(await page(`https://portal/ai/${token}x`));
+    refusals.push(await page(`https://portal/ai/${token.slice(0, 42)}$`));
+    refusals.push(await page(`https://portal/ai/${token}.txt`));
+    refusals.push(await page(`https://portal/ai/${token}.md.md`));
     refusals.push(await page(`https://portal/ai/`));
-    refusals.push(await page(`https://portal/ai/${token}.md/extra`));
-    // Revoked.
+    refusals.push(await page(`https://portal/ai/${token}/extra`));
+    // Revoked, on both paths.
     await api(A, "DELETE", "/api/ai-share");
     refusals.push(await page(url));
+    refusals.push(await page(url, "text/markdown"));
     // Expired: the row's clock, not the test's.
     const { url: url2 } = await mint();
     tables.shares.find((s) => s.revoked_at === null)!.expires_at = Math.floor(Date.now() / 1000) - 1;
     refusals.push(await page(url2));
+    refusals.push(await page(url2, "text/markdown"));
     // Not a GET.
     refusals.push(await worker.fetch(new Request(url2, { method: "POST" }), env));
 
