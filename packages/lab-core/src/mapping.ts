@@ -13,7 +13,7 @@
  */
 import type { LabReport, Measurement } from "./models";
 import { normKey, type Registry } from "./registry";
-import { materialPrefix } from "./normalize";
+import { materialPrefix, materialsCompatible } from "./normalize";
 import { prettyUnit } from "./czech";
 import { printedMaterial } from "./pdf/rows";
 
@@ -124,19 +124,6 @@ export interface Candidate {
   observed: Observed | null;
   /** Populated when valueOk is false, so the UI can show the two ranges. */
   incomingRange: [number, number] | null;
-}
-
-/**
- * Mapping a urine result onto a serum analyte is a different test, not a
- * synonym, however similar the names look. The prefix rule itself is
- * `materialPrefix` in normalize.ts (mirrored in normalize.py); this is the
- * comparison. A lab that prints `S,P-` measured serum or plasma and does not
- * say which, so that code is compatible with either — split on the comma and
- * ask whether the two share a material.
- */
-export function materialsCompatible(a: string, b: string): boolean {
-  const bs = b.split(",");
-  return a.split(",").some((x) => bs.includes(x));
 }
 
 export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {

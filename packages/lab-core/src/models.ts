@@ -97,6 +97,14 @@ export interface AnalyteDef {
    * scripts/reference_ranges.json.
    */
   referenceRange?: [number, number] | null;
+  /**
+   * The material this analyte is measured in — `s`, `b`, `u`, or `s,p` when
+   * two are known — read off the prefixes of its synonyms (`S_Glukóza` → s).
+   * Set by the Registry, not authored: recomputed whenever a synonym is
+   * learned or withdrawn. Null when no synonym carries a known code, which
+   * `Registry.match` treats as compatible with anything.
+   */
+  material?: string | null;
 }
 
 /** A measurement with only the raw fields filled — what an extractor returns. */

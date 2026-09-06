@@ -78,3 +78,40 @@ describe("reconcile", () => {
     expect(m.flag).toBe("unknown");
   });
 });
+
+// A page can print the same name twice — Glukóza under Sérum and again under
+// Moč (mixed_material.pdf). Keyed on the name alone, the two rows collapsed
+// into one measurement carrying a false "two readings differ" flag, and the
+// urine row was gone before the material check could refuse it. When one read
+// returns a name more than once, the rows are told apart by their row index.
+//
+// Guard seen failing 2026-09-06: both tests got one row, with the disagreement
+// "dvě nezávislá čtení se liší: 5,4 / 0,3".
+describe("the same name printed twice on one page", () => {
+  const at = (name: string, value: string, index: number, ref: string) => ({ ...row(name, value, "mmol/l", ref), row_index: index });
+
+  it("keeps two rows a single read returned under one name apart", () => {
+    const rows = reconcile([sonnet([at("Glukóza", "5,4", 1, "3,9 - 5,6"), at("Glukóza", "0,3", 4, "0 - 0,8")])]);
+    expect(rows.map((r) => [r.rowIndex, r.valueRaw, r.disagreement])).toEqual([
+      [1, "5,4", null],
+      [4, "0,3", null],
+    ]);
+  });
+
+  it("pairs the two reads row by row, whatever order they came in", () => {
+    const rows = reconcile([
+      sonnet([at("Glukóza", "5,4", 1, "3,9 - 5,6"), at("Glukóza", "0,3", 4, "0 - 0,8")]),
+      opus([at("Glukóza", "0,3", 4, "0 - 0,8"), at("Glukóza", "5,4", 1, "3,9 - 5,6")]),
+    ]);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.disagreement === null)).toBe(true);
+  });
+
+  it("does not split a name that appears once per read over a differing index", () => {
+    // Two readers numbering the same row differently is the case
+    // repairRowIndex exists for; a unique name must not become two rows.
+    const rows = reconcile([sonnet([at("S_Glukóza", "5,32", 3, "(4,11-5,60)")]), opus([at("Glukóza", "5,32", 4, "(4,11-5,60)")])]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].disagreement).toBeNull();
+  });
+});

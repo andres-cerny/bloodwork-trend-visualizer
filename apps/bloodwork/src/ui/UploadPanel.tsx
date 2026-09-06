@@ -266,7 +266,9 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
           sourcePage: p,
           confidence,
           disagreement,
-          canonicalId: registry.match(m.rawAnalyteName),
+          // By name and by material: a bare "Glukóza" under a Moč heading is
+          // refused the serum glukoza and lands in the mapping tab instead.
+          canonicalId: registry.matchRow(m.rawAnalyteName, assets.rows, m.rowIndex),
           bbox: rowBoxAt(m.rowIndex, assets.rows) ?? rowBoxFor(m.rawAnalyteName, assets.rows)
         });
       }

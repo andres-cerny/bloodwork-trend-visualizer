@@ -105,6 +105,36 @@ export function materialPrefix(rawName: string | null | undefined): string | nul
   return matchMaterialPrefix((rawName || "").trim())?.code ?? null;
 }
 
+/**
+ * Mapping a urine result onto a serum analyte is a different test, not a
+ * synonym, however similar the names look. `materialPrefix` reads the code;
+ * this is the comparison, shared by the mapping suggester and the registry's
+ * automatic match. A lab that prints `S,P-` measured serum or plasma and did
+ * not say which, so that code is compatible with either — split on the comma
+ * and ask whether the two share a material.
+ */
+export function materialsCompatible(a: string, b: string): boolean {
+  const bs = b.split(",");
+  return a.split(",").some((x) => bs.includes(x));
+}
+
+/**
+ * Blood compartments a lab reports the same analyte from. Serum, plasma and
+ * whole blood are one family for the *automatic* match: a lab that prints
+ * P_Glukóza is measuring the glucose the registry's S_Glukóza means, and
+ * refusing it would send every plasma-reporting lab to the mapping tab.
+ * Urine and the rest are not blood, and that is the line the match holds.
+ * The mapping suggester keeps the stricter materialsCompatible so its
+ * "plazma vs sérum" line still shows.
+ */
+const BLOOD = new Set(["s", "p", "b", "pk", "pe", "sp", "fw", "k"]);
+export function compartmentCompatible(a: string, b: string): boolean {
+  if (materialsCompatible(a, b)) return true;
+  const fam = (m: string) => m.split(",").map((x) => (BLOOD.has(x) ? "blood" : x));
+  const bf = fam(b);
+  return fam(a).some((x) => bf.includes(x));
+}
+
 /** The name with its material prefix removed; unchanged when there is none. */
 export function stripMaterialPrefix(name: string): string {
   const m = matchMaterialPrefix(name);

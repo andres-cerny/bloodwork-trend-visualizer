@@ -22,6 +22,9 @@ import { describe, expect, it } from "vitest";
 import {
   type Box,
   buildRows,
+  candidateRows,
+  reconcile,
+  Registry,
   rowsAsText,
   type TextRow,
   canonicalizeUnit,
@@ -487,6 +490,41 @@ describe("the same analyte under Sérum and under Moč", () => {
     expect(printedMaterial(rows, rows.indexOf(urine))).toEqual({ code: "u", source: "heading" });
     const [, urineKrea] = rowsNamed(rows, "Kreatinin");
     expect(sectionMaterial(rows, rows.indexOf(urineKrea))).toBe("u");
+  });
+
+  // B7. The text path, replayed without the model: the reader returns every
+  // candidate row by index, reconcile turns them into measurements and the
+  // registry resolves each against its row. One serum Glukóza mapped, one
+  // urine Glukóza left for the mapping tab — never two serum rows.
+  //
+  // Guard seen failing 2026-09-06: name-only matching gave ["glukoza",
+  // "glukoza"], and before reconcile learned row indices the two rows had
+  // already collapsed into one.
+  it("interpreted end to end, maps the serum Glukóza and leaves the urine one unmapped", async () => {
+    const rows = buildRows(await pageWords("mixed_material.pdf"));
+    const registry = new Registry([
+      { canonicalId: "glukoza", displayNameCs: "Glukóza", synonyms: ["S_Glukóza", "Glukóza"], canonicalUnit: "mmol/l", unitConversions: {} },
+      { canonicalId: "kreatinin", displayNameCs: "Kreatinin", synonyms: ["S_Kreatinin"], canonicalUnit: "µmol/l", unitConversions: {} },
+    ]);
+    const read = {
+      model: "rows",
+      measurements: candidateRows(rows).map((c) => ({
+        raw_analyte_name: c.name,
+        value_raw: rows[c.index].cells[1],
+        unit_raw: rows[c.index].cells[2],
+        row_index: c.index,
+      })),
+    };
+    const measured = reconcile([read]).map((m) => ({
+      name: m.rawAnalyteName,
+      value: m.valueRaw,
+      canonicalId: registry.matchRow(m.rawAnalyteName, rows, m.rowIndex),
+    }));
+    expect(measured.filter((m) => m.name === "Glukóza")).toEqual([
+      { name: "Glukóza", value: "5,4", canonicalId: "glukoza" },
+      { name: "Glukóza", value: "0,3", canonicalId: null },
+    ]);
+    expect(measured.filter((m) => m.name === "Kreatinin").map((m) => m.canonicalId)).toEqual(["kreatinin", null]);
   });
 });
 
