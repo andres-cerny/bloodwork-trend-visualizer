@@ -13,6 +13,7 @@
  */
 import type { LabReport } from "./models";
 import { normKey, type Registry } from "./registry";
+import { materialPrefix } from "./normalize";
 import { prettyUnit } from "./czech";
 
 export interface Occurrence {
@@ -97,13 +98,16 @@ export interface Candidate {
 }
 
 /**
- * The material a Czech lab prints before the analyte name: S_ (sérum),
- * B_ (plná krev), P_ (plazma), U_ (moč). Mapping a urine result onto a serum
- * analyte is a different test, not a synonym, however similar the names look.
+ * Mapping a urine result onto a serum analyte is a different test, not a
+ * synonym, however similar the names look. The prefix rule itself is
+ * `materialPrefix` in normalize.ts (mirrored in normalize.py); this is the
+ * comparison. A lab that prints `S,P-` measured serum or plasma and does not
+ * say which, so that code is compatible with either — split on the comma and
+ * ask whether the two share a material.
  */
-export function materialPrefix(rawName: string): string | null {
-  const m = /^([a-zA-Z]{1,4})_/.exec((rawName || "").trim());
-  return m ? m[1].toLowerCase() : null;
+export function materialsCompatible(a: string, b: string): boolean {
+  const bs = b.split(",");
+  return a.split(",").some((x) => bs.includes(x));
 }
 
 export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
@@ -291,7 +295,7 @@ export function suggestMappings(
     const incomingMaterial = materialPrefix(analyte.rawName);
     let materialMatch: boolean | null = null;
     if (incomingMaterial && observed && observed.materials.length > 0) {
-      materialMatch = observed.materials.includes(incomingMaterial);
+      materialMatch = observed.materials.some((m) => materialsCompatible(m, incomingMaterial));
       score += materialMatch ? 0.05 : -0.4;
     }
 
@@ -396,6 +400,7 @@ function czMappingNum(x: number | null | undefined): string {
 
 const MATERIAL_CS: Record<string, string> = {
   s: "sérum", b: "plná krev", p: "plazma", u: "moč", pk: "plazma", fw: "krev",
+  du: "sbíraná moč", l: "likvor", "s,p": "sérum/plazma",
 };
 export const materialCs = (m: string): string => MATERIAL_CS[m] ?? m.toUpperCase();
 

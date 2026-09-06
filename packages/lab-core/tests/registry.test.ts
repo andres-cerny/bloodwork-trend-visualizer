@@ -24,6 +24,16 @@ describe("normKey", () => {
     // Material prefix and diacritics are stripped, so the variants agree.
     expect(r.match("Glukosa")).toBe("glukoza");
   });
+
+  // Guard seen failing: with a generic hyphen rule, "anti-TPO" resolved to a
+  // "TPO" analyte because "anti-" was stripped as a material (2026-09-06).
+  it("strips slash and hyphen material codes but never a name's own prefix", () => {
+    const r = new Registry([def("glukoza", "Glukóza"), def("tpo", "TPO")]);
+    expect(r.match("S/Glukóza")).toBe("glukoza");
+    expect(r.match("S-Glukóza")).toBe("glukoza");
+    expect(r.match("S,P-Glukóza")).toBe("glukoza");
+    expect(r.match("anti-TPO")).toBeNull();
+  });
 });
 
 describe("withdrawing a mapping", () => {

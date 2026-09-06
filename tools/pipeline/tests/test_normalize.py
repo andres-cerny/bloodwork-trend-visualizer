@@ -81,6 +81,18 @@ def test_value_strips_out_of_range_marker():
     assert parse_value("29,30 *") == 29.30
 
 
+# Guard seen failing: the arrow cases returned None before arrows joined "!"
+# and "*" as decoration (2026-09-06).
+def test_value_arrows_are_decoration_and_a_marker_alone_is_not_a_value():
+    assert parse_value("5,4 ↑") == 5.4
+    assert parse_value("5,4 ↓") == 5.4
+    assert parse_value("4,9000") == 4.9
+    assert parse_value("( * )") is None     # Hodnocení column, not a value
+    assert parse_value("H") is None
+    assert parse_value("negatívne") is None
+    assert parse_value("<1,0 negatívne") is None   # censored and qualitative
+
+
 # --- units ------------------------------------------------------------------
 def test_unit_micro_variants():
     assert canonicalize_unit("µmol/l") == canonicalize_unit("μmol/l")  # µ vs μ
@@ -127,6 +139,26 @@ def test_range_en_dash():
 def test_range_non_numeric():
     low, high, text = parse_range("negativní")
     assert low is None and high is None and text == "negativní"
+
+
+# Guard seen failing: every word/symbol bound below came back as text before
+# parse_range learned them (2026-09-06).
+def test_range_word_and_symbol_bounds():
+    assert parse_range("do 5,0") == (None, 5.0, None)
+    assert parse_range("nad 0,5") == (0.5, None, None)
+    assert parse_range("≤ 5,00") == (None, 5.0, None)
+    assert parse_range("≥ 0,5") == (0.5, None, None)
+    assert parse_range("0,5 až 1,5") == (0.5, 1.5, None)
+
+
+def test_range_padded_and_four_decimals():
+    assert parse_range("( 2,5000 - 6,4000 )") == (2.5, 6.4, None)
+    assert parse_range("136,00 - 145,00") == (136.0, 145.0, None)
+    assert parse_range("3,80–10,70") == (3.8, 10.7, None)
+
+
+def test_range_censored_with_qualitative_stays_text():
+    assert parse_range("<1,0 negatívne") == (None, None, "<1,0 negatívne")
 
 
 # --- flag -------------------------------------------------------------------

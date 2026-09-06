@@ -4,8 +4,10 @@
  * analyte set is fixed), so only the lookup side is needed at runtime.
  */
 import type { AnalyteDef } from "./models";
+import { stripMaterialPrefix } from "./normalize";
 
-const PREFIX = /^[a-z]{1,4}_/; // Czech material prefixes: S_, B_, P_, U_, …
+// The material-prefix rule (S_, S/, S-, S,P-, dU_ …) lives in normalize.ts,
+// beside its Python twin, so the registry and the mapping evidence agree.
 const NONALNUM = /[^a-z0-9]+/g;
 
 function stripDiacritics(s: string): string {
@@ -20,7 +22,7 @@ export function normKey(name: string): string {
   let s = (name || "").trim().toLowerCase();
   s = s.replace(/\s+#/g, " abs"); // standalone "#" = absolute count
   s = s.split("#").join(" "); // any other "#" is decoration
-  s = s.trim().replace(PREFIX, ""); // drop material prefix
+  s = stripMaterialPrefix(s.trim()); // drop material prefix
   s = stripDiacritics(s);
   s = s.replace(NONALNUM, " ").trim();
   s = s.replace(/\s+/g, " ");

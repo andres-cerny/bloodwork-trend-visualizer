@@ -74,6 +74,19 @@ describe("values", () => {
     expect(parseValue("13,80 !")).toBe(13.8);
     expect(parseValue("29,30 *")).toBe(29.3);
   });
+
+  // Guard seen failing: the arrow cases returned null before arrows joined
+  // "!" and "*" as decoration (2026-09-06).
+  it("arrows are decoration too, and a marker alone is not a value", () => {
+    expect(parseValue("5,4 ↑")).toBe(5.4);
+    expect(parseValue("5,4 ↓")).toBe(5.4);
+    expect(parseValue("4,9000")).toBe(4.9);
+    expect(parseValue("( * )")).toBeNull(); // Hodnocení column, not a value
+    expect(parseValue("H")).toBeNull();
+    expect(parseValue("negatívne")).toBeNull();
+    // Censored and qualitative at once: still no invented number.
+    expect(parseValue("<1,0 negatívne")).toBeNull();
+  });
 });
 
 describe("units", () => {
@@ -121,6 +134,26 @@ describe("reference ranges", () => {
 
   it("non-numeric degrades to text", () => {
     expect(parseRange("negativní")).toEqual({ low: null, high: null, text: "negativní" });
+  });
+
+  // Guard seen failing: every word/symbol bound below came back as text
+  // before parseRange learned them (2026-09-06).
+  it("word and symbol bounds: do / nad / ≤ / ≥ / až", () => {
+    expect(parseRange("do 5,0")).toEqual({ low: null, high: 5, text: null });
+    expect(parseRange("nad 0,5")).toEqual({ low: 0.5, high: null, text: null });
+    expect(parseRange("≤ 5,00")).toEqual({ low: null, high: 5, text: null });
+    expect(parseRange("≥ 0,5")).toEqual({ low: 0.5, high: null, text: null });
+    expect(parseRange("0,5 až 1,5")).toEqual({ low: 0.5, high: 1.5, text: null });
+  });
+
+  it("padded parentheses, four decimals, wide spacing", () => {
+    expect(parseRange("( 2,5000 - 6,4000 )")).toEqual({ low: 2.5, high: 6.4, text: null });
+    expect(parseRange("136,00 - 145,00")).toEqual({ low: 136, high: 145, text: null });
+    expect(parseRange("3,80–10,70")).toEqual({ low: 3.8, high: 10.7, text: null });
+  });
+
+  it("a censored bound with a qualitative word stays text", () => {
+    expect(parseRange("<1,0 negatívne")).toEqual({ low: null, high: null, text: "<1,0 negatívne" });
   });
 });
 

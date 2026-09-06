@@ -17,6 +17,8 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalizeUnit,
   computeFlag,
+  materialPrefix,
+  normKey,
   parseCzechNumber,
   parseRange,
   parseValue,
@@ -30,6 +32,8 @@ const CASES = JSON.parse(
   canonicalize_unit: Array<[string, string]>;
   parse_range: Array<[string, [number | null, number | null, string | null]]>;
   compute_flag: Array<[number | null, number | null, number | null, string]>;
+  material_prefix: Array<[string, string | null]>;
+  norm_key: Array<[string, string]>;
 };
 
 describe("parity with src/normalize.py", () => {
@@ -39,6 +43,8 @@ describe("parity with src/normalize.py", () => {
     }
   });
 
+  // Guard seen failing: "5,4 ↑" parsed as null before arrows joined "!"/"*"
+  // as decoration (2026-09-06).
   it("parseValue", () => {
     for (const [input, expected] of CASES.parse_value) {
       expect(parseValue(input), `parseValue(${JSON.stringify(input)})`).toBe(expected);
@@ -51,6 +57,9 @@ describe("parity with src/normalize.py", () => {
     }
   });
 
+  // Guard seen failing: "do 5,0", "nad 0,5", "≤ 5,00", "≥ 0,5" and
+  // "0,5 až 1,5" all degraded to text before the word/symbol bounds landed
+  // (2026-09-06).
   it("parseRange", () => {
     for (const [input, [low, high, text]] of CASES.parse_range) {
       expect(parseRange(input), `parseRange(${JSON.stringify(input)})`).toEqual({ low, high, text });
@@ -63,15 +72,31 @@ describe("parity with src/normalize.py", () => {
     }
   });
 
+  // Guard seen failing: with the naive ^[a-z]{1,4}[-/_] widening, anti-TPO
+  // came back as "anti" and S,P-glukóza as null (2026-09-06).
+  it("materialPrefix", () => {
+    for (const [input, expected] of CASES.material_prefix) {
+      expect(materialPrefix(input), `materialPrefix(${JSON.stringify(input)})`).toBe(expected);
+    }
+  });
+
+  it("normKey", () => {
+    for (const [input, expected] of CASES.norm_key) {
+      expect(normKey(input), `normKey(${JSON.stringify(input)})`).toBe(expected);
+    }
+  });
+
   it("covers every case in the shared fixture", () => {
     const total =
       CASES.parse_czech_number.length +
       CASES.parse_value.length +
       CASES.canonicalize_unit.length +
       CASES.parse_range.length +
-      CASES.compute_flag.length;
+      CASES.compute_flag.length +
+      CASES.material_prefix.length +
+      CASES.norm_key.length;
     // Matches the count tests/test_parity.py reports, so neither side can
     // quietly stop reading part of the fixture.
-    expect(total).toBe(58);
+    expect(total).toBe(105);
   });
 });

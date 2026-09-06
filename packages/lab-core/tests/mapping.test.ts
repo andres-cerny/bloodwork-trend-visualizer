@@ -9,6 +9,7 @@ import {
   findUnmapped,
   isImplausible,
   materialPrefix,
+  materialsCompatible,
   observedStats,
   signalsOf,
   suggestMappings,
@@ -242,6 +243,41 @@ describe("materialPrefix", () => {
   it("returns null when no material is printed", () => {
     expect(materialPrefix("Glukóza")).toBeNull();
     expect(materialPrefix("")).toBeNull();
+  });
+
+  // Guard seen failing: with a generic ^[a-z]{1,4}- rule, anti-TPO read as
+  // material "anti" and C-peptid as "c" (2026-09-06).
+  it("reads slash, hyphen and comma forms only for known material codes", () => {
+    expect(materialPrefix("S/Sodík")).toBe("s");
+    expect(materialPrefix("S-Na")).toBe("s");
+    expect(materialPrefix("S,P-glukóza")).toBe("s,p");
+    expect(materialPrefix("U-amyláza")).toBe("u");
+    expect(materialPrefix("dU_Kreatinin")).toBe("du");
+    expect(materialPrefix("anti-TPO")).toBeNull();
+    expect(materialPrefix("C-peptid")).toBeNull();
+    expect(materialPrefix("25-OH vitamin D")).toBeNull();
+    // "ABBR - full name" is how labs print abbreviations; not a material.
+    expect(materialPrefix("S - Na")).toBeNull();
+  });
+
+  // Guard seen failing: an exact-string comparison called S,P-glukóza a
+  // different material from S_Glukóza (2026-09-06).
+  it("s,p is compatible with serum and with plasma, not with urine", () => {
+    expect(materialsCompatible("s,p", "s")).toBe(true);
+    expect(materialsCompatible("p", "s,p")).toBe(true);
+    expect(materialsCompatible("s,p", "u")).toBe(false);
+    expect(materialsCompatible("s", "p")).toBe(false);
+
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
+        m("S,P-glukóza", "5,30", "mmol/l", "(4,11-5,60)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("glukoza", "Glukóza", "mmol/l")]),
+      observedStats(reports), 5).find((x) => x.canonicalId === "glukoza");
+    expect(c?.materialMatch).toBe(true);
   });
 });
 

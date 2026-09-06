@@ -17,9 +17,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.matching import norm_key  # noqa: E402
 from src.normalize import (  # noqa: E402
     canonicalize_unit,
     compute_flag,
+    material_prefix,
     parse_czech_number,
     parse_range,
     parse_value,
@@ -49,6 +51,10 @@ def main() -> int:
     failures += _check("canonicalize_unit", canonicalize_unit, CASES["canonicalize_unit"])
     failures += _check("parse_range", parse_range, CASES["parse_range"])
     failures += _check("compute_flag", compute_flag, CASES["compute_flag"])
+    # Guard seen failing: with the naive ^[a-z]{1,4}[-/_] widening, anti-TPO
+    # came back as "anti" and S,P-glukóza as null (2026-09-06).
+    failures += _check("material_prefix", material_prefix, CASES["material_prefix"])
+    failures += _check("norm_key", norm_key, CASES["norm_key"])
 
     total = sum(len(v) for k, v in CASES.items() if not k.startswith("_"))
     if failures:

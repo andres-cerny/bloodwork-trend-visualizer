@@ -29,7 +29,14 @@
     ["neprovedeno", null],
     ["negativní", null],
     ["stopy", null],
-    ["", null]
+    ["", null],
+    ["4,9000", 4.9],
+    ["( * )", null],
+    ["H", null],
+    ["negatívne", null],
+    ["5,4 ↑", 5.4],
+    ["5,4 ↓", 5.4],
+    ["<1,0 negatívne", null]
   ],
   "canonicalize_unit": [
     ["mmol/L", "mmol/l"],
@@ -53,7 +60,16 @@
     ["<2,85", [null, 2.85, null]],
     ["> 0,5", [0.5, null, null]],
     ["negativní", [null, null, "negativní"]],
-    ["", [null, null, null]]
+    ["", [null, null, null]],
+    ["( 2,5000 - 6,4000 )", [2.5, 6.4, null]],
+    ["136,00 - 145,00", [136.0, 145.0, null]],
+    ["3,80–10,70", [3.8, 10.7, null]],
+    ["do 5,0", [null, 5.0, null]],
+    ["nad 0,5", [0.5, null, null]],
+    ["≤ 5,00", [null, 5.0, null]],
+    ["≥ 0,5", [0.5, null, null]],
+    ["0,5 až 1,5", [0.5, 1.5, null]],
+    ["<1,0 negatívne", [null, null, "<1,0 negatívne"]]
   ],
   "compute_flag": [
     [5.0, 4.11, 5.6, "normal"],
@@ -67,5 +83,41 @@
     [5.0, null, null, "unknown"],
     [4.11, 4.11, 5.6, "normal"],
     [5.6, 4.11, 5.6, "normal"]
+  ],
+  "_material_prefix": "The code a lab prints before the analyte name, or null. Underscore is generic (any 1-4 letters); slash and hyphen forms are allowlisted to known material codes because a generic rule would strip 'anti-' from anti-TPO. A spaced hyphen is the Czech abbreviation convention (ALP - alkalická fosfatasa), never a material. A digit after the separator (S-100 protein, 25-OH) is never a material either. 's,p' stays one code — the lab printed both — and is compatible with s and with p in mapping.",
+  "material_prefix": [
+    ["S_Glukóza", "s"],
+    ["U_Bílkovina", "u"],
+    ["S/Sodík", "s"],
+    ["B/Hemoglobin", "b"],
+    ["S-Na", "s"],
+    ["S,P-glukóza", "s,p"],
+    ["U-amyláza", "u"],
+    ["P_Amoniak", "p"],
+    ["dU_Kreatinin", "du"],
+    ["dU-Kreatinin", "du"],
+    ["anti-TPO", null],
+    ["25-OH vitamin D", null],
+    ["Glukóza", null],
+    ["S - Na", null],
+    ["ALP - alkalická fosfatasa", null],
+    ["C-peptid", null],
+    ["S-100 protein", null],
+    ["", null]
+  ],
+  "norm_key": [
+    ["S_Glukóza", "glukoza"],
+    ["S/Sodík", "sodik"],
+    ["S-Na", "na"],
+    ["S,P-glukóza", "glukoza"],
+    ["U-amyláza", "amylaza"],
+    ["P_Amoniak", "amoniak"],
+    ["dU_Kreatinin", "kreatinin"],
+    ["anti-TPO", "anti tpo"],
+    ["25-OH vitamin D", "25 oh vitamin d"],
+    ["Glukóza", "glukoza"],
+    ["S - Na", "s na"],
+    ["B_Neutrofily #", "neutrofily abs"],
+    ["#S_Cholesterol", "cholesterol"]
   ]
 }

@@ -14,6 +14,15 @@ const THIN_SPACES = [" ", " ", " ", " "]; // NBSP, narrow NBSP, thin, fig
 
 const NUMBER_CORE = /^\+?\d[\d\s.,]*$/;
 const HAS_LETTER = /\p{L}/u;
+const VALUE_MARKERS = ["!", "*", "↑", "↓"]; // out-of-range decoration beside a value
+
+// One-sided bounds, as labs print them: "< 5,00" / "≤ 5,00" / "do 5,0" cap
+// the range from above; "> 0,5" / "≥ 0,5" / "nad 0,5" from below. The words
+// must be followed by whitespace so "dospělí…" is not read as "do".
+const UPPER_BOUND = /^(?:<|≤|do\s)\s*/iu;
+const LOWER_BOUND = /^(?:>|≥|nad\s)\s*/iu;
+// Both bounds: "a - b" or "a až b", split on the separator between digits.
+const TWO_BOUNDS = /^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*)\s*$/iu;
 
 function applyMicro(s: string): string {
   for (const [bad, good] of MICRO_VARIANTS) s = s.split(bad).join(good);
@@ -46,12 +55,60 @@ export function parseCzechNumber(raw: string | null | undefined): number | null 
  */
 export function parseValue(valueRaw: string | null | undefined): number | null {
   if (valueRaw === null || valueRaw === undefined) return null;
-  // Strip lab out-of-range markers ("!", "*") — decoration, not the number.
-  const s = valueRaw.trim().split("!").join("").split("*").join("").trim();
+  // Strip lab out-of-range markers ("!", "*", "↑", "↓") — decoration, not the
+  // number. A marker alone ("( * )", "H") has no digits left and parses null.
+  let s = valueRaw.trim();
+  for (const mark of VALUE_MARKERS) s = s.split(mark).join("");
+  s = s.trim();
   if (!s) return null;
   if (s.includes("<") || s.includes(">")) return null;
   if (HAS_LETTER.test(s)) return null;
   return parseCzechNumber(s);
+}
+
+/**
+ * Material codes Czech and Slovak labs print before an analyte name, in the
+ * lowercase form `materialPrefix` returns. `s,p` is one code: the lab measured
+ * serum or plasma and did not say which (mapping.ts treats it as compatible
+ * with either).
+ */
+export const MATERIAL_CODES: ReadonlySet<string> = new Set([
+  "s", "p", "b", "u", "du", "pk", "pe", "fw", "sp", "s,p", "k", "l",
+]);
+
+// Underscore is generic — any 1–4 letters (S_, B_, dU_, xxx_). Slash and
+// hyphen are allowlisted to MATERIAL_CODES, because a generic
+// `^[a-z]{1,4}-` strips "anti-" from anti-TPO and "c-" from C-peptid. Two
+// further refusals, both from names labs really print: a digit after the
+// separator (S-100 protein, 25-OH vitamin D) is part of the name, and a
+// *spaced* hyphen is the abbreviation convention (ALP - alkalická fosfatasa,
+// K - draslík), where the letters are the analyte, not the material.
+const PREFIX_UNDERSCORE = /^([a-z]{1,4})_/i;
+const PREFIX_SEPARATED = /^([a-z]{1,4}(?:,[a-z]{1,4})?)[-/](?=\p{L})/iu;
+
+function matchMaterialPrefix(name: string): { code: string; length: number } | null {
+  const u = PREFIX_UNDERSCORE.exec(name);
+  if (u) return { code: u[1].toLowerCase(), length: u[0].length };
+  const m = PREFIX_SEPARATED.exec(name);
+  if (m && MATERIAL_CODES.has(m[1].toLowerCase())) {
+    return { code: m[1].toLowerCase(), length: m[0].length };
+  }
+  return null;
+}
+
+/**
+ * The material a lab prints before the analyte name: S_ (sérum), B_ (plná
+ * krev), P_ (plazma), U_ (moč), dU_ (sbíraná moč), or the same codes before
+ * "/" or "-" (S/Sodík, S-Na, S,P-glukóza) — lowercased, or null.
+ */
+export function materialPrefix(rawName: string | null | undefined): string | null {
+  return matchMaterialPrefix((rawName || "").trim())?.code ?? null;
+}
+
+/** The name with its material prefix removed; unchanged when there is none. */
+export function stripMaterialPrefix(name: string): string {
+  const m = matchMaterialPrefix(name);
+  return m ? name.slice(m.length) : name;
 }
 
 /**
@@ -77,8 +134,9 @@ export interface ParsedRange {
 
 /**
  * Parse a printed reference range into low/high/text. Handles "4,11-5,60",
- * "< 5,00", "> 0,5" and non-numeric ranges ("negativní"). An unparseable range
- * degrades to text rather than being dropped.
+ * "0,5 až 1,5", "< 5,00", "≤ 5,00", "do 5,0", "> 0,5", "≥ 0,5", "nad 0,5" and
+ * non-numeric ranges ("negativní"). An unparseable range degrades to text
+ * rather than being dropped.
  */
 export function parseRange(refRaw: string | null | undefined): ParsedRange {
   const none: ParsedRange = { low: null, high: null, text: null };
@@ -87,17 +145,20 @@ export function parseRange(refRaw: string | null | undefined): ParsedRange {
   if (!s) return none;
   for (const d of DASHES) s = s.split(d).join("-");
 
-  if (s.startsWith("<")) {
-    const high = parseCzechNumber(s.slice(1));
+  // A bound whose remainder is not a number ("<1,0 negatívne") stays text:
+  // that is a criterion, not an interval, and we never invent a number.
+  const up = UPPER_BOUND.exec(s);
+  if (up) {
+    const high = parseCzechNumber(s.slice(up[0].length));
     return high !== null ? { low: null, high, text: null } : { low: null, high: null, text: s };
   }
-  if (s.startsWith(">")) {
-    const low = parseCzechNumber(s.slice(1));
+  const lo = LOWER_BOUND.exec(s);
+  if (lo) {
+    const low = parseCzechNumber(s.slice(lo[0].length));
     return low !== null ? { low, high: null, text: null } : { low: null, high: null, text: s };
   }
 
-  // a - b (both bounds): split on the first hyphen sitting between digits.
-  const m = /^\s*([0-9][0-9\s.,]*?)\s*-\s*([0-9][0-9\s.,]*)\s*$/.exec(s);
+  const m = TWO_BOUNDS.exec(s);
   if (m) {
     const low = parseCzechNumber(m[1]);
     const high = parseCzechNumber(m[2]);

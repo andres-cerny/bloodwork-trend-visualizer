@@ -15,7 +15,10 @@ arithmetic.
 
 `normalize.ts` mirrors `tools/pipeline/src/normalize.py`. Both read
 `tools/pipeline/tests/parity_cases.json`, and CI runs both sides. A change to
-one that is not mirrored fails there rather than drifting silently.
+one that is not mirrored fails there rather than drifting silently. The
+material-prefix rule (`S_`, `S/`, `S-`, `S,P-`, `dU_`) lives there too: underscore
+is generic, slash and hyphen are allowlisted so `anti-TPO` keeps its `anti`, and
+`s,p` stays one code that `materialsCompatible` accepts against `s` or `p`.
 
 ## Four rules with teeth
 
