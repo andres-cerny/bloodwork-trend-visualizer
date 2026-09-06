@@ -185,7 +185,18 @@ export default function TrendChart({
         style={{ display: "block", touchAction: "pan-y" }}
         onPointerMove={(e) => { if (e.pointerType === "mouse") setHover(nearest(e)); }}
         onPointerLeave={() => setHover(null)}
-        onClick={(e) => { const i = nearest(e); setHover((h) => (h === i ? null : i)); }}
+        onClick={(e) => {
+          const i = nearest(e);
+          // A doubted point is a door to Ověření once its popover is showing:
+          // a mouse has it open on approach, so the click goes straight
+          // through; a finger reads first, and the second tap on the same dot
+          // goes through. Other points just toggle their popover.
+          if (onVerify && pts[i].unconfirmed && hover === i) {
+            onVerify(pts[i]);
+            return;
+          }
+          setHover((h) => (h === i ? null : i));
+        }}
       >
         <clipPath id={clipId}>
           <rect x={padLeft} y={PAD.top} width={innerW} height={innerH} />
@@ -240,6 +251,7 @@ export default function TrendChart({
               )}
               <circle
                 pointerEvents="none"
+                cursor={onVerify && p.unconfirmed ? "pointer" : undefined}
                 cx={cx}
                 cy={cy}
                 r={last || hover === i ? 6 : 4.5}
