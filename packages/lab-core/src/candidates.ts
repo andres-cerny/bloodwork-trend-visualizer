@@ -17,7 +17,7 @@
  *   - `nameFromRow` / `nameOnRow`: a returned name that is not printed on its
  *     row (a typo) is replaced by the row's own text.
  */
-import type { TextRow } from "./pdf/rows";
+import { materialWord, type TextRow } from "./pdf/rows";
 
 export const NUMERIC_CELL = /^[<>]?\s*-?\d+(?:[,.]\d+)?$/;
 const RANGE = /\d+(?:[,.]\d+)?\s*[-–]\s*\d+(?:[,.]\d+)?/;
@@ -25,6 +25,18 @@ const BOUND = /^[<>]\s*\d+(?:[,.]\d+)?$/;
 const DATE = /^\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4}$/;
 const LAB_CODE = /^\d{3,6}$/;
 const FLAG_CELL = /^[A-Za-z]$/;
+/**
+ * A lab's out-of-range marker in its own column — "( * )", "(*)", "* ( )",
+ * "( ) *" — or the lone dot some LIS print in an empty text-result column.
+ * Decoration: it says nothing about what the row is, and it is not a name.
+ */
+const MARKER_CELL = /^(?:[()\s*]+|\.)$/;
+/**
+ * An abbreviation column: "URE | urea", "KM | kyselina močová". All caps,
+ * two to six characters, and the *next* cell begins lowercase — that is the
+ * name. "LD | 3,33" keeps LD: nothing lowercase follows it.
+ */
+const ABBREVIATION = /^[A-ZÀ-Ž0-9]{2,6}$/;
 /** A unit as one cell. Deliberately a list, not "anything with a slash". */
 const UNIT =
   /^(?:%|‰|g\/l|mg\/l|µg\/l|μg\/l|ug\/l|ng\/l|ng\/ml|pg\/ml|mmol\/l|µmol\/l|μmol\/l|umol\/l|nmol\/l|pmol\/l|µkat\/l|μkat\/l|ukat\/l|U\/l|IU\/l|kU\/l|mIU\/l|mU\/l|fl|pg|l\/l|10\^\d+\/l|10˄\d+\/l|x10\^\d+\/l|10\*\d+\/l|g\/dl|mg\/dl|mm\/h|mm|s|kPa|ml\/min(?:\/1[.,]73m\^?2)?|ml\/s(?:\/1[.,]73m\^?2)?|arb\.?j\.?|index|ratio|mIU\/ml|IU\/ml|µg\/ml|ug\/ml|mosm\/kg|mmol\/kg|mmol\/mol|bezrozm\.?)$/i;
@@ -32,7 +44,9 @@ const UNIT =
 const SPLIT_UNIT = /10\s*[˄^]\s*\d*\s*\/?\s*\d*\s*\/l/;
 /** Qualitative results, whole cell or spread over cells. */
 const QUALITATIVE =
-  /málo materiálu|neprovedeno|negat|pozit|nelze|hemol[yý]z|chyl[oó]z|ikter|přijato|stopy|ojediněle|normální|přítomen|nepřítomen/i;
+  /málo materiálu|nedostatok materiálu|neprovedeno|nevykonan|negat|pozit|nelze|hemol[yý]z|chyl[oó]z|ikter|přijato|stopy|ojediněle|normální|přítomen|nepřítomen/i;
+/** A criteria bound printed before the word: "<1,0 negatívne". */
+const LEADING_BOUND = /^[<>]?\s*-?\d+(?:[,.]\d+)?\s+/;
 
 export interface CandidateRow {
   index: number;
@@ -83,7 +97,12 @@ export function nameFromRow(rows: TextRow[], index: number | undefined, valueRaw
     if (UNIT.test(c) && i === head.length - 1 && i > 0) return;
     const sectionLabel = /^[A-ZÀ-Ž]{4,}$/.test(c) && head.slice(i + 1).some((x) => /[A-Za-zÀ-ž]{2}/.test(x));
     if (sectionLabel) return;
-    if (QUALITATIVE.test(c) || /^[|*!]+$/.test(c)) return;
+    const abbreviation = ABBREVIATION.test(c) && /^[a-zà-ž]/.test(head[i + 1] ?? "");
+    if (abbreviation) return;
+    if (QUALITATIVE.test(c) || /^[|*!]+$/.test(c) || MARKER_CELL.test(c)) return;
+    // A lone H or L right before the value is the lab's flag, not the name's
+    // last word. Other single letters stay: "Vitamin | D" is a name.
+    if (/^[HL]$/.test(c) && i === head.length - 1 && i > 0) return;
     parts.push(c);
   });
   return parts.join(" ");
@@ -118,7 +137,9 @@ export function candidateRows(rows: TextRow[]): CandidateRow[] {
     if (cells.length < 2) return;
     const start = nameStart(cells);
     if (start < 0) return;
-    const after = cells.slice(start + 1);
+    // Markers and flag letters are decoration; the shape is decided without them.
+    const after = cells.slice(start + 1).filter((c) => !MARKER_CELL.test(c) && !FLAG_CELL.test(c));
+    if (after.length === 0) return;
     const joined = cells.join(" ");
     const hasNum = after.some((c) => NUMERIC_CELL.test(c));
     const hasUnit = cells.some((c) => UNIT.test(c)) || SPLIT_UNIT.test(joined);
@@ -129,11 +150,17 @@ export function candidateRows(rows: TextRow[]): CandidateRow[] {
     }
     if (hasNum) return;
     // The result starts at the first cell from which the tail reads as a
-    // qualitative result, e.g. "málo | materiálu"; the name is what precedes it.
+    // qualitative result, e.g. "málo | materiálu"; the name is what precedes
+    // it. A criteria bound may lead the word ("<1,0 negatívne") and is part
+    // of the result. The result ends where the row moves on to a unit, a
+    // criteria cell with digits or the Materiál column.
     for (let j = start + 1; j < cells.length; j++) {
-      const tail = cells.slice(j).join(" ");
+      const tail = [cells[j].replace(LEADING_BOUND, ""), ...cells.slice(j + 1)].join(" ");
       if (QUALITATIVE.exec(tail)?.index === 0) {
-        out.push({ index, kind: "qualitative", name: nameFromRow(rows, index, undefined, j) || cells[start], result: tail });
+        let k = j + 1;
+        while (k < cells.length && !/\d/.test(cells[k]) && !UNIT.test(cells[k]) && !materialWord(cells[k])) k++;
+        const result = cells.slice(j, k).join(" ");
+        out.push({ index, kind: "qualitative", name: nameFromRow(rows, index, undefined, j) || cells[start], result });
         return;
       }
     }

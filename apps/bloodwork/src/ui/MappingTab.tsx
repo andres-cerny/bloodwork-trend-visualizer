@@ -25,8 +25,7 @@ import { useMemo, useState } from "react";
 import {
   type LabReport,
   findUnmapped,
-  materialCs,
-  materialPrefix,
+  materialWithSource,
   observedStats,
   signalsOf,
   suggestMappings,
@@ -193,7 +192,10 @@ function UnmappedCard({
 
   const values = a.occurrences.map((o) => o.value).filter((v): v is number => v !== null);
   const dates = a.occurrences.map((o) => o.date).filter(Boolean) as string[];
-  const material = materialPrefix(a.rawName);
+  // From the name's prefix, else the page (a Materiál cell or the heading
+  // over the block) — and the caption says which, since a reader looking at
+  // a bare "Glukóza" cannot see the material in the name.
+  const material = a.material ? materialWithSource(a.material, a.materialSource) : null;
   // A qualitative analyte ("negativní") has no numeric range to summarise, and
   // showing nothing where every other card shows values read as missing data
   // rather than as a different kind of test.
@@ -217,7 +219,7 @@ function UnmappedCard({
         <div>
           <h3>{a.rawName}</h3>
           <p className="muted map-meta">
-            {material && <>{materialCs(material)} · </>}
+            {material && <>{material} · </>}
             {prettyUnit(a.unitRaw) || "bez jednotky"} ·{" "}
             {count(a.occurrences.length, "výskyt", "výskyty", "výskytů")}
             {values.length > 0 && (

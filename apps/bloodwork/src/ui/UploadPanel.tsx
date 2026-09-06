@@ -230,6 +230,9 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
           imageUrl: assets.imageUrl,
           imageWidth: assets.imageWidth,
           imageHeight: assets.imageHeight,
+          // Kept for the mapping tab: a bare "Glukóza" is serum or urine by
+          // its heading or its Materiál cell, and only the rows say which.
+          ...(assets.hasTextLayer ? { rows: assets.rows } : {}),
         },
         measurements: [],
         unverified: 0,

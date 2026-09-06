@@ -12,7 +12,8 @@
  * reads a page back correctly but the parser behind it does not yet understand
  * the convention, the assertion states the printed truth and is marked
  * `it.fails` under a "KNOWN GAP (Phase B)" comment — Phase B flips it by
- * fixing lab-core, not by editing the expectation.
+ * fixing lab-core, not by editing the expectation. The three material gaps
+ * were flipped on 2026-09-06 (B2: sectionMaterial, rowMaterial).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -29,6 +30,9 @@ import {
   normKey,
   parseRange,
   parseValue,
+  printedMaterial,
+  rowMaterial,
+  sectionMaterial,
 } from "@bw/lab-core";
 
 /**
@@ -365,14 +369,21 @@ describe("Slovak sheet with group headings and a Materiál column", () => {
     expect(computeFlag(null, range.low, range.high)).toBe("unknown");
   });
 
-  // KNOWN GAP (Phase B): the material is a column here, not a prefix, and
-  // nothing in lab-core reads it. materialPrefix() is the only material
-  // signal and it sees a bare name.
-  it.fails("KNOWN GAP (Phase B): takes the material from the Materiál column", async () => {
+  // Was a KNOWN GAP (Phase B): the material is a column here, not a prefix.
+  // Guard seen failing 2026-09-06 as `it.fails` before rowMaterial existed,
+  // and again with the material-word table emptied.
+  it("takes the material from the Materiál column", async () => {
     const rows = buildRows(await pageWords("slovak_grouped.pdf"));
     const glu = rows.find((r) => r.cells[0] === "Glukóza")!;
     expect(glu.cells[4]).toBe("sérum");
-    expect(materialPrefix(glu.cells[0])).toBe("s");
+    expect(materialPrefix(glu.cells[0])).toBeNull();
+    expect(rowMaterial(glu)).toBe("s");
+    const wbc = rows.find((r) => r.cells[0] === "Leukocyty [WBC]")!;
+    expect(rowMaterial(wbc)).toBe("b");
+    // "Metabolity" names no material, so the column is the only signal, and
+    // the Krvný obraz block above must not leak through the heading rule.
+    expect(sectionMaterial(rows, rows.indexOf(glu))).toBeNull();
+    expect(printedMaterial(rows, rows.indexOf(glu))).toEqual({ code: "s", source: "column" });
   });
 });
 
@@ -414,13 +425,20 @@ describe("prefix-free urine rows under a heading", () => {
     expect(parseValue(sed.cells[1])).toBeNull();
   });
 
-  // KNOWN GAP (Phase B): the page says which block is urine and nothing in
-  // lab-core carries that down to the row. A serum glucose of 0,3 would be a
-  // hypoglycaemic emergency; the same number under "Moč chemicky" is normal.
-  it.fails("KNOWN GAP (Phase B): attributes the urine Glukóza to material U from its heading", async () => {
+  // Was a KNOWN GAP (Phase B): the page says which block is urine and
+  // sectionMaterial now carries that down to the row. A serum glucose of 0,3
+  // would be a hypoglycaemic emergency; the same number under "Moč chemicky"
+  // is normal. Guard seen failing 2026-09-06 as `it.fails` before
+  // sectionMaterial existed, and again with the heading table emptied.
+  it("attributes the urine Glukóza to material U from its heading", async () => {
     const rows = buildRows(await pageWords("urine_no_prefix.pdf"));
-    const urine = rowsNamed(rows, "Glukóza")[1];
-    expect(materialPrefix(urine.cells[0])).toBe("u");
+    const [serum, urine] = rowsNamed(rows, "Glukóza");
+    expect(materialPrefix(urine.cells[0])).toBeNull();
+    expect(sectionMaterial(rows, rows.indexOf(urine))).toBe("u");
+    // "Biochemie" is serum by the documented default in rows.ts.
+    expect(sectionMaterial(rows, rows.indexOf(serum))).toBe("s");
+    const sediment = rowsNamed(rows, "Močový sediment")[0];
+    expect(printedMaterial(rows, rows.indexOf(sediment))).toEqual({ code: "u", source: "heading" });
   });
 });
 
@@ -458,13 +476,17 @@ describe("the same analyte under Sérum and under Moč", () => {
     expect(materialPrefix(urine.cells[0])).toBeNull();
   });
 
-  // KNOWN GAP (Phase B): see urine_no_prefix — the heading is the only
-  // material signal on this page and nothing reads it yet.
-  it.fails("KNOWN GAP (Phase B): tells the urine Glukóza from the serum one by its heading", async () => {
+  // Was a KNOWN GAP (Phase B): the heading is the only material signal on
+  // this page, and sectionMaterial reads it. Guard seen failing 2026-09-06 as
+  // `it.fails` before sectionMaterial existed, and again with the heading
+  // table emptied.
+  it("tells the urine Glukóza from the serum one by its heading", async () => {
     const rows = buildRows(await pageWords("mixed_material.pdf"));
     const [serum, urine] = rowsNamed(rows, "Glukóza");
-    expect(materialPrefix(serum.cells[0])).toBe("s");
-    expect(materialPrefix(urine.cells[0])).toBe("u");
+    expect(printedMaterial(rows, rows.indexOf(serum))).toEqual({ code: "s", source: "heading" });
+    expect(printedMaterial(rows, rows.indexOf(urine))).toEqual({ code: "u", source: "heading" });
+    const [, urineKrea] = rowsNamed(rows, "Kreatinin");
+    expect(sectionMaterial(rows, rows.indexOf(urineKrea))).toBe("u");
   });
 });
 

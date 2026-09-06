@@ -10,6 +10,8 @@
 export type Flag = "normal" | "low" | "high" | "unknown";
 export type Confidence = "high" | "medium" | "low";
 
+import type { TextRow } from "./pdf/rows";
+
 /** Pixel bbox on the rendered page image: [x0, y0, x1, y1]. */
 export type Box = [number, number, number, number];
 
@@ -62,6 +64,13 @@ export interface Page {
   imageUrl: string;
   imageWidth: number;
   imageHeight: number;
+  /**
+   * Text path only: the page's reconstructed rows, kept so a measurement's
+   * `rowIndex` can still be read against its heading and its `Materiál`
+   * column after extraction (mapping.ts). Absent on a scan and on the demo
+   * reports, which are built outside the browser.
+   */
+  rows?: TextRow[];
 }
 
 export interface LabReport {
