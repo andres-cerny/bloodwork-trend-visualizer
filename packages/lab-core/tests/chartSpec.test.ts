@@ -25,6 +25,7 @@ const pt = (date: string, value: number, unit: string): TrendPoint => ({
   refHigh: null,
   valueRaw: String(value),
   reportId: `r-${date}`,
+  rawName: "",
   suspect: null,
   unconfirmed: null,
 });

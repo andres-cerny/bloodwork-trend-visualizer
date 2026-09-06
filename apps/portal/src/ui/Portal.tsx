@@ -379,7 +379,7 @@ export default function Portal({ email, onLogout }: Props) {
               />
             </Panel>
             <Panel id="trends" active={tab}>
-              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} />
+              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} />
             </Panel>
             <Panel id="verify" active={tab}>
               <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />

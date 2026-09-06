@@ -283,6 +283,14 @@ h2 .n, .sum-group h3 .n {
 .sum-moves .btn.linkish, .sum-moves .sum-open { padding: 0; font-weight: 600; text-decoration: none; }
 .sum-moves .out, .num .out { color: var(--critical-ink); }
 
+/* The way out of a doubted value in the Trendy table. A phone has no hover,
+   so the button simply stands there; a pointer sees it on approach. */
+.verify-go { margin-left: 8px; padding: 0; font-size: 0.78rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+@media (hover: hover) {
+  tr .verify-go { opacity: 0; }
+  tr:hover .verify-go, .verify-go:focus-visible { opacity: 1; }
+}
+
 /* Souhrn tables ------------------------------------------------------------ */
 .sum-table .spark { display: block; width: 104px; height: 30px; }
 .sum-table td.change { font-weight: 600; white-space: nowrap; }

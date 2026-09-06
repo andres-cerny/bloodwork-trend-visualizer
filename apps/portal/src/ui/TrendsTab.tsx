@@ -54,9 +54,12 @@ export default function TrendsTab({
   trends,
   unmappedNames = [],
   open = null,
+  onVerify,
 }: {
   trends: Map<string, Trend>;
   unmappedNames?: string[];
+  /** Opens Ověření at one printed row — the way out of a doubted value. */
+  onVerify?: (reportId: string, rawName: string) => void;
   /** A parameter another screen asked to see; `seq` makes a repeat a new ask. */
   open?: { id: string; seq: number } | null;
 }) {
@@ -228,6 +231,14 @@ export default function TrendsTab({
                           </td>
                           <td>
                             <Flag flag={p.flag} />
+                            {/* A doubted row says so in the chip above; this is
+                                the way to settle it. Always visible on a phone,
+                                on approach on a desktop (styles: .verify-go). */}
+                            {onVerify && (p.unconfirmed !== null || p.suspect !== null) && (
+                              <button type="button" className="btn linkish verify-go" onClick={() => onVerify(p.reportId, p.rawName)} title="Otevřít v Ověření">
+                                Ověřit
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

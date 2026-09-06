@@ -30,9 +30,13 @@ export function czNum(x: number | null | undefined): string {
 /**
  * The value as printed, without rounding. Falls back to a formatted number
  * when there is no raw string to show (a converted unit, say).
+ *
+ * "As printed" minus the lab's own out-of-range marker: a "!" or "*" beside
+ * the number is the lab's flag, which every screen here says in its own
+ * words already. The stored valueRaw keeps it, so provenance is untouched.
  */
 export function czExact(value: number | null | undefined, raw?: string | null): string {
-  const printed = (raw ?? "").trim();
+  const printed = (raw ?? "").replace(/[!*]/g, "").trim();
   if (printed) return printed;
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   // No rounding: render the number as-is with a Czech decimal comma.
