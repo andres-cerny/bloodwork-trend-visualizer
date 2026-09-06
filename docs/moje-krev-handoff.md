@@ -117,6 +117,16 @@ npm run deploy:moje-krev                      # extract → portal API → shell
 node tools/scripts/moje-krev-invites.mjs 1 "Andres" --apply    # prints the link to send
 ```
 
+`schema.sql` is for a fresh database. One that already holds reports is
+moved forward by the files in `workers/portal/migrations/`, each additive
+and applied once, oldest first — the header of each says how — and a
+deploy that adds a column ships the migration before the worker:
+
+```sh
+cd workers/portal
+npx wrangler d1 execute moje-krev --remote --file=migrations/2026-09-06-fingerprint.sql
+```
+
 The app then lives at `https://moje-krev.<your-account>.workers.dev`. There
 is no mail: every link — sign-up or set-password — is one you mint and send
 yourself, and it lives 24 hours.

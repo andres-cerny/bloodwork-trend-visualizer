@@ -55,10 +55,17 @@ CREATE TABLE IF NOT EXISTS reports (
   report_date TEXT,
   lab_name    TEXT,
   payload     TEXT NOT NULL,
-  created_at  TEXT NOT NULL
+  created_at  TEXT NOT NULL,
+  -- SHA-256 (hex) of the original PDF, hashed on the device before
+  -- redaction; the bytes never arrive here. Lifted out of the payload so
+  -- the same file cannot be stored twice for one person. NULL on reports
+  -- saved before it existed.
+  fingerprint TEXT
 );
 
 CREATE INDEX IF NOT EXISTS reports_by_user ON reports (user_id, report_date);
+CREATE UNIQUE INDEX IF NOT EXISTS reports_fingerprint_per_user
+  ON reports (user_id, fingerprint) WHERE fingerprint IS NOT NULL;
 
 -- Redacted page images live in KV (this account has no R2 opt-in; a page
 -- sits far under KV's value cap). The row is the owner check: a page is

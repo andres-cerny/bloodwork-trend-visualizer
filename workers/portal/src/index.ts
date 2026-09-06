@@ -359,11 +359,16 @@ interface StoredPage {
   imageHeight: number;
 }
 
+/** SHA-256 as lowercase hex — the only shape a fingerprint is let in as. */
+const FINGERPRINT = /^[0-9a-f]{64}$/;
+
 /**
  * The stored shape of a report: the client's LabReport with two corrections.
  * Identity is emptied whatever the client sent, and page images are named by
  * route rather than carried inline — a data: URL in a payload would be the
- * image stored twice.
+ * image stored twice. A fingerprint that is not a hash is dropped rather
+ * than stored: the column is unique per account, and a client sending "x"
+ * on every report would block its own second upload.
  */
 function sanitizeReport(id: string, body: unknown): Record<string, unknown> | null {
   if (!body || typeof body !== "object") return null;
@@ -385,6 +390,7 @@ function sanitizeReport(id: string, body: unknown): Record<string, unknown> | nu
     patientId: null,
     pages,
     reportDate,
+    fingerprint: typeof r.fingerprint === "string" && FINGERPRINT.test(r.fingerprint) ? r.fingerprint : undefined,
     labName: typeof r.labName === "string" ? r.labName : null,
     // Derived, never the client's string: a lab PDF's own filename routinely
     // carries the patient's name, and the server cannot inspect it for
@@ -413,14 +419,44 @@ async function putReport(request: Request, env: Env, user: UserRow, id: string):
   const report = sanitizeReport(id, JSON.parse(text.length ? text : "null"));
   if (!report) return json({ error: "bad_request", message: "Neplatný report." }, 400);
 
-  const saved = await env.DB.prepare(SQL.upsertReport)
-    .bind(id, user.id, report.reportDate, report.labName, JSON.stringify(report), new Date().toISOString())
-    .run();
+  // The same file under a second id is a duplicate, and the client is told
+  // which report it repeats so it can offer to replace that one instead.
+  // The unique index is the real guard; this lookup is what turns it into
+  // an answer, and the catch below covers the race between the two.
+  const fingerprint = (report.fingerprint as string | undefined) ?? null;
+  const duplicate = async () =>
+    fingerprint ? await env.DB.prepare(SQL.reportByFingerprint).bind(user.id, fingerprint, id).first<{ id: string }>() : null;
+  const existing = await duplicate();
+  if (existing) return json({ error: "duplicate", message: "Tento report už máte nahraný.", existingId: existing.id }, 409);
+
+  let saved: D1Response;
+  try {
+    saved = await env.DB.prepare(SQL.upsertReport)
+      .bind(id, user.id, report.reportDate, report.labName, JSON.stringify(report), new Date().toISOString(), fingerprint)
+      .run();
+  } catch (e) {
+    if (!isUniqueViolation(e)) throw e;
+    const raced = await duplicate();
+    if (raced) return json({ error: "duplicate", message: "Tento report už máte nahraný.", existingId: raced.id }, 409);
+    throw e;
+  }
   // Zero changes on an upsert means the id exists and belongs to someone
   // else: the conflict branch's WHERE refused it.
   if (!saved.meta || saved.meta.changes !== 1) return json({ error: "forbidden", message: "Report nepatří k tomuto účtu." }, 403);
+
+  // A replacement with fewer pages than the report it replaces: the pages
+  // it does not name are the old report's, and they go — row and image —
+  // rather than surviving as pages of a report that never had them.
+  const named = new Set((report.pages as StoredPage[]).map((p) => p.pageNum));
+  const { results } = await env.DB.prepare(SQL.pagesForReport).bind(id).all<PageRow>();
+  const stale = results.filter((p) => !named.has(p.page_num));
+  await Promise.all(stale.map((p) => env.PAGES.delete(p.kv_key)));
+  for (const p of stale) await env.DB.prepare(SQL.deletePage).bind(id, p.page_num).run();
   return json({ ok: true });
 }
+
+/** D1 surfaces a constraint failure as an error whose message names it. */
+const isUniqueViolation = (e: unknown): boolean => e instanceof Error && /UNIQUE constraint failed/i.test(e.message);
 
 /** The report row, if it is this user's. */
 async function ownedReport(env: Env, user: UserRow, id: string): Promise<boolean> {

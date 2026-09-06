@@ -18,7 +18,14 @@ export interface Settings {
 }
 
 export class ApiError extends Error {
-  constructor(message: string, readonly code: string, readonly status: number, readonly budget?: Budget) {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status: number,
+    readonly budget?: Budget,
+    /** On a 409 "duplicate": the id of the report this one would repeat. */
+    readonly existingId?: string,
+  ) {
     super(message);
   }
 }
@@ -30,8 +37,8 @@ export const isFatalApiError = (e: unknown): boolean => e instanceof ApiError &&
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, init);
   if (res.status === 204) return undefined as T;
-  const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget };
-  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget);
+  const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget; existingId?: string };
+  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget, data.existingId);
   return data as T;
 }
 

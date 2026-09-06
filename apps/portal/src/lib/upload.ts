@@ -27,6 +27,7 @@ import {
   canRedact,
   count,
   findIdentity,
+  fingerprintBytes,
   plural,
   stringsOf,
   survivingIdentity,
@@ -46,6 +47,13 @@ export interface PreparedFile {
   /** Pages past the per-report cap, left unread. */
   truncated: number;
 }
+
+/**
+ * The file's fingerprint, before anything else is done with it: SHA-256 of
+ * the bytes as picked. Cheap enough to run on every pick, and it is what
+ * says "you already have this one" before the PDF is even opened.
+ */
+export const fingerprintFile = async (file: Blob): Promise<string> => fingerprintBytes(await file.arrayBuffer());
 
 /** Pages are read one at a time: each holds a rendered canvas, and a phone
  *  opening a thirty-page report is the memory case that matters. */
@@ -113,6 +121,8 @@ export async function extractReport(
   onProgress: (done: number, total: number) => void,
   /** A row as a reader writes it — for the screen only; the page's final read is what is kept. */
   onRow?: (pageNum: number, row: ProvisionalRow) => void,
+  /** The original file's fingerprint (fingerprintFile), kept on the report. */
+  fingerprint?: string,
 ): Promise<ExtractOutcome> {
   const { rowsAsText } = await import("@bw/lab-core/pdf");
 
@@ -209,6 +219,7 @@ export async function extractReport(
       patientId: null,
       pages: pages.map((p) => ({ pageNum: p.pageNum, imageUrl: p.imageUrl, imageWidth: p.imageWidth, imageHeight: p.imageHeight })),
       measurements,
+      ...(fingerprint ? { fingerprint } : {}),
     },
     notes,
   };

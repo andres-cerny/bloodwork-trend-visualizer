@@ -34,14 +34,19 @@ export const SQL = {
   clearLoginFailures: "DELETE FROM login_failures WHERE email = ?1",
 
   // Reports: the payload column is the lossless LabReport the client built;
-  // the worker stores and returns it and never reads a value out of it.
+  // the worker stores and returns it and never reads a value out of it. The
+  // one field it lifts out is the fingerprint — the hash of the original
+  // file, computed on the device — so that the same file cannot become two
+  // reports: one per account, enforced by a unique index.
   reportsForUser: "SELECT id, payload FROM reports WHERE user_id = ?1 ORDER BY report_date, created_at",
   reportOwner: "SELECT id, user_id FROM reports WHERE id = ?1",
+  /** Another of this account's reports carrying this fingerprint, if any. */
+  reportByFingerprint: "SELECT id FROM reports WHERE user_id = ?1 AND fingerprint = ?2 AND id != ?3",
   // The WHERE on the conflict branch is the owner check for an id that
   // already exists: a foreign id updates nothing, and meta.changes says so.
   upsertReport:
-    "INSERT INTO reports (id, user_id, report_date, lab_name, payload, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) " +
-    "ON CONFLICT(id) DO UPDATE SET report_date = excluded.report_date, lab_name = excluded.lab_name, payload = excluded.payload " +
+    "INSERT INTO reports (id, user_id, report_date, lab_name, payload, created_at, fingerprint) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) " +
+    "ON CONFLICT(id) DO UPDATE SET report_date = excluded.report_date, lab_name = excluded.lab_name, payload = excluded.payload, fingerprint = excluded.fingerprint " +
     "WHERE reports.user_id = ?2",
   deleteReport: "DELETE FROM reports WHERE id = ?1 AND user_id = ?2",
   pagesForReport: "SELECT page_num, kv_key, width, height FROM report_pages WHERE report_id = ?1 ORDER BY page_num",
@@ -49,6 +54,8 @@ export const SQL = {
     "INSERT INTO report_pages (report_id, page_num, kv_key, width, height) VALUES (?1, ?2, ?3, ?4, ?5) " +
     "ON CONFLICT(report_id, page_num) DO UPDATE SET kv_key = excluded.kv_key, width = excluded.width, height = excluded.height",
   deletePages: "DELETE FROM report_pages WHERE report_id = ?1",
+  /** One page of a replaced report that the new one no longer has. */
+  deletePage: "DELETE FROM report_pages WHERE report_id = ?1 AND page_num = ?2",
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
   saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
 

@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
 import { audit, report, type Flaw } from "./lib/audit";
 import { DESKTOP, MOBILE, SMALL, TABLET, WIDE, errorsOn, setTheme, type Harness } from "./lib/harness";
-import { startPortal } from "./lib/portalHarness";
+import { HELD_FIXTURE, startPortal } from "./lib/portalHarness";
 
 let app: Harness;
 const COLLECT = process.env.AUDIT_COLLECT;
@@ -128,6 +128,31 @@ const SCREENS: Screen[] = [
       await page.locator('input[type="file"]').setInputFiles(FIXTURE);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.waitForTimeout(500);
+    },
+  },
+  {
+    // The same file twice: the fake account holds this fixture's
+    // fingerprint, so the pick stops here — two buttons, nothing opened.
+    name: "nahrání (soubor už nahraný)",
+    go: async (page) => {
+      await tab(page, "Reporty").click();
+      await page.locator('input[type="file"]').setInputFiles(HELD_FIXTURE);
+      await page.waitForSelector(".job.duplicate", { timeout: 20_000 });
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    // The same report from different bytes: past the review, the fake
+    // extractor answers a stored report's date and laboratory, and the
+    // read stops before saving with the same two buttons.
+    name: "nahrání (stejné datum a laboratoř)",
+    go: async (page) => {
+      await tab(page, "Reporty").click();
+      await page.locator('input[type="file"]').setInputFiles(FIXTURE);
+      await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+      await page.getByRole("button", { name: "Ano, nahrát" }).click();
+      await page.waitForSelector(".job.duplicate", { timeout: 40_000 });
+      await page.waitForTimeout(300);
     },
   },
   {

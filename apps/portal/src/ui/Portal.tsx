@@ -249,6 +249,7 @@ export default function Portal({ email, onLogout }: Props) {
         registry={registry}
         maxPages={maxPages}
         frozen={frozen}
+        reports={reports}
         onStored={(r) =>
           setReports((prev) => {
             const at = prev.findIndex((p) => p.id === r.id);

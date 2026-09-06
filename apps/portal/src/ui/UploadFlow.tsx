@@ -10,174 +10,91 @@
  * page-times because each file waited for the previous one to finish
  * reading; now it takes about one, plus the reviews.
  *
+ * The order of things lives in lib/uploadQueue.ts; this file renders its
+ * state and hands the reader's choices back. Two of those choices are new
+ * since the queue learned to recognise a report it already holds: a file
+ * the account has (by its bytes) stops before anything is opened, and a
+ * read that looks like a stored report (same date, same laboratory) stops
+ * before it is saved. Both offer Přeskočit, the default, and Nahradit.
+ *
  * The queue is what lets several be picked in one go; the running list is
  * where confirmed files are read; the log under it is where each one ends
  * up, with the notes an honest read produces — a page that failed, a value
  * that disagreed with the print, a printed row nobody read.
  */
 import { useRef, useState } from "react";
-import { type IdentityHit, type LabReport, type Registry, count } from "@bw/lab-core";
-import { type Budget, ApiError, isFatalApiError } from "../lib/api";
-import {
-  type PreparedFile,
-  checkRedaction,
-  extractReport,
-  newReportId,
-  prepareFile,
-  redactFile,
-  storeReport,
-} from "../lib/upload";
+import { type LabReport, type Registry, count } from "@bw/lab-core";
+import type { Budget } from "../lib/api";
+import { checkRedaction, extractReport, fingerprintFile, newReportId, prepareFile, redactFile, storeReport } from "../lib/upload";
+import { type QueueState, type UploadQueue, alreadyStored, createUploadQueue, probablyStored } from "../lib/uploadQueue";
 import RedactReview from "./RedactReview";
 
 interface Props {
   registry: Registry;
   maxPages: number;
   frozen: boolean;
+  /** The account's reports as loaded — what a picked file is checked against. */
+  reports: LabReport[];
   onStored: (report: LabReport) => void;
   onBudget: (b: Budget) => void;
 }
 
-/** What the reader is doing — one file at a time. */
-type Stage =
-  | { kind: "idle" }
-  | { kind: "preparing"; name: string }
-  | { kind: "review"; prepared: PreparedFile }
-  | { kind: "redacting"; name: string };
-
-/** What the machine is doing — as many files as have been confirmed. */
-interface Running {
-  id: string;
-  name: string;
-  phase: "extracting" | "storing";
-  done: number;
-  total: number;
-  /** Distinct rows seen so far, across pages and readers. */
-  rows: number;
-  /** The last few, as "name value unit" — what the reader sees arriving. */
-  latest: string[];
+/** The notice under a held file, with the two ways out. Skip is the default. */
+function DuplicateChoice({ text, onSkip, onReplace }: { text: string; onSkip: () => void; onReplace: () => void }) {
+  return (
+    <>
+      <span className="job-note dup">{text}</span>
+      <span className="job-actions">
+        <button type="button" className="btn small primary" onClick={onSkip}>
+          Přeskočit
+        </button>
+        <button type="button" className="btn small" onClick={onReplace}>
+          Nahradit
+        </button>
+      </span>
+    </>
+  );
 }
 
-interface LogEntry {
-  name: string;
-  status: "done" | "failed" | "skipped";
-  notes: string[];
-  error: string | null;
-}
-
-export default function UploadFlow({ registry, maxPages, frozen, onStored, onBudget }: Props) {
-  const [stage, setStage] = useState<Stage>({ kind: "idle" });
-  const [queued, setQueued] = useState<File[]>([]);
-  const [running, setRunning] = useState<Running[]>([]);
-  const [log, setLog] = useState<LogEntry[]>([]);
+export default function UploadFlow({ registry, maxPages, frozen, reports, onStored, onBudget }: Props) {
+  const [state, setState] = useState<QueueState>({ stage: { kind: "idle" }, queued: [], running: [], log: [] });
   const [dragging, setDragging] = useState(false);
-  // The queue is worked from async code that outlives the render it started
-  // in, so the truth lives in a ref and `queued` is its mirror.
-  const queueRef = useRef<File[]>([]);
-  const busyRef = useRef(false);
-
-  const publishQueue = () => setQueued([...queueRef.current]);
-  const addLog = (e: LogEntry) => setLog((l) => [e, ...l]);
-  const updateRunning = (id: string, patch: Partial<Running>) =>
-    setRunning((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const dropRunning = (id: string) => setRunning((rs) => rs.filter((r) => r.id !== id));
-
-  async function startNext() {
-    if (busyRef.current) return;
-    const file = queueRef.current.shift();
-    publishQueue();
-    if (!file) return;
-    busyRef.current = true;
-    setStage({ kind: "preparing", name: file.name });
-    try {
-      const prepared = await prepareFile(file, maxPages);
-      setStage({ kind: "review", prepared });
-    } catch (e) {
-      addLog({ name: file.name, status: "failed", notes: [], error: `Soubor se nepodařilo otevřít: ${e}` });
-      finish();
-    }
+  // The queue outlives any one render and its work is async, so the props
+  // it reads go through refs that every render refreshes.
+  const live = useRef({ registry, maxPages, reports, onStored, onBudget });
+  live.current = { registry, maxPages, reports, onStored, onBudget };
+  const queue = useRef<UploadQueue | null>(null);
+  if (!queue.current) {
+    queue.current = createUploadQueue(
+      {
+        reports: () => live.current.reports,
+        fingerprint: fingerprintFile,
+        prepare: (file) => prepareFile(file, live.current.maxPages),
+        redact: redactFile,
+        check: checkRedaction,
+        extract: (id, prepared, pages, onProgress, onRow, fingerprint) =>
+          extractReport(
+            id,
+            prepared,
+            pages,
+            live.current.registry,
+            onProgress,
+            (pageNum, row) => {
+              const name = (row.raw_analyte_name ?? "").trim();
+              if (name) onRow(pageNum, name, row.value_raw ?? "", row.unit_raw ?? "");
+            },
+            fingerprint,
+          ),
+        store: storeReport,
+        newId: newReportId,
+        onStored: (r) => live.current.onStored(r),
+        onBudget: (b) => live.current.onBudget(b),
+      },
+      setState,
+    );
   }
-
-  function finish() {
-    busyRef.current = false;
-    setStage({ kind: "idle" });
-    void startNext();
-  }
-
-  /** The reader's half after confirmation: paint, check, then hand over. */
-  async function proceed(prepared: PreparedFile, hits: IdentityHit[]) {
-    const name = prepared.name;
-    try {
-      setStage({ kind: "redacting", name });
-      const pages = await redactFile(prepared, hits);
-      const survived = checkRedaction(pages, hits);
-      if (survived.length) {
-        // Painted, stripped, and still readable: refuse rather than upload
-        // and hope. This is the check the Python exporter makes, in the
-        // browser.
-        throw new Error(`anonymizace se nezdařila — v textu zůstalo: ${survived.slice(0, 3).join(", ")}`);
-      }
-      const id = newReportId();
-      setRunning((rs) => [...rs, { id, name, phase: "extracting", done: 0, total: pages.length, rows: 0, latest: [] }]);
-      // Not awaited: the next file's review must not wait for this read.
-      void extractInBackground(id, name, prepared, pages);
-    } catch (e) {
-      addLog({ name, status: "failed", notes: [], error: `Nepodařilo se zpracovat PDF: ${e instanceof Error ? e.message : e}` });
-    }
-    finish();
-  }
-
-  /** The machine's half: read every page under the shared ceiling, store. */
-  async function extractInBackground(id: string, name: string, prepared: PreparedFile, pages: Awaited<ReturnType<typeof redactFile>>) {
-    // Rows arrive as the readers write them, both readers, out of order
-    // across pages. One line per printed row is enough for the screen: the
-    // first reader to name it wins, and the count is of distinct rows.
-    const seen = new Set<string>();
-    const latest: string[] = [];
-    try {
-      const { report, notes } = await extractReport(
-        id,
-        prepared,
-        pages,
-        registry,
-        (done, total) => updateRunning(id, { done, total }),
-        (pageNum, row) => {
-          const name = (row.raw_analyte_name ?? "").trim();
-          if (!name) return;
-          const key = `${pageNum}:${name.toLowerCase()}`;
-          if (seen.has(key)) return;
-          seen.add(key);
-          latest.push([name, row.value_raw ?? "", row.unit_raw ?? ""].filter(Boolean).join(" "));
-          if (latest.length > 4) latest.shift();
-          updateRunning(id, { rows: seen.size, latest: [...latest] });
-        },
-      );
-      updateRunning(id, { phase: "storing" });
-      const stored = await storeReport(report, pages);
-      onStored(stored);
-      addLog({ name, status: "done", notes, error: null });
-    } catch (e) {
-      const message = e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${e instanceof Error ? e.message : e}`;
-      addLog({ name, status: "failed", notes: [], error: message });
-      if (e instanceof ApiError && e.budget) onBudget(e.budget);
-      if (isFatalApiError(e)) {
-        // Every file still waiting would fail the same way; say so instead
-        // of leaving them queued and silent. A file already under review is
-        // left to the reader — its own read will say the same thing.
-        for (const f of queueRef.current) addLog({ name: f.name, status: "skipped", notes: [], error: "Nezpracováno — předchozí soubor narazil na limit." });
-        queueRef.current = [];
-        publishQueue();
-      }
-    }
-    dropRunning(id);
-  }
-
-  function enqueue(files: File[]) {
-    const pdfs = files.filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
-    if (pdfs.length === 0) return;
-    queueRef.current.push(...pdfs);
-    publishQueue();
-    void startNext();
-  }
+  const q = queue.current;
+  const { stage, queued, running, log } = state;
 
   if (frozen)
     return (
@@ -188,16 +105,7 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
     );
 
   if (stage.kind === "review")
-    return (
-      <RedactReview
-        prepared={stage.prepared}
-        onConfirm={(hits) => void proceed(stage.prepared, hits)}
-        onCancel={() => {
-          addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
-          finish();
-        }}
-      />
-    );
+    return <RedactReview prepared={stage.prepared} onConfirm={(hits) => q.confirm(hits)} onCancel={() => q.cancelReview()} />;
 
   // Busy means the reader is needed or the browser is working on their file;
   // reads in the background do not block picking the next one.
@@ -207,9 +115,11 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
       ? `Otevírám ${stage.name}…`
       : stage.kind === "redacting"
         ? `Anonymizuji ${stage.name}…`
-        : running.length > 0
-          ? `Na pozadí se čte ${count(running.length, "soubor", "soubory", "souborů")} — můžete přidat další`
-          : null;
+        : stage.kind === "duplicate"
+          ? `Čekám na vaši volbu u souboru ${stage.name}`
+          : running.length > 0
+            ? `Na pozadí se čte ${count(running.length, "soubor", "soubory", "souborů")} — můžete přidat další`
+            : null;
   const keepOpen = busy || running.length > 0;
 
   return (
@@ -224,7 +134,7 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          enqueue([...(e.dataTransfer.files ?? [])]);
+          q.enqueue([...(e.dataTransfer.files ?? [])]);
         }}
       >
         <span className="drop-icon" aria-hidden="true">
@@ -244,19 +154,36 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
           multiple
           disabled={busy}
           onChange={(e) => {
-            enqueue([...(e.target.files ?? [])]);
+            q.enqueue([...(e.target.files ?? [])]);
             e.target.value = "";
           }}
         />
       </label>
 
+      {stage.kind === "duplicate" && (
+        <ul className="joblist" aria-live="polite">
+          <li className="job duplicate">
+            <span className="job-head">
+              <span className="job-mark" aria-hidden="true">
+                =
+              </span>
+              <span className="job-name" title={stage.name}>
+                {stage.name}
+              </span>
+              <span className="job-state">už nahráno</span>
+            </span>
+            <DuplicateChoice text={alreadyStored(stage.existing)} onSkip={() => q.decide("skip")} onReplace={() => q.decide("replace")} />
+          </li>
+        </ul>
+      )}
+
       {running.length > 0 && (
         <ul className="joblist" aria-live="polite">
           {running.map((r) => (
-            <li key={r.id} className="job running">
+            <li key={r.id} className={`job ${r.phase === "probable" ? "duplicate" : "running"}`}>
               <span className="job-head">
                 <span className="job-mark" aria-hidden="true">
-                  …
+                  {r.phase === "probable" ? "=" : "…"}
                 </span>
                 <span className="job-name" title={r.name}>
                   {r.name}
@@ -264,9 +191,14 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
                 <span className="job-state">
                   {r.phase === "storing"
                     ? "ukládám"
-                    : `${r.total > 0 ? `strana ${r.done} z ${r.total}` : "čtu"}${r.rows ? ` · ${count(r.rows, "řádek", "řádky", "řádků")}` : ""}`}
+                    : r.phase === "probable"
+                      ? "přečteno, neuloženo"
+                      : `${r.total > 0 ? `strana ${r.done} z ${r.total}` : "čtu"}${r.rows ? ` · ${count(r.rows, "řádek", "řádky", "řádků")}` : ""}`}
                 </span>
               </span>
+              {r.phase === "probable" && r.existing && (
+                <DuplicateChoice text={probablyStored(r.existing)} onSkip={() => q.resolve(r.id, "skip")} onReplace={() => q.resolve(r.id, "replace")} />
+              )}
               {r.phase === "extracting" && r.latest.length > 0 && (
                 <span className="job-note" aria-hidden="true">
                   {r.latest.join(" · ")}

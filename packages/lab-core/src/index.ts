@@ -37,3 +37,4 @@ export * from "./pdf/rows";
 export * from "./chatContext";
 export * from "./aiShare";
 export * from "./watch";
+export * from "./fingerprint";

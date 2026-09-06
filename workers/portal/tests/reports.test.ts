@@ -20,9 +20,15 @@ const EXTRACT_SECRET = "test-extract-secret";
 
 interface Tables {
   users: Array<{ id: string; email: string; created_at: string; settings: string | null }>;
-  reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string; created_at: string }>;
+  reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string; created_at: string; fingerprint: string | null }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string; width: number | null; height: number | null }>;
+  /** Set to make the next fingerprint lookup miss — another request landing
+   *  between the worker's check and its insert, as a race would. */
+  raceOnce?: boolean;
 }
+
+/** The unique index on (user_id, fingerprint), as D1 reports it. */
+const UNIQUE_FAILED = "D1_ERROR: UNIQUE constraint failed: reports.user_id, reports.fingerprint";
 
 /** Dispatches on the exact SQL constants; a query without a branch throws. */
 function fakeD1(t: Tables): D1Database {
@@ -40,16 +46,30 @@ function fakeD1(t: Tables): D1Database {
         };
       case SQL.reportOwner:
         return { results: t.reports.filter((r) => r.id === a[0]).map((r) => ({ id: r.id, user_id: r.user_id })), changes: 0 };
+      case SQL.reportByFingerprint: {
+        if (t.raceOnce) {
+          t.raceOnce = false;
+          return { results: [], changes: 0 };
+        }
+        return { results: t.reports.filter((r) => r.user_id === a[0] && r.fingerprint === a[1] && r.id !== a[2]).map((r) => ({ id: r.id })), changes: 0 };
+      }
       case SQL.upsertReport: {
-        const [id, uid, date, lab, payload, created] = a as [string, string, string | null, string | null, string, string];
+        const [id, uid, date, lab, payload, created, fingerprint] = a as [string, string, string | null, string | null, string, string, string | null];
+        // The partial unique index: one fingerprint per account, NULLs free.
+        if (fingerprint !== null && t.reports.some((r) => r.user_id === uid && r.fingerprint === fingerprint && r.id !== id)) throw new Error(UNIQUE_FAILED);
         const existing = t.reports.find((r) => r.id === id);
         if (existing) {
           if (existing.user_id !== uid) return { results: [], changes: 0 };
-          Object.assign(existing, { report_date: date, lab_name: lab, payload });
+          Object.assign(existing, { report_date: date, lab_name: lab, payload, fingerprint });
           return { results: [], changes: 1 };
         }
-        t.reports.push({ id, user_id: uid, report_date: date, lab_name: lab, payload, created_at: created });
+        t.reports.push({ id, user_id: uid, report_date: date, lab_name: lab, payload, created_at: created, fingerprint });
         return { results: [], changes: 1 };
+      }
+      case SQL.deletePage: {
+        const before = t.pages.length;
+        t.pages = t.pages.filter((p) => !(p.report_id === a[0] && p.page_num === a[1]));
+        return { results: [], changes: before - t.pages.length };
       }
       case SQL.deleteReport: {
         const before = t.reports.length;
@@ -164,6 +184,9 @@ const report = (id: string) => ({
   pages: [{ pageNum: 1, imageUrl: "data:image/jpeg;base64,AAAA", imageWidth: 800, imageHeight: 1100 }],
   measurements: [{ rawAnalyteName: "S_Glukóza", valueRaw: "5,32", unitRaw: "mmol/l", refRangeRaw: "(4,11-5,60)" }],
 });
+
+/** A fingerprint as the client computes it: SHA-256, lowercase hex. */
+const FP = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 
 let tables: Tables;
 let env: Env;
@@ -284,10 +307,84 @@ describe("reports", () => {
     expect(tables.reports[0].lab_name).toBe("Lab");
   });
 
+  it("keeps the same report's own re-save as an update, not a duplicate", async () => {
+    expect((await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), fingerprint: FP })).status).toBe(200);
+    expect((await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), fingerprint: FP, labName: "Lab 2" })).status).toBe(200);
+    expect(tables.reports).toHaveLength(1);
+    expect(tables.reports[0].lab_name).toBe("Lab 2");
+  });
+
   it("rejects a payload that is not a report, or whose id disagrees with the path", async () => {
     expect((await call(A, "PUT", "/api/reports/r-1", { id: "r-2", measurements: [], pages: [] })).status).toBe(400);
     expect((await call(A, "PUT", "/api/reports/r-1", "nonsense")).status).toBe(400);
     expect((await call(A, "PUT", "/api/reports/../etc", report("../etc"))).status).toBe(404);
+  });
+});
+
+describe("the same file twice", () => {
+  const jpeg = (b: number) => new Uint8Array([0xff, 0xd8, b]).buffer;
+  const put = (user: { id: string }, id: string, n: number, b: number) =>
+    call(user, "PUT", `/api/reports/${id}/${n}`, jpeg(b), { "content-type": "image/jpeg", "x-image-width": "800", "x-image-height": "1100" });
+
+  it("stores the fingerprint from the payload in its own column, and drops one that is not a hash", async () => {
+    expect((await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), fingerprint: FP })).status).toBe(200);
+    expect(tables.reports[0].fingerprint).toBe(FP);
+    expect(JSON.parse(tables.reports[0].payload).fingerprint).toBe(FP);
+    // The client reads it back on the report: that is how it recognises the file next time.
+    const list = (await (await call(A, "GET", "/api/reports")).json()) as Array<{ fingerprint?: string }>;
+    expect(list[0].fingerprint).toBe(FP);
+
+    expect((await call(A, "PUT", "/api/reports/r-2", { ...report("r-2"), fingerprint: "not-a-hash" })).status).toBe(200);
+    expect(tables.reports[1].fingerprint).toBeNull();
+    expect(JSON.parse(tables.reports[1].payload)).not.toHaveProperty("fingerprint");
+    // A report without one is not a duplicate of another without one.
+    expect((await call(A, "PUT", "/api/reports/r-3", report("r-3"))).status).toBe(200);
+    expect(tables.reports).toHaveLength(3);
+  });
+
+  it("answers 409 with the existing id for a second report with the same fingerprint, and stores nothing", async () => {
+    await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), fingerprint: FP });
+    const res = await call(A, "PUT", "/api/reports/r-2", { ...report("r-2"), fingerprint: FP });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "duplicate", message: "Tento report už máte nahraný.", existingId: "r-1" });
+    expect(tables.reports).toHaveLength(1);
+  });
+
+  it("answers the same 409 when the duplicate lands between the check and the insert", async () => {
+    await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), fingerprint: FP });
+    tables.raceOnce = true;
+    const res = await call(A, "PUT", "/api/reports/r-2", { ...report("r-2"), fingerprint: FP });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { existingId: string }).existingId).toBe("r-1");
+    expect(tables.reports).toHaveLength(1);
+  });
+
+  it("is per account: the same fingerprint under another account is that account's own report", async () => {
+    await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), fingerprint: FP });
+    expect((await call(B, "PUT", "/api/reports/r-9", { ...report("r-9"), fingerprint: FP })).status).toBe(200);
+    expect(tables.reports.map((r) => [r.id, r.user_id, r.fingerprint])).toEqual([["r-1", "u-a", FP], ["r-9", "u-b", FP]]);
+  });
+
+  it("replacing a report with fewer pages leaves no stale page rows or KV keys", async () => {
+    const three = { ...report("r-1"), pages: [1, 2, 3].map((n) => ({ pageNum: n, imageWidth: 800, imageHeight: 1100 })) };
+    expect((await call(A, "PUT", "/api/reports/r-1", three)).status).toBe(200);
+    for (const n of [1, 2, 3]) expect((await put(A, "r-1", n, n)).status).toBe(200);
+    const kv = env.PAGES as unknown as { _store: Map<string, { value: ArrayBuffer }> };
+    expect(tables.pages.map((p) => p.page_num)).toEqual([1, 2, 3]);
+    expect([...kv._store.keys()].sort()).toEqual(["u-a/r-1/page_1", "u-a/r-1/page_2", "u-a/r-1/page_3"]);
+
+    // The replacement, as the client stores it: the row (naming one page),
+    // the page, the row again.
+    const one = { ...report("r-1"), fingerprint: FP, pages: [{ pageNum: 1, imageWidth: 800, imageHeight: 1100 }] };
+    expect((await call(A, "PUT", "/api/reports/r-1", one)).status).toBe(200);
+    expect((await put(A, "r-1", 1, 9)).status).toBe(200);
+    expect((await call(A, "PUT", "/api/reports/r-1", one)).status).toBe(200);
+    expect(tables.pages).toEqual([{ report_id: "r-1", page_num: 1, kv_key: "u-a/r-1/page_1", width: 800, height: 1100 }]);
+    expect([...kv._store.keys()]).toEqual(["u-a/r-1/page_1"]);
+    // And the page that stayed is the new one, not the old.
+    expect(new Uint8Array(kv._store.get("u-a/r-1/page_1")!.value)).toEqual(new Uint8Array(jpeg(9)));
+    expect(tables.reports).toHaveLength(1);
+    expect(tables.reports[0].fingerprint).toBe(FP);
   });
 });
 

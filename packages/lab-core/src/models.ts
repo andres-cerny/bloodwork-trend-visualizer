@@ -80,6 +80,14 @@ export interface LabReport {
   patientId: string | null; // rodné číslo
   pages: Page[];
   measurements: Measurement[];
+  /**
+   * SHA-256 (hex) of the original PDF's bytes, computed on the device before
+   * redaction. The bytes never leave the browser and the hash reveals nothing
+   * about them; it is what lets the same file, picked twice, be recognised
+   * before a page is read or a cent is spent. Absent on payloads stored
+   * before it existed, and on reports that did not come from a file.
+   */
+  fingerprint?: string;
 }
 
 export interface AnalyteDef {

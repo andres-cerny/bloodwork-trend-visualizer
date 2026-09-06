@@ -11,6 +11,7 @@
  * will see.
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { join } from "node:path";
@@ -19,12 +20,20 @@ import type { Harness } from "./harness";
 
 const ROOT = join(import.meta.dirname, "../../..");
 const DEMO = join(ROOT, "apps/bloodwork/public/demo");
+const FIXTURES = join(ROOT, "packages/lab-core/tests/fixtures");
+
+/**
+ * The fixture whose bytes the account "already holds": its SHA-256 sits on
+ * the first demo report, so picking it stops at the duplicate notice. The
+ * audit's other upload screens pick identity.pdf, which matches nothing.
+ */
+export const HELD_FIXTURE = join(FIXTURES, "standard.pdf");
 
 /** The demo patient as the portal stores them: no name, no number, pages by route. */
-function demoReports(): { reports: unknown[]; pages: Map<string, string> } {
+function demoReports(): { reports: Array<Record<string, any>>; pages: Map<string, string> } {
   const raw = JSON.parse(readFileSync(join(DEMO, "reports.json"), "utf-8")) as Array<Record<string, any>>;
   const pages = new Map<string, string>();
-  const reports = raw.map((r) => ({
+  const reports: Array<Record<string, any>> = raw.map((r) => ({
     ...r,
     patientName: null,
     patientId: null,
@@ -33,6 +42,7 @@ function demoReports(): { reports: unknown[]; pages: Map<string, string> } {
       return { pageNum: p.pageNum, imageWidth: p.imageWidth, imageHeight: p.imageHeight, imageUrl: `/api/pages/${r.id}/${p.pageNum}` };
     }),
   }));
+  reports[0].fingerprint = createHash("sha256").update(readFileSync(HELD_FIXTURE)).digest("hex");
   return { reports, pages };
 }
 
@@ -42,8 +52,30 @@ function fakeApi(port: number): Promise<Server> {
     res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
     res.end(JSON.stringify(data));
   };
+  // The extractor, faked: every page reads as one row of the second demo
+  // report's date and laboratory, so a file that gets past the review
+  // screen stops at the "probably already uploaded" notice — the one state
+  // of the upload list that needs a read to reach. Nothing is spent.
+  const twin = reports[1];
+  const extractAnswer = {
+    reads: [
+      {
+        model: "audit",
+        measurements: [{ raw_analyte_name: "S_Glukóza", value_raw: "5,32", unit_raw: "mmol/l", ref_range_raw: "(4,11-5,60)", row_index: 0 }],
+        report_date: twin.reportDate,
+        lab_name: twin.labName,
+      },
+    ],
+    mode: "text",
+    costUsd: 0,
+    budget: { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" },
+  };
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
+    if (req.method === "POST" && url.pathname === "/api/extract") {
+      req.resume();
+      return req.on("end", () => json(res, extractAnswer));
+    }
     const m = url.pathname.match(/^\/api\/pages\/([^/]+)\/(\d+)$/);
     if (req.method === "GET" && m) {
       const file = pages.get(`${m[1]}/${m[2]}`);

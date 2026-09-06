@@ -415,3 +415,14 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 /* Links in the app and on the privacy page take the ink accent, which is
    legible on both grounds — a bare <a> was browser-blue at 1.85:1 on dark. */
 .mk-main a, .door a { color: var(--accent-ink); }
+
+/* A file the account already holds, stopped before anything is spent, and a
+   read that looks like a stored report, stopped before it is saved. Neither
+   is an error: the row is paper, not signal, and the notice is set in the
+   primary ink so the reader reads it before the buttons. Přeskočit is the
+   default and wears the affirmative colour; Nahradit is the plain button. */
+.joblist .job.duplicate { background: var(--surface-2); border: 1px solid var(--border-strong); }
+.job-note.dup { color: var(--ink-1); }
+.job-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-left: 19px; margin-top: 4px; }
+.job-actions .btn.small { min-height: 28px; }
+.job-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
