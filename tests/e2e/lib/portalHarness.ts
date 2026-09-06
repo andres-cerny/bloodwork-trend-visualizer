@@ -101,7 +101,7 @@ function fakeApi(port: number): Promise<Server> {
         return json(res, null);
       case "POST /api/ai-share":
         return json(res, {
-          url: `http://localhost/ai/${"k7QmR2vX9pLw3f".repeat(4).slice(0, 43)}.md`,
+          url: `http://localhost/ai/${"k7QmR2vX9pLw3f".repeat(4).slice(0, 43)}`,
           expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
         });
       // The two kinds of link the operator sends, and a dead one.

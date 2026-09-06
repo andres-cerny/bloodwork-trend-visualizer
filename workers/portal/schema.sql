@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   id             TEXT PRIMARY KEY,      -- crypto.randomUUID()
   email          TEXT UNIQUE NOT NULL,  -- lowercased
   created_at     TEXT NOT NULL,         -- ISO 8601
-  settings       TEXT,                  -- JSON: learned synonyms, prefs
+  settings       TEXT,                  -- JSON: learned synonyms, the AI context, prefs
   -- PBKDF2-SHA256 (src/password.ts): hex digest, hex 16-byte salt, and the
   -- iteration count the row was hashed with, so the count can rise without
   -- re-hashing everyone. All three NULL means the account cannot log in
