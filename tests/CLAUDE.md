@@ -5,7 +5,7 @@ everything that needs a browser, a corpus, or an API key.
 
 | Suite | Command | Cost |
 |---|---|---|
-| `e2e/` | `test:e2e`, `test:audit`, `test:audit:portal` | free, needs Chromium |
+| `e2e/` | `test:e2e`, `test:audit`, `test:upload` | free, needs Chromium |
 | `live/` | `test:live` | **real API**, ~$0.10 |
 | `bench/` | `bench:*` | **real API**, sweeps |
 | `evals/` | `eval` | **real API**, per case × reps |
@@ -25,6 +25,11 @@ shared invariant set.
 For a refactor, collect rather than fail:
 `AUDIT_COLLECT=before.json npm run test:audit`, again after, and diff. Zero new
 flaws is the bar.
+
+`upload.e2e.ts` is the only test of the patient-identity guard that proves
+anything — only a browser shows that the wrong PDF actually stops. It stubs
+`/api/extract` and Turnstile, so it is free, and builds its own bundle: the
+upload panel will not render without a site key baked in.
 
 ## bench and evals answer different questions
 
