@@ -4,6 +4,7 @@
  * from App.tsx so the link page and the door can both import it without
  * importing each other.
  */
+import { useState } from "react";
 import { ApiError } from "../lib/api";
 
 export interface Me {
@@ -37,4 +38,20 @@ export function Door({ children }: { children: React.ReactNode }) {
 export function messageOf(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   return "Spojení se nezdařilo. Zkuste to prosím znovu.";
+}
+
+/**
+ * Whether the password fields show their text. A checkbox, not a hold-to-peek
+ * eye: the reader decides once and the field stays readable while they type.
+ * Returns the input type to use and the row that toggles it.
+ */
+export function useShownPassword(): { type: "text" | "password"; toggle: React.ReactNode } {
+  const [shown, setShown] = useState(false);
+  const toggle = (
+    <label className="check">
+      <input type="checkbox" checked={shown} onChange={(e) => setShown(e.target.checked)} />
+      Heslo viditelné
+    </label>
+  );
+  return { type: shown ? "text" : "password", toggle };
 }

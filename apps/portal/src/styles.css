@@ -96,6 +96,24 @@ body {
   font-size: 0.82rem;
 }
 
+/* The row that keeps a password readable: a checkbox beside its words, not a
+   stacked field. The checkbox keeps its native box; only its colour is ours. */
+.door label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.door label.check input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 .door input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;

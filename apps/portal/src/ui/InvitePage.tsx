@@ -6,7 +6,7 @@
  * form shown is the one the code is for, whichever path it arrived on.
  */
 import { useEffect, useState } from "react";
-import { Door, fetchMe, messageOf, type Me } from "./Door";
+import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./Door";
 import { checkInvite, register, setPassword } from "../lib/api";
 
 const MIN_PASSWORD = 8;
@@ -49,6 +49,7 @@ export default function InvitePage({ onDone }: { onDone: (me: Me) => void }) {
 function InviteForm({ kind, code, onDone }: { kind: "signup" | "password"; code: string; onDone: (me: Me) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPw] = useState("");
+  const pw = useShownPassword();
   const [again, setAgain] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,13 +95,14 @@ function InviteForm({ kind, code, onDone }: { kind: "signup" | "password"; code:
         )}
         <label>
           Heslo
-          <input type="password" value={password} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" required />
+          <input type={pw.type} value={password} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" required />
           <span className="hint">Nejméně {MIN_PASSWORD} znaků</span>
         </label>
         <label>
           Heslo znovu
-          <input type="password" value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" required />
+          <input type={pw.type} value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" required />
         </label>
+        {pw.toggle}
         {error && <p className="notice">{error}</p>}
         <button className="btn primary" disabled={busy}>
           {kind === "signup" ? "Vytvořit účet" : "Nastavit heslo"}

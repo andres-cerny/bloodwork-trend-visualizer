@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
-import { Door, fetchMe, messageOf, type Me } from "./ui/Door";
+import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./ui/Door";
 import { login } from "./lib/api";
 
 export default function App() {
@@ -57,6 +57,7 @@ function Home({ initial }: { initial: Me | null }) {
 function Login({ onDone }: { onDone: (me: Me) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const pw = useShownPassword();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -87,13 +88,14 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
         <label>
           Heslo
           <input
-            type="password"
+            type={pw.type}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
             required
           />
         </label>
+        {pw.toggle}
         {error && <p className="notice">{error}</p>}
         <button className="btn primary" disabled={busy}>
           Přihlásit se
