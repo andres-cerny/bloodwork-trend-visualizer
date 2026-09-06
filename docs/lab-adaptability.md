@@ -146,3 +146,156 @@ TODO — the seven layout fixtures of plan step A3 (`slash_prefix`,
 `mixed_material`, `scanned_photo_like`) are being generated through
 `tools/pipeline/scripts/make_layout_fixtures.py`; list them here with their
 expected row counts once `layouts.test.ts` covers them.
+
+## Phase C — tier 1, subagents (2026-09-06)
+
+The free tier of the C4 ranking: Claude-shaped subagents read images, the
+real API reads nothing. `subagent_dump_images.bench.ts` wrote each page as
+the app would send it (`pages/<slug>.claude.jpg`, long edge 2576 px — the
+Sonnet 5 tier, `CLAUDE_PHOTO_EDGE` in `corpora.ts`), `SYSTEM_EXTRACT` and
+`TOOL` imported verbatim into `prompts/`, and the truth into `index.json`.
+Scored with `BENCH_CLASSES=photo|public npx vitest run --config
+tests/bench/vitest.config.ts tests/bench/subagent_score_images.bench.ts`,
+re-run 2026-09-06 22:42 for this section.
+
+### What was read
+
+- **photo — 45 simulated shots** from `data/photos-sim` (the index holds
+  133; `read 45` below): ten pages × `flat`/`angle`/`glare`/`dark` —
+  `19_06_12` p1, `20_06_08` p1 (CASRI), `2020_09_213` p1 (PREVEDIG),
+  `2022_07_01` p1, `2024_02_02` p1, `20_10_6` p1, `21_10_29` p1 (AGILAB),
+  `2023_12_19` p1, `2024_06_07` p2, `2025_08` p1 (SPADIA) — plus four `crop`
+  (`19_06_12`, `2022_07_01`, `2023_podzim_krev`, `2024_10_25`, p1 each) and
+  one `twopage` (`19_06_12` p1–2). Truth `data/reports`, 1,633 rows.
+- **public — 11 pages**, truth hand-transcribed in
+  `tests/bench/public_sheets/*.json` (`breclav_hem_p80`, `breclav_p121`,
+  `breclav_p122`, `bulovka_okbi`, `euc_p34`, `stod_p1`–`p5`,
+  `unilabs_sk_p2`), 261 rows.
+- **Readers:** Sonnet- and Opus-shaped subagents handed the system prompt
+  and tool schema verbatim plus the image path, reading the image through
+  the `Read` tool and writing the tool input to `out/<variant>/<slug>.json`.
+  Seven pages per subagent, 18 subagents (7 + 7 photo, 2 + 2 public).
+
+### The tables, as printed
+
+photo — variants against `data/reports`, then the pair:
+
+```
+variant                pages read truth  rows match  miss extra valERR decens
+opus_vision              133   45  1633  1621  1613    20     8      0      0
+sonnet_vision            133   45  1633  1606  1598    35     8      0      0
+
+pair                               pages single confirmed flagged UNCAUGHT caught 1-rdr ERR
+opus_vision+sonnet_vision             45      0      1602      23        4      0         0
+```
+
+public — variants against `tests/bench/public_sheets/*.json`, then the pair:
+
+```
+variant                pages read truth  rows match  miss extra valERR decens
+opus_vision               11   11   261   261   261     0     0      2      0
+sonnet_vision             11   11   261   261   261     0     0      0      0
+
+pair                               pages single confirmed flagged UNCAUGHT caught 1-rdr ERR
+opus_vision+sonnet_vision             11      0       259       2        0      2         0
+```
+
+### What the misses are
+
+Every photo miss, extra and UNCAUGHT row was opened; none is a wrong value.
+
+- **`KO+diferenciál 5p.`** (12 misses each reader: `2024_02_02`, `20_10_6`,
+  `21_10_29` × four conditions) is the AGILAB panel-marker row, value `#`.
+  The baseline carries it as a row; every reader rightly skips it.
+- **`Vazebná kapacita Fe` / `Saturace transf.-výp`** on `20_10_6` p1 (8 miss
+  + 8 extra each; the four UNCAUGHT rows). That sheet clips its name column:
+  the render shows `Vazebná kapacita I` — the first stroke of `Fe` — and
+  `Saturace transf.-vý`. The baseline names came from the text layer, which
+  has the full words. Both readers transcribed what is visible (Opus
+  `Vazebná kapacita`, Sonnet `Vazebná kapacita I`; both `Saturace
+  transf.-vý`) with the right values. The other AGILAB pages print the names
+  in full and both readers read them in full, so the fix is one page's keys.
+- **`S_TSH`, `S_T4 volný`, `S_T3 volný`, `S_Vitamin D celkový`,
+  `S_Osteokalcin`** (Sonnet, 15 misses on `2024_06_07` p2
+  `angle`/`glare`/`dark`) are qualitative rows, value `málo materiálu`.
+  Sonnet's `flat` batch emitted them at `high` confidence; the batch reading
+  the other three shots omitted them; Opus emitted all four. A prompt
+  ambiguity — a qualitative result is a row — noted for Phase D.
+
+On public, Opus's two `valERR` on `unilabs_sk_p2` are the compound CMV cells
+`1,0 pozitívne` / `0,4 negatívne`: Opus returned `1,0` / `0,4` with the
+qualifier only in `source_snippet`, Sonnet copied the whole cell as the
+truth does. A cell-splitting convention, not a digit; the pair caught both.
+
+### Adjudicated
+
+Re-scored with `valueErrors`/`pairStats` from `score.ts` after two truth
+edits: drop the `#` marker row from the photo truth, and key the two clipped
+names on `20_10_6` p1 by the printed text. Photo truth becomes 1,621 rows.
+
+| class | reader | truth | rows | match | miss | extra | value errors |
+|---|---|---|---|---|---|---|---|
+| photo | `opus_vision` | 1621 | 1621 | **1620** | 1 | 1 | **0** |
+| photo | `sonnet_vision` | 1621 | 1606 | **1601** | 20 | 5 | **0** |
+| public | `opus_vision` | 261 | 261 | 261 | 0 | 0 | 2 (CMV cells) |
+| public | `sonnet_vision` | 261 | 261 | 261 | 0 | 0 | **0** |
+
+Pair, photo: confirmed 1602, **flagged 23**, uncaught 1, caught 0. The 23
+are the 15 qualitative rows (Opus has them, Sonnet does not) and 8 spellings
+of the two clipped names over the four `20_10_6` shots; the residual
+"uncaught" is the `dark` shot where both wrote `Vazebná kapacita I` with the
+correct 69,6 — a name the truth cannot be keyed to satisfy both ways, not a
+value. Pair, public: confirmed 259, flagged 2, uncaught 0. **Zero digit
+errors for either reader on 1,882 rows over 56 pages; zero uncaught value
+errors.** Confidence tracked the conditions, not errors: on `glare` Opus
+marked 121 of 359 rows `low` and Sonnet 109 of 354; on `angle` Opus 78
+`low`, Sonnet 107 `medium`; `flat` and `crop` were `high` throughout, and
+none of those rows carried a wrong value.
+
+
+### Synthetic class — the seven new layouts
+
+The six text-layer fixtures (slash, hyphen/comma, Zkr. column, Slovak,
+urine without prefix, mixed material; 43 expected rows) were read four ways:
+the text path (`SYSTEM_EXTRACT_TEXT` over the page's `|`-joined rows, as a
+digital PDF is read) and the vision path (the 220 DPI render), by Sonnet-
+and Opus-shaped subagents. `scanned_photo_like` has no row truth yet.
+
+```
+variant                pages read truth  rows match  miss extra valERR decens
+opus_text                 10    6    43    43    43     0     0      0      0
+opus_vision               10    6    43    43    43     0     0      0      0
+sonnet_text               10    6    43    43    43     0     0      0      0
+sonnet_vision             10    6    43    43    43     0     0      0      0
+```
+
+Every pair: 43 confirmed, 0 flagged, 0 uncaught. The conventions that broke
+the *parser* a day ago — `S/Sodík`, `S,P-glukóza`, `( * )`, `4,9000`,
+`URE | urea`, `<1,0 negatívne` — never troubled the *reader*: both tiers
+copied each cell as printed on the first attempt. That is the plan's
+premise measured: adaptability lives in lab-core, not in the prompt.
+
+### What tier 1 cannot tell us
+
+- A subagent views the image through the `Read` tool and can look again,
+  crop and zoom; the API gets one 2576 px image, one pass.
+- `data/photos-sim` shots are pristine glyphs under synthetic warp, shadow
+  and glare; real phone shots add blur, sensor noise and moiré (A4's photos).
+- No latency and no cost are measured — a subagent has neither a page p50
+  nor a token bill.
+- The readers answered glare bands with `low` confidence rather than wrong
+  values; whether the API path does the same is a tier-2 question.
+
+So tier 1 ranks, tier 2 confirms.
+
+### Ranking
+
+Sonnet and Opus are indistinguishable on value accuracy at tier 1: neither
+made a digit error on a photo or a public page. Opus reads slightly more
+rows (1620 vs 1601 of 1621 — the qualitative rows Sonnet's batches dropped
+on three shots). Two truth fixes are due before tier 2: drop the
+`KO+diferenciál 5p.` marker row from the photo truth (a `#` cell, the class
+A1 already excluded from its tally), and key the two clipped names on
+`20_10_6` p1 by the printed text. With those, photo meets C3's bar (0
+uncaught value errors on every shot including `angle`, `crop`, `twopage`);
+public meets it once the compound-cell convention is settled in Phase D.

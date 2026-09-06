@@ -193,6 +193,16 @@ one rule. Widen: Slovak qualitatives (`negatívne`, `pozitívne`,
 *next* cell is the name. Unit-test against `zkr_column.pdf` and
 `slovak_grouped.pdf` rows.
 
+**B7. The automatic match must respect material.** `registry.match()` is
+name-only, so on a prefix-free page a urine Glukóza row auto-maps to serum
+`glukoza` before the mapping suggester ever sees it — B2 closes the
+suggester, not this path. The registry needs the row's printed material
+(prefix ?? column ?? heading) and must refuse a synonym whose known
+material differs; a refused row falls through to the suggester, where B2's
+"moč (podle nadpisu)" line explains it. Guard: `mixed_material.pdf`
+interpreted end to end yields one mapped serum row and one unmapped urine
+row, never two serum rows.
+
 **B6. Abbreviations.** No code: Břeclav-style `URE`/`KRE`/`KM` are learned
 synonyms through the existing mapping UI (`Registry.removeSynonym` rules
 unchanged). Seeding them is out of scope.
@@ -419,6 +429,8 @@ photo into two pages; moving the vision path from `source_snippet` to
 ## Build log
 
 (append `[x] date — phase — what the gate showed`)
+
+[x] 2026-09-06 — A1–A5, B1–B5 done; C tier 1 on photo+public: 0 value errors both tiers after adjudication
 
 ## Open items
 
