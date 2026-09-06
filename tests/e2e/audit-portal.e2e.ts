@@ -62,9 +62,10 @@ const SCREENS: Screen[] = [
   // what the summary groups and tables already say.
   { name: "souhrn (výchozí)", go: async () => {} },
   {
-    name: "trendy (chart opened from a sparkline)",
+    name: "trendy (chart opened from a parameter name)",
     go: async (page) => {
-      await page.locator(".sum-table .sparkbtn").first().click();
+      // The name is the door at every width; the sparkline only on a desktop.
+      await page.locator(".sum-table .sum-name").first().click();
       await page.waitForSelector(".tc svg", { timeout: 10_000 });
       await page.waitForTimeout(300);
     },

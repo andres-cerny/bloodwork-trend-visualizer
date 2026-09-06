@@ -398,6 +398,19 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 
 /* The group rows' parameter links: visually a link, target a button. */
 .sum-moves .btn.linkish { padding: 8px 4px; margin: -8px -4px; min-height: 24px; }
+/* The table's parameter name is the same door to Trendy, in the name's own type. */
+.sum-table .sum-name.btn.linkish { padding: 4px 4px; margin: -4px -4px; min-height: 24px; font-weight: 600; text-decoration: none; text-align: left; white-space: normal; }
+.sum-table .sum-name.btn.linkish:hover, .sum-table .sum-name.btn.linkish:focus-visible { color: var(--accent-ink); text-decoration: underline; }
+
+/* On a phone the Souhrn table is name, value, range, Více — nothing to
+   scroll for. Dates, the flag chip, the change, the sparkline and the source
+   link live one tap away in Trendy; red on the value already says "outside". */
+.sum-table .sum-more { display: none; }
+@media (max-width: 819.98px) {
+  .sum-table .sum-wide { display: none !important; }
+  .sum-table .sum-more { display: table-cell; text-align: right; }
+  .sum-table .sum-more .sum-go { min-height: 24px; padding: 4px 0; }
+}
 
 /* Links in the app and on the privacy page take the ink accent, which is
    legible on both grounds — a bare <a> was browser-blue at 1.85:1 on dark. */

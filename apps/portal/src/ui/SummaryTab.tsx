@@ -171,9 +171,12 @@ function Table({ records, trends, onShowSource, onOpenTrend, caption }: { record
             <th>Parametr</th>
             <th className="num">Hodnota</th>
             <th className="num">Rozmezí</th>
-            <th className="num">Změna od minule</th>
-            <th>Průběh</th>
-            <th aria-label="Zdroj" />
+            <th className="num sum-wide">Změna od minule</th>
+            <th className="sum-wide">Průběh</th>
+            <th className="sum-wide" aria-label="Zdroj" />
+            {/* A phone shows name and value only; the rest is one tap away
+                in Trendy, where the same parameter opens. */}
+            <th className="sum-more" aria-label="Více" />
           </tr>
         </thead>
         <tbody>
@@ -183,27 +186,29 @@ function Table({ records, trends, onShowSource, onOpenTrend, caption }: { record
             return (
               <tr key={r.canonicalId}>
                 <td>
-                  <span className="sum-name">{r.displayName}</span>
-                  <span className="muted" style={{ display: "block" }}>
+                  <button type="button" className="btn linkish sum-open sum-name" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
+                    {r.displayName}
+                  </button>
+                  <span className="muted sum-wide" style={{ display: "block" }}>
                     {czDate(r.older.date)} → {czDate(r.newer.date)}
                   </span>
                 </td>
                 <td className="num">
                   <strong className={r.outOfRange ? "out" : undefined}>{czExact(r.newer.value, r.newer.valueRaw)}</strong>{" "}
                   <span className="muted">{prettyUnit(trend?.unit)}</span>
-                  <span style={{ display: "block" }}>
+                  <span className="sum-wide" style={{ display: "block" }}>
                     <FlagChip flag={r.newFlag} />
                   </span>
                 </td>
                 <td className="muted num">{rangeOf(r)}</td>
-                <td className={`num change ${ch.dir}`}>
+                <td className={`num change sum-wide ${ch.dir}`}>
                   {ch.dir === "up" ? "↗ " : ch.dir === "down" ? "↘ " : ""}
                   {ch.text}
                   <span className="muted" style={{ display: "block", fontWeight: 400 }}>
                     z {czNum(r.older.value)}
                   </span>
                 </td>
-                <td>
+                <td className="sum-wide">
                   {trend && (
                     <button
                       type="button"
@@ -216,13 +221,18 @@ function Table({ records, trends, onShowSource, onOpenTrend, caption }: { record
                     </button>
                   )}
                 </td>
-                <td>
+                <td className="sum-wide">
                   <button
                     className="btn linkish sum-go"
                     onClick={() => onShowSource?.(r.canonicalId)}
                     title="Ukázat řádek na zdrojové stránce"
                   >
                     ověřit →
+                  </button>
+                </td>
+                <td className="sum-more">
+                  <button className="btn linkish sum-go" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
+                    Více
                   </button>
                 </td>
               </tr>

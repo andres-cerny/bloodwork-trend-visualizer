@@ -212,17 +212,11 @@ export default function TrendChart({
           </g>
         ))}
 
-        {[
-          { v: d.bHigh, label: "horní mez" },
-          { v: d.bLow, label: "dolní mez" },
-        ].map(({ v, label }, i) =>
+        {/* The band edge is a line, not a label: the range is written once,
+            above the chart, and the tint says which side is outside. */}
+        {[d.bHigh, d.bLow].map((v, i) =>
           inView(v) ? (
-            <g key={i}>
-              <line x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="4 3" />
-              <text x={W - PAD.right} y={y(v) + (i === 0 ? -5 : 13) * k} textAnchor="end" fontSize={11 * k} fill="var(--critical-ink)">
-                {label} {czNum(v)}
-              </text>
-            </g>
+            <line key={i} x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="4 3" />
           ) : null,
         )}
 
