@@ -81,11 +81,21 @@ function InviteForm({ kind, code, onDone }: { kind: "signup" | "password"; code:
 
   return (
     <Door>
-      <p className="sub">
-        {kind === "signup"
-          ? "Krevní testy v čase. Bez jména, bez rodného čísla — jen vaše hodnoty."
-          : "Nové heslo k vašemu účtu."}
-      </p>
+      {kind === "signup" ? (
+        <>
+          <h2>Vytvoření účtu</h2>
+          <p className="sub">
+            Zadejte e-mail a zvolte si heslo. Tím vznikne váš účet — přihlašovat se pak budete tímto e-mailem a heslem.
+          </p>
+        </>
+      ) : (
+        <>
+          <h2>Nové heslo</h2>
+          <p className="sub">
+            Zvolte si nové heslo ke svému účtu. Přihlašovat se pak budete svým e-mailem a tímto heslem.
+          </p>
+        </>
+      )}
       <form onSubmit={submit}>
         {kind === "signup" && (
           <label>

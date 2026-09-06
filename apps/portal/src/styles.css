@@ -51,6 +51,14 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* What a link page is for, said before the fields: a step below the wordmark. */
+.door h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
 .door .sub {
   margin: 0;
   color: var(--ink-2);
