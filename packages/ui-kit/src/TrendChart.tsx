@@ -18,8 +18,9 @@
  * off the plot and is named in the caption instead.
  *
  * Colour is never the only channel: an out-of-range point is red *and* sits
- * in the red-tinted zone *and* carries an arrow; an unconfirmed one is
- * hollow *and* named in the caption. Text takes ink tokens; only marks take
+ * in the red-tinted zone, which says which way it is out; it carries no
+ * arrow, the zone already does. An unconfirmed one is hollow *and* named in
+ * the caption. Text takes ink tokens; only marks take
  * signal. Two colours in the plot, not three: blue says "the line", red
  * says "outside the range" — as a soft tint for the zone, solid for a point
  * that is in it.
@@ -246,11 +247,6 @@ export default function TrendChart({ trend }: { trend: Trend }) {
                 strokeWidth={2}
                 strokeDasharray={p.unconfirmed ? "3 2" : undefined}
               />
-              {out && !last && (
-                <text x={cx} y={cy - 11 * k} textAnchor="middle" fontSize={12 * k} pointerEvents="none" fill="var(--critical-ink)" fontWeight={700}>
-                  {p.flag === "high" ? "↑" : "↓"}
-                </text>
-              )}
             </g>
           );
         })}
