@@ -102,7 +102,14 @@ function xScale(pts: TrendPoint[], left: number, width: number): (i: number) => 
   return (i) => (pts.length === 1 || span <= 0 ? left + width / 2 : left + ((times[i] - t0) / span) * width);
 }
 
-export default function TrendChart({ trend }: { trend: Trend }) {
+export default function TrendChart({
+  trend,
+  onVerify,
+}: {
+  trend: Trend;
+  /** Opens the row behind a doubted point; the popover offers it as "Ověřit". */
+  onVerify?: (p: TrendPoint) => void;
+}) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
   const figRef = useRef<HTMLElement>(null);
@@ -258,8 +265,11 @@ export default function TrendChart({ trend }: { trend: Trend }) {
             active.flag === "high" ? "nad rozmezím" : active.flag === "low" ? "pod rozmezím" : active.refLow !== null || active.refHigh !== null ? "v rozmezí" : "",
           ].filter(Boolean);
           if (active.unconfirmed) lines.push("nepotvrzeno");
+          // The way out of a doubted value, drawn as the last line and the one
+          // thing in the popover that takes the pointer.
+          const verify = !!active.unconfirmed && !!onVerify;
           const w = Math.max(84 * k, ...lines.map((l, i) => l.length * (i === 1 ? 6.9 : 5.6) * k + 18 * k));
-          const h = (16 + lines.length * 14) * k;
+          const h = (16 + (lines.length + (verify ? 1 : 0)) * 14) * k;
           const px = x(hover);
           const py = y(active.value as number);
           const left = px + 14 + w > W - PAD.right ? px - 14 - w : px + 14;
@@ -274,6 +284,34 @@ export default function TrendChart({ trend }: { trend: Trend }) {
                   {l}
                 </text>
               ))}
+              {verify && (
+                <text
+                  role="button"
+                  tabIndex={0}
+                  className="chart-verify"
+                  pointerEvents="all"
+                  cursor="pointer"
+                  x={left + 9 * k}
+                  y={top + (14 + lines.length * 14) * k}
+                  fontSize={10.5 * k}
+                  fontWeight={600}
+                  textDecoration="underline"
+                  fill="var(--accent-ink)"
+                  onPointerMove={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onVerify!(active);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onVerify!(active);
+                    }
+                  }}
+                >
+                  Ověřit
+                </text>
+              )}
             </g>
           );
         })()}

@@ -202,7 +202,7 @@ export default function TrendsTab({
               )}
 
               <StatLine trend={t} />
-              <TrendChart trend={t} />
+              <TrendChart trend={t} onVerify={onVerify && ((p) => onVerify(p.reportId, p.rawName))} />
               <details style={{ marginTop: 8 }}>
                 <summary className="muted" style={{ cursor: "pointer" }}>
                   Tabulka hodnot
