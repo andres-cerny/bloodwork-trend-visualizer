@@ -1,0 +1,469 @@
+{
+  "slug": "stod_p2",
+  "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+  "page": 2,
+  "language": "cs",
+  "lab": "Stodská nemocnice, a.s., Oddělení klinické biochemie",
+  "lis": "Medicalc software s.r.o. (PDF producer bioPDF); form 'Výsledkový list', 2021",
+  "conventions": [
+    "underscore material prefix on names (S_, U_, B_, P_, fU_, X_, C_, Fe_, Pt_); one hyphen row 'S- Cholesterol non- HDL' (p1); a few rows prefix-free (Poměr FreePSA/PSA, Čas, Protrombinový test- Ratio, ABR arter.)",
+    "column order: Název vyšetření | Výsledek | Jednotka | Meze | Hodnocení",
+    "Hodnocení is a fixed-width Courier text histogram, NOT a letter: four bars at character columns 2, 6, 8, 12 and a '*' placed by where the value falls — '|*|' between the two inner bars means in range, left of / right of the outer bars means far outside. `flag_raw` keeps the 14-character field verbatim, leading and trailing spaces included; it is '' when the row has no range",
+    "out-of-range values are printed in bold (Arial Bold, dark grey #4C4C4C) with no H/L letter anywhere — `value_printed_bold`; every bold value has its '*' outside the inner bars and vice versa",
+    "ranges 'lo - hi' with spaced hyphen and decimal comma, centred with padding spaces in the text layer (`ref_range_raw` is trimmed); a negative bound prints as '-2,0 - 2,0'",
+    "rows without a range (fPSA, ionised Ca, urine volumes, punctate, patient weight/height...) leave Meze and Hodnocení empty",
+    "unit spelling is inconsistent within one sheet: µkat/l vs µkat/L, g/l vs g/L, mmol/l vs mmol/L, mg/L, ug/l vs ug/L vs µg/ml; caret exponents 10^12/l 10^9/l; '1' is the unit of ratios and fractions (hematocrit, INR, O2 saturation); '-' for pH; 'arb.j.' and 'počet/uL' in urine",
+    "two heading levels: bold underlined capitals (BIOCHEMIE, HEMATOLOGIE, IMUNOHEMATOLOGIE, POMOCNÉ) in `group`, bold-italic subgroups (Enzymy + pigmenty, Minerály, Krevní obraz, Koagulace...) in `section`",
+    "grey italic comment lines interleaved under a row, indented or right-shifted, are not rows; they are attached to the row above as `comment_raw`",
+    "the patient header (HOKUS POKUSJMÉNO, JUDr.; IČ 12 12 12 / 121; Věk 108; Přijato/Odběr 29.06.2021 08:34) repeats on every page above the column header; footer 'Strana N z 5'",
+    "PDF has a real text layer (bioPDF writer); get_text() emits the columns as separate blocks so words must be regrouped by baseline",
+    "open ranges with no lower bound print as '- 3,0' / '- 15,0' (U_ACR, U_PCR) — a bare hyphen then the upper bound",
+    "'<1' as a value (S_BETA HCG) with a normal range '0 - 5' and an in-range star",
+    "a two-line grey italic comment under S_Covid protil. IgG ('<50 kAU/l = protilátky nepřítomny' / '>50 kAU/l = protilátky přítomny'), kept as two lines in `comment_raw`",
+    "fU_Glukóza-odpad is printed twice: first with value 9,45 and no unit or range, then 52,50 mmol/d with range '0,00 - 0,00'",
+    "range '0,00 - 0,00' (fU_Glukóza-odpad) with the star at the far right"
+  ],
+  "rows": [
+    {
+      "raw_analyte_name": "S_Free T3",
+      "value_raw": "3,60",
+      "unit_raw": "pmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "2,62 - 5,70",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Free T4",
+      "value_raw": "28,00",
+      "unit_raw": "pmol/l",
+      "flag_raw": "  |   | | * | ",
+      "ref_range_raw": "9,01 - 19,05",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_BETA HCG",
+      "value_raw": "<1",
+      "unit_raw": "IU/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0 - 5",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_CEA",
+      "value_raw": "1,0",
+      "unit_raw": "ug/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,0 - 5,0",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_PSA",
+      "value_raw": "1,50",
+      "unit_raw": "ug/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,00 - 6,50",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_fPSA",
+      "value_raw": "0,3",
+      "unit_raw": "ug/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Poměr FreePSA/PSA",
+      "value_raw": "0,200",
+      "unit_raw": "",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,150 - 1,000",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Feritin",
+      "value_raw": "500,0",
+      "unit_raw": "ug/l",
+      "flag_raw": "  |   | |  *| ",
+      "ref_range_raw": "21,0 - 274,0",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Transferin IT",
+      "value_raw": "1,98",
+      "unit_raw": "g/l",
+      "flag_raw": "  | * | |   | ",
+      "ref_range_raw": "2,80 - 3,80",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Myoglobin",
+      "value_raw": "38,0",
+      "unit_raw": "ug/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,0 - 155,0",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_NT-proBNP",
+      "value_raw": "205",
+      "unit_raw": "ng/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0 - 450",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_High Sensitive Troponin I",
+      "value_raw": "0,3",
+      "unit_raw": "ng/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,0 - 34,2",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Covid protil. IgG",
+      "value_raw": "8000,0",
+      "unit_raw": "kAU/L",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "0,0 - 50,0",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true,
+      "comment_raw": "<50 kAU/l = protilátky nepřítomny\n>50 kAU/l = protilátky přítomny"
+    },
+    {
+      "raw_analyte_name": "S_Digoxin",
+      "value_raw": "1,18",
+      "unit_raw": "ug/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,80 - 2,00",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Teofylin",
+      "value_raw": "20,0",
+      "unit_raw": "µg/ml",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "10,0 - 20,0",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Osmolalita měřená",
+      "value_raw": "300",
+      "unit_raw": "mmol/kg",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "275 - 295",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Osmolalita(výpočet)",
+      "value_raw": "252",
+      "unit_raw": "mmol/kg",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "280 - 310",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "U_Objem",
+      "value_raw": "1500",
+      "unit_raw": "ml",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - sběr",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Čas",
+      "value_raw": "24",
+      "unit_raw": "h",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - sběr",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Sodík",
+      "value_raw": "20",
+      "unit_raw": "mmol/l",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "60 - 240",
+      "section": "Moč - minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "U_Draslík",
+      "value_raw": "35,0",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "15,0 - 120,0",
+      "section": "Moč - minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Chloridy",
+      "value_raw": "80,0",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "60,0 - 120,0",
+      "section": "Moč - minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Vápník",
+      "value_raw": "5,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Hořčík",
+      "value_raw": "0,50",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Fosfor",
+      "value_raw": "4,0",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_GF_MDRD 6",
+      "value_raw": "1,90",
+      "unit_raw": "ml/s",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Clearance",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_CKD-EPI",
+      "value_raw": "1,30",
+      "unit_raw": "ml/s",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "1,00 - 1,51",
+      "section": "Clearance",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Glomerular.filtrace",
+      "value_raw": "1,676",
+      "unit_raw": "ml/s",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "1,270 - 2,000",
+      "section": "Clearance",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Kor.glomer.filtrace",
+      "value_raw": "2,024",
+      "unit_raw": "ml/s",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "1,120 - 2,280",
+      "section": "Clearance",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "C_Tubulární resorpce",
+      "value_raw": "98,96",
+      "unit_raw": "%",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "98,80 - 99,70",
+      "section": "Clearance",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Osmolalita moče",
+      "value_raw": "280",
+      "unit_raw": "mmol/kg",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Glukóza",
+      "value_raw": "35,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "0,00 - 0,08",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "U_Kreatinin",
+      "value_raw": "5,60",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "5,00 - 18,00",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Albumin v moči",
+      "value_raw": "50,0",
+      "unit_raw": "mg/L",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_ACR",
+      "value_raw": "8,9",
+      "unit_raw": "g/mol",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "- 3,0",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "U_Bílkovina celková",
+      "value_raw": "0,70",
+      "unit_raw": "g/l",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "0,00 - 0,10",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "U_PCR",
+      "value_raw": "125,0",
+      "unit_raw": "g/mol",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "- 15,0",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "U_UREA",
+      "value_raw": "8,0",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Močová kyselina",
+      "value_raw": "8,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "fU_Glukóza-odpad",
+      "value_raw": "9,45",
+      "unit_raw": "",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "fU_Glukóza-odpad",
+      "value_raw": "52,50",
+      "unit_raw": "mmol/d",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "0,00 - 0,00",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "fU_Sodík-odpad",
+      "value_raw": "30,0",
+      "unit_raw": "mmol/d",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "120,0 - 240,0",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "fU_Draslík-odpad",
+      "value_raw": "52,5",
+      "unit_raw": "mmol/d",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "45,0 - 90,0",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "fU_Chloridy-odpad",
+      "value_raw": "120,0",
+      "unit_raw": "mmol/d",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "120,0 - 240,0",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    }
+  ]
+}

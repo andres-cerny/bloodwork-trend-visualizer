@@ -1,0 +1,456 @@
+{
+  "slug": "stod_p1",
+  "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+  "page": 1,
+  "language": "cs",
+  "lab": "Stodská nemocnice, a.s., Oddělení klinické biochemie",
+  "lis": "Medicalc software s.r.o. (PDF producer bioPDF); form 'Výsledkový list', 2021",
+  "conventions": [
+    "underscore material prefix on names (S_, U_, B_, P_, fU_, X_, C_, Fe_, Pt_); one hyphen row 'S- Cholesterol non- HDL' (p1); a few rows prefix-free (Poměr FreePSA/PSA, Čas, Protrombinový test- Ratio, ABR arter.)",
+    "column order: Název vyšetření | Výsledek | Jednotka | Meze | Hodnocení",
+    "Hodnocení is a fixed-width Courier text histogram, NOT a letter: four bars at character columns 2, 6, 8, 12 and a '*' placed by where the value falls — '|*|' between the two inner bars means in range, left of / right of the outer bars means far outside. `flag_raw` keeps the 14-character field verbatim, leading and trailing spaces included; it is '' when the row has no range",
+    "out-of-range values are printed in bold (Arial Bold, dark grey #4C4C4C) with no H/L letter anywhere — `value_printed_bold`; every bold value has its '*' outside the inner bars and vice versa",
+    "ranges 'lo - hi' with spaced hyphen and decimal comma, centred with padding spaces in the text layer (`ref_range_raw` is trimmed); a negative bound prints as '-2,0 - 2,0'",
+    "rows without a range (fPSA, ionised Ca, urine volumes, punctate, patient weight/height...) leave Meze and Hodnocení empty",
+    "unit spelling is inconsistent within one sheet: µkat/l vs µkat/L, g/l vs g/L, mmol/l vs mmol/L, mg/L, ug/l vs ug/L vs µg/ml; caret exponents 10^12/l 10^9/l; '1' is the unit of ratios and fractions (hematocrit, INR, O2 saturation); '-' for pH; 'arb.j.' and 'počet/uL' in urine",
+    "two heading levels: bold underlined capitals (BIOCHEMIE, HEMATOLOGIE, IMUNOHEMATOLOGIE, POMOCNÉ) in `group`, bold-italic subgroups (Enzymy + pigmenty, Minerály, Krevní obraz, Koagulace...) in `section`",
+    "grey italic comment lines interleaved under a row, indented or right-shifted, are not rows; they are attached to the row above as `comment_raw`",
+    "the patient header (HOKUS POKUSJMÉNO, JUDr.; IČ 12 12 12 / 121; Věk 108; Přijato/Odběr 29.06.2021 08:34) repeats on every page above the column header; footer 'Strana N z 5'",
+    "PDF has a real text layer (bioPDF writer); get_text() emits the columns as separate blocks so words must be regrouped by baseline",
+    "comments on this page: 'Do výsledku měření interferuje hemolýza' under S_Draslík, 'hlášeno s.Pokusová 1.7.21 09:37' under S_C-reaktivní prot.; only S_C-peptid po zátěži and S_Ionizovaný Ca lack a range"
+  ],
+  "rows": [
+    {
+      "raw_analyte_name": "S_Bilirubin",
+      "value_raw": "52,0",
+      "unit_raw": "µmol/l",
+      "flag_raw": "  |   | | * | ",
+      "ref_range_raw": "5,0 - 21,0",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Bilirubin.konjug.",
+      "value_raw": "4,0",
+      "unit_raw": "µmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,0 - 4,3",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_ALT",
+      "value_raw": "0,25",
+      "unit_raw": "µkat/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,09 - 0,75",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_AST",
+      "value_raw": "0,30",
+      "unit_raw": "µkat/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,09 - 0,70",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_GMT",
+      "value_raw": "0,80",
+      "unit_raw": "µkat/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,25 - 1,75",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Fosfatáza alkalická",
+      "value_raw": "1,70",
+      "unit_raw": "µkat/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,60 - 2,30",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Lipáza",
+      "value_raw": "0,40",
+      "unit_raw": "µkat/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,00 - 1,20",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Cholinesteráza",
+      "value_raw": "132",
+      "unit_raw": "µkat/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "59 - 190",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Kreatinkináza",
+      "value_raw": "2,50",
+      "unit_raw": "µkat/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,00 - 3,40",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Laktátdehydrogenáza",
+      "value_raw": "5,00",
+      "unit_raw": "µkat/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "2,10 - 3,70",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Alfa-amyláza",
+      "value_raw": "0,50",
+      "unit_raw": "µkat/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,00 - 1,70",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "U_Alfa-amyláza",
+      "value_raw": "5,00",
+      "unit_raw": "µkat/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,00 - 8,00",
+      "section": "Enzymy + pigmenty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Glukóza enzym.",
+      "value_raw": "6,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "3,30 - 5,60",
+      "section": "Sacharidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Glukóza",
+      "value_raw": "6,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "3,30 - 5,60",
+      "section": "Sacharidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Glyk.hemoglobin A1c",
+      "value_raw": "45,0",
+      "unit_raw": "mmol/mol",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "20,0 - 42,0",
+      "section": "Sacharidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "P_Laktát",
+      "value_raw": "2,50",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "0,50 - 2,20",
+      "section": "Sacharidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_C-peptid",
+      "value_raw": "0,300",
+      "unit_raw": "nmol/l",
+      "flag_raw": "  | * | |   | ",
+      "ref_range_raw": "0,600 - 1,200",
+      "section": "Sacharidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_C-peptid po zátěži",
+      "value_raw": "0,9",
+      "unit_raw": "nmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Sacharidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Urea",
+      "value_raw": "3,6",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "2,6 - 8,3",
+      "section": "Dusíkaté látky",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Kreatinin",
+      "value_raw": "58,0",
+      "unit_raw": "µmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "53,0 - 120,0",
+      "section": "Dusíkaté látky",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Močová kyselina",
+      "value_raw": "300",
+      "unit_raw": "µmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "200 - 420",
+      "section": "Dusíkaté látky",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Sodík",
+      "value_raw": "121",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "134 - 148",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Draslík",
+      "value_raw": "5,6",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "3,5 - 5,1",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true,
+      "comment_raw": "Do výsledku měření interferuje hemolýza"
+    },
+    {
+      "raw_analyte_name": "S_Chloridy",
+      "value_raw": "88",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "95 - 112",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Vápník",
+      "value_raw": "2,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "2,05 - 2,90",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Ionizovaný Ca",
+      "value_raw": "0,95",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Fosfor anorganický",
+      "value_raw": "0,70",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,60 - 1,60",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Hořčík",
+      "value_raw": "0,70",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,65 - 1,20",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Železo",
+      "value_raw": "13,0",
+      "unit_raw": "µmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "12,5 - 32,2",
+      "section": "Minerály",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Bílkovina celková",
+      "value_raw": "88,0",
+      "unit_raw": "g/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "60,0 - 84,0",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Albumin",
+      "value_raw": "35,0",
+      "unit_raw": "g/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "35,0 - 55,0",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Gama-globulin-abs.(výpočet)",
+      "value_raw": "53,00",
+      "unit_raw": "g/l",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "18,00 - 38,00",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Albumino-globulin.k.(výpočet)",
+      "value_raw": "0,660",
+      "unit_raw": "1",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "1,200 - 2,000",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Imunoglobulin -E-",
+      "value_raw": "28,0",
+      "unit_raw": "kU/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,0 - 100,0",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_C-reaktivní prot.",
+      "value_raw": "350",
+      "unit_raw": "mg/l",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "0 - 8",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true,
+      "comment_raw": "hlášeno s.Pokusová 1.7.21 09:37"
+    },
+    {
+      "raw_analyte_name": "S_Prealbumin",
+      "value_raw": "0,350",
+      "unit_raw": "g/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,200 - 0,400",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Prokalcitonin",
+      "value_raw": "0,25",
+      "unit_raw": "ug/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,00 - 0,50",
+      "section": "Bílkoviny séra",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Cholesterol",
+      "value_raw": "5,80",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | | * | ",
+      "ref_range_raw": "3,50 - 5,20",
+      "section": "Lipidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Cholesterol LDL",
+      "value_raw": "1,4",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,0 - 3,9",
+      "section": "Lipidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Cholesterol HDL",
+      "value_raw": "0,90",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  | * | |   | ",
+      "ref_range_raw": "1,04 - 2,07",
+      "section": "Lipidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S- Cholesterol non- HDL",
+      "value_raw": "4,90",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "0,00 - 3,80",
+      "section": "Lipidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "S_Triacylglycerol",
+      "value_raw": "1,50",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,30 - 1,94",
+      "section": "Lipidový metabolismus",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_TSH",
+      "value_raw": "0,890",
+      "unit_raw": "mIU/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,350 - 4,940",
+      "section": "Speciální metody",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "note": "PDFs are git-ignored under data/public-sheets/; only these transcribed facts are committed. Render at run time from data/public-sheets/<source> page N.",
+  "note": "PDFs (and one JPG) are git-ignored under data/public-sheets/; only these transcribed facts are committed. Render at run time from data/public-sheets/<source> page N; an `image_only` source is loaded as an image directly, a `text_layer` source also has extractable text.",
   "sheets": [
     {
       "slug": "breclav_p121",
@@ -74,6 +74,170 @@
         "en_dash_range",
         "qualitative_rows",
         "accreditation_icon",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "stod_p1",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 1,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer"
+      ]
+    },
+    {
+      "slug": "stod_p2",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 2,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "open_range",
+        "inequality_value"
+      ]
+    },
+    {
+      "slug": "stod_p3",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 3,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "two_column_block",
+        "qualitative_rows"
+      ]
+    },
+    {
+      "slug": "stod_p4",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 4,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "qualitative_rows",
+        "padded_name_codes"
+      ]
+    },
+    {
+      "slug": "stod_p5",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 5,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "qualitative_rows",
+        "no_numeric_rows"
+      ]
+    },
+    {
+      "slug": "breclav_hem_p80",
+      "source": "fetched/nembv_hem_9c9c0.pdf",
+      "url": "https://www.nembv.cz/obrazky-soubory/hem-9c9c0.pdf?redir",
+      "sha256": "3d0b229521ab13e016a838cb4a90bb224fba9be91edf353c1b0c804ccbf8036a",
+      "page": 80,
+      "language": "cs",
+      "patient": "fictitious",
+      "conventions": [
+        "no_prefix",
+        "accreditation_star_in_name",
+        "spaced_paren_range",
+        "flag_cell_L_dot",
+        "three_decimals",
+        "giga_tera_units",
+        "material_column",
+        "signature_cells",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "bulovka_okbi",
+      "source": "fetched/renders/bulovka_okbi_vyslist.jpg",
+      "url": "https://bulovka.cz/wp-content/oddeleni/okbi/laboratorni_prirucka/HVEZDA5AAM_soubory/image001.jpg",
+      "sha256": "3842d61663d8005846e4e3cfdc3c24a449db2f24525717ff4f58a49168f670a9",
+      "page": 1,
+      "language": "cs",
+      "patient": "fictitious",
+      "image_only": true,
+      "conventions": [
+        "no_prefix",
+        "vykon_code_column",
+        "material_group_line",
+        "period_decimals",
+        "hyphen_range_nospace",
+        "bracket_star_flag",
+        "monospace_values",
+        "preliminary_banner",
         "bitmap"
       ]
     }
