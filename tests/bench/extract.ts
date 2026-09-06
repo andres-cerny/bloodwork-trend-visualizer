@@ -29,9 +29,12 @@ import { MODEL_PRICING } from "@bw/agent-core";
 import { type TextRow } from "@bw/lab-core";
 
 /** Extends the Worker's table; Haiku is only ever a benchmark arm today. */
-const PRICING: Record<string, [number, number]> = {
+export const PRICING: Record<string, [number, number]> = {
   ...MODEL_PRICING,
   "claude-haiku-4-5": [1.0, 5.0],
+  // Paid tier, USD per 1M tokens. Becomes [1.50, 7.50] on 2027-01-01 —
+  // docs/plans/lab-adaptability.md "Risks". Re-run C5's table then.
+  "gemini-3.8-flash": [0.75, 3.75],
 };
 
 export function priceUsd(model: string, u: Usage): number {
@@ -60,6 +63,10 @@ export interface Reader {
   model: string;
   effort?: Effort;
   thinking?: ThinkingMode;
+  /** Which API answers. Absent means Anthropic, so every existing arm is untouched. */
+  provider?: "anthropic" | "google";
+  /** Gemini only: how many tokens the image is worth to the model (gemini.ts). */
+  mediaResolution?: "high" | "ultra_high";
 }
 
 export interface Arm {
@@ -92,6 +99,8 @@ export interface CallResult {
   /** Did the response actually contain a thinking block? Settles A2 by
    *  observation rather than by reading the docs. */
   thought: boolean;
+  /** Gemini only: prompt tokens the image cost — the plan's open item on $/page. */
+  imageTokens?: number;
   extraction: PageExtraction | null;
   error: string | null;
 }
@@ -174,6 +183,10 @@ export async function callReader(
   reader: Reader,
   rows: TextRow[],
 ): Promise<CallResult> {
+  if (reader.provider === "google") {
+    const { callGemini } = await import("./gemini");
+    return callGemini(apiKey, reader, { kind: "text", rows });
+  }
   const columnMode = arm.mode === "columnMap";
   // The column map is addressed by row number, so it always needs the indexed
   // rendering regardless of what `anchor` says.

@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { censoredLostMarker, looksCollapsed, nameKey, scoreAgainstBaseline } from "./score";
+import { censoredLostMarker, looksCollapsed, nameKey, pairStats, scoreAgainstBaseline, valueErrors } from "./score";
 
 describe("looksCollapsed — the hyphen-loss class", () => {
   it("catches the exact defect from docs: 4,11-5,60 read back as 4,115,60", () => {
@@ -130,5 +130,108 @@ describe("duplicate analyte names — the differential-count page", () => {
     const s = scoreAgainstBaseline(baseline, [baseline[0]]);
     expect(s.matched).toBe(1);
     expect(s.missing).toEqual(["B_Neutrofily"]);
+  });
+});
+
+describe("valueErrors — column 2 for image classes, against hand-verified truth", () => {
+  const truth = [
+    { raw_analyte_name: "S_Glukóza", value_raw: "5,32", unit_raw: "mmol/l" },
+    { raw_analyte_name: "S_ALT", value_raw: "0,93 !", unit_raw: "µkat/l" },
+    { raw_analyte_name: "S_CRP", value_raw: "<1,0", unit_raw: "mg/l" },
+  ];
+
+  it("reports a verbatim read as clean", () => {
+    const s = valueErrors(truth, truth);
+    expect(s.matched).toBe(3);
+    expect(s.errors).toEqual([]);
+    expect(s.missing).toEqual([]);
+    expect(s.extra).toEqual([]);
+  });
+
+  it("ignores whitespace and the lab's !/* markers, never the decimal comma or a censor", () => {
+    const read = [
+      { raw_analyte_name: "S_Glukóza", value_raw: "5.32" }, // comma -> dot: a wrong number
+      { raw_analyte_name: "S_ALT", value_raw: "0,93" }, // marker dropped: normalize() drops it too
+      { raw_analyte_name: "S_CRP", value_raw: "1,0" }, // decensored: a wrong number
+    ];
+    const s = valueErrors(read, truth);
+    expect(s.matched).toBe(3);
+    expect(s.errors.map((e) => e.name)).toEqual(["S_Glukóza", "S_CRP"]);
+  });
+
+  it("separates a missed row from an invented one", () => {
+    const read = [truth[0], { raw_analyte_name: "S_Neexistuje", value_raw: "1,0" }];
+    const s = valueErrors(read, truth);
+    expect(s.missing).toEqual(["S_ALT", "S_CRP"]);
+    expect(s.extra).toEqual(["S_Neexistuje"]);
+    expect(s.errors).toEqual([]);
+  });
+
+  it("pairs a duplicated analyte by value first, so order does not create errors", () => {
+    const diff = [
+      { raw_analyte_name: "B_Neutrofily", value_raw: "0,527" },
+      { raw_analyte_name: "B_Neutrofily", value_raw: "2,900" },
+    ];
+    const s = valueErrors([diff[1], diff[0]], diff);
+    expect(s.matched).toBe(2);
+    expect(s.errors).toEqual([]);
+  });
+});
+
+describe("pairStats — two numbers for a reader pair, never merged", () => {
+  const truth = [
+    { raw_analyte_name: "S_Glukóza", value_raw: "5,32" },
+    { raw_analyte_name: "S_Sodík", value_raw: "141" },
+    { raw_analyte_name: "S_CRP", value_raw: "<1,0" },
+  ];
+
+  it("confirms rows both readers agree on, and counts an agreed wrong value as uncaught", () => {
+    const a = [truth[0], { raw_analyte_name: "S_Sodík", value_raw: "144" }, truth[2]];
+    const b = [truth[0], { raw_analyte_name: "S_Sodík", value_raw: "144" }, truth[2]];
+    const s = pairStats(a, b, truth);
+    expect(s.singleReader).toBe(false);
+    expect(s.confirmedRows).toBe(3);
+    expect(s.flaggedRows).toBe(0);
+    // Both misread 141 as 144 the same way: the pair let it through.
+    expect(s.uncaughtValueErrors).toEqual([{ name: "S_Sodík", truth: "141", read: "144" }]);
+  });
+
+  it("flags a disagreement and a row only one reader found, and credits the flag when a read was wrong", () => {
+    const a = [truth[0], { raw_analyte_name: "S_Sodík", value_raw: "144" }, truth[2]];
+    const b = [truth[0], truth[1]]; // CRP missing on this side
+    const s = pairStats(a, b, truth);
+    expect(s.confirmedRows).toBe(1);
+    expect(s.flaggedRows).toBe(2);
+    expect(s.uncaughtValueErrors).toEqual([]);
+    expect(s.caughtValueErrors).toBe(1); // the 144
+  });
+
+  it("counts a row both readers invented as uncaught, with an empty truth", () => {
+    const ghost = { raw_analyte_name: "S_Neexistuje", value_raw: "1,0" };
+    const s = pairStats([...truth, ghost], [...truth, ghost], truth);
+    expect(s.uncaughtValueErrors).toEqual([{ name: "S_Neexistuje", truth: "", read: "1,0" }]);
+  });
+
+  it("the silent-single-reader rule: one read missing flags every row and confirms none", () => {
+    const only = [truth[0], { raw_analyte_name: "S_Sodík", value_raw: "144" }, truth[2]];
+    for (const [a, b] of [
+      [only, null],
+      [null, only],
+    ] as const) {
+      const s = pairStats(a, b, truth);
+      expect(s.singleReader).toBe(true);
+      expect(s.flaggedRows).toBe(only.length);
+      expect(s.confirmedRows).toBe(0);
+      expect(s.uncaughtValueErrors).toEqual([]);
+      // The surviving read's own error is still visible, per shot.
+      expect(s.singleReaderErrors).toEqual([{ name: "S_Sodík", truth: "141", read: "144" }]);
+    }
+  });
+
+  it("both reads missing is a single-reader case with nothing to flag", () => {
+    const s = pairStats(null, null, truth);
+    expect(s.singleReader).toBe(true);
+    expect(s.flaggedRows).toBe(0);
+    expect(s.confirmedRows).toBe(0);
   });
 });

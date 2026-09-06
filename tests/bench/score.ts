@@ -231,3 +231,148 @@ export function rangeIntegrity(
   }
   return out;
 }
+
+/* ------------------------------------------- image classes: value errors */
+
+/**
+ * Image pages have no rows to check provenance against, so column 2 becomes
+ * value errors against hand-verified truth — objective because a human
+ * checked the truth, as docs/extraction-speed.md's vision table already did.
+ *
+ * Matching is the rule subagent_score.bench.ts settled on: a truth row prefers
+ * the read row with the same name AND value before falling back to occurrence
+ * order, so a differential printed as fractions then absolutes is not charged
+ * ten errors for coming back the other way round. Values are compared with
+ * whitespace squashed and the lab's own `!`/`*` markers stripped, because
+ * `normalize()` strips them before parsing — a dropped marker is not a wrong
+ * number. The decimal comma survives.
+ */
+export const squash = (x: string | undefined): string => (x ?? "").replace(/\s+/g, "");
+export const valKey = (x: string | undefined): string => squash(x).replace(/[!*]/g, "");
+
+export interface ValueErrors {
+  truthRows: number;
+  readRows: number;
+  matched: number;
+  errors: Array<{ name: string; truth: string; read: string }>;
+  missing: string[];
+  extra: string[];
+}
+
+export function valueErrors(read: RawMeasurement[], truth: RawMeasurement[]): ValueErrors {
+  const free = read.map((m) => m);
+  const out: ValueErrors = { truthRows: truth.length, readRows: read.length, matched: 0, errors: [], missing: [], extra: [] };
+  for (const t of truth) {
+    const k = nameKey(t.raw_analyte_name);
+    const same = free.filter((m) => nameKey(m.raw_analyte_name) === k);
+    const pick = same.find((m) => valKey(m.value_raw) === valKey(t.value_raw)) ?? same[0];
+    if (!pick) {
+      out.missing.push(t.raw_analyte_name ?? "?");
+      continue;
+    }
+    free.splice(free.indexOf(pick), 1);
+    out.matched++;
+    if (valKey(t.value_raw) !== valKey(pick.value_raw)) {
+      out.errors.push({ name: t.raw_analyte_name ?? "?", truth: t.value_raw ?? "", read: pick.value_raw ?? "" });
+    }
+  }
+  for (const m of free) out.extra.push(m.raw_analyte_name ?? "?");
+  return out;
+}
+
+/* ------------------------------------------------- reader pairs, two numbers */
+
+/**
+ * Two numbers for a reader pair, never merged: uncaught value errors (both
+ * readers wrong the same way — must be 0) and flagged rows (disagreements,
+ * the cost of review — reported so it can be judged, not averaged away).
+ *
+ * Rows are lined up the way `reconcile()` in lab-core does: by analyte name
+ * and occurrence. A row both reads carry with one value is *confirmed*; if
+ * that agreed value is not the truth's, the pair let it through, and that is
+ * an uncaught error. A row with two values, or found by one read only, is
+ * *flagged* — `reconcile()` writes `disagreement` on both.
+ *
+ * The silent-single-reader rule: when one read is missing (the request
+ * failed), nothing is confirmed. Every row of the surviving read is flagged
+ * (`"druhé čtení se nezdařilo"`), `singleReader` is true, and the surviving
+ * read's own value errors are listed under `singleReaderErrors` so the
+ * condition is visible per shot rather than hidden in a 0.
+ */
+export interface PairStats {
+  singleReader: boolean;
+  confirmedRows: number;
+  flaggedRows: number;
+  /** Confirmed rows whose agreed value is not the truth (truth "" = a row both invented). */
+  uncaughtValueErrors: Array<{ name: string; truth: string; read: string }>;
+  /** Flagged rows where at least one read was wrong — the flag earned its keep. */
+  caughtValueErrors: number;
+  /** Value errors of the one read that came back, when only one did. */
+  singleReaderErrors: Array<{ name: string; truth: string; read: string }>;
+}
+
+export function pairStats(
+  readA: RawMeasurement[] | null,
+  readB: RawMeasurement[] | null,
+  truth: RawMeasurement[],
+): PairStats {
+  const stats: PairStats = {
+    singleReader: false,
+    confirmedRows: 0,
+    flaggedRows: 0,
+    uncaughtValueErrors: [],
+    caughtValueErrors: 0,
+    singleReaderErrors: [],
+  };
+  if (!readA || !readB) {
+    const only = readA ?? readB;
+    stats.singleReader = true;
+    stats.flaggedRows = only?.length ?? 0;
+    if (only) stats.singleReaderErrors = valueErrors(only, truth).errors;
+    return stats;
+  }
+
+  // Occurrence-ordered pairing by name, like reconcile().
+  const byName = (ms: RawMeasurement[]) => {
+    const m = new Map<string, RawMeasurement[]>();
+    for (const x of ms) {
+      const k = nameKey(x.raw_analyte_name);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(x);
+    }
+    return m;
+  };
+  const a = byName(readA);
+  const b = byName(readB);
+  const t = byName(truth);
+  const keys = new Set([...a.keys(), ...b.keys()]);
+
+  for (const k of keys) {
+    const as = a.get(k) ?? [];
+    const bs = b.get(k) ?? [];
+    const ts = t.get(k) ?? [];
+    const n = Math.max(as.length, bs.length);
+    for (let i = 0; i < n; i++) {
+      const ra = as[i];
+      const rb = bs[i];
+      const name = (ra ?? rb)?.raw_analyte_name ?? "?";
+      // Truth occurrence: prefer the one whose value either read produced.
+      const tr =
+        ts.find((x) => valKey(x.value_raw) === valKey(ra?.value_raw) || valKey(x.value_raw) === valKey(rb?.value_raw)) ??
+        ts[i] ??
+        ts[0];
+      const truthVal = tr ? valKey(tr.value_raw) : null;
+      if (ra && rb && valKey(ra.value_raw) === valKey(rb.value_raw)) {
+        stats.confirmedRows++;
+        if (truthVal !== valKey(ra.value_raw)) {
+          stats.uncaughtValueErrors.push({ name, truth: tr?.value_raw ?? "", read: ra.value_raw ?? "" });
+        }
+      } else {
+        stats.flaggedRows++;
+        const wrong = [ra, rb].some((r) => r && truthVal !== null && valKey(r.value_raw) !== truthVal);
+        if (wrong) stats.caughtValueErrors++;
+      }
+    }
+  }
+  return stats;
+}
