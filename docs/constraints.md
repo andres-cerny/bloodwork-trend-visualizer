@@ -223,9 +223,9 @@ no name from a report, no file name. The four free-text fields are the
 person's own words, sent as typed, and capped. `packages/lab-core/tests/aiShare.test.ts`,
 `packages/lab-core/tests/aiContext.test.ts` and
 `workers/portal/tests/aiShare.test.ts` pin the absences. The page is HTML
-with the text in a `<pre>` — ChatGPT's browser refuses a `text/markdown`
-file — and a fetcher whose `Accept` asks for text gets the stored text byte
-for byte.
+with the text in a `<pre>`, whatever the fetcher's `Accept` says, at an
+address with no extension — ChatGPT's browser refuses anything that looks
+like a markdown file, and refused it again when the page negotiated.
 
 ## A security review found one real defect
 

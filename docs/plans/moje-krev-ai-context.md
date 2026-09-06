@@ -95,6 +95,16 @@ the `.md` form of a live token still serves during the overlap.
 Gate: `npx vitest run --project portal`, `npm run typecheck`. The real gate
 is after deploy, below.
 
+**Amended after the first deploy, 2026-09-06.** Ondrej pasted a link and
+ChatGPT refused it again as "a Markdown file". The worker log showed the
+fetched address still ended in `.md` (the tab kept a link minted before the
+deploy), and the content negotiation could hand raw markdown to any fetcher
+that asks for it — which OpenAI's may. Both hypotheses closed at once: the
+page is HTML whatever `Accept` says, the `.md` address redirects (301) to
+the bare one, the tab strips `.md` from a kept link's sentence, and the
+route logs the fetcher's user agent and `Accept` header (no token, no body)
+so the next paste leaves evidence.
+
 ## Phase 1 — lab-core: the text
 
 `packages/lab-core/src/aiContext.ts`, exported from the index.

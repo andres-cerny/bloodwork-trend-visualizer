@@ -173,12 +173,12 @@ describe("minting", () => {
     const { url, expiresAt } = await mint();
     const res = await api(A, "PUT", "/api/ai-share", { text: TEXT + "O mně:\n- Věk: 30–34 let\n" });
     expect(res.status).toBe(200);
-    expect(await (await page(url, "text/markdown")).text()).toBe(TEXT + "O mně:\n- Věk: 30–34 let\n");
+    expect(preOf(await (await page(url)).text())).toBe(TEXT + "O mně:\n- Věk: 30–34 let\n");
     expect(tables.shares).toHaveLength(1);
     expect(await (await api(A, "GET", "/api/ai-share")).json()).toEqual({ expiresAt });
     // Someone else's PUT does not reach it.
     expect((await api(B, "PUT", "/api/ai-share", { text: "theirs" })).status).toBe(404);
-    expect(await (await page(url, "text/markdown")).text()).not.toBe("theirs");
+    expect(preOf(await (await page(url)).text())).not.toBe("theirs");
   });
 
   it("refuses to update when there is no live link, and refuses the same bad texts as a mint", async () => {
@@ -220,18 +220,13 @@ describe("the public page", () => {
     expect(html).not.toMatch(/<script|<link|src=|url\(/);
   });
 
-  it("hands the stored text byte for byte to a fetcher that asks for text", async () => {
+  it("is HTML whatever the fetcher asks for — an assistant that asked for markdown refused what it got", async () => {
     const { url } = await mint();
-    for (const accept of ["text/markdown", "text/plain", "text/markdown, text/html;q=0.9", "text/plain;q=0.9, */*;q=0.1"]) {
+    for (const accept of ["text/markdown", "text/plain", "text/markdown, text/html;q=0.9", "text/html,application/xhtml+xml,*/*;q=0.8", "*/*"]) {
       const res = await page(url, accept);
       expect(res.status, accept).toBe(200);
-      expect(res.headers.get("content-type"), accept).toBe("text/markdown; charset=utf-8");
-      expect(res.headers.get("vary"), accept).toBe("accept");
-      expect(await res.text(), accept).toBe(TEXT);
-    }
-    // A browser's list names HTML first; a wildcard names nothing.
-    for (const accept of ["text/html,application/xhtml+xml,*/*;q=0.8", "*/*", "text/html, text/plain;q=0.5"]) {
-      expect((await page(url, accept)).headers.get("content-type"), accept).toBe("text/html; charset=utf-8");
+      expect(res.headers.get("content-type"), accept).toBe("text/html; charset=utf-8");
+      expect(preOf(await res.text()), accept).toBe(TEXT);
     }
   });
 
@@ -241,15 +236,20 @@ describe("the public page", () => {
     const html = await (await page(url)).text();
     expect(html).not.toContain("<script>");
     expect(preOf(html)).toBe("crp | mg/l | &lt;0,5 &amp; &gt;10 | 2025-08-13: &lt;0,5\n&lt;script&gt;alert(1)&lt;/script&gt;\n");
-    expect(await (await page(url, "text/markdown")).text()).toBe(hostile);
   });
 
-  it("still serves the .md shape of a live link, for links minted before the page became HTML", async () => {
+  it("redirects the .md shape of a link to the bare address, so no fetcher sees a file-looking URL", async () => {
     const { url } = await mint();
+    const token = tokenOf(url);
     const res = await page(`${url}.md`);
-    expect(res.status).toBe(200);
-    expect(preOf(await res.text())).toBe(TEXT);
-    expect(await (await page(`${url}.md`, "text/markdown")).text()).toBe(TEXT);
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe(`/ai/${token}`);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("x-robots-tag")).toBe("noindex");
+    // The redirect says nothing about the token: a dead one redirects the same way, and 404s after.
+    await api(A, "DELETE", "/api/ai-share");
+    expect((await page(`${url}.md`)).status).toBe(301);
+    expect((await page(url)).status).toBe(404);
   });
 
   it("carries neither the e-mail nor any word from the users table", async () => {
@@ -279,7 +279,7 @@ describe("the public page", () => {
     refusals.push(await page(`https://portal/ai/${token}.md.md`));
     refusals.push(await page(`https://portal/ai/`));
     refusals.push(await page(`https://portal/ai/${token}/extra`));
-    // Revoked, on both paths.
+    // Revoked, whatever is asked for.
     await api(A, "DELETE", "/api/ai-share");
     refusals.push(await page(url));
     refusals.push(await page(url, "text/markdown"));

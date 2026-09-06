@@ -6,9 +6,8 @@
  * The text is built here, in the browser, by lab-core's `buildAiShare` from
  * the same payloads every other tab reads plus the person's AI context, and
  * the worker stores it verbatim — so "Co AI uvidí" shows exactly the bytes
- * behind the page (served byte for byte to a fetcher that asks for text,
- * wrapped in HTML for a browser), and the worker still never reads a value
- * out of a payload. The URL is shown once: the worker keeps only the
+ * behind the page (wrapped in HTML, escaped, nothing else), and the worker
+ * still never reads a value out of a payload. The URL is shown once: the worker keeps only the
  * token's hash. The sentence lives in this tab's sessionStorage, so a
  * reload in the same tab still has it, and a new tab or another device is
  * told a link exists and offered a fresh one.
@@ -71,7 +70,9 @@ function czDateTime(iso: string): string {
   return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()} ${d.getHours()}:${two(d.getMinutes())}`;
 }
 
-const sentenceFor = (url: string) => `Načti moje výsledky krve z ${url} a pomoz mi jim porozumět.`;
+// A link kept from before 2026-09-06 ends in .md; the address the person
+// pastes must not, or the assistant sees "a Markdown file" before it fetches.
+const sentenceFor = (url: string) => `Načti moje výsledky krve z ${url.replace(/\.md$/, "")} a pomoz mi jim porozumět.`;
 
 /** The table rows of the stored text, cell by cell — the text is the truth,
  *  so the preview is parsed from it rather than rebuilt beside it. */

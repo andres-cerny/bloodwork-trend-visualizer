@@ -20,9 +20,10 @@
  * fetches when they paste their share link. It sits above the login gate,
  * answers by the token's hash alone, and says the same 404 for a token that
  * is expired, revoked, unknown or malformed — the page must not be a way to
- * learn which tokens ever existed. It is HTML by default, because ChatGPT's
- * browser opens HTML and refuses "a Markdown file"; a fetcher that asks for
- * text/markdown gets the stored text byte for byte.
+ * learn which tokens ever existed. It is HTML, always: ChatGPT's browser
+ * opens HTML and refuses "a Markdown file", and it refused one again when
+ * the page negotiated on Accept — so nothing about the address or the
+ * response may say markdown. The old `.md` address redirects to the bare one.
  */
 import { mintSession } from "@bw/gate";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type UserRow } from "./db";
@@ -570,27 +571,13 @@ const MAX_SHARE_BYTES = 512 * 1024;
 /**
  * newLoginToken is 32 random bytes as base64url: 43 characters, exactly.
  * The `.md` suffix is the shape links had until 2026-09-06; a link minted
- * before that deploy lives at most 24 hours, so the suffix can go from this
- * pattern once that day has passed.
+ * before that deploy lives at most 24 hours, and is redirected to the bare
+ * address so the fetcher never sees a file-looking URL. The suffix can go
+ * from this pattern once that day has passed.
  */
-const SHARE_PAGE = /^\/ai\/([A-Za-z0-9_-]{43})(?:\.md)?$/;
+const SHARE_PAGE = /^\/ai\/([A-Za-z0-9_-]{43})(\.md)?$/;
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-/**
- * Whether the fetcher asked for the text rather than a page: text/markdown
- * or text/plain named ahead of text/html in Accept. No header, `*\/*`, or a
- * browser's HTML-first list all get the page.
- */
-function wantsText(accept: string | null): boolean {
-  if (!accept) return false;
-  const a = accept.toLowerCase();
-  const at = (type: string) => {
-    const i = a.indexOf(type);
-    return i < 0 ? Number.POSITIVE_INFINITY : i;
-  };
-  return Math.min(at("text/markdown"), at("text/plain")) < at("text/html");
-}
 
 /**
  * The page around the text: a heading for a human who opens the link, the
@@ -625,18 +612,25 @@ const sharePageNotFound = () =>
  * page is the same 404 — one body, one status, one set of headers — so an
  * attacker probing tokens learns nothing from the shape of the refusal.
  */
-async function serveSharePage(env: Env, pathname: string, accept: string | null): Promise<Response> {
+async function serveSharePage(env: Env, request: Request, pathname: string): Promise<Response> {
   const m = SHARE_PAGE.exec(pathname);
   if (!m) return sharePageNotFound();
+  // Who fetches, and what they ask for — no token, no body. This is how a
+  // "my browser cannot open it" from an assistant gets diagnosed.
+  console.log(JSON.stringify({ sharePage: m[2] ? "md" : "bare", ua: request.headers.get("user-agent"), accept: request.headers.get("accept") }));
+  if (m[2]) {
+    return new Response(null, {
+      status: 301,
+      headers: { location: `/ai/${m[1]}`, "cache-control": "no-store", "x-robots-tag": "noindex" },
+    });
+  }
   const row = await env.DB.prepare(SQL.shareByHash).bind(await sha256Hex(m[1])).first<AiShareRow>();
   if (!row || row.revoked_at !== null || row.expires_at <= now()) return sharePageNotFound();
-  const text = wantsText(accept);
-  return new Response(text ? row.snapshot : sharePageHtml(row.snapshot), {
+  return new Response(sharePageHtml(row.snapshot), {
     headers: {
-      "content-type": text ? "text/markdown; charset=utf-8" : "text/html; charset=utf-8",
+      "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
       "x-robots-tag": "noindex",
-      vary: "accept",
     },
   });
 }
@@ -710,7 +704,7 @@ export default {
     // The one public page, above the gate: a share link works without a
     // login, which is the whole point of it.
     if (url.pathname.startsWith("/ai/")) {
-      return request.method === "GET" || request.method === "HEAD" ? serveSharePage(env, url.pathname, request.headers.get("accept")) : sharePageNotFound();
+      return request.method === "GET" || request.method === "HEAD" ? serveSharePage(env, request, url.pathname) : sharePageNotFound();
     }
 
     switch (route) {
