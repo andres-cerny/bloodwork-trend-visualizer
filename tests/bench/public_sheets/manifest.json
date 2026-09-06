@@ -1,0 +1,81 @@
+{
+  "note": "PDFs are git-ignored under data/public-sheets/; only these transcribed facts are committed. Render at run time from data/public-sheets/<source> page N.",
+  "sheets": [
+    {
+      "slug": "breclav_p121",
+      "source": "breclav.pdf",
+      "url": "https://www.nembv.cz/obrazky-soubory/lpk_olb_v18-71756.pdf",
+      "sha256": "ab62939f68db3bf098991050b2097cc8fc462495e16800fa5b9b433df167dedc",
+      "page": 121,
+      "language": "cs",
+      "patient": "redacted",
+      "conventions": [
+        "zkr_column",
+        "four_decimals",
+        "spaced_paren_range",
+        "flag_cell_H_dot",
+        "accreditation_star_in_name",
+        "signature_cells",
+        "no_prefix",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "breclav_p122",
+      "source": "breclav.pdf",
+      "url": "https://www.nembv.cz/obrazky-soubory/lpk_olb_v18-71756.pdf",
+      "sha256": "ab62939f68db3bf098991050b2097cc8fc462495e16800fa5b9b433df167dedc",
+      "page": 122,
+      "language": "cs",
+      "patient": "redacted",
+      "conventions": [
+        "zkr_column",
+        "four_decimals",
+        "spaced_paren_range",
+        "flag_cell_H_dot",
+        "signature_cells",
+        "no_prefix",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "euc_p34",
+      "source": "euc.pdf",
+      "url": "https://euc.cz/media/6691/laboratorn%C3%AD-p%C5%99%C3%ADru%C4%8Dka-2025-1.pdf",
+      "sha256": "20608c9c59548bed846c7cd7731a0acf444521e8a6d121bba7f4a895e5991225",
+      "page": 34,
+      "language": "cs",
+      "patient": "fictitious",
+      "conventions": [
+        "slash_prefix",
+        "hodnoceni_paren_star",
+        "red_out_of_range",
+        "unit_last_column",
+        "accreditation_star_column",
+        "section_headings",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "unilabs_sk_p2",
+      "source": "unilabs_sk_smartreports.pdf",
+      "url": "https://www.unilabs.sk/media/2023/12/1/7/SmartReports-A4-RGB-.pdf",
+      "sha256": "8d49f80a845899680236aa6b4166a6ec99336d8945473aaa75568331cc460095",
+      "page": 2,
+      "language": "sk",
+      "patient": "fictitious",
+      "conventions": [
+        "slovak",
+        "grouped_sections",
+        "material_column",
+        "hyphen_prefix",
+        "bracket_codes",
+        "icon_flags",
+        "en_dash_range",
+        "qualitative_rows",
+        "accreditation_icon",
+        "bitmap"
+      ]
+    }
+  ]
+}
