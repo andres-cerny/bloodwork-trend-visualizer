@@ -43,6 +43,8 @@
     "MAX_PAGES_PER_REPORT": "30"
   },
 
+  // PBKDF2 for the login runs here; the same cap that killed extraction would cap the iteration count.
+  "limits": { "cpu_ms": 30000 },
   "observability": { "enabled": true }
 
   // Secrets: SESSION_SECRET (cookie signing; portal-specific, NOT shared with
