@@ -50,7 +50,7 @@ export function useShownPassword(): { type: "text" | "password"; toggle: React.R
   const toggle = (
     <label className="check">
       <input type="checkbox" checked={shown} onChange={(e) => setShown(e.target.checked)} />
-      Heslo viditelné
+      Zobrazit heslo
     </label>
   );
   return { type: shown ? "text" : "password", toggle };
