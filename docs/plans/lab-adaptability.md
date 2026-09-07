@@ -316,6 +316,46 @@ changes covered in `score.test.ts`.
 
 ## Phase D — prompt
 
+**D0 comes first, because every later measurement depends on it: decide what a
+row is.** Three models have now independently dropped the same rows, from three
+different roles — Sonnet reading images (63 misses), Haiku mapping tables (342),
+`mistral-small` filling our schema natively (19 its own OCR had found). They are
+not coinciding by accident. The prompt never says whether a qualitative result
+is a result, so each decided for itself. Until this is settled the benchmark is
+partly scoring an unanswered question rather than the readers, and the
+Sonnet-versus-Opus comparison is standing on that artefact.
+
+**The rule (Ondřej, 2026-09-08).** The app tracks blood analytes over time.
+Therefore:
+
+| Row | In scope | Why |
+|---|---|---|
+| Blood analyte with a number | **yes** | the product |
+| Blood analyte printed as a status — `málo materiálu`, `neprovedeno` | **yes** | it explains an absent value. Without it a vanished TSH is indistinguishable from a reading failure, and the app's whole claim is that nothing goes missing silently. `correction.ts` already says these "must survive verbatim"; `normalize()` gives them a null value so they never reach a chart |
+| Urine, and any non-blood material | no | not a blood trend, and `printedMaterial` already identifies them from prefix, column or heading |
+| Patient anthropometrics — weight, height | no | not an analyte |
+| Toxicology screen | no | a different kind of test |
+| Auxiliary / `POMOCNÉ` rows — `S_Separace séra` | no | specimen handling |
+| Specimen receipt — `Krev srážlivá přijato` | no | already excluded from truth |
+
+Note the asymmetry deliberately: material decides scope, and a *status* is
+still a result for an analyte that is in scope. Exclusion is done
+**deterministically wherever possible** — `printedMaterial` for material,
+`candidateRows` for the receipt and auxiliary shapes — and stated in the prompt
+only for what code cannot see.
+
+**D0 is not done until three things move together:** the sentence in
+`SYSTEM_EXTRACT` / `SYSTEM_EXTRACT_TEXT`, the truth set in `data/reports` and
+`tests/bench/public_sheets/`, and a re-score of every persisted arm. Changing
+the prompt without the truth would make every reader look worse; changing the
+truth without the prompt would make them all look better. **The reader rankings
+published so far are provisional until this lands**, because Sonnet's deficit
+is largely these rows.
+
+While these words are open, tidy one thing found by the annotation arm:
+`SYSTEM_EXTRACT_TEXT` ends by asking for a `row_index` that the vision schema
+does not contain, since the deployed text path swaps `source_snippet` for it.
+
 Only after B and C, because every one of these is a sentence in
 `SYSTEM_EXTRACT` / `SYSTEM_EXTRACT_TEXT` and the vision `TOOL`, and words
 are the least reliable layer. The loop is the one in `tests/CLAUDE.md` and
@@ -425,6 +465,51 @@ handwriting; languages other than Czech and Slovak; seeding abbreviation
 synonyms; automatic perspective de-skew (pending C); splitting a two-page
 photo into two pages; moving the vision path from `source_snippet` to
 `row_index`; the chat/clinical evals; changing the demo dataset.
+
+## Phase F — vocabulary from public handbooks (no PHI, nothing fetched at test time)
+
+Phase A took *layouts* from public lab handbooks. This takes **vocabulary**:
+the analyte names, units and range notations Czech and Slovak labs actually
+print, from labs whose sheets we have never seen. A handbook is reference
+material, not a patient report, so there is no PHI and no consent question.
+
+Sources, vendored as local fixtures — **never fetched at test time, never a CI
+dependency on an external URL**:
+
+- Synlab SK laboratory handbook
+- Fakultní nemocnice Hradec Králové, IV. interní hematologická klinika
+- SPADIA LAB Brno
+
+Method: extract every analyte name, unit and reference-range notation; run each
+through `parseValue`, `parseRange`, `canonicalizeUnit` and `normKey` on both
+sides; keep only the forms that **fail or normalise wrongly today**. Each
+survivor becomes a parity case, and `tools/pipeline/tests/parity_cases.json`
+stays authoritative — Python and TypeScript change in the same commit, per the
+twice-exists rule.
+
+Guardrails, restated because they are easy to break by accident:
+- `parity_cases.json` is the contract; a case is added there first and both
+  implementations follow.
+- `scripts/_fonts.py` is untouched. Any new fixture PDF goes through the
+  font-locked generator so CI's byte-identical check keeps meaning something.
+- Nothing from these PDFs is committed except extracted *facts* — a unit
+  string, a range spelling. The PDFs live under git-ignored `data/`.
+- A vocabulary case is not a layout case. If a handbook shows a *layout* we
+  cannot parse, that belongs in `make_layout_fixtures.py`, not here.
+
+### Considered and not done: LabCorp sample reports
+
+LabCorp publishes production sample reports with fictitious patients, free and
+without login, and they are genuine US layouts. They were considered as a
+layout-robustness smoke test for `pdf/rows.ts`.
+
+**Not taken**, for a stated reason rather than a shrug: we already hold eleven
+public Czech and Slovak sheets from seven labs plus fifteen real reports from
+four, so layout is the better-covered axis. Their analyte names, units and
+range notations are English and US, so by construction they could not enter the
+parity contract, and findings would land nowhere durable. If `pdf/rows.ts` ever
+needs adversarial layout input, the font-locked generator can produce it
+deterministically, which a downloaded PDF cannot.
 
 ## Build log
 
