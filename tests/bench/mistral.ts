@@ -263,9 +263,9 @@
  *     found nothing. `GLUED_SEP_BOUND`, `GLUED_OP_BOUND`, `isGluedRangeRow`.
  */
 import { Mistral } from "@mistralai/mistralai";
-import type { OCRPageObject, OCRRequest, OCRResponse } from "@mistralai/mistralai/models/components";
+import type { OCRPageObject, OCRRequest, OCRResponse, ResponseFormat } from "@mistralai/mistralai/models/components";
 
-import { type Usage } from "@bw/extraction";
+import { SYSTEM_EXTRACT_TEXT, TOOL, type Usage } from "@bw/extraction";
 
 import { truncateRawField, type CallResult, type RawAnswer, type Reader } from "./extract";
 import { type RawMeasurement } from "./score";
@@ -285,24 +285,252 @@ export const PAGE_PRICE_USD = 0.004;
 export const CONF_HIGH = 0.98;
 export const CONF_LOW = 0.9;
 
+/* ============================================================== annotations */
+
+/**
+ * `mistral_annot` — the third way, where Mistral fills OUR schema itself.
+ *
+ * The OCR endpoint takes `document_annotation_format`, a JSON schema it runs
+ * `mistral-small-2603` over its own OCR markdown to fill. That deletes the
+ * entire mapping layer above: the response *is* an extraction in the shape
+ * every other reader in this bench answers in, so `rowsFromOcrPage` is never
+ * called for this arm and none of rules 1–13 or R1–R10 apply to it.
+ *
+ * Three consequences, all of them the point of running the arm:
+ *
+ *  - **The schema is derived, not written.** `annotationSchema()` reads
+ *    `TOOL.input_schema` from @bw/extraction — the same object the deployed
+ *    Anthropic reader is handed — so this arm cannot drift from what Sonnet,
+ *    Haiku and Gemini are asked for. A hand-copied schema here would make a
+ *    row-count difference unattributable.
+ *  - **The prompt is the deployed one.** `document_annotation_prompt` carries
+ *    `SYSTEM_EXTRACT_TEXT` verbatim, not a paraphrase, for the same reason.
+ *    It is an imperfect fit and that has to be said: that prompt was written
+ *    for `|`-joined rows numbered per line, and its closing sentence asks for
+ *    a `row_index` that `TOOL.input_schema` does not even contain (the
+ *    deployed text path swaps `source_snippet` for it in `TOOL_TEXT`). The
+ *    alternative — writing a nicer Czech instruction for this arm alone —
+ *    would make the comparison a comparison of prompts. So it goes as
+ *    deployed, and what the model does with the mismatch is a finding.
+ *  - **There is no mapping to blame.** For `mistral_ocr` an accuracy number is
+ *    a measurement of this file's regexes. Here it is a measurement of
+ *    `mistral-small-2603`, which is exactly the axis on which the external
+ *    Haiku mapper lost 342 rows on photographs and collapsed 27 on digital
+ *    pages (docs/lab-adaptability.md). `mergedRows()` in score.ts runs on this
+ *    arm's output like any other — `scoreSingle` calls it for every arm, and a
+ *    test below asserts it sees these rows.
+ *
+ * ## Pricing
+ *
+ * An annotated page is billed on the higher tier: **$0.005 per page**
+ * ($5/1,000) against $0.004 for a plain OCR page. It stays per-page and stays
+ * out of `PRICING` in extract.ts for the same reason `mistral_ocr` does, and
+ * the dry-run estimate uses the higher figure.
+ */
+export const ANNOT_PAGE_PRICE_USD = 0.005;
+
+/** The model Mistral runs over its own OCR output to fill the schema. */
+export const ANNOT_MODEL = "mistral-small-2603";
+
+/**
+ * `TOOL.input_schema` as Mistral's `json_schema` response format.
+ *
+ * ONE shape conversion is made and it is the only one: a JSON-Schema nullable
+ * written as a **type array** — `{"type": ["string", "null"]}`, which is how
+ * the Anthropic tool spells the five header fields — is rewritten as
+ * `{"anyOf": [{"type": "string"}, {"type": "null"}]}`. Both are legal JSON
+ * Schema and mean the same thing; the `anyOf` form is what a Pydantic
+ * `Optional[str]` emits, which is the form Mistral's own
+ * `response_format_from_pydantic_model` helper (and the TS
+ * `responseFormatFromZodObject`, via `toJsonSchema`) produces, so it is the
+ * form the endpoint is known to accept. No property is added, renamed,
+ * removed or re-described, and no `description` is translated — a Czech field
+ * description is part of what the model is being asked, and rewriting it here
+ * would silently make this a different question from the one every other arm
+ * is asked.
+ *
+ * `strict: true` because the schema already satisfies what strict mode wants:
+ * `additionalProperties: false` and every property listed in `required`, at
+ * both levels.
+ */
+export function toAnnotationSchema(schema: unknown): Record<string, any> {
+  const walk = (node: any): any => {
+    if (Array.isArray(node)) return node.map(walk);
+    if (!node || typeof node !== "object") return node;
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(node)) {
+      if (k === "type" && Array.isArray(v)) {
+        // The one conversion. `enum` arrays and `required` arrays are values,
+        // not types, and are copied through untouched by the branch above.
+        out.anyOf = v.map((t) => ({ type: t }));
+        continue;
+      }
+      out[k] = walk(v);
+    }
+    return out;
+  };
+  return walk(JSON.parse(JSON.stringify(schema)));
+}
+
+/** The `document_annotation_format` this arm sends. */
+export function annotationFormat(): ResponseFormat {
+  return {
+    type: "json_schema",
+    jsonSchema: {
+      name: TOOL.name,
+      description: TOOL.description,
+      schemaDefinition: toAnnotationSchema(TOOL.input_schema),
+      strict: true,
+    },
+  };
+}
+
+/**
+ * `CallResult.raw` for the annotation arm.
+ *
+ * `RawAnswer` in extract.ts models a layout parse, which is not what came
+ * back, so the annotation is carried as an extension of it rather than
+ * squeezed into `markdown` or faked into `tables` — either of which would make
+ * `remapFromRaw` read this arm's answer as though it were the other arm's.
+ *
+ * Both halves are stored. The annotation is the answer; the OCR page beside it
+ * is free (the endpoint runs OCR either way and returns it) and it is the only
+ * way to settle the question this arm exists to raise: when a row is missing
+ * from the annotation, did Mistral's OCR fail to see it, or did
+ * `mistral-small-2603` decline to copy it?
+ */
+export interface AnnotRawAnswer extends RawAnswer {
+  /** `document_annotation`, exactly as the API returned it: a JSON string. */
+  documentAnnotation?: string;
+  /** Every shape repair `measurementsFromAnnotation` made. Empty is the norm. */
+  annotationNotes?: string[];
+}
+
+/**
+ * The annotation, normalised in SHAPE ONLY.
+ *
+ * The returned object is already our schema, so there is nothing to map. What
+ * this does is refuse to trust that a model honoured a schema, and it says in
+ * `notes` — which are stored in the file — every time it had to intervene:
+ *
+ *   - the payload is a JSON *string* (`OCRResponse.documentAnnotation`), so it
+ *     is parsed; a parse failure is zero rows and a note, never a guess;
+ *   - `measurements` must be an array, and each entry an object;
+ *   - a field that is **missing or null** becomes `""` — the empty string the
+ *     deployed prompt already asks for on an absent column — and is noted;
+ *   - a field that came back as a **number or boolean** is stringified and
+ *     noted. This is the one lossy repair possible here: JSON `5` cannot tell
+ *     us whether the page printed `5`, `5,0` or `5.0`. The schema types every
+ *     field as a string precisely so this should never fire, and if it does,
+ *     the note is the evidence.
+ *   - `confidence` is kept only if it is one of the three enum values.
+ *
+ * What is NOT done, deliberately: no trimming, no decimal-comma repair, no
+ * unit or range rewriting, no dropping of a row that looks empty. The cell
+ * text is copied byte for byte out of the JSON. A "tidying" step here is
+ * exactly the failure this bench caught the external Haiku mapper committing,
+ * and it would be invisible in the score.
+ */
+export interface Annotation {
+  report_date: string | null;
+  report_date_raw: string | null;
+  lab_name: string | null;
+  patient_name: string | null;
+  patient_id: string | null;
+  measurements: RawMeasurement[];
+  notes: string[];
+}
+
+const TEXT_FIELDS = ["raw_analyte_name", "value_raw", "unit_raw", "ref_range_raw", "source_snippet"] as const;
+const HEADER_FIELDS = ["report_date", "report_date_raw", "lab_name", "patient_name", "patient_id"] as const;
+const CONFIDENCES = new Set(["high", "medium", "low"]);
+
+export function measurementsFromAnnotation(payload: string | null | undefined): Annotation {
+  const empty: Annotation = {
+    report_date: null, report_date_raw: null, lab_name: null, patient_name: null, patient_id: null,
+    measurements: [], notes: [],
+  };
+  if (!payload) return { ...empty, notes: ["document_annotation absent"] };
+  let doc: any;
+  try {
+    doc = JSON.parse(payload);
+  } catch (e: any) {
+    return { ...empty, notes: [`document_annotation is not JSON: ${e?.message ?? e}`] };
+  }
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
+    return { ...empty, notes: ["document_annotation is not an object"] };
+  }
+
+  const notes: string[] = [];
+  const out: Annotation = { ...empty, notes };
+  for (const f of HEADER_FIELDS) {
+    const v = doc[f];
+    if (v === undefined) notes.push(`header field missing: ${f}`);
+    out[f] = typeof v === "string" ? v : v === null || v === undefined ? null : (notes.push(`header field not a string: ${f}`), String(v));
+  }
+
+  if (!Array.isArray(doc.measurements)) {
+    notes.push(doc.measurements === undefined ? "measurements missing" : "measurements is not an array");
+    return out;
+  }
+  doc.measurements.forEach((row: any, i: number) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      notes.push(`measurements[${i}] is not an object`);
+      return;
+    }
+    const m: RawMeasurement = {};
+    for (const f of TEXT_FIELDS) {
+      const v = row[f];
+      if (typeof v === "string") m[f] = v;
+      else if (v === undefined || v === null) {
+        m[f] = "";
+        notes.push(`measurements[${i}].${f} ${v === undefined ? "missing" : "null"} → ""`);
+      } else {
+        // Lossy, and said so: `5` cannot be told from `5,0`.
+        m[f] = String(v);
+        notes.push(`measurements[${i}].${f} was ${typeof v}, stringified`);
+      }
+    }
+    if (typeof row.confidence === "string" && CONFIDENCES.has(row.confidence)) m.confidence = row.confidence;
+    else if (row.confidence !== undefined) notes.push(`measurements[${i}].confidence not in enum: ${JSON.stringify(row.confidence)}`);
+    out.measurements.push(m);
+  });
+  return out;
+}
+
 export type MistralInput =
   /** One rendered page, sent as an `image_url` data URI. */
   | { kind: "image"; base64: string; mediaType: string }
+  /**
+   * The same rendered page, asking for a `document_annotation` in our schema
+   * instead of a layout parse to map. The $0.005 tier — see "annotations".
+   */
+  | { kind: "image_annot"; base64: string; mediaType: string }
   /** The original PDF, one page selected. `page` is 1-based, as corpora.ts counts. */
   | { kind: "pdf"; base64: string; page: number; name?: string };
+
+/** Is this input asking for the annotation, rather than a parse to map? */
+export function isAnnotated(input: MistralInput): boolean {
+  return input.kind === "image_annot";
+}
+
+/** USD per page for this input — the annotations tier is the higher one. */
+export function pagePriceUsd(input: MistralInput): number {
+  return isAnnotated(input) ? ANNOT_PAGE_PRICE_USD : PAGE_PRICE_USD;
+}
 
 /* ----------------------------------------------------------------- request */
 
 /** The full request, built without a client so a dry run can print it. */
 export function mistralRequest(reader: Reader, input: MistralInput): OCRRequest {
   const document: OCRRequest["document"] =
-    input.kind === "image"
-      ? { type: "image_url", imageUrl: `data:${input.mediaType};base64,${input.base64}` }
-      : {
+    input.kind === "pdf"
+      ? {
           type: "document_url",
           documentUrl: `data:application/pdf;base64,${input.base64}`,
           documentName: input.name ?? "page.pdf",
-        };
+        }
+      : { type: "image_url", imageUrl: `data:${input.mediaType};base64,${input.base64}` };
 
   return {
     model: reader.model,
@@ -313,6 +541,15 @@ export function mistralRequest(reader: Reader, input: MistralInput): OCRRequest 
     tableFormat: "markdown",
     includeBlocks: true,
     confidenceScoresGranularity: "block",
+    // The annotation arm, and only it. The schema is derived from
+    // `TOOL.input_schema` and the prompt is `SYSTEM_EXTRACT_TEXT` verbatim —
+    // "annotations", above, for why neither is written out here. The OCR
+    // fields above are kept: the endpoint runs OCR either way, the markdown
+    // and block confidences come back for free, and storing them beside the
+    // annotation is what makes a missing row attributable.
+    ...(isAnnotated(input)
+      ? { documentAnnotationFormat: annotationFormat(), documentAnnotationPrompt: SYSTEM_EXTRACT_TEXT }
+      : {}),
   };
 }
 
@@ -1135,6 +1372,13 @@ export function rawAnswerFor(page: OCRPageObject): RawAnswer {
  */
 export function remapFromRaw(raw: RawAnswer | null | undefined): RawMeasurement[] | null {
   if (!raw || raw.provider !== "mistral") return null;
+  // The annotation arm first, and before the markdown test: its record carries
+  // the OCR page too, and re-running `rowsFromOcrPage` on that would silently
+  // re-judge `mistral_annot` as though it were `mistral_ocr`. There is no
+  // mapping to re-run here — only the shape normalisation, which is re-applied
+  // so that a change to it is judged the same way a mapping change is.
+  const annot = (raw as AnnotRawAnswer).documentAnnotation;
+  if (annot) return measurementsFromAnnotation(annot).measurements;
   if (!raw.tables?.length && !raw.markdown) return null;
   const conf = new Map((raw.blocks ?? []).map((b) => [b.tableId, b.confidence] as const));
   const page = {
@@ -1265,6 +1509,55 @@ interface Attempt {
   call: CallResult;
 }
 
+/**
+ * One annotated round trip, turned into a `CallResult`.
+ *
+ * The annotation is the extraction — no `rowsFromOcrPage`, no `RawMeasurement`
+ * built by this file. The five header fields are reported as the model
+ * returned them rather than nulled the way rule 11 nulls them for the parse
+ * arm: this arm really was asked for them, and only `measurements` is scored
+ * either way.
+ *
+ * `raw` carries both halves (`AnnotRawAnswer`): the annotation string as sent,
+ * and the OCR page the annotation was made from.
+ */
+function annotatedAttempt(reader: Reader, res: OCRResponse, page: OCRPageObject | undefined, ms: number, costUsd: number): Attempt {
+  const annot = measurementsFromAnnotation(res.documentAnnotation);
+  const truncated: string[] = [];
+  const raw: AnnotRawAnswer = {
+    ...(page ? rawAnswerFor(page) : { provider: "mistral" as const }),
+    documentAnnotation: truncateRawField(res.documentAnnotation ?? "", "documentAnnotation", truncated),
+  };
+  if (annot.notes.length) raw.annotationNotes = annot.notes;
+  if (truncated.length) raw.truncated = [...(raw.truncated ?? []), ...truncated];
+  if (annot.notes.length) console.log(`   mistral annotation shape repairs (${annot.notes.length}): ${annot.notes.slice(0, 5).join("; ")}`);
+  return {
+    ok: true,
+    rateLimited: false,
+    raw: null,
+    call: {
+      ok: true,
+      model: reader.model,
+      ms,
+      usage: EMPTY,
+      costUsd,
+      thought: false,
+      extraction: {
+        report_date: annot.report_date,
+        report_date_raw: annot.report_date_raw,
+        lab_name: annot.lab_name,
+        patient_name: annot.patient_name,
+        patient_id: annot.patient_id,
+        measurements: annot.measurements as any,
+        usage: EMPTY,
+        model: reader.model,
+      },
+      raw,
+      error: null,
+    },
+  };
+}
+
 /** One round trip. `ms` is this attempt alone — the backoff is never in it. */
 async function attemptOcr(client: Mistral, reader: Reader, request: OCRRequest): Promise<Attempt> {
   const t0 = performance.now();
@@ -1275,13 +1568,15 @@ async function attemptOcr(client: Mistral, reader: Reader, request: OCRRequest):
     // selecting one page of a PDF still billed the whole document, this is
     // where it would show.
     const pages = res.usageInfo?.pagesProcessed ?? res.pages.length;
-    const costUsd = pages * PAGE_PRICE_USD;
+    const annotated = !!request.documentAnnotationFormat;
+    const costUsd = pages * (annotated ? ANNOT_PAGE_PRICE_USD : PAGE_PRICE_USD);
     const page = res.pages[0];
-    if (!page) {
+    if (!page && !(annotated && res.documentAnnotation)) {
       const call: CallResult = { ok: false, model: reader.model, ms, usage: EMPTY, costUsd, thought: false, extraction: null, error: "OCR returned no pages" };
       return { ok: false, rateLimited: false, raw: null, call };
     }
-    const mapped = rowsFromOcrPage(page);
+    if (annotated) return annotatedAttempt(reader, res, page, ms, costUsd);
+    const mapped = rowsFromOcrPage(page!);
     return {
       ok: true,
       rateLimited: false,
@@ -1308,7 +1603,7 @@ async function attemptOcr(client: Mistral, reader: Reader, request: OCRRequest):
         // What Mistral said, beside what we made of it. `extract.ts`,
         // `RawAnswer`: the mapping *is* this arm's accuracy, so a stored run
         // has to carry the answer the mapping was applied to.
-        raw: rawAnswerFor(page),
+        raw: rawAnswerFor(page!),
         error: null,
       },
     };

@@ -90,6 +90,8 @@ import {
   type Tile,
 } from "./gemini";
 import {
+  ANNOT_MODEL,
+  ANNOT_PAGE_PRICE_USD,
   MISTRAL_OCR_MODEL,
   PAGE_PRICE_USD,
   describeRequest as describeMistralRequest,
@@ -97,7 +99,7 @@ import {
   remapFromRaw,
   remapMeasurements,
 } from "./mistral";
-import { readDocument, readImage, readText } from "./readers";
+import { readAnnotated, readDocument, readImage, readText } from "./readers";
 import {
   fabrications,
   mergedRows,
@@ -176,6 +178,12 @@ interface SingleArm {
    * raster — is the fair comparison against the deployed text path.
    */
   sourcePdf?: boolean;
+  /**
+   * Ask the OCR provider for a `document_annotation` in OUR schema instead of
+   * a layout parse this repository then maps (mistral.ts, "annotations"). The
+   * arm has no mapping layer, and its page is billed on the higher tier.
+   */
+  annotate?: boolean;
 }
 
 interface PairArm {
@@ -214,6 +222,14 @@ export const ARMS: SingleArm[] = [
   // are already recorded (docs/extraction-speed.md, "Confirmed on the real
   // API": Haiku 851/878, Sonnet 843/878, 0 value errors either way).
   { id: "mistral_ocr_digital", label: "Mistral OCR on the original PDF page", reader: { model: MISTRAL_OCR_MODEL, provider: "mistral" }, inputs: ["text"], estimateUsd: { text: PAGE_PRICE_USD }, pricePerPageUsd: PAGE_PRICE_USD, sourcePdf: true },
+  // The third way of getting our schema out of Mistral, after our own mapper
+  // (mistral_ocr) and an external Haiku mapper: the OCR call carries
+  // `document_annotation_format` and Mistral runs mistral-small-2603 over its
+  // own OCR output to fill it. Same endpoint, same pinned OCR model, one call,
+  // and NO mapping layer of ours — so this arm's number is a measurement of
+  // the model, which is the axis the Haiku mapper failed on. $0.005/page, the
+  // annotations tier.
+  { id: "mistral_annot", label: "Mistral OCR + document annotation (our schema)", reader: { model: MISTRAL_OCR_MODEL, provider: "mistral" }, inputs: ["image"], estimateUsd: { image: ANNOT_PAGE_PRICE_USD }, pricePerPageUsd: ANNOT_PAGE_PRICE_USD, annotate: true },
 ];
 
 export const PAIRS: PairArm[] = [
@@ -223,6 +239,8 @@ export const PAIRS: PairArm[] = [
   { id: "sonnet5+haiku45", label: "the retreat pair (deployed text pair)", pair: ["sonnet5", "haiku45"] },
   { id: "sonnet5+mistral_ocr", label: "a reader and a layout parser", pair: ["sonnet5", "mistral_ocr"] },
   { id: "gemini38_ultra+mistral_ocr", label: "the cheap pair — two vendors, ~$0.025/page", pair: ["gemini38_ultra", "mistral_ocr"] },
+  { id: "sonnet5+mistral_annot", label: "a reader and a schema-filling OCR", pair: ["sonnet5", "mistral_annot"] },
+  { id: "gemini38_ultra+mistral_annot", label: "the cheap pair, no mapper of ours", pair: ["gemini38_ultra", "mistral_annot"] },
 ];
 
 const armIds = (process.env.BENCH_ARMS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -553,9 +571,12 @@ it("lab adaptability — class × arm, scored per class", async () => {
   const perPage = singles.filter((a) => a.pricePerPageUsd);
   if (perPage.length) {
     const many = perPage.length > 1;
+    // Each arm's own price, because there are now two tiers: a plain OCR page
+    // is $0.004 and an annotated one $0.005, and one figure standing for both
+    // would understate the arm that costs more.
     console.log(
-      `note: ${perPage.map((a) => a.id).join(", ")} ${many ? "are" : "is"} billed PER PAGE ` +
-        `($${PAGE_PRICE_USD.toFixed(3)}), not per token — ${many ? "those estimates are" : "that estimate is"} the price itself, ` +
+      `note: ${perPage.map((a) => `${a.id} $${a.pricePerPageUsd!.toFixed(3)}`).join(", ")} — billed PER PAGE, ` +
+        `not per token, so ${many ? "those estimates are" : "that estimate is"} the price itself, ` +
         `and ${many ? "their" : "its"} imgTok/USD columns are not token counts.`,
     );
   }
@@ -597,10 +618,19 @@ it("lab adaptability — class × arm, scored per class", async () => {
     // materially different documents, and a dry run that showed only the first
     // would hide the `pages` selector the PDF arm turns on.
     for (const ocr of singles.filter((a) => a.reader.provider === "mistral")) {
-      const input = ocr.sourcePdf
-        ? ({ kind: "pdf", base64: "AAAA", page: 1, name: "page.pdf" } as const)
-        : ({ kind: "image", base64: "AAAA", mediaType: "image/png" } as const);
-      console.log(`\n# Mistral OCR request shape (${ocr.id}; $${PAGE_PRICE_USD.toFixed(3)}/page; document bytes elided)\n`);
+      const input = ocr.annotate
+        ? ({ kind: "image_annot", base64: "AAAA", mediaType: "image/png" } as const)
+        : ocr.sourcePdf
+          ? ({ kind: "pdf", base64: "AAAA", page: 1, name: "page.pdf" } as const)
+          : ({ kind: "image", base64: "AAAA", mediaType: "image/png" } as const);
+      console.log(
+        `\n# Mistral OCR request shape (${ocr.id}; $${(ocr.pricePerPageUsd ?? PAGE_PRICE_USD).toFixed(3)}/page` +
+          (ocr.annotate ? `, annotations tier, schema filled by ${ANNOT_MODEL}` : "") +
+          `; document bytes elided)\n`,
+      );
+      // The whole schema and the whole Czech prompt are printed, not elided:
+      // both are derived from @bw/extraction and the point of the dry run is
+      // to show that they are what every other reader is handed.
       console.log(JSON.stringify(describeMistralRequest(mistralRequest(ocr.reader, input)), null, 1));
     }
     console.log("\ndry run — nothing was sent. Propose the estimate above before running for real.");
@@ -683,7 +713,7 @@ it("lab adaptability — class × arm, scored per class", async () => {
           textLayer: page.rows ? rowsAsText(page.rows) : null,
           tiles,
         };
-        call = await polite(() => readImage(keys[provider], arm.reader, img));
+        call = await polite(() => (arm.annotate ? readAnnotated(keys[provider], arm.reader, img) : readImage(keys[provider], arm.reader, img)));
       }
       spent += call.costUsd;
       const rec: Persisted = { arm: arm.id, cls: page.cls, slug: page.slug, key: page.key, kind: page.kind, image: imagePath, at: new Date().toISOString(), call };

@@ -14,6 +14,10 @@
  * deployed text path, and a raster of that page would be a different question.
  * `readImage` also routes the OCR provider, so one arm declaration covers both.
  *
+ * `readAnnotated` is the fourth: the same rendered page, but asking Mistral to
+ * fill our schema itself (`document_annotation_format`), so the arm has no
+ * mapping layer at all. mistral.ts, "annotations".
+ *
  * `maxRetries: 0` for the same reason extract.ts gives: a retry would be
  * recorded as latency.
  */
@@ -78,6 +82,28 @@ export async function readText(apiKey: string, reader: Reader, rows: TextRow[]):
   } catch (e) {
     return failed(reader.model, performance.now() - t0, e);
   }
+}
+
+/**
+ * The fourth shape: the same rendered page, read by the OCR provider into OUR
+ * schema in one call.
+ *
+ * A separate entry point rather than a flag on `PageImage`, because it is not
+ * a fact about the page — the same image goes to `readImage` for `mistral_ocr`
+ * and here for `mistral_annot`, and the difference is which arm is asking.
+ * `Reader` cannot say it (extract.ts types `provider` as three names and this
+ * is the same provider and the same pinned model), so the arm's `annotate`
+ * flag in adapt.bench.ts picks the function.
+ *
+ * No prompt argument: the Czech instruction and the schema are both derived
+ * from @bw/extraction inside `mistralRequest`, so this arm cannot be asked
+ * something different from what the other readers are asked.
+ */
+export async function readAnnotated(apiKey: string, reader: Reader, image: PageImage): Promise<CallResult> {
+  if (reader.provider !== "mistral") {
+    throw new Error(`readAnnotated: ${reader.provider ?? "anthropic"} has no document annotation — only the OCR provider does`);
+  }
+  return callMistral(apiKey, reader, { kind: "image_annot", base64: image.base64, mediaType: image.mediaType });
 }
 
 export async function readImage(apiKey: string, reader: Reader, image: PageImage): Promise<CallResult> {

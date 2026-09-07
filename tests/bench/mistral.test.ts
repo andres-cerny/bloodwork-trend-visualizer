@@ -16,20 +16,27 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { SYSTEM_EXTRACT_TEXT } from "@bw/extraction";
+import { SYSTEM_EXTRACT_TEXT, TOOL } from "@bw/extraction";
 
 import { computeFlag, parseRange } from "@bw/lab-core";
 
 import { RAW_FIELD_MAX } from "./extract";
 import {
+  ANNOT_PAGE_PRICE_USD,
+  PAGE_PRICE_USD,
+  annotationFormat,
   collapseMarkerRuns,
+  describeRequest,
   findRangeGroup,
   headerKey,
   isEmphasised,
   joinRange,
   markdownTables,
+  measurementsFromAnnotation,
+  mistralRequest,
   nameAt,
   operatorOf,
+  pagePriceUsd,
   rawAnswerFor,
   remapFromRaw,
   remapMeasurements,
@@ -37,6 +44,8 @@ import {
   rowsFromTable,
   splitMarkdownTable,
   stripEmphasis,
+  toAnnotationSchema,
+  type AnnotRawAnswer,
 } from "./mistral";
 import { mergedRows, rangeIntegrity, type RawMeasurement } from "./score";
 
@@ -981,5 +990,223 @@ describe("R10 — the same interval split across two cells, not three", () => {
   it("leaves the three-cell form to R1 and R6, which get first refusal", () => {
     expect(findRangeGroup(splitMarkdownTable(SPLIT_RANGE_PAGE).slice(1), null)).toEqual({ low: 3, sep: 4, high: 5 });
     expect(findRangeGroup(splitMarkdownTable(ONE_SIDED_PAGE).slice(1), null)).toEqual({ low: 3, sep: 4, high: 5 });
+  });
+});
+
+/* ==========================================================================
+ * mistral_annot — Mistral fills our schema itself.
+ *
+ * A different arm in kind: there is no mapping between the API and the score,
+ * so nothing above applies to it and the only things worth testing are (a)
+ * that the request really carries the deployed schema and the deployed Czech
+ * prompt rather than a copy that can drift, (b) that the shape normalisation
+ * repairs shape and NEVER text, and (c) that the two arms cannot be confused
+ * for each other when a stored answer is re-judged.
+ *
+ * The fixtures are what the real API returned on 2026-09-08, copied out of
+ * `tests/bench/results/adapt/mistral_annot/` (10 public pages, $0.050).
+ * ======================================================================== */
+
+/** `mistral_annot/breclav_p121.json`, the first three rows, verbatim. */
+const ANNOT_BRECLAV = JSON.stringify({
+  report_date: "2024-05-21",
+  report_date_raw: "21.05.2024 10:08",
+  lab_name: "Nemocnice Břeclav, příspěvková organizace, Oddělení laboratorní biochemie",
+  patient_name: null,
+  patient_id: null,
+  measurements: [
+    {
+      raw_analyte_name: "urea",
+      value_raw: "4,9000",
+      unit_raw: "mmol/l",
+      ref_range_raw: "( 2,5000 - 6,4000 )",
+      source_snippet: "URE | * urea | 4,9000 |  | mmol/l | . | ( 2,5000 - 6,4000 ) | nozic | krutiire",
+      confidence: "high",
+    },
+    {
+      raw_analyte_name: "kreatinin",
+      value_raw: "86,0000",
+      unit_raw: "µmol/l",
+      ref_range_raw: "( 49,0000 - 90,0000 )",
+      source_snippet: "KRE | * kreatinin | 86,0000 |  | µmol/l | . | ( 49,0000 - 90,0000 ) | nozic | krutiire",
+      confidence: "high",
+    },
+  ],
+});
+
+describe("mistral_annot — the schema is the deployed one, not a copy of it", () => {
+  it("derives every field from TOOL.input_schema, so the arm cannot drift", () => {
+    const schema = toAnnotationSchema(TOOL.input_schema) as any;
+    const src = TOOL.input_schema as any;
+    expect(Object.keys(schema.properties)).toEqual(Object.keys(src.properties));
+    expect(schema.required).toEqual(src.required);
+    expect(schema.additionalProperties).toBe(false);
+    const item = schema.properties.measurements.items;
+    expect(Object.keys(item.properties)).toEqual(Object.keys(src.properties.measurements.items.properties));
+    expect(item.required).toEqual(src.properties.measurements.items.required);
+    expect(item.additionalProperties).toBe(false);
+  });
+
+  it("makes exactly one shape conversion: a type array becomes anyOf", () => {
+    const schema = toAnnotationSchema(TOOL.input_schema) as any;
+    // The five header fields are `["string","null"]` in the Anthropic tool.
+    expect(schema.properties.lab_name).toEqual({ anyOf: [{ type: "string" }, { type: "null" }] });
+    // Everything else is copied through, `enum` arrays included — an array
+    // that is a *value* must not be mistaken for an array of types.
+    expect(schema.properties.measurements.items.properties.confidence).toEqual({
+      type: "string",
+      enum: ["high", "medium", "low"],
+    });
+    // And no Czech description is rewritten, dropped or translated: it is part
+    // of what every other reader is asked.
+    expect(schema.properties.measurements.items.properties.source_snippet.description).toBe(
+      (TOOL.input_schema as any).properties.measurements.items.properties.source_snippet.description,
+    );
+  });
+
+  it("names the format after the deployed tool and asks for strict mode", () => {
+    const fmt = annotationFormat();
+    expect(fmt.type).toBe("json_schema");
+    expect(fmt.jsonSchema?.name).toBe(TOOL.name);
+    expect(fmt.jsonSchema?.description).toBe(TOOL.description);
+    expect(fmt.jsonSchema?.strict).toBe(true);
+  });
+});
+
+describe("mistral_annot — the request", () => {
+  const annot = mistralRequest({ model: "mistral-ocr-4-1", provider: "mistral" }, { kind: "image_annot", base64: "AAAA", mediaType: "image/png" });
+
+  it("carries the deployed Czech instruction verbatim, never a paraphrase", () => {
+    expect(annot.documentAnnotationPrompt).toBe(SYSTEM_EXTRACT_TEXT);
+  });
+
+  it("keeps the OCR fields, so the answer the annotation was made from is stored too", () => {
+    expect(annot.tableFormat).toBe("markdown");
+    expect(annot.includeBlocks).toBe(true);
+    expect(annot.confidenceScoresGranularity).toBe("block");
+    expect(annot.documentAnnotationFormat?.jsonSchema?.name).toBe(TOOL.name);
+  });
+
+  it("asks for no annotation on the arms that map the parse themselves", () => {
+    const image = mistralRequest({ model: "m", provider: "mistral" }, { kind: "image", base64: "AAAA", mediaType: "image/png" });
+    const pdf = mistralRequest({ model: "m", provider: "mistral" }, { kind: "pdf", base64: "AAAA", page: 1 });
+    for (const req of [image, pdf]) {
+      expect(req.documentAnnotationFormat).toBeUndefined();
+      expect(req.documentAnnotationPrompt).toBeUndefined();
+    }
+    // And the page selector still belongs to the PDF arm alone.
+    expect(pdf.pages).toEqual([0]);
+    expect(annot.pages).toBeUndefined();
+  });
+
+  it("is billed on the higher tier, and the dry run prints the schema it sent", () => {
+    expect(pagePriceUsd({ kind: "image_annot", base64: "", mediaType: "image/png" })).toBe(ANNOT_PAGE_PRICE_USD);
+    expect(pagePriceUsd({ kind: "image", base64: "", mediaType: "image/png" })).toBe(PAGE_PRICE_USD);
+    expect(ANNOT_PAGE_PRICE_USD).toBeGreaterThan(PAGE_PRICE_USD);
+    const shown = JSON.stringify(describeRequest(annot));
+    expect(shown).toContain("<base64,");
+    expect(shown).not.toContain("AAAA");
+    expect(shown).toContain("record_lab_results");
+    expect(shown).toContain("Confidence nastav 'low'");
+  });
+});
+
+describe("mistral_annot — the annotation is normalised in shape, never in text", () => {
+  it("copies the printed cells byte for byte, parentheses and spacing included", () => {
+    const a = measurementsFromAnnotation(ANNOT_BRECLAV);
+    expect(a.notes).toEqual([]);
+    // The exact failure the external Haiku mapper committed: it stripped the
+    // parentheses off a reference range it was told to copy.
+    expect(a.measurements[0].ref_range_raw).toBe("( 2,5000 - 6,4000 )");
+    expect(a.measurements[0].value_raw).toBe("4,9000");
+    expect(a.measurements[1].unit_raw).toBe("µmol/l");
+    expect(a.measurements.map((m) => m.raw_analyte_name)).toEqual(["urea", "kreatinin"]);
+    // The header fields are reported as returned — this arm really was asked
+    // for them, unlike the parse arm, which nulls them by rule 11.
+    expect(a.report_date).toBe("2024-05-21");
+    expect(a.lab_name).toContain("Břeclav");
+    expect(a.patient_name).toBeNull();
+  });
+
+  it("fills a missing or null cell with the empty string, and says so", () => {
+    const a = measurementsFromAnnotation(
+      JSON.stringify({ measurements: [{ raw_analyte_name: "S_Urea", value_raw: "4,5", ref_range_raw: null }] }),
+    );
+    expect(a.measurements[0]).toMatchObject({ raw_analyte_name: "S_Urea", value_raw: "4,5", unit_raw: "", ref_range_raw: "", source_snippet: "" });
+    expect(a.notes).toContain('measurements[0].unit_raw missing → ""');
+    expect(a.notes).toContain('measurements[0].ref_range_raw null → ""');
+  });
+
+  it("stringifies a number and records the loss, because 5 is not 5,0", () => {
+    const a = measurementsFromAnnotation(JSON.stringify({ measurements: [{ raw_analyte_name: "S_Urea", value_raw: 5 }] }));
+    expect(a.measurements[0].value_raw).toBe("5");
+    expect(a.notes).toContain("measurements[0].value_raw was number, stringified");
+  });
+
+  it("drops a confidence outside the enum rather than inventing one", () => {
+    const a = measurementsFromAnnotation(JSON.stringify({ measurements: [{ raw_analyte_name: "x", confidence: "velmi vysoká" }] }));
+    expect(a.measurements[0].confidence).toBeUndefined();
+    expect(a.notes.some((n) => n.includes("confidence not in enum"))).toBe(true);
+  });
+
+  it("returns no rows and a note when there is nothing to read", () => {
+    for (const payload of [null, undefined, "", "not json", JSON.stringify([1, 2]), JSON.stringify({ rows: [] })]) {
+      const a = measurementsFromAnnotation(payload as any);
+      expect(a.measurements).toEqual([]);
+      expect(a.notes.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("mistral_annot — a stored answer is re-judged as this arm, not the other", () => {
+  const page: any = {
+    index: 0,
+    markdown: "[tbl-0.md](tbl-0.md)",
+    tables: [{ id: "tbl-0.md", content: BRECLAV_RESULTS, format: "markdown" }],
+    blocks: [{ type: "table", tableId: "tbl-0.md", confidenceScores: { averageContentConfidenceScore: 0.99 } }],
+    confidenceScores: { averagePageConfidenceScore: 0.98 },
+  };
+
+  it("prefers the annotation over the OCR page the record also carries", () => {
+    const raw: AnnotRawAnswer = { ...rawAnswerFor(page), documentAnnotation: ANNOT_BRECLAV };
+    // The same record would map to four rows through `rowsFromOcrPage`; this
+    // arm never ran that code, so re-judging it that way would be a fiction.
+    expect(rowsFromOcrPage(page).measurements).toHaveLength(4);
+    expect(remapFromRaw(raw)!.map((m) => m.raw_analyte_name)).toEqual(["urea", "kreatinin"]);
+  });
+
+  it("still re-maps the parse arm off the same field it always did", () => {
+    expect(remapFromRaw(rawAnswerFor(page))).toHaveLength(4);
+  });
+
+  it("stores the OCR page beside the annotation, which is what makes a dropped row attributable", () => {
+    // The real finding this exists for: on `stod_p5` two printed rows were in
+    // Mistral's OCR markdown and absent from the annotation, so the loss is
+    // provably the schema-filling model's and not the reader's.
+    const raw: AnnotRawAnswer = { ...rawAnswerFor(page), documentAnnotation: ANNOT_BRECLAV };
+    expect(raw.markdown).toBe(page.markdown);
+    expect(raw.tables?.[0].content).toBe(BRECLAV_RESULTS);
+    expect(raw.blocks).toEqual([{ tableId: "tbl-0.md", confidence: 0.99 }]);
+  });
+});
+
+describe("the merged-row guard sees the annotation arm's output too", () => {
+  it("reports a fused row the model returned, exactly as it would from the parser", () => {
+    const a = measurementsFromAnnotation(
+      JSON.stringify({
+        measurements: [
+          { raw_analyte_name: "Glukóza Cholesterol", value_raw: "5,32", unit_raw: "mmol/l", ref_range_raw: "3,6 - 5,6 2,9 - 5,0", source_snippet: "", confidence: "high" },
+        ],
+      }),
+    );
+    const truth = [
+      { raw_analyte_name: "Glukóza", value_raw: "5,32" },
+      { raw_analyte_name: "Cholesterol", value_raw: "4,80" },
+    ];
+    expect(mergedRows(a.measurements, truth)[0].reasons.sort()).toEqual(["name", "range"]);
+  });
+
+  it("reports nothing on the real answer, which is the arm's actual result", () => {
+    expect(mergedRows(measurementsFromAnnotation(ANNOT_BRECLAV).measurements)).toEqual([]);
   });
 });

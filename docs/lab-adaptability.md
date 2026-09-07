@@ -804,3 +804,71 @@ loses rows.
 **Kept:** the deterministic mapper, with the raw answers stored so the next
 fault is findable. **Rejected:** replacing it with a model. **Unchanged:** the
 recommendation for photographs, which is Gemini ultra with Sonnet.
+
+## Phase C — Mistral's own annotation, which is the same idea done natively (2026-09-08, $0.05)
+
+Ondřej's follow-up: if an external model mapper is worse, could Mistral map its
+own output with a cheap model of its own? It can, and it is a product feature
+rather than a second call. `document_annotation_format` takes a JSON schema on
+the OCR request and Mistral runs `mistral-small-2603` over its own OCR output to
+fill it. No mapping layer of ours anywhere. Half a cent a page against four
+tenths.
+
+The schema is derived from `TOOL.input_schema` at call time, so the arm cannot
+be scored on an easier question than every other reader, and the prompt passed
+is `SYSTEM_EXTRACT_TEXT` byte for byte.
+
+### Ten public sheets, 241 hand-transcribed rows
+
+| arm | matched | missing | value errors | merged | $/page |
+|---|---|---|---|---|---|
+| `mistral_ocr` (our mapper) | 227 | 14 | 0 | 0 | 0.004 |
+| `mistral_annot` (Mistral's) | 219 | 22 | 0 | 0 | 0.005 |
+
+**It does not truncate.** The densest committed sheet, `stod_p2` with 44
+measured rows, came back 44 of 44, and every field on all 44 is character
+identical to a truth transcribed twice by hand. `stod_p1` likewise, 43 of 43.
+
+**It does not normalise, either** — which is where the external Haiku mapper
+failed. `( 2,5000 - 6,4000 )` returned with both parentheses and both interior
+spaces intact. Classifying every field disagreement on the 219 matched rows
+against Mistral's own stored OCR text: **one** text edit in 219 rows is
+attributable to the annotation model. The other 51 are the OCR's, and each is
+already documented — a page whose table genuinely has no unit column, the Greek
+mu, the `1`/`l` glyph.
+
+**But it drops rows by judgement, exactly as the Haiku mapper did.** 22 rows
+missing, and **19 of them are sitting in Mistral's own OCR markdown in the same
+stored record**, so a reader lost them, not the scanner. They are overwhelmingly
+qualitative: the whole toxicology screen, urine sediment counts, a patient
+weight, `S_Separace séra`.
+
+### The generalisation worth keeping
+
+Three different models have now been asked to decide what counts as a
+measurement, and all three quietly dropped rows for it:
+
+- Sonnet on the vision path: 63 misses, almost all rows whose printed result is
+  a status rather than a number
+- Haiku mapping Mistral's tables: 342 rows lost on photographs
+- `mistral-small` filling our schema natively: 19 rows lost that its own OCR had
+  found
+
+**They are not making the same mistake by coincidence. Our prompt never says a
+qualitative result is a result**, so each model decided for itself, and each
+decided to leave them out. That is one sentence in `SYSTEM_EXTRACT`, and it is
+already Phase D's first item. It should lift every one of these arms at once,
+which is a much better return than choosing between mappers.
+
+**Kept:** our deterministic mapper, still 8 rows ahead and 20 percent cheaper.
+**Noted:** the annotation path is the better of the two model mappers by a wide
+margin, preserves text faithfully, and would become the obvious choice if we
+ever wanted to delete our mapping code — but not before the prompt is fixed,
+because the comparison is currently measuring a prompt gap rather than a mapper.
+
+One honest wrinkle recorded by the build: `SYSTEM_EXTRACT_TEXT` ends by asking
+for a `row_index` that this schema does not contain, because the deployed text
+path swaps `source_snippet` for it. It was passed as deployed rather than
+paraphrased. No `row_index` appeared and every row carried a snippet, so it
+caused no visible harm, but a prompt asking for a field the schema lacks is
+untidy and should be tidied when Phase D touches these words.
