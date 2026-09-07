@@ -687,3 +687,54 @@ zero uncaught. Cross-checking is doing an enormous amount of work there. It is
 not a recommendation — 881 flagged rows is not a product — but it is the
 clearest demonstration in this document that the pair, not the reader, is what
 makes the number trustworthy.
+
+## Phase C — the corrected digital table, and what was actually Mistral's fault
+
+The first Mistral numbers were mostly a verdict on our own column mapping. Four
+rounds of fixing it, all verified offline against the answers the model itself
+returned, leave this:
+
+| reader | matched / 877 | value errors | unit Δ | range Δ | merged | $/page |
+|---|---|---|---|---|---|---|
+| Haiku 4.5 (deployed) | 852 | 0 | 21 | 34 | 0 | 0.014 |
+| **Mistral OCR** | **849** | **0** | **57** | **86** | **0** | **0.004** |
+| Sonnet 5 (deployed) | 844 | 0 | 13 | 34 | 0 | 0.037 |
+
+**Mistral is at parity on the born-digital path**, three rows behind Haiku and
+five ahead of Sonnet, with no value errors and no merged rows, at a third of
+Haiku's price and a twelfth of the deployed pair's.
+
+### The audit, because "it disagreed 485 times" was nearly all us
+
+| cause of a unit disagreement | rows | whose |
+|---|---|---|
+| the evaluation scale returns as several cells, shifting every column after it | 403 | ours |
+| a blank column wins the name election, because column support counted only non-empty cells | 41 | ours |
+| Mistral fuses the unit into the reference-range cell | 41 | **Mistral's** |
+
+91 percent of them were our mapping. The same blank-column fault also let a
+signature block be read as a results table. Range disagreements fell 503 to 86
+on the same fixes; of what remains, 53 are that genuine unit fusion and 33 are
+the *baseline* keeping parentheses on one page of a lab and dropping them on
+another, which both parsers strip anyway.
+
+Three rows resist adjudication and are recorded rather than resolved: a
+dimensionless unit printed as a single glyph, where the baseline reads `1` and
+Mistral reads `l`. On a born-digital page the baseline comes from the file's own
+characters, which points at Mistral — but that is exactly the confusion an OCR
+pass produces in either direction, and the stored answer does not settle it.
+
+### The lesson this phase actually taught
+
+Four separate times an apparent Mistral failure was our code:
+
+1. a reference interval split across three cells, taking the upper bound as the value
+2. printed bold surviving as `**5,00**`, so the real result failed every numeric test
+3. a one-sided bound losing its operator, turning a limit into a number
+4. the evaluation scale shifting every column to its left
+
+Each looked like a model defect and each was a mapping defect, and the third and
+fourth were only findable because the bench now stores the model's own answer.
+**An OCR arm's accuracy is a measurement of the code that reads it.** That is
+the difference between this path and the vision arms, where the model returns
+our schema directly and there is no mapping to get wrong.
