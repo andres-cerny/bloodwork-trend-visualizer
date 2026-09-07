@@ -13,6 +13,7 @@
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { isPrintedOnPage, type TextRow } from "@bw/lab-core";
 
@@ -63,6 +64,89 @@ export function nameKey(s: string | undefined): string {
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]/g, "");
+}
+
+/* ------------------------------------- two rules the adjudication settled */
+
+/**
+ * A marker row is not a measurement.
+ *
+ * AGILAB prints `KO+diferenciál 5p.` — the name of the panel the rows below
+ * belong to — in the analyte column, with a bare `#` where a value would be,
+ * and the text-layer baseline in `data/reports` carries it as a row. No reader
+ * that looks at the page returns it, and none should: there is no number to be
+ * right or wrong about. Counting it charged every reader four misses per shot
+ * for the one thing they all got right, so a truth row whose `value_raw` is a
+ * bare marker (`#`, `*`, `-`, `—`) or blank is dropped from truth before
+ * scoring. It is dropped from *truth* only — a reader that emits such a row is
+ * still charged an extra, which is the signal we want to keep.
+ */
+const BARE_MARKERS = new Set(["#", "*", "-", "—"]);
+
+export function isMeasurementRow(row: RawMeasurement | null | undefined): boolean {
+  const v = (row?.value_raw ?? "").trim();
+  return v !== "" && !BARE_MARKERS.has(v);
+}
+
+/**
+ * Page-specific printed-name aliases.
+ *
+ * `20_10_6` p1 clips its analyte column: the sheet shows `Vazebná kapacita I`
+ * — the first stroke of `Fe` — where the text layer the truth came from has
+ * `Vazebná kapacita Fe`. A reader transcribing what is visible is right, and
+ * both readers returned the correct 69,6. The alias makes that a match without
+ * hand-editing the truth.
+ *
+ * Keyed by page (`<source_file>#<page>`, a two-page read joining two with `+`)
+ * and never global: the other AGILAB pages print the same analytes in full, and
+ * a global alias would match those on a prefix and hide a genuine miss.
+ */
+export type TruthAliases = Record<string, Record<string, string[]>>;
+
+const ALIAS_FILE = fileURLToPath(new URL("truth_aliases.json", import.meta.url));
+let aliasCache: TruthAliases | null = null;
+
+export function loadTruthAliases(path: string = ALIAS_FILE): TruthAliases {
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const out: TruthAliases = {};
+    for (const [page, names] of Object.entries(raw)) {
+      // `_about` carries the reason the file exists; it is not a page.
+      if (page.startsWith("_") || !names || typeof names !== "object") continue;
+      out[page] = names as Record<string, string[]>;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export interface MatchOptions {
+  /** `<source_file>#<page>`; without it no alias applies. */
+  pageKey?: string;
+  /** Defaults to tests/bench/truth_aliases.json, read once. */
+  aliases?: TruthAliases;
+}
+
+/**
+ * `nameKey`, plus this page's aliases folded onto the truth's own key. Falls
+ * back to plain `nameKey` when the page has none, so every other page is
+ * matched exactly as before.
+ */
+export function aliasedNameKey(opts?: MatchOptions): (name: string | undefined) => string {
+  if (!opts?.pageKey) return nameKey;
+  const table = opts.aliases ?? (aliasCache ??= loadTruthAliases());
+  const map = new Map<string, string>();
+  for (const part of opts.pageKey.split("+")) {
+    for (const [truthName, printed] of Object.entries(table[part.trim()] ?? {})) {
+      for (const p of printed ?? []) map.set(nameKey(p), nameKey(truthName));
+    }
+  }
+  if (!map.size) return nameKey;
+  return (name) => {
+    const k = nameKey(name);
+    return map.get(k) ?? k;
+  };
 }
 
 /** Whitespace-insensitive, otherwise exact — the decimal comma must survive. */
@@ -242,7 +326,10 @@ export function rangeIntegrity(
  * Matching is the rule subagent_score.bench.ts settled on: a truth row prefers
  * the read row with the same name AND value before falling back to occurrence
  * order, so a differential printed as fractions then absolutes is not charged
- * ten errors for coming back the other way round. Values are compared with
+ * ten errors for coming back the other way round. Names are keyed through
+ * `aliasedNameKey`, so a page whose printed name is clipped can be matched by
+ * what it prints; truth rows that are not measurements are dropped first by
+ * `isMeasurementRow`. Values are compared with
  * whitespace squashed and the lab's own `!`/`*` markers stripped, because
  * `normalize()` strips them before parsing — a dropped marker is not a wrong
  * number. The decimal comma survives.
@@ -251,7 +338,10 @@ export const squash = (x: string | undefined): string => (x ?? "").replace(/\s+/
 export const valKey = (x: string | undefined): string => squash(x).replace(/[!*]/g, "");
 
 export interface ValueErrors {
+  /** Truth rows that carry a value — marker rows are not counted. */
   truthRows: number;
+  /** Truth rows dropped by `isMeasurementRow`, reported so the drop is visible. */
+  markerRows: number;
   readRows: number;
   matched: number;
   errors: Array<{ name: string; truth: string; read: string }>;
@@ -259,12 +349,26 @@ export interface ValueErrors {
   extra: string[];
 }
 
-export function valueErrors(read: RawMeasurement[], truth: RawMeasurement[]): ValueErrors {
+export function valueErrors(
+  read: RawMeasurement[],
+  truth: RawMeasurement[],
+  opts?: MatchOptions,
+): ValueErrors {
+  const key = aliasedNameKey(opts);
+  const rows = truth.filter(isMeasurementRow);
   const free = read.map((m) => m);
-  const out: ValueErrors = { truthRows: truth.length, readRows: read.length, matched: 0, errors: [], missing: [], extra: [] };
-  for (const t of truth) {
-    const k = nameKey(t.raw_analyte_name);
-    const same = free.filter((m) => nameKey(m.raw_analyte_name) === k);
+  const out: ValueErrors = {
+    truthRows: rows.length,
+    markerRows: truth.length - rows.length,
+    readRows: read.length,
+    matched: 0,
+    errors: [],
+    missing: [],
+    extra: [],
+  };
+  for (const t of rows) {
+    const k = key(t.raw_analyte_name);
+    const same = free.filter((m) => key(m.raw_analyte_name) === k);
     const pick = same.find((m) => valKey(m.value_raw) === valKey(t.value_raw)) ?? same[0];
     if (!pick) {
       out.missing.push(t.raw_analyte_name ?? "?");
@@ -315,7 +419,9 @@ export function pairStats(
   readA: RawMeasurement[] | null,
   readB: RawMeasurement[] | null,
   truth: RawMeasurement[],
+  opts?: MatchOptions,
 ): PairStats {
+  const key = aliasedNameKey(opts);
   const stats: PairStats = {
     singleReader: false,
     confirmedRows: 0,
@@ -328,7 +434,7 @@ export function pairStats(
     const only = readA ?? readB;
     stats.singleReader = true;
     stats.flaggedRows = only?.length ?? 0;
-    if (only) stats.singleReaderErrors = valueErrors(only, truth).errors;
+    if (only) stats.singleReaderErrors = valueErrors(only, truth, opts).errors;
     return stats;
   }
 
@@ -336,7 +442,7 @@ export function pairStats(
   const byName = (ms: RawMeasurement[]) => {
     const m = new Map<string, RawMeasurement[]>();
     for (const x of ms) {
-      const k = nameKey(x.raw_analyte_name);
+      const k = key(x.raw_analyte_name);
       if (!m.has(k)) m.set(k, []);
       m.get(k)!.push(x);
     }
@@ -344,7 +450,7 @@ export function pairStats(
   };
   const a = byName(readA);
   const b = byName(readB);
-  const t = byName(truth);
+  const t = byName(truth.filter(isMeasurementRow));
   const keys = new Set([...a.keys(), ...b.keys()]);
 
   for (const k of keys) {

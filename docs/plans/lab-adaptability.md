@@ -435,6 +435,13 @@ photo into two pages; moving the vision path from `source_snippet` to
 ## Open items
 
 - Confirm scanned PDF pages take the photo reader pair (assumed above).
-- Confirm Gemini's per-image token count at high resolution before trusting
-  the $0.02/page figure.
+- ~~Confirm Gemini's per-image token count at high resolution~~ — measured
+  2026-09-06: **1,120 tokens at `high`, 2,240 at `ultra_high`**, exactly the
+  media-resolution doc's numbers, plus ~200 for the prompt and schema. A page
+  costs $0.009-$0.020 depending on how many rows it prints (output dominates:
+  a 44-row Stod page returns ~4,900 tokens). Ultra costs ~$0.001 more per
+  page than high — the resolution question is decided on accuracy alone.
+- `thinkingLevel: MINIMAL` is in the SDK enum but `gemini-3.8-flash` rejects
+  it with a 400 (288 calls, $0.00, 2026-09-06). The arm runs at `LOW`. The
+  bench also no longer reuses a failed call as a persisted result.
 - Whether `data/reports` corrections (A1) are re-exported to the demo.

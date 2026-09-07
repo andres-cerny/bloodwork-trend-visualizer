@@ -11,7 +11,15 @@
  *   valERR   value errors against hand-verified truth — column 2 for images
  *   miss     truth rows the variant did not return
  *   extra    rows the variant returned that the truth does not have
+ *   marker   truth rows dropped as non-measurements (`isMeasurementRow`)
  *   decens   a censored value (`<1,0`) that came back as a number
+ *
+ * Two scorer rules do the adjudicating that used to be done by hand: a truth
+ * row whose value is a bare marker (`#`) is not a measurement and is not
+ * charged to anyone, and `tests/bench/truth_aliases.json` lets one page's
+ * clipped printed name match the full name in the truth. Both are keyed off
+ * the page key the dump recorded, so a Gemini result set dropped into
+ * out/<variant>/ is scored by the same rules as a subagent's.
  *
  * and every pair of variants with `pairStats`: confirmed, flagged, UNCAUGHT
  * (both wrong the same way — must be 0), caught, and single-reader pages
@@ -87,13 +95,13 @@ it("subagent bench (images) — score the variants against truth", () => {
     if (broken.length) console.log(`${cls}: unparseable outputs: ${broken.join(", ")}`);
 
     console.log(`\n## ${cls} — variants against ${[...new Set(index.map((p) => p.truthSource))].join(", ")}`);
-    console.log("variant".padEnd(22) + pad("pages", 6) + pad("read", 5) + pad("truth", 6) + pad("rows", 6) + pad("match", 6) + pad("miss", 6) + pad("extra", 6) + pad("valERR", 7) + pad("decens", 7));
+    console.log("variant".padEnd(22) + pad("pages", 6) + pad("read", 5) + pad("truth", 6) + pad("rows", 6) + pad("match", 6) + pad("miss", 6) + pad("extra", 6) + pad("marker", 7) + pad("valERR", 7) + pad("decens", 7));
     for (const v of variants) {
       const rows = index.filter((p) => p.truth);
       const scored = rows.map((p) => {
         const read = reads.get(v)!.get(p.slug);
         if (!read) return null;
-        const s = valueErrors(read, p.truth);
+        const s = valueErrors(read, p.truth, { pageKey: p.key });
         const d = rangeIntegrity(p.truth, read).decensored.length;
         all.push({ cls, variant: v, slug: p.slug, ...s, decensored: d });
         return { ...s, decensored: d, slug: p.slug };
@@ -102,7 +110,7 @@ it("subagent bench (images) — score the variants against truth", () => {
       const sum = (f: (s: (typeof ok)[number]) => number) => ok.reduce((n, s) => n + f(s), 0);
       console.log(
         v.padEnd(22) + pad(rows.length, 6) + pad(ok.length, 5) + pad(sum((s) => s.truthRows), 6) + pad(sum((s) => s.readRows), 6) + pad(sum((s) => s.matched), 6) +
-          pad(sum((s) => s.missing.length), 6) + pad(sum((s) => s.extra.length), 6) + pad(sum((s) => s.errors.length), 7) + pad(sum((s) => s.decensored), 7),
+          pad(sum((s) => s.missing.length), 6) + pad(sum((s) => s.extra.length), 6) + pad(sum((s) => s.markerRows), 7) + pad(sum((s) => s.errors.length), 7) + pad(sum((s) => s.decensored), 7),
       );
       for (const s of ok) {
         const bits: string[] = [];
@@ -126,7 +134,7 @@ it("subagent bench (images) — score the variants against truth", () => {
               const ra = reads.get(a)!.get(p.slug) ?? null;
               const rb = reads.get(b)!.get(p.slug) ?? null;
               if (!ra && !rb) return null;
-              const s = pairStats(ra, rb, p.truth);
+              const s = pairStats(ra, rb, p.truth, { pageKey: p.key });
               all.push({ cls, pair: `${a}+${b}`, slug: p.slug, condition: p.meta?.condition ?? null, ...s });
               return { ...s, slug: p.slug };
             })

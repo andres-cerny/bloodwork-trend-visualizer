@@ -13,7 +13,17 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { censoredLostMarker, looksCollapsed, nameKey, pairStats, scoreAgainstBaseline, valueErrors } from "./score";
+import {
+  censoredLostMarker,
+  isMeasurementRow,
+  loadTruthAliases,
+  looksCollapsed,
+  nameKey,
+  pairStats,
+  scoreAgainstBaseline,
+  valueErrors,
+  type TruthAliases,
+} from "./score";
 
 describe("looksCollapsed — the hyphen-loss class", () => {
   it("catches the exact defect from docs: 4,11-5,60 read back as 4,115,60", () => {
@@ -233,5 +243,132 @@ describe("pairStats — two numbers for a reader pair, never merged", () => {
     expect(s.singleReader).toBe(true);
     expect(s.flaggedRows).toBe(0);
     expect(s.confirmedRows).toBe(0);
+  });
+});
+
+describe("isMeasurementRow — a marker row is not a measurement", () => {
+  // AGILAB's `KO+diferenciál 5p.` is the panel's name printed in the analyte
+  // column with `#` for a value. The text-layer baseline carries it as a row;
+  // no reader returns it, and none should.
+  it("rejects the bare markers a panel row is printed with", () => {
+    for (const v of ["#", "*", "-", "—", "", "   "]) {
+      expect(isMeasurementRow({ raw_analyte_name: "KO+diferenciál 5p.", value_raw: v }), JSON.stringify(v)).toBe(false);
+    }
+    expect(isMeasurementRow({ raw_analyte_name: "x" })).toBe(false);
+    expect(isMeasurementRow(undefined)).toBe(false);
+  });
+
+  it("keeps every row that carries a result, including a censor, a zero and a qualitative one", () => {
+    for (const v of ["5,32", "<1,0", "0", "0,0", "negativní", "málo materiálu", "1,0 pozitívne", "-1,2"]) {
+      expect(isMeasurementRow({ raw_analyte_name: "x", value_raw: v }), v).toBe(true);
+    }
+  });
+});
+
+describe("marker rows are excluded from truth, never from the read", () => {
+  const truth = [
+    { raw_analyte_name: "Leukocyty", value_raw: "6,17" },
+    { raw_analyte_name: "KO+diferenciál 5p.", value_raw: "#" },
+  ];
+
+  it("does not charge a reader for skipping it", () => {
+    const s = valueErrors([truth[0]], truth);
+    expect(s.truthRows).toBe(1);
+    expect(s.markerRows).toBe(1);
+    expect(s.matched).toBe(1);
+    expect(s.missing).toEqual([]);
+    expect(s.extra).toEqual([]);
+  });
+
+  it("still charges a reader that returns it as an extra", () => {
+    const s = valueErrors(truth, truth);
+    expect(s.truthRows).toBe(1);
+    expect(s.extra).toEqual(["KO+diferenciál 5p."]);
+  });
+
+  it("keeps it out of the pair's truth as well", () => {
+    const read = [truth[0]];
+    const s = pairStats(read, read, truth);
+    expect(s.confirmedRows).toBe(1);
+    expect(s.flaggedRows).toBe(0);
+    expect(s.uncaughtValueErrors).toEqual([]);
+  });
+});
+
+describe("page-specific printed-name aliases", () => {
+  // 20_10_6 p1 clips its analyte column: the sheet prints `Vazebná kapacita I`
+  // where the text layer the truth came from has `Vazebná kapacita Fe`.
+  const PAGE = "20_10_6.pdf#1";
+  const aliases: TruthAliases = {
+    [PAGE]: {
+      "Vazebná kapacita Fe": ["Vazebná kapacita", "Vazebná kapacita I"],
+      "Saturace transf.-výp": ["Saturace transf.-vý", "Saturace transf.-výj"],
+    },
+  };
+  const truth = [
+    { raw_analyte_name: "Vazebná kapacita Fe", value_raw: "69,6" },
+    { raw_analyte_name: "Saturace transf.-výp", value_raw: "34,1" },
+  ];
+  const clipped = [
+    { raw_analyte_name: "Vazebná kapacita I", value_raw: "69,6" },
+    { raw_analyte_name: "Saturace transf.-vý", value_raw: "34,1" },
+  ];
+
+  it("matches the printed spelling on the keyed page", () => {
+    const s = valueErrors(clipped, truth, { pageKey: PAGE, aliases });
+    expect(s.matched).toBe(2);
+    expect(s.missing).toEqual([]);
+    expect(s.extra).toEqual([]);
+    expect(s.errors).toEqual([]);
+  });
+
+  it("is a miss without the alias — the rule is what makes it match, not the loose key", () => {
+    const s = valueErrors(clipped, truth);
+    expect(s.matched).toBe(0);
+    expect(s.missing).toHaveLength(2);
+    expect(s.extra).toHaveLength(2);
+  });
+
+  it("never applies to another page, which prints the same names in full", () => {
+    const s = valueErrors(clipped, truth, { pageKey: "2022_07_01.pdf#1", aliases });
+    expect(s.missing).toHaveLength(2);
+    expect(s.extra).toHaveLength(2);
+  });
+
+  it("leaves the full printed name matching on the aliased page too", () => {
+    const s = valueErrors(truth, truth, { pageKey: PAGE, aliases });
+    expect(s.matched).toBe(2);
+    expect(s.errors).toEqual([]);
+  });
+
+  it("does not fold two different analytes together", () => {
+    const other = [{ raw_analyte_name: "Transferin", value_raw: "2,72" }];
+    const s = valueErrors(other, truth, { pageKey: PAGE, aliases });
+    expect(s.matched).toBe(0);
+    expect(s.extra).toEqual(["Transferin"]);
+  });
+
+  it("confirms a pair that spelled the clipped name two ways with the same value", () => {
+    const opus = [{ raw_analyte_name: "Vazebná kapacita", value_raw: "69,6" }];
+    const sonnet = [{ raw_analyte_name: "Vazebná kapacita I", value_raw: "69,6" }];
+    const s = pairStats(opus, sonnet, [truth[0]], { pageKey: PAGE, aliases });
+    expect(s.confirmedRows).toBe(1);
+    expect(s.flaggedRows).toBe(0);
+    expect(s.uncaughtValueErrors).toEqual([]);
+  });
+
+  it("still reports a real disagreement on an aliased row", () => {
+    const opus = [{ raw_analyte_name: "Vazebná kapacita", value_raw: "69,6" }];
+    const sonnet = [{ raw_analyte_name: "Vazebná kapacita I", value_raw: "68,6" }];
+    const s = pairStats(opus, sonnet, [truth[0]], { pageKey: PAGE, aliases });
+    expect(s.confirmedRows).toBe(0);
+    expect(s.flaggedRows).toBe(1);
+    expect(s.caughtValueErrors).toBe(1);
+  });
+
+  it("ships the 20_10_6 page in truth_aliases.json, and no _about pseudo-page", () => {
+    const table = loadTruthAliases();
+    expect(Object.keys(table)).toEqual([PAGE]);
+    expect(table[PAGE]["Vazebná kapacita Fe"]).toContain("Vazebná kapacita I");
   });
 });
