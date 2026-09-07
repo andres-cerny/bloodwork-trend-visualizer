@@ -1123,3 +1123,45 @@ One smaller thing left undone deliberately: the truth in `data/reports` and
 the scorer excludes them, which keeps the transcription faithful to what the
 sheets print — a hand-deleted truth row cannot be audited later, and the
 exclusion is now a testable rule rather than a set of deletions.
+
+## Phase D0 — the prompt half, measured (2026-09-08, free)
+
+The truth-side half of D0 moved no ranking, and could not, because D0 *keeps*
+the rows Sonnet was losing. Only the prompt could close that gap. Both Claude
+readers re-read the 16 photo pages that hold a status row, under the new prompt,
+on subagents.
+
+```
+variant             pages read truth  rows match  miss extra valERR
+sonnet_vision_d0      133   16   588   588   588     0     0      0
+opus_vision_d0        133   16   588   588   588     0     0      0
+```
+
+**Sonnet returns 549 rows on these pages under the old prompt and 588 under the
+new one — exactly Opus's number, and exactly the truth's.** Both readers now
+match every row, miss nothing, invent nothing. Paired with each other they
+confirm all 588 with nothing flagged: they agree on every cell.
+
+Opus's output did not change at all. It was already returning the status rows,
+which is why it led. **One sentence closed a gap that a more expensive model was
+being bought to cover.**
+
+### What this does to the recommendation
+
+Across the full corpus Sonnet had 43 misses and Opus 8. Thirty-nine of Sonnet's
+were these status rows, so the arithmetic points at Sonnet finishing on 4 misses
+against Opus's 8 — ahead, not behind. That is an extrapolation from 16 pages and
+is being confirmed by a full re-read; the number is not banked until it is.
+
+If it holds, the case for Opus on photographs disappears. It cost twice
+Sonnet's price to recover rows that a sentence recovers for nothing.
+
+### One flaw in the sentence, found by the readers
+
+`S_Vitamin D celkový  neprovedeno  nmol/l` prints a status **and** a unit. The
+new sentence tells the reader to return a status with an empty unit and
+interval, so both models dutifully discarded a unit that is printed. That
+over-specifies. The rule should be that a status is a value, and say nothing
+about the other columns, which are transcribed like any other. Recorded here
+rather than patched silently, because the fix changes a prompt that has just
+been measured and the measurement should be repeated after it.
