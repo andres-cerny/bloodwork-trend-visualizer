@@ -8,6 +8,12 @@
  * same page through gemini.ts. Both return the `CallResult` extract.ts
  * defines, so adapt.bench.ts scores every arm with one code path.
  *
+ * `readDocument` is the third shape: the ORIGINAL PDF page rather than a
+ * render of it. Only the OCR provider takes it — Mistral OCR reads a
+ * born-digital PDF's embedded text, which is the fair comparison against the
+ * deployed text path, and a raster of that page would be a different question.
+ * `readImage` also routes the OCR provider, so one arm declaration covers both.
+ *
  * `maxRetries: 0` for the same reason extract.ts gives: a retry would be
  * recorded as latency.
  */
@@ -18,6 +24,7 @@ import { rowsAsText, type TextRow } from "@bw/lab-core";
 
 import { priceUsd, type CallResult, type Reader } from "./extract";
 import { callGemini, type Tile } from "./gemini";
+import { callMistral } from "./mistral";
 
 export interface PageImage {
   base64: string;
@@ -47,6 +54,21 @@ function failed(model: string, ms: number, e: any): CallResult {
   };
 }
 
+/** One PDF page, sent as the file itself. OCR providers only. */
+export interface PageDocument {
+  base64: string;
+  /** 1-based, as corpora.ts counts pages. */
+  page: number;
+  name?: string;
+}
+
+export async function readDocument(apiKey: string, reader: Reader, doc: PageDocument): Promise<CallResult> {
+  if (reader.provider !== "mistral") {
+    throw new Error(`readDocument: ${reader.provider ?? "anthropic"} takes no PDF — only the OCR provider does`);
+  }
+  return callMistral(apiKey, reader, { kind: "pdf", base64: doc.base64, page: doc.page, name: doc.name });
+}
+
 export async function readText(apiKey: string, reader: Reader, rows: TextRow[]): Promise<CallResult> {
   if (reader.provider === "google") return callGemini(apiKey, reader, { kind: "text", rows });
   const t0 = performance.now();
@@ -59,6 +81,10 @@ export async function readText(apiKey: string, reader: Reader, rows: TextRow[]):
 }
 
 export async function readImage(apiKey: string, reader: Reader, image: PageImage): Promise<CallResult> {
+  if (reader.provider === "mistral") {
+    // No prompt and no text-layer hint: OCR reads the pixels it is given.
+    return callMistral(apiKey, reader, { kind: "image", base64: image.base64, mediaType: image.mediaType });
+  }
   if (reader.provider === "google") {
     return callGemini(
       apiKey,

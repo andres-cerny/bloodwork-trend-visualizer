@@ -35,6 +35,10 @@ export const PRICING: Record<string, [number, number]> = {
   // Paid tier, USD per 1M tokens. Becomes [1.50, 7.50] on 2027-01-01 —
   // docs/plans/lab-adaptability.md "Risks". Re-run C5's table then.
   "gemini-3.8-flash": [0.75, 3.75],
+  // NOTE: `mistral-ocr-4-1` is deliberately absent. It is billed PER PAGE
+  // ($0.004), not per token, so `priceUsd` must never be called for it —
+  // mistral.ts computes its own cost from `usage_info.pages_processed`. A
+  // token pair added here would silently make it look token-priced.
 };
 
 export function priceUsd(model: string, u: Usage): number {
@@ -63,8 +67,12 @@ export interface Reader {
   model: string;
   effort?: Effort;
   thinking?: ThinkingMode;
-  /** Which API answers. Absent means Anthropic, so every existing arm is untouched. */
-  provider?: "anthropic" | "google";
+  /**
+   * Which API answers. Absent means Anthropic, so every existing arm is
+   * untouched. `mistral` is not an LLM call at all — it is the OCR layout
+   * parser, priced per page rather than per token (mistral.ts).
+   */
+  provider?: "anthropic" | "google" | "mistral";
   /** Gemini only: how many tokens the image is worth to the model (gemini.ts). */
   mediaResolution?: "high" | "ultra_high";
 }

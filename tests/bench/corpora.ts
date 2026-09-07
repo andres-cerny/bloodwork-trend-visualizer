@@ -326,14 +326,16 @@ export interface Rendered {
 /**
  * The bytes a reader gets. Claude: a 220 DPI render, or a photo downscaled
  * to its 2576 px tier. Gemini: the same render, or the untouched photo —
- * "if Gemini can see more pixels, give it a clear picture". Cached under
- * `outDir` so a second arm never pays the render twice.
+ * "if Gemini can see more pixels, give it a clear picture". Mistral OCR takes
+ * the same bytes as Gemini and for a blunter reason: it is billed per page
+ * whatever the pixels are, so there is nothing to save by shrinking one.
+ * Cached under `outDir` so a second arm never pays the render twice.
  */
-export function renderFor(page: CorpusPage, provider: "anthropic" | "google", outDir: string, python: string | null): Rendered {
+export function renderFor(page: CorpusPage, provider: "anthropic" | "google" | "mistral", outDir: string, python: string | null): Rendered {
   mkdirSync(outDir, { recursive: true });
   if ("file" in page.image) {
     const mediaType = /\.png$/i.test(page.image.file) ? "image/png" : "image/jpeg";
-    if (provider === "google") return { path: page.image.file, mediaType };
+    if (provider !== "anthropic") return { path: page.image.file, mediaType };
     const out = join(outDir, `${page.slug}.claude.jpg`);
     if (!existsSync(out)) render(python, page.image.file, 1, "edge", CLAUDE_PHOTO_EDGE, out);
     return { path: out, mediaType: "image/jpeg" };

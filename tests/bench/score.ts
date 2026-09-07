@@ -256,6 +256,136 @@ export function fabrications(arm: RawMeasurement[], rows: TextRow[]): string[] {
   return bad;
 }
 
+/* --------------------------------------------- the merged-row guard */
+
+/**
+ * Did the reader fuse two printed rows into one record?
+ *
+ * This is the fault that disqualified Docling (docs/extraction-speed.md, "A7,
+ * Docling — the layout-parser family, properly tested"): on some layouts it
+ * merged adjacent printed rows, so one record came back as
+ *
+ *     Glukóza Cholesterol       range = "3,6 - 5,6 2,9 - 5,0"
+ *     Monocyty Eozinofily       range = "2,0 - 12,0 0,0 - 5,0"
+ *
+ * — two analytes in one name, two reference intervals in one range. Nothing in
+ * the existing scorer catches it. `matched` sees a name it cannot line up and
+ * charges a miss plus an extra; the value column stays clean, because neither
+ * number is *wrong*, they are merely both there. A reader could fuse half a
+ * page and still show zero value errors.
+ *
+ * Every layout parser is in that risk class, so the column is printed for
+ * **every** arm, not only for the layout-parser ones — a column that only ever
+ * appears next to the suspect is not a control.
+ *
+ * Three independent rules; a row is reported once, listing each that fired:
+ *
+ *  1. **range** — `ref_range_raw` carries two complete intervals. A complete
+ *     interval is two numbers with a dash (or `až`) between them, so
+ *     `3,6 - 5,6 2,9 - 5,0` fires and `( 2,5000 - 6,4000 )` does not. The
+ *     collapsed-separator fault `4,115,60` is *not* this rule's business —
+ *     `looksCollapsed` owns it, and neither guard is allowed to cover for the
+ *     other.
+ *  2. **value** — `value_raw` carries two numbers where one is expected. Two
+ *     deliberate exemptions, because a false positive here would be printed
+ *     against every arm: a Czech thousands group (`10 000`, `2 900` — a space
+ *     followed by exactly three digits is joined onto the number before it,
+ *     which also means a genuine `141 138` is read conservatively as one
+ *     number and missed), and a printed date (`21.05.2024`). A censor
+ *     (`<1,0`), the lab's `!`/`*` markers and a qualifier (`1,0 pozitívne`)
+ *     are one number each. A value that is itself an interval is skipped —
+ *     that is a range in the wrong column, a different fault.
+ *  3. **name** — `raw_analyte_name` concatenates two names that each appear as
+ *     a *separate truth row on that page*. Checked only against the page's own
+ *     truth, and only when the whole name is not itself a truth row, so
+ *     `Vazebná kapacita Fe` is safe wherever the page really prints it. Names
+ *     are keyed through `aliasedNameKey`, like every other match here. Without
+ *     truth this rule cannot fire and is skipped.
+ */
+export interface MergedRow {
+  name: string;
+  /** Every rule that fired on this row. */
+  reasons: Array<"range" | "value" | "name">;
+  value_raw: string;
+  ref_range_raw: string;
+}
+
+/** Rule 1's primitive: how many complete printed intervals are in this string? */
+export function countIntervals(s: string | undefined): number {
+  if (!s) return 0;
+  const re = /-?\d+(?:[.,]\d+)?\s*(?:-|–|—|až)\s*-?\d+(?:[.,]\d+)?/g;
+  return (s.match(re) ?? []).length;
+}
+
+/** Rule 1. */
+export function twoIntervals(range: string | undefined): boolean {
+  return countIntervals(range) >= 2;
+}
+
+/** Rule 2. */
+export function twoValues(value: string | undefined): boolean {
+  const raw = (value ?? "").trim();
+  if (!raw) return false;
+  // A date is one printed thing, however many digit runs it holds.
+  if (/\d{1,4}\s*[./]\s*\d{1,2}\s*[./]\s*\d{2,4}/.test(raw)) return false;
+  // A range printed in the value column is a different fault, not a merge.
+  if (countIntervals(raw) >= 1) return false;
+  const t = raw
+    .replace(/[!*]/g, " ")
+    .replace(/[<>]/g, " ")
+    // Czech thousands: a space before exactly three digits belongs to the
+    // number in front of it. Conservative on purpose — see the header.
+    .replace(/(\d)[\s ](?=\d{3}(?!\d))/g, "$1");
+  return (t.match(/-?\d+(?:[.,]\d+)?/g) ?? []).length >= 2;
+}
+
+/** Rule 3. */
+export function nameFusesTwoTruthRows(
+  name: string | undefined,
+  truth: RawMeasurement[],
+  key: (n: string | undefined) => string,
+): boolean {
+  const printed = (name ?? "").trim();
+  if (!printed) return false;
+  const truthKeys = new Set(truth.filter(isMeasurementRow).map((t) => key(t.raw_analyte_name)).filter(Boolean));
+  if (truthKeys.has(key(printed))) return false; // the whole name is a real row
+  const words = printed.split(/\s+/);
+  for (let i = 1; i < words.length; i++) {
+    const left = key(words.slice(0, i).join(" "));
+    const right = key(words.slice(i).join(" "));
+    if (left && right && left !== right && truthKeys.has(left) && truthKeys.has(right)) return true;
+  }
+  return false;
+}
+
+/**
+ * Rows this read fused. `truth` is optional; without it rule 3 cannot run and
+ * only the two self-contained rules apply.
+ */
+export function mergedRows(
+  read: RawMeasurement[],
+  truth?: RawMeasurement[] | null,
+  opts?: MatchOptions,
+): MergedRow[] {
+  const key = aliasedNameKey(opts);
+  const out: MergedRow[] = [];
+  for (const m of read) {
+    const reasons: MergedRow["reasons"] = [];
+    if (twoIntervals(m.ref_range_raw)) reasons.push("range");
+    if (twoValues(m.value_raw)) reasons.push("value");
+    if (truth?.length && nameFusesTwoTruthRows(m.raw_analyte_name, truth, key)) reasons.push("name");
+    if (reasons.length) {
+      out.push({
+        name: m.raw_analyte_name ?? "?",
+        reasons,
+        value_raw: m.value_raw ?? "",
+        ref_range_raw: m.ref_range_raw ?? "",
+      });
+    }
+  }
+  return out;
+}
+
 /* ------------------------------------------------- the named range check */
 
 /**

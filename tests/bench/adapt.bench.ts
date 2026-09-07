@@ -31,6 +31,10 @@
  *                fabrications against the printed rows, collapsed + decensored
  *   image pages  matched / missing / extra, VALUE ERRORS against hand-verified
  *                truth (column 2 for images), decensored
+ *   every page   MERGED rows — two printed rows fused into one record, the
+ *                fault that disqualified Docling (score.ts, `mergedRows`).
+ *                Printed for every arm, not only the layout parsers: a column
+ *                that only ever appears beside the suspect is not a control.
  *   pairs        confirmed, flagged, UNCAUGHT value errors (must be 0), caught,
  *                single-reader pages (one read missing — every row flagged)
  */
@@ -55,13 +59,21 @@ import {
   type GeminiInput,
   type Tile,
 } from "./gemini";
-import { readImage, readText } from "./readers";
+import {
+  MISTRAL_OCR_MODEL,
+  PAGE_PRICE_USD,
+  describeRequest as describeMistralRequest,
+  mistralRequest,
+} from "./mistral";
+import { readDocument, readImage, readText } from "./readers";
 import {
   fabrications,
+  mergedRows,
   pairStats,
   rangeIntegrity,
   scoreAgainstBaseline,
   valueErrors,
+  type MergedRow,
   type PairStats,
   type RawMeasurement,
 } from "./score";
@@ -88,6 +100,18 @@ interface SingleArm {
   imageTokens?: number;
   /** Send the page as two overlapping halves, one image part each (gemini.ts). */
   tiled?: boolean;
+  /**
+   * Set when the model is billed per page rather than per token. Its
+   * `estimateUsd` is then a *price*, not a derivation from a token budget, and
+   * the table says so instead of leaving a blank `imgTok` to be misread.
+   */
+  pricePerPageUsd?: number;
+  /**
+   * Take a text-layer page as the ORIGINAL PDF instead of its `|`-joined rows.
+   * The OCR arm reads a born-digital PDF's embedded text, so this — not a
+   * raster — is the fair comparison against the deployed text path.
+   */
+  sourcePdf?: boolean;
 }
 
 interface PairArm {
@@ -117,6 +141,15 @@ export const ARMS: SingleArm[] = [
   // ultra_high is the top of the ladder, so more detail costs another *part*:
   // two overlapping halves, 2 × 2,240 tokens. Not ultra's $0.021 — see above.
   { id: "gemini38_tiled", label: "Gemini 3.8 Flash, two ultra_high tiles", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "ultra_high" }, inputs: ["image"], estimateUsd: { image: 0.023 }, imageTokens: TILED_IMAGE_TOKENS, tiled: true },
+  // Priced PER PAGE at $0.004, not per token: no `imageTokens`, and the
+  // estimate is the price itself. mistral.ts, "Pricing — per page, not per
+  // token".
+  { id: "mistral_ocr", label: "Mistral OCR on a rendered page", reader: { model: MISTRAL_OCR_MODEL, provider: "mistral" }, inputs: ["image"], estimateUsd: { image: PAGE_PRICE_USD }, pricePerPageUsd: PAGE_PRICE_USD },
+  // The cost question on the born-digital path: the same OCR model reading the
+  // ORIGINAL PDF page, against the deployed text pair whose real-API numbers
+  // are already recorded (docs/extraction-speed.md, "Confirmed on the real
+  // API": Haiku 851/878, Sonnet 843/878, 0 value errors either way).
+  { id: "mistral_ocr_digital", label: "Mistral OCR on the original PDF page", reader: { model: MISTRAL_OCR_MODEL, provider: "mistral" }, inputs: ["text"], estimateUsd: { text: PAGE_PRICE_USD }, pricePerPageUsd: PAGE_PRICE_USD, sourcePdf: true },
 ];
 
 export const PAIRS: PairArm[] = [
@@ -124,6 +157,8 @@ export const PAIRS: PairArm[] = [
   { id: "sonnet5+gemini38_tiled", label: "the pair at matched visual budget", pair: ["sonnet5", "gemini38_tiled"] },
   { id: "sonnet5+gemini38_high", label: "what ultra_high buys the pair", pair: ["sonnet5", "gemini38_high"] },
   { id: "sonnet5+haiku45", label: "the retreat pair (deployed text pair)", pair: ["sonnet5", "haiku45"] },
+  { id: "sonnet5+mistral_ocr", label: "a reader and a layout parser", pair: ["sonnet5", "mistral_ocr"] },
+  { id: "gemini38_ultra+mistral_ocr", label: "the cheap pair — two vendors, ~$0.025/page", pair: ["gemini38_ultra", "mistral_ocr"] },
 ];
 
 const armIds = (process.env.BENCH_ARMS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -183,6 +218,8 @@ interface PageScore {
   extra: number;
   valueErrors: Array<{ name: string; truth: string; read: string }>;
   fabrications: string[];
+  /** Rows this arm fused out of two printed rows — the Docling class. */
+  merged: MergedRow[];
   collapsed: number;
   decensored: number;
 }
@@ -193,12 +230,14 @@ function scoreSingle(page: CorpusPage, arm: string, p: Persisted | null): PageSc
     cls: page.cls, arm, slug: page.slug, kind: page.kind, ok: !!read,
     ms: p?.call.ms, usd: p?.call.costUsd, imageTokens: p?.call.imageTokens,
     truthRows: page.truth?.length ?? 0, readRows: read?.length ?? 0,
-    matched: 0, missing: 0, extra: 0, valueErrors: [], fabrications: [], collapsed: 0, decensored: 0,
+    matched: 0, missing: 0, extra: 0, valueErrors: [], fabrications: [], merged: [], collapsed: 0, decensored: 0,
   };
   if (!read || !page.truth) return read || p ? base : null;
   const integ = rangeIntegrity(page.truth, read);
   base.collapsed = integ.collapsed.length;
   base.decensored = integ.decensored.length;
+  // Every arm, every class. See the file header.
+  base.merged = mergedRows(read, page.truth, { pageKey: page.key });
   if (page.kind === "text" && page.rows) {
     const s = scoreAgainstBaseline(page.truth, read);
     base.matched = s.matched;
@@ -228,7 +267,7 @@ function printSingles(cls: CorpusClass, scores: PageScore[], truthSource: string
     console.log(`\n## ${cls} — ${kind} pages, truth: ${truthSource}`);
     console.log(
       "arm".padEnd(16) + pad("pages", 6) + pad("ok", 4) + pad("truth", 6) + pad("rows", 6) + pad("match", 6) + pad("miss", 6) + pad("extra", 6) +
-        (kind === "text" ? pad("valΔ", 6) + pad("fab", 5) : pad("valERR", 7)) + pad("coll", 5) + pad("decens", 7) + pad("p50 s", 7) + pad("USD", 8) + (kind === "image" ? pad("imgTok", 8) : ""),
+        (kind === "text" ? pad("valΔ", 6) + pad("fab", 5) : pad("valERR", 7)) + pad("MERGED", 7) + pad("coll", 5) + pad("decens", 7) + pad("p50 s", 7) + pad("USD", 8) + (kind === "image" ? pad("imgTok", 8) : ""),
     );
     for (const arm of singles.map((a) => a.id)) {
       const hits = ofKind.filter((s) => s.arm === arm);
@@ -240,7 +279,7 @@ function printSingles(cls: CorpusClass, scores: PageScore[], truthSource: string
         arm.padEnd(16) + pad(hits.length, 6) + pad(hits.filter((h) => h.ok).length, 4) + pad(sum(hits, (h) => h.truthRows), 6) + pad(sum(hits, (h) => h.readRows), 6) +
           pad(sum(hits, (h) => h.matched), 6) + pad(sum(hits, (h) => h.missing), 6) + pad(sum(hits, (h) => h.extra), 6) +
           (kind === "text" ? pad(sum(hits, (h) => h.valueErrors.length), 6) + pad(sum(hits, (h) => h.fabrications.length), 5) : pad(sum(hits, (h) => h.valueErrors.length), 7)) +
-          pad(sum(hits, (h) => h.collapsed), 5) + pad(sum(hits, (h) => h.decensored), 7) + pad(p50, 7) + pad(sum(hits, (h) => h.usd ?? 0).toFixed(3), 8) +
+          pad(sum(hits, (h) => h.merged.length), 7) + pad(sum(hits, (h) => h.collapsed), 5) + pad(sum(hits, (h) => h.decensored), 7) + pad(p50, 7) + pad(sum(hits, (h) => h.usd ?? 0).toFixed(3), 8) +
           (kind === "image" ? pad(img.length ? Math.round(sum(img, (x) => x) / img.length) : "-", 8) : ""),
       );
     }
@@ -252,6 +291,17 @@ function printSingles(cls: CorpusClass, scores: PageScore[], truthSource: string
       if (h.fabrications.length) bits.push(`fab: ${h.fabrications.join("; ")}`);
       if (h.decensored) bits.push(`decensored: ${h.decensored}`);
       if (bits.length) console.log(`   ${h.arm.padEnd(14)} ${h.slug}: ${bits.join(" | ")}`);
+    }
+    // The named warning. A merged row is not a wrong number and not a
+    // fabrication, so it would otherwise pass every other column clean.
+    const fused = ofKind.filter((h) => h.merged.length);
+    if (fused.length) {
+      console.log(`   !! MERGED ROWS — two printed rows in one record (the Docling class, docs/extraction-speed.md A7):`);
+      for (const h of fused) {
+        for (const m of h.merged) {
+          console.log(`      ${h.arm.padEnd(20)} ${h.slug}: [${m.reasons.join("+")}] "${m.name}" value="${m.value_raw}" range="${m.ref_range_raw}"`);
+        }
+      }
     }
   }
 }
@@ -333,7 +383,7 @@ it("lab adaptability — class × arm, scored per class", async () => {
   }
   for (const s of skipped) console.log(`   skip ${s.cls}/${s.slug}: ${s.why}`);
 
-  console.log("\narm".padEnd(17) + pad("text", 6) + pad("image", 6) + pad("imgTok", 8) + pad("cached", 7) + pad("to call", 8) + pad("est USD", 9) + "  reader");
+  console.log("\narm".padEnd(21) + pad("text", 6) + pad("image", 6) + pad("imgTok", 8) + pad("cached", 7) + pad("to call", 8) + pad("est USD", 9) + "  reader");
   let estimate = 0;
   for (const arm of singles) {
     const mine = jobs.filter((j) => j.arm === arm);
@@ -342,13 +392,25 @@ it("lab adaptability — class × arm, scored per class", async () => {
     const usd = sum(toCall, (j) => arm.estimateUsd[j.page.kind] ?? 0);
     estimate += usd;
     console.log(
-      arm.id.padEnd(17) + pad(mine.filter((j) => j.page.kind === "text").length, 6) + pad(mine.filter((j) => j.page.kind === "image").length, 6) +
-        pad(arm.imageTokens ?? "-", 8) + pad(cached, 7) + pad(toCall.length, 8) + pad(usd.toFixed(2), 9) +
-        `  ${arm.reader.provider ?? "anthropic"}:${arm.reader.model}${arm.reader.mediaResolution ? "/" + arm.reader.mediaResolution : ""}${arm.tiled ? " ×2 tiles" : ""}`,
+      arm.id.padEnd(20) + pad(mine.filter((j) => j.page.kind === "text").length, 6) + pad(mine.filter((j) => j.page.kind === "image").length, 6) +
+        // A per-page model has no visual token budget, and a blank here would
+        // read as "unknown" rather than "not how this one is billed".
+        pad(arm.pricePerPageUsd ? "$/page" : (arm.imageTokens ?? "-"), 8) + pad(cached, 7) + pad(toCall.length, 8) + pad(usd.toFixed(2), 9) +
+        `  ${arm.reader.provider ?? "anthropic"}:${arm.reader.model}${arm.reader.mediaResolution ? "/" + arm.reader.mediaResolution : ""}${arm.tiled ? " ×2 tiles" : ""}` +
+        (arm.pricePerPageUsd ? `  $${arm.pricePerPageUsd.toFixed(3)}/page${arm.sourcePdf ? ", original PDF page" : ""}` : ""),
     );
   }
-  for (const p of pairs) console.log(`${p.id.padEnd(24)}${pad("offline", 29)}  ${p.label}`);
+  for (const p of pairs) console.log(`${p.id.padEnd(28)}${pad("offline", 29)}  ${p.label}`);
   console.log(`\nestimated spend for the calls not yet persisted: $${estimate.toFixed(2)} (cap BENCH_MAX_USD=$${MAX_USD})`);
+  const perPage = singles.filter((a) => a.pricePerPageUsd);
+  if (perPage.length) {
+    const many = perPage.length > 1;
+    console.log(
+      `note: ${perPage.map((a) => a.id).join(", ")} ${many ? "are" : "is"} billed PER PAGE ` +
+        `($${PAGE_PRICE_USD.toFixed(3)}), not per token — ${many ? "those estimates are" : "that estimate is"} the price itself, ` +
+        `and ${many ? "their" : "its"} imgTok/USD columns are not token counts.`,
+    );
+  }
 
   if (DRY) {
     const gem = singles.find((a) => a.reader.provider === "google");
@@ -359,14 +421,29 @@ it("lab adaptability — class × arm, scored per class", async () => {
       console.log(`\n# Gemini request shape (${gem.id}; image bytes elided)\n`);
       console.log(JSON.stringify(describeRequest(geminiRequest(gem.reader, input)), null, 1));
     }
+    // One per OCR arm: the image path and the born-digital path send
+    // materially different documents, and a dry run that showed only the first
+    // would hide the `pages` selector the PDF arm turns on.
+    for (const ocr of singles.filter((a) => a.reader.provider === "mistral")) {
+      const input = ocr.sourcePdf
+        ? ({ kind: "pdf", base64: "AAAA", page: 1, name: "page.pdf" } as const)
+        : ({ kind: "image", base64: "AAAA", mediaType: "image/png" } as const);
+      console.log(`\n# Mistral OCR request shape (${ocr.id}; $${PAGE_PRICE_USD.toFixed(3)}/page; document bytes elided)\n`);
+      console.log(JSON.stringify(describeMistralRequest(mistralRequest(ocr.reader, input)), null, 1));
+    }
     console.log("\ndry run — nothing was sent. Propose the estimate above before running for real.");
     return;
   }
 
   // Keys, checked before the first call so a missing one fails the run, not a page.
   const needs = new Set(jobs.filter((j) => !loadPersisted(j.arm.id, j.page.slug)).map((j) => j.arm.reader.provider ?? "anthropic"));
-  const keys = { anthropic: process.env.ANTHROPIC_API_KEY ?? "", google: process.env.GEMINI_API_KEY ?? "" };
-  for (const p of needs) if (!keys[p]) throw new Error(`${p === "google" ? "GEMINI_API_KEY" : "ANTHROPIC_API_KEY"} not set — set -a; source .env; set +a`);
+  const keys = {
+    anthropic: process.env.ANTHROPIC_API_KEY ?? "",
+    google: process.env.GEMINI_API_KEY ?? "",
+    mistral: process.env.MISTRAL_API_KEY ?? "",
+  };
+  const KEY_NAME = { anthropic: "ANTHROPIC_API_KEY", google: "GEMINI_API_KEY", mistral: "MISTRAL_API_KEY" } as const;
+  for (const p of needs) if (!keys[p]) throw new Error(`${KEY_NAME[p]} not set — set -a; source .env; set +a`);
 
   const python = pythonWithFitz();
   const pillow = singles.some((a) => a.tiled) ? pythonWithPillow() : null;
@@ -391,7 +468,19 @@ it("lab adaptability — class × arm, scored per class", async () => {
       const provider = arm.reader.provider ?? "anthropic";
       let call: CallResult;
       let imagePath: string | undefined;
-      if (page.kind === "text") {
+      if (page.kind === "text" && arm.sourcePdf) {
+        // The born-digital arm: the original PDF page, not a render of it and
+        // not the joined rows. `image` is a `{pdf, page}` for every text page.
+        if (!("pdf" in page.image)) {
+          console.log(`${arm.id.padEnd(16)} ${page.slug} skipped: no source PDF for a text page`);
+          continue;
+        }
+        call = await readDocument(keys[provider], arm.reader, {
+          base64: readFileSync(page.image.pdf).toString("base64"),
+          page: page.image.page,
+          name: page.slug + ".pdf",
+        });
+      } else if (page.kind === "text") {
         call = await readText(keys[provider], arm.reader, page.rows!);
       } else {
         let rendered;

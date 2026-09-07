@@ -15,12 +15,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   censoredLostMarker,
+  countIntervals,
   isMeasurementRow,
   loadTruthAliases,
   looksCollapsed,
+  mergedRows,
+  nameFusesTwoTruthRows,
   nameKey,
   pairStats,
   scoreAgainstBaseline,
+  twoIntervals,
+  twoValues,
   valueErrors,
   type TruthAliases,
 } from "./score";
@@ -370,5 +375,162 @@ describe("page-specific printed-name aliases", () => {
     const table = loadTruthAliases();
     expect(Object.keys(table)).toEqual([PAGE]);
     expect(table[PAGE]["Vazebná kapacita Fe"]).toContain("Vazebná kapacita I");
+  });
+});
+
+describe("mergedRows — the Docling class: two printed rows fused into one record", () => {
+  // The exact records docs/extraction-speed.md records under "A7, Docling —
+  // the layout-parser family, properly tested". They are what disqualified a
+  // layout parser from this project, and no existing column catches them:
+  // both numbers in the range are printed, so `fabrications` is clean, and
+  // neither value is wrong, so `valueErrors` is clean too.
+  const truth = [
+    { raw_analyte_name: "Glukóza", value_raw: "5,32", ref_range_raw: "3,6 - 5,6" },
+    { raw_analyte_name: "Cholesterol", value_raw: "4,80", ref_range_raw: "2,9 - 5,0" },
+    { raw_analyte_name: "Monocyty", value_raw: "6,4", ref_range_raw: "2,0 - 12,0" },
+    { raw_analyte_name: "Eozinofily", value_raw: "1,1", ref_range_raw: "0,0 - 5,0" },
+  ];
+
+  it("catches Docling's `Glukóza Cholesterol` with both intervals concatenated", () => {
+    const read = [{ raw_analyte_name: "Glukóza Cholesterol", value_raw: "5,32", ref_range_raw: "3,6 - 5,6 2,9 - 5,0" }];
+    const [row] = mergedRows(read, truth);
+    expect(row.name).toBe("Glukóza Cholesterol");
+    expect(row.reasons).toContain("range");
+    expect(row.reasons).toContain("name");
+  });
+
+  it("catches Docling's `Monocyty Eozinofily` the same way", () => {
+    const read = [{ raw_analyte_name: "Monocyty Eozinofily", value_raw: "6,4", ref_range_raw: "2,0 - 12,0 0,0 - 5,0" }];
+    const [row] = mergedRows(read, truth);
+    expect(row.reasons).toEqual(expect.arrayContaining(["range", "name"]));
+  });
+
+  it("catches a fused row by its two values even when the range is clean", () => {
+    const read = [{ raw_analyte_name: "Glukóza Cholesterol", value_raw: "5,32 4,80", ref_range_raw: "3,6 - 5,6" }];
+    const [row] = mergedRows(read, truth);
+    expect(row.reasons).toContain("value");
+  });
+
+  it("reports one entry per fused row, listing every rule that fired", () => {
+    const read = [
+      { raw_analyte_name: "Glukóza Cholesterol", value_raw: "5,32 4,80", ref_range_raw: "3,6 - 5,6 2,9 - 5,0" },
+      { raw_analyte_name: "Monocyty", value_raw: "6,4", ref_range_raw: "2,0 - 12,0" },
+    ];
+    const rows = mergedRows(read, truth);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].reasons.sort()).toEqual(["name", "range", "value"]);
+  });
+
+  it("stays silent on a correctly read page", () => {
+    expect(mergedRows(truth, truth)).toEqual([]);
+  });
+
+  it("cannot fire the name rule without truth, and still catches the range", () => {
+    const read = [{ raw_analyte_name: "Glukóza Cholesterol", value_raw: "5,32", ref_range_raw: "3,6 - 5,6 2,9 - 5,0" }];
+    expect(mergedRows(read).map((r) => r.reasons)).toEqual([["range"]]);
+    expect(mergedRows(read, [])).toHaveLength(1);
+  });
+});
+
+describe("twoIntervals — rule 1, and the boundary with looksCollapsed", () => {
+  it("fires on two complete intervals, however they are spaced", () => {
+    expect(twoIntervals("3,6 - 5,6 2,9 - 5,0")).toBe(true);
+    expect(twoIntervals("2,0 - 12,0 0,0 - 5,0")).toBe(true);
+    expect(twoIntervals("( 2,5000 - 6,4000 ) ( 3,4000 - 17,1000 )")).toBe(true);
+    expect(twoIntervals("137-145 3,80-5,20")).toBe(true);
+  });
+
+  it("does not fire on one interval, however it is printed", () => {
+    for (const ok of ["3,6 - 5,6", "4,11-5,60", "( 2,5000 - 6,4000 )", "0,00 – 3,50", "2,5 až 6,4", "do 5,0", "", undefined]) {
+      expect(twoIntervals(ok), String(ok)).toBe(false);
+    }
+  });
+
+  it("leaves the collapsed-separator fault to looksCollapsed, and is not covered by it in return", () => {
+    // `4,11-5,60` read back as `4,115,60` is one corrupted interval, not two:
+    // only looksCollapsed sees it, and this rule must not claim it.
+    expect(twoIntervals("4,115,60")).toBe(false);
+    expect(looksCollapsed("4,115,60")).toBe(true);
+    // The reverse overlap is real and worth stating: looksCollapsed squashes
+    // whitespace, so `3,6 - 5,6 2,9 - 5,0` also trips it — but it reports a
+    // corrupted separator, which is the wrong diagnosis and the wrong repair.
+    // Only this rule says "two intervals, so two printed rows".
+    expect(twoIntervals("3,6 - 5,6 2,9 - 5,0")).toBe(true);
+    // And a merged range whose halves are integers trips nothing else at all,
+    // which is why the merge needs its own column.
+    expect(looksCollapsed("137-145 97-108")).toBe(false);
+    expect(twoIntervals("137-145 97-108")).toBe(true);
+  });
+
+  it("counts intervals rather than dashes", () => {
+    expect(countIntervals("3,6 - 5,6")).toBe(1);
+    expect(countIntervals("3,6 - 5,6 2,9 - 5,0")).toBe(2);
+    expect(countIntervals("negativní")).toBe(0);
+  });
+});
+
+describe("twoValues — rule 2, and the false positives it must not have", () => {
+  it("fires when one cell carries two printed numbers", () => {
+    expect(twoValues("5,32 4,80")).toBe(true);
+    expect(twoValues("0,527 2,900")).toBe(true);
+    expect(twoValues("6,4 1,1")).toBe(true);
+  });
+
+  it("reads a Czech thousands group as one number", () => {
+    for (const ok of ["10 000", "2 900", "1 234 567"]) {
+      expect(twoValues(ok), ok).toBe(false);
+    }
+  });
+
+  it("leaves a censor, the lab's markers and a qualifier alone", () => {
+    for (const ok of ["<1,0", "> 140", "0,93 !", "1,0 pozitívne", "0,4 negatívne", "<1,0 negatívne", "málo materiálu", "141", "", undefined]) {
+      expect(twoValues(ok), String(ok)).toBe(false);
+    }
+  });
+
+  it("does not fire on a printed date, or on a range that landed in the value column", () => {
+    expect(twoValues("21.05.2024")).toBe(false);
+    expect(twoValues("3.6.2025")).toBe(false);
+    expect(twoValues("3,9 - 5,6")).toBe(false);
+  });
+});
+
+describe("nameFusesTwoTruthRows — rule 3, checked against this page's own truth", () => {
+  const truth = [
+    { raw_analyte_name: "Glukóza", value_raw: "5,32" },
+    { raw_analyte_name: "Cholesterol", value_raw: "4,80" },
+    { raw_analyte_name: "Vazebná kapacita Fe", value_raw: "69,6" },
+  ];
+
+  it("fires only when both halves are separate truth rows on the page", () => {
+    expect(nameFusesTwoTruthRows("Glukóza Cholesterol", truth, nameKey)).toBe(true);
+    expect(nameFusesTwoTruthRows("Cholesterol Glukóza", truth, nameKey)).toBe(true);
+  });
+
+  it("never fires on a multi-word analyte the page really prints", () => {
+    expect(nameFusesTwoTruthRows("Vazebná kapacita Fe", truth, nameKey)).toBe(false);
+    // Even if one half were a truth row, the whole name being a truth row wins.
+    expect(nameFusesTwoTruthRows("Glukóza", truth, nameKey)).toBe(false);
+  });
+
+  it("does not fire when only one half is a truth row", () => {
+    expect(nameFusesTwoTruthRows("Glukóza nalačno", truth, nameKey)).toBe(false);
+    expect(nameFusesTwoTruthRows("S_Neexistuje Cholesterol", truth, nameKey)).toBe(false);
+  });
+
+  it("ignores a marker row in truth, which is not a measurement to be fused with", () => {
+    const withMarker = [...truth, { raw_analyte_name: "KO+diferenciál 5p.", value_raw: "#" }];
+    expect(nameFusesTwoTruthRows("Glukóza KO+diferenciál 5p.", withMarker, nameKey)).toBe(false);
+  });
+
+  it("goes through the page's aliases, like every other match in this file", () => {
+    const PAGE = "20_10_6.pdf#1";
+    const aliases: TruthAliases = { [PAGE]: { "Vazebná kapacita Fe": ["Vazebná kapacita I"] } };
+    const page = [
+      { raw_analyte_name: "Glukóza", value_raw: "5,32" },
+      { raw_analyte_name: "Vazebná kapacita Fe", value_raw: "69,6" },
+    ];
+    const read = [{ raw_analyte_name: "Glukóza Vazebná kapacita I", value_raw: "5,32", ref_range_raw: "" }];
+    expect(mergedRows(read, page, { pageKey: PAGE, aliases })).toHaveLength(1);
   });
 });
