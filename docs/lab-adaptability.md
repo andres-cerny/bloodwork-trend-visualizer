@@ -738,3 +738,69 @@ fourth were only findable because the bench now stores the model's own answer.
 **An OCR arm's accuracy is a measurement of the code that reads it.** That is
 the difference between this path and the vision arms, where the model returns
 our schema directly and there is no mapping to get wrong.
+
+## Phase C — a model mapper instead of code, tested and rejected (2026-09-07, free)
+
+Ondřej's proposal: stop writing regex to turn Mistral's markdown into our
+schema, and let a model do it. Code is rigid, reports vary, and a language
+model is exactly the tool for messy structure. The deployed text prompt already
+does this job — it takes rows whose cells are separated by bars and assigns
+them to columns — and a markdown table is precisely that shape.
+
+It cost nothing to test, because Mistral's answers were already stored and a
+Haiku mapper runs on subagents. 165 pages, both classes, same truth, same
+scorer.
+
+### Photographs, 133 pages, 3,677 rows
+
+```
+variant                pages read truth  rows match  miss extra valERR decens
+mistral_ocr   (our code) 133  133  3677  3692  3504   173   188     72      2
+mistral_haiku (a model)  133  133  3677  3354  3162   515   192     72      2
+```
+
+### Born-digital, 32 pages, 877 rows
+
+```
+variant                pages base  rows match  miss extra valΔ coll
+mistral_digital        32    877   879   847    30    32    0     0
+mistral_haiku_digital  31    875   803   602   273   201    1    27
+```
+
+**The model mapper is worse on every axis that matters.** It loses 342 rows on
+photographs and 245 on digital pages. It introduces a value error where the
+code had none. And on the digital class it **collapses 27 rows** — the exact
+merged-row failure that disqualified Docling from this project, and which our
+code produced zero of.
+
+The 72 photo value errors are identical in both, which confirms the prediction:
+the perspective shear happens inside Mistral's table reconstruction, before any
+mapper sees it, and no downstream reader can repair it. The names are shifted
+against the values while each row stays internally consistent, so nothing in
+the text contradicts itself.
+
+### Why the flexible tool lost
+
+The argument for a model was flexibility, and flexibility is exactly what hurt.
+Asked to decide what counts as a measurement, the mapper decided — and dropped
+rows it was unsure of, differently on different pages. One page came back with
+20 rows where the readers found 34; another gave 25 on all four shots against a
+truth of 34; a third returned 0 rows on the angled shot and 11 on the dark one,
+from the same printed page. Several mappers also normalised the text they were
+told to copy exactly, stripping parentheses from reference ranges.
+
+**Code is rigid, and rigid is what a transcription layer should be.** It is
+dumb and exhaustive: it never decides a row is uninteresting. When it is wrong
+it is wrong the same way every time, which is why four separate faults were
+found and fixed in a day. A model is wrong differently each time, and silently.
+
+One honest caveat: the mapper here was Haiku. A stronger model would likely
+drop fewer rows. But the entire reason to put an OCR engine in front is that it
+costs four tenths of a cent, and mapping with Sonnet costs about four cents —
+more than Gemini charges to read the whole page directly. The cheap mapper is
+the only one that makes economic sense, and the cheap mapper is the one that
+loses rows.
+
+**Kept:** the deterministic mapper, with the raw answers stored so the next
+fault is findable. **Rejected:** replacing it with a model. **Unchanged:** the
+recommendation for photographs, which is Gemini ultra with Sonnet.
