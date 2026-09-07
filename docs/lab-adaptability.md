@@ -463,3 +463,77 @@ anyone reaches for the more expensive model.
 | Gemini tiled | 144 | 2.16 |
 | Every Claude arm, all classes, tier 1 | — | 0.00 |
 | **Total** | | **5.88** |
+
+## Phase C — the full photo comparison, all 133 pages (2026-09-07)
+
+Both Claude readers were extended from 45 pages to all 133 on subagents, at no
+cost, so every arm now covers the same corpus: 3,677 truth rows across 32
+source pages from four labs, each shot flat, angled, glared and dark, plus
+crops and one two-page frame.
+
+```
+variant                pages read truth  rows match  miss extra marker valERR decens
+gemini38_ultra           133  133  3677  3673  3663    14    10     16      0      0
+gemini38_tiled           133  133  3677  3674  3663    14    11     16      0      0
+opus_vision              133  133  3677  3657  3649    28     8     16      0      0
+gemini38_high            133  132  3643  3644  3626    17    18     16      0      0
+sonnet_vision            133  133  3677  3618  3614    63     4     16      0      0
+```
+
+**Zero value errors, five readers, 3,677 rows.** The column that disqualifies
+a reader is empty for every one of them at full scale. Whatever separates
+these models on this corpus, it is not their ability to read a printed number.
+
+Sonnet's 63 misses are the largest gap and they are almost entirely one thing:
+rows whose printed result is a status rather than a number. The Sonnet batches
+contradicted *each other* on these, some transcribing `málo materiálu` and
+others omitting it, from the same prompt. **That is a missing sentence in
+`SYSTEM_EXTRACT`, not a weakness in the model**, and it is Phase D's item.
+Note the asymmetry honestly: the Opus batches were told the rule explicitly
+after the Sonnet ones had run, so part of Opus's lead here was a better brief.
+
+### The pairs, and a correction to what they prove
+
+```
+pair                               pages confirmed flagged UNCAUGHT
+gemini38_ultra+opus_vision            133      3647      36        0
+gemini38_tiled+opus_vision            133      3649      33        0
+gemini38_ultra+sonnet_vision          133      3612      67        0
+gemini38_high+opus_vision             133      3610      81        0
+opus_vision+sonnet_vision             133      3614      47        4
+gemini38_tiled+gemini38_ultra         133      3668      11        7
+gemini38_high+gemini38_ultra          133      3630      57        6
+```
+
+Every cross-vendor pair reaches zero uncaught. Every same-vendor pair does not,
+and that now includes Opus with Sonnet, which is the pair a Claude-only product
+would ship.
+
+But look at what the same-vendor failures actually are, because the earlier
+write-up overstated this. All seven Gemini-against-Gemini cases are the panel
+line `KO+diferenciál 5p.`, which both arms transcribe because it is printed.
+All four Opus-against-Sonnet cases are one row on one page: the vitamin D
+continuation line that prints a value with a blank analyte cell, which both
+readers rendered with an empty name rather than inventing one. The value, 76,7,
+is right in both.
+
+So the honest statement is narrower than "cross-vendor pairing catches errors".
+**The mechanism is demonstrated and the consequence is not.** Two readers from
+one vendor do make the same judgement calls and therefore confirm each other on
+them; two vendors disagree and send the row to review. That is real and it is
+why the pair should stay cross-vendor. But no reader has yet misread a value on
+this corpus, so pairing has never actually caught a wrong number here. It is
+insurance whose premium we can measure and whose payout we have not seen.
+
+### Two more truth-set artefacts, found by the readers agreeing with each other
+
+- `21_10_29.pdf#2` holds exactly two truth rows, `Krev srážlivá` and
+  `Krev nesrážlivá`, both with the value `přijato` and no unit or range. These
+  are specimen-receipt lines printed under `Typ primárního vzorku`. Both readers
+  returned nothing for that page, on all four conditions, and several batches
+  said independently that they treat receipt lines as non-measurements. They are
+  right. The same exclusion the `#` panel line already gets should extend to
+  them, and it must not touch qualitative *results* like `negativní` or
+  `málo materiálu`, which are measurements.
+- The vitamin D continuation row prints no name at all. Aliasing an empty name
+  is unsafe, so this one stays a known artefact rather than a scorer rule.
