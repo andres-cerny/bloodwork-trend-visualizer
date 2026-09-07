@@ -31,7 +31,7 @@ import { type TextRow } from "@bw/lab-core";
 
 import { FIXTURES, SCAN_FIXTURE, type Fixture } from "../live/fixtures";
 import { parsePdf, realSamples } from "./corpus";
-import { loadBaseline, type RawMeasurement } from "./score";
+import { annotateMaterial, loadBaseline, type RawMeasurement } from "./score";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -70,6 +70,26 @@ const slugify = (s: string) => s.replace(/\.(pdf|jpe?g|png)$/i, "").replace(/[^A
 
 /* -------------------------------------------------------------------- real */
 
+/**
+ * The printed rows of every real sample page, by `<file>#<page>`.
+ *
+ * Parsed once and shared: the photo class needs them too, because a photo's
+ * truth is the baseline of the page it photographs, and the material of a
+ * prefix-free urine row is only readable from that page's own headings
+ * (`annotateMaterial`). Fifteen PDFs, well under a second.
+ */
+let sampleRowsCache: Map<string, TextRow[]> | null = null;
+
+export async function sampleRows(): Promise<Map<string, TextRow[]>> {
+  if (sampleRowsCache) return sampleRowsCache;
+  const map = new Map<string, TextRow[]>();
+  for (const path of realSamples()) {
+    const { doc } = await parsePdf(path);
+    for (const p of doc.pages) if (p.hasTextLayer) map.set(`${p.file}#${p.pageNum}`, p.rows);
+  }
+  return (sampleRowsCache = map);
+}
+
 export async function realPages(): Promise<CorpusPage[]> {
   const baseline = loadBaseline();
   const out: CorpusPage[] = [];
@@ -77,7 +97,8 @@ export async function realPages(): Promise<CorpusPage[]> {
     const { doc } = await parsePdf(path);
     for (const p of doc.pages) {
       const key = `${p.file}#${p.pageNum}`;
-      const truth = baseline.get(key) ?? null;
+      const base = baseline.get(key) ?? null;
+      const truth = base ? annotateMaterial(base, p.rows) : null;
       // A trailing page with neither a text layer nor a bitmap is a footer;
       // the app skips it, so the bench does too — unless the accepted report
       // says it carried results, in which case it is worth a look.
@@ -156,7 +177,7 @@ export interface PublicSheet {
   page: number;
   language?: string;
   conventions?: string[];
-  rows: Array<RawMeasurement & { flag_raw?: string; abbr?: string; material?: string; section?: string }>;
+  rows: Array<RawMeasurement & { flag_raw?: string; abbr?: string; material?: string; section?: string; group?: string }>;
 }
 
 export function publicPages(): CorpusPage[] {
@@ -173,11 +194,17 @@ export function publicPages(): CorpusPage[] {
       kind: "image",
       rows: null,
       image: { pdf, page: sheet.page },
+      // `section`, `group` and `material` are printed context, not a reader's
+      // answer: the scorer's D0 scope rule reads them (score.ts,
+      // `scopeExclusion`) and nothing else does.
       truth: sheet.rows.map((r) => ({
         raw_analyte_name: r.raw_analyte_name,
         value_raw: r.value_raw,
         unit_raw: r.unit_raw,
         ref_range_raw: r.ref_range_raw,
+        ...(r.section ? { section: r.section } : {}),
+        ...(r.group ? { group: r.group } : {}),
+        ...(r.material ? { material: r.material } : {}),
       })),
       truthSource: `tests/bench/public_sheets/${f}`,
       meta: {
@@ -216,8 +243,9 @@ function readManifest(dir: string): PhotoEntry[] {
   return list.filter((e) => e && e.file && e.source_file);
 }
 
-export function photoPages(): CorpusPage[] {
+export async function photoPages(): Promise<CorpusPage[]> {
   const baseline = loadBaseline();
+  const printed = await sampleRows();
   const out: CorpusPage[] = [];
   const dirs = process.env.PHOTO_DIR
     ? [{ dir: process.env.PHOTO_DIR, set: basename(process.env.PHOTO_DIR) }]
@@ -230,7 +258,9 @@ export function photoPages(): CorpusPage[] {
       const pages = e.pages ?? [e.page ?? 1];
       const src = e.source_file.split(/[\\/]/).pop() ?? e.source_file;
       const keys = pages.map((p) => `${src}#${p}`);
-      const truth = keys.flatMap((k) => baseline.get(k) ?? []);
+      // Each page's baseline rows are annotated with the material *that page*
+      // prints, before a two-page shot unions them — the headings differ.
+      const truth = keys.flatMap((k) => annotateMaterial(baseline.get(k) ?? [], printed.get(k)));
       const file = join(dir, e.file);
       out.push({
         cls: "photo",

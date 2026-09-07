@@ -22,7 +22,16 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isPrintedOnPage, type TextRow } from "@bw/lab-core";
+import {
+  MATERIAL_CODES,
+  compartmentCompatible,
+  isPrintedOnPage,
+  materialPrefix,
+  materialWord,
+  printedMaterial,
+  sectionMaterial,
+  type TextRow,
+} from "@bw/lab-core";
 
 export interface RawMeasurement {
   raw_analyte_name?: string;
@@ -33,6 +42,17 @@ export interface RawMeasurement {
   row_index?: number;
   confidence?: string;
   source_page?: number;
+  /**
+   * Printed context a **truth** row carries and a model's answer never does:
+   * the sheet's `Materiál` cell (`material`), the block heading above the row
+   * (`section`, `group`), and the code `printedMaterial()` read off the page
+   * (`printed_material`). Attached by the corpus loaders in corpora.ts and by
+   * `annotateMaterial` below; see `scopeExclusion`.
+   */
+  material?: string;
+  section?: string;
+  group?: string;
+  printed_material?: string;
 }
 
 /* ---------------------------------------------------------------- baseline */
@@ -90,9 +110,180 @@ export function nameKey(s: string | undefined): string {
  */
 const BARE_MARKERS = new Set(["#", "*", "-", "—"]);
 
+/* ------------------------------------------------------- D0: what a row is */
+
+/**
+ * **The scope rule** (docs/plans/lab-adaptability.md, Phase D, D0).
+ *
+ * The app tracks *blood analytes over time*, so a printed line is in scope
+ * when it reports one. Five shapes are not, and each is decided here rather
+ * than in the prompt, because code can see the whole page and the model
+ * cannot see what the product is for:
+ *
+ *   material        urine and every other non-blood material. Never matched
+ *                   on the analyte's name — the code comes from the same
+ *                   machinery the app uses (`materialPrefix`, `materialWord`,
+ *                   `sectionMaterial`, folded into `printedMaterial`), so a
+ *                   prefix-free `Glukóza` under a `Moč chemicky` heading is
+ *                   caught and a serum one beside it is not.
+ *   anthropometric  a patient's weight or height. Not an analyte.
+ *   toxicology      a screen printed under a `Toxikologie` heading — a
+ *                   different kind of test, and `S_Etanol` sits in it, so
+ *                   this cannot be a material rule.
+ *   auxiliary       specimen handling: the `POMOCNÉ` block, `S_Separace séra`.
+ *   receipt         `Krev srážlivá | přijato` under `Typ primárního vzorku`:
+ *                   an acknowledgement that a tube arrived, with no analyte,
+ *                   no unit and no range.
+ *
+ * **The asymmetry is deliberate and is the whole point of D0.** A blood
+ * analyte whose printed *result* is a status — `málo materiálu`,
+ * `neprovedeno` — stays. It explains an absent value, `correction.ts` says
+ * such results "must survive verbatim", and without it a vanished TSH is
+ * indistinguishable from a reading failure. Material decides scope; the
+ * result's shape never does. `přijato` is not a counter-example: it is
+ * receipt vocabulary on a row that reports no analyte at all.
+ */
+export type OutOfScope = "receipt" | "anthropometric" | "auxiliary" | "toxicology" | "material";
+
+const fold = (s: string | undefined): string =>
+  (s ?? "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+
+/** Folded, with every separator turned into a space, so `\b` works on `Pt_Hmotnost`. */
+const words = (s: string | undefined): string => fold(s).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/** Weight and height, in Czech and Slovak. `Stred.hmot.HGB` is not `hmotnost`. */
+const ANTHROPOMETRIC = /\b(?:hmotnost|hmotnosti|vaha|vahy|vyska|vysky|telesna)\b/;
+/** Specimen handling printed as a row. */
+const AUXILIARY = /\b(?:separace|separacia)\b.*\b(?:sera|seru)\b|\bpomocne\b/;
+/** Receipt vocabulary — an arrival, not a result. */
+const RECEIPT = /^(?:prijato|prijate|prijata|prijaty|dorucen)/;
+
+/**
+ * A block heading read through `sectionMaterial`'s own table, so the bench and
+ * the app agree on what `Moč - odpady` means. The row is synthetic: a
+ * single-cell heading is exactly the shape that function walks up to, and it
+ * reads nothing but `cells`.
+ */
+function headingMaterial(text: string | undefined): string | null {
+  const t = (text ?? "").trim();
+  if (!t) return null;
+  return sectionMaterial([{ cells: [t] } as TextRow], 0);
+}
+
+/**
+ * The material printed for a row: its own prefix first (closest to the
+ * analyte), then its `Materiál` cell, then whatever the page said —
+ * `printed_material`, which the corpus loader computed with
+ * `printedMaterial()` over the real text rows — then its block heading.
+ *
+ * A prefix outside `MATERIAL_CODES` is ignored, exactly as `registry.ts`
+ * ignores it: `xxx_eGF (CKD-EPI)` and `Pt_Hmotnost pacienta` are not
+ * declaring a material, and treating an unknown code as non-blood would drop
+ * five real serum rows from the truth.
+ */
+export function rowMaterialCode(row: RawMeasurement | null | undefined): string | null {
+  if (!row) return null;
+  const prefix = materialPrefix(row.raw_analyte_name);
+  if (prefix && MATERIAL_CODES.has(prefix)) return prefix;
+  return (
+    materialWord(row.material ?? "") ??
+    row.printed_material ??
+    headingMaterial(row.section) ??
+    headingMaterial(row.group) ??
+    null
+  );
+}
+
+/** Why D0 puts this row out of scope, or null when it is a blood result. */
+export function scopeExclusion(row: RawMeasurement | null | undefined): OutOfScope | null {
+  if (!row) return null;
+  const name = words(row.raw_analyte_name);
+  const value = words(row.value_raw);
+  const blank = (s: string | undefined) => !(s ?? "").trim();
+  if (RECEIPT.test(value) && blank(row.unit_raw) && blank(row.ref_range_raw)) return "receipt";
+  if (ANTHROPOMETRIC.test(name)) return "anthropometric";
+  if (AUXILIARY.test(name) || AUXILIARY.test(words(row.section)) || AUXILIARY.test(words(row.group))) return "auxiliary";
+  if (/\btoxikolog/.test(words(row.section)) || /\btoxikolog/.test(words(row.group))) return "toxicology";
+  const code = rowMaterialCode(row);
+  if (code && !compartmentCompatible(code, "s")) return "material";
+  return null;
+}
+
+/** In scope for the product: a blood analyte's row, number or status. */
+export const inScope = (row: RawMeasurement | null | undefined): boolean => scopeExclusion(row) === null;
+
 export function isMeasurementRow(row: RawMeasurement | null | undefined): boolean {
   const v = (row?.value_raw ?? "").trim();
-  return v !== "" && !BARE_MARKERS.has(v);
+  if (v === "" || BARE_MARKERS.has(v)) return false;
+  return inScope(row);
+}
+
+/**
+ * The material a page printed for each truth row, attached to the row.
+ *
+ * The truth for the real and photo classes is `data/reports`, whose rows carry
+ * a name, a value and the printed snippet but no block heading — so the
+ * material has to come from the page itself. Each row is located on the
+ * printed rows by its name and value (the same join `repairRowIndex` uses),
+ * and `printedMaterial()` reads the column or the heading above it. A row that
+ * cannot be located keeps no material and therefore stays in scope: the
+ * failure mode is "counted", never "silently dropped".
+ */
+export function annotateMaterial(truth: RawMeasurement[], rows: TextRow[] | null | undefined): RawMeasurement[] {
+  if (!rows?.length) return truth;
+  const used = new Set<number>();
+  return truth.map((t) => {
+    const k = nameKey(t.raw_analyte_name);
+    const v = valKey(t.value_raw);
+    for (let i = 0; i < rows.length; i++) {
+      if (used.has(i)) continue;
+      const text = rows[i].cells.join(" ");
+      if (k && !nameKey(text).includes(k)) continue;
+      if (v && !valKey(text).includes(v)) continue;
+      used.add(i);
+      const code = printedMaterial(rows, i)?.code;
+      return code ? { ...t, printed_material: code } : t;
+    }
+    return t;
+  });
+}
+
+/**
+ * Read rows that stand for a row D0 puts out of scope.
+ *
+ * They are dropped from the *read* as well as from the truth, and that is not
+ * the rule bare markers get. The prompt deliberately never mentions urine —
+ * material is handled deterministically and the model is asked to transcribe
+ * what it sees — so charging a reader an "extra" for a urine row it was told
+ * to return would score obedience as error. The app does the same thing in
+ * the same order: the model transcribes the page, then lab-core drops what is
+ * not a blood analyte.
+ *
+ * Two ways in: the read row says so itself (a `U_` prefix, `přijato`), or it
+ * lines up by name with a truth row that was dropped — which is how a
+ * prefix-free urine `Glukóza` is recognised without the page in hand.
+ */
+export function inScopeReads(
+  read: RawMeasurement[],
+  truth: RawMeasurement[],
+  key: (n: string | undefined) => string,
+): RawMeasurement[] {
+  const dropped = new Map<string, number>();
+  for (const t of truth) {
+    if (inScope(t)) continue;
+    const k = key(t.raw_analyte_name);
+    dropped.set(k, (dropped.get(k) ?? 0) + 1);
+  }
+  return read.filter((m) => {
+    if (!inScope(m)) return false;
+    const k = key(m.raw_analyte_name);
+    const n = dropped.get(k) ?? 0;
+    if (n > 0) {
+      dropped.set(k, n - 1);
+      return false;
+    }
+    return true;
+  });
 }
 
 /**
@@ -555,8 +746,10 @@ export function rangeIntegrity(
 export interface ValueErrors {
   /** Truth rows that carry a value — marker rows are not counted. */
   truthRows: number;
-  /** Truth rows dropped by `isMeasurementRow`, reported so the drop is visible. */
+  /** Truth rows dropped as bare markers, reported so the drop is visible. */
   markerRows: number;
+  /** Truth rows dropped by D0's scope rule — see `scopeExclusion`. */
+  scopeRows: number;
   readRows: number;
   matched: number;
   errors: Array<{ name: string; truth: string; read: string }>;
@@ -565,16 +758,21 @@ export interface ValueErrors {
 }
 
 export function valueErrors(
-  read: RawMeasurement[],
+  readAll: RawMeasurement[],
   truth: RawMeasurement[],
   opts?: MatchOptions,
 ): ValueErrors {
   const key = aliasedNameKey(opts);
   const rows = truth.filter(isMeasurementRow);
+  const scopeRows = truth.filter((t) => !inScope(t)).length;
+  const read = inScopeReads(readAll, truth, key);
   const free = read.map((m) => m);
   const out: ValueErrors = {
     truthRows: rows.length,
-    markerRows: truth.length - rows.length,
+    // The two drops partition truth: a row out of scope is counted there
+    // whatever its value, so the columns still sum to truth.length.
+    markerRows: truth.filter((t) => inScope(t) && !isMeasurementRow(t)).length,
+    scopeRows,
     readRows: read.length,
     matched: 0,
     errors: [],
@@ -631,12 +829,17 @@ export interface PairStats {
 }
 
 export function pairStats(
-  readA: RawMeasurement[] | null,
-  readB: RawMeasurement[] | null,
+  readAllA: RawMeasurement[] | null,
+  readAllB: RawMeasurement[] | null,
   truth: RawMeasurement[],
   opts?: MatchOptions,
 ): PairStats {
   const key = aliasedNameKey(opts);
+  // Both reads lose the rows D0 puts out of scope, for the reason given at
+  // `inScopeReads`: the app drops them after the model transcribes them, so a
+  // pair must be judged on the rows that survive that filter.
+  const readA = readAllA && inScopeReads(readAllA, truth, key);
+  const readB = readAllB && inScopeReads(readAllB, truth, key);
   const stats: PairStats = {
     singleReader: false,
     confirmedRows: 0,

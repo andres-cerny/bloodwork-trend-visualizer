@@ -872,3 +872,254 @@ path swaps `source_snippet` for it. It was passed as deployed rather than
 paraphrased. No `row_index` appeared and every row carried a snippet, so it
 caused no visible harm, but a prompt asking for a field the schema lacks is
 untidy and should be tidied when Phase D touches these words.
+
+## Phase D0 — deciding what a row is, and re-scoring everything on it (2026-09-08, free)
+
+Every reader ranking published above was provisional, because the benchmark was
+partly scoring an unanswered question: *is this printed line a result?* Three
+models had independently dropped the same kinds of row from three different
+roles, and the truth set counted every one of them as a miss. D0 settles the
+question, and the settlement has to move three things at once — the truth, the
+prompt and the scores — or the numbers lie in one direction or the other.
+
+**The rule** (docs/plans/lab-adaptability.md, Phase D): the app tracks blood
+analytes over time. A blood analyte is in scope whether its printed result is a
+number **or a status** — `málo materiálu`, `neprovedeno` — because the status is
+what tells a vanished TSH from a reading failure. Urine and every other
+non-blood material is out, and so are patient anthropometrics, a toxicology
+screen, auxiliary specimen-handling rows and specimen-receipt lines.
+
+### What is deterministic, and what the prompt was allowed to say
+
+Exclusion is code wherever code can see it. `scopeExclusion` in
+`tests/bench/score.ts` reads the material from the same machinery the app uses —
+`materialPrefix` for `U_`/`dU_`/`U-`, `materialWord` for a `Materiál` column,
+`sectionMaterial` for a `Moč chemicky` heading, folded together by
+`printedMaterial` — and never from the analyte's name. A prefix that is not in
+`MATERIAL_CODES` is ignored, exactly as `registry.ts` ignores it: treating
+`xxx_eGF (CKD-EPI)` as an unknown material would have deleted five real serum
+rows from the truth.
+
+That machinery needed one fix to be right here. `rowMaterial` scanned every cell
+of a row for a material word, including the first — so the urine dipstick line
+`Krev | negat. | ery/µl` under a `Moč chemicky` heading was read as *whole
+blood*, and the registry would offer it a blood analyte. The Materiál column is
+never the name column on any sheet in the corpus, so `rowMaterial` now skips the
+first cell. Guard in `packages/lab-core/tests/rows.test.ts`, seen failing with
+the fix removed.
+
+The prompt was given only what code cannot see — two sentences each in
+`SYSTEM_EXTRACT` and `SYSTEM_EXTRACT_TEXT`: that a printed status **is** a
+result and comes back with an empty unit and interval, and that receipt,
+auxiliary and anthropometric lines are not results. **Material is deliberately
+not in the prompt.** It is handled deterministically, and the reader's job stays
+"transcribe what is printed". While these words were open, the untidiness the
+annotation arm found was fixed: `SYSTEM_EXTRACT_TEXT` asked for a `row_index`
+that the vision `TOOL` does not carry, and now asks for it only where the field
+exists.
+
+### Rows excluded, by category
+
+| category | photo (133 shots) | text/real (32 pages) | public (11 pages) | synthetic |
+|---|---|---|---|---|
+| material — urine and other non-blood | 72 | 18 | 45 | 2 |
+| specimen receipt (`přijato`) | 20 | 5 | 0 | 0 |
+| toxicology screen | 0 | 0 | 11 | 0 |
+| patient anthropometrics | 0 | 0 | 2 | 0 |
+| auxiliary / `POMOCNÉ` | 0 | 0 | 2 | 0 |
+| **truth rows removed** | **92** | **23** | **60** | **2** |
+| truth after | 3585 | 850 (with 4 marker rows) | 201 | 41 |
+
+The 92 photo rows are the same 23 printed rows seen across four conditions:
+`2022_07_01#2`'s nine urine dipstick and sediment rows plus three receipt lines,
+`2024_02_02#2`'s nine urine rows, and `21_10_29#2`'s two receipt lines. On the
+public sheets the exclusions are Stod's `U_`/`fU_`/`Fe_` blocks, its
+`Moč chemicky + sediment` section, the whole `Toxikologie` block (including
+`S_Etanol`, which is serum — so this cannot be a material rule),
+`Pt_Hmotnost pacienta` / `Pt_Výška pacienta`, and `S_Separace séra 1` /
+`P_Separace séra 2` under `POMOCNÉ`.
+
+**Two shapes the machinery still cannot classify**, recorded rather than
+hand-listed: Stod's four `X_` punctate rows under a `Punktát` heading, and
+`C_Tubulární resorpce` under `Clearance`. Neither prefix is a known material
+code and neither heading names a material, so both stay in the truth. Every
+reader returns them, so they cost nobody a miss; the exclusion would only be
+cosmetic, and inventing a heading table entry to get it is not worth the change
+to `printedMaterial` that every mapping in the app would then inherit.
+
+### One rule that is not the marker rule
+
+A bare `#` panel line is dropped from the truth **only**: a reader that returns
+it is still charged an extra, because nothing tells it to. The D0 exclusions are
+dropped from the **read as well** (`inScopeReads`), for the opposite reason —
+the prompt deliberately does not mention urine, so charging a reader an extra
+for a row it was told to transcribe would score obedience as error. The app
+works in that order too: the model transcribes the page, then lab-core drops
+what is not a blood analyte.
+
+### photo — 133 pages, truth 3677 → 3585
+
+| variant | truth | rows | match | miss | extra | valERR |
+|---|---|---|---|---|---|---|
+| `gemini38_high` | 3643 → 3551 | 3644 → 3564 | 3626 → 3546 | 17 → **5** | 18 → 18 | 0 → 0 |
+| `gemini38_tiled` | 3677 → 3585 | 3674 → 3596 | 3663 → 3585 | 14 → **0** | 11 → 11 | 0 → 0 |
+| `gemini38_ultra` | 3677 → 3585 | 3673 → 3593 | 3663 → 3583 | 14 → **2** | 10 → 10 | 0 → 0 |
+| `opus_vision` | 3677 → 3585 | 3657 → 3585 | 3649 → 3577 | 28 → **8** | 8 → 8 | 0 → 0 |
+| `sonnet_vision` | 3677 → 3585 | 3618 → 3546 | 3614 → 3542 | 63 → **43** | 4 → 4 | 0 → 0 |
+| `haiku_vision` | 3677 → 3585 | 3650 → 3574 | 3436 → 3360 | 241 → **225** | 214 → 214 | 48 → **40** |
+| `mistral_ocr` | 3677 → 3585 | 3692 → 3663 | 3504 → 3477 | 173 → **108** | 188 → 186 | 72 → 72 |
+| `mistral_haiku` | 3677 → 3585 | 3354 → 3317 | 3162 → 3125 | 515 → **460** | 192 → 192 | 72 → 72 |
+
+Haiku's value errors fall 48 → 40: eight of its misreads were on urine rows the
+product does not track. Nobody else's value-error column moves at all.
+
+### photo pairs — 133 pages
+
+| pair | confirmed | flagged | UNCAUGHT | caught |
+|---|---|---|---|---|
+| `gemini38_ultra+opus_vision` | 3647 → 3575 | 36 → 28 | 0 → 0 | 0 → 0 |
+| `gemini38_ultra+sonnet_vision` | 3612 → 3540 | 67 → 59 | 0 → 0 | 0 → 0 |
+| `gemini38_tiled+opus_vision` | 3649 → 3577 | 33 → 27 | 0 → 0 | 0 → 0 |
+| `gemini38_tiled+sonnet_vision` | 3614 → 3542 | 64 → 58 | 0 → 0 | 0 → 0 |
+| `opus_vision+sonnet_vision` | 3614 → 3542 | 47 → 47 | 4 → 4 | 0 → 0 |
+| `sonnet_vision+haiku_vision` (deployed) | 3375 → 3307 | 506 → 494 | 0 → 0 | 48 → 40 |
+| `gemini38_high+opus_vision` | 3610 → 3538 | 81 → 73 | 0 → 0 | 0 → 0 |
+| `gemini38_high+sonnet_vision` | 3575 → 3503 | 112 → 104 | 0 → 0 | 0 → 0 |
+| `gemini38_high+gemini38_tiled` | 3632 → 3554 | 54 → 52 | 8 → 8 | 0 → 0 |
+| `gemini38_high+gemini38_ultra` | 3630 → 3550 | 57 → 57 | 6 → 6 | 0 → 0 |
+| `gemini38_tiled+gemini38_ultra` | 3668 → 3590 | 11 → 9 | 7 → 7 | 0 → 0 |
+| `gemini38_high+haiku_vision` | 3351 → 3283 | 544 → 532 | 0 → 0 | 48 → 40 |
+| `gemini38_tiled+haiku_vision` | 3388 → 3320 | 502 → 490 | 0 → 0 | 48 → 40 |
+| `gemini38_ultra+haiku_vision` | 3386 → 3318 | 503 → 491 | 0 → 0 | 48 → 40 |
+| `gemini38_high+mistral_ocr` | 3405 → 3378 | 454 → 399 | 12 → 12 | 72 → 72 |
+| `gemini38_tiled+mistral_ocr` | 3442 → 3415 | 410 → 357 | 10 → 10 | 72 → 72 |
+| `gemini38_ultra+mistral_ocr` | 3437 → 3410 | 419 → 364 | 7 → 7 | 72 → 72 |
+| `mistral_ocr+opus_vision` | 3432 → 3405 | 413 → 366 | 0 → 0 | 72 → 72 |
+| `mistral_ocr+sonnet_vision` | 3399 → 3372 | 440 → 393 | 0 → 0 | 72 → 72 |
+| `haiku_vision+opus_vision` | 3380 → 3312 | 507 → 495 | 0 → 0 | 48 → 40 |
+| `haiku_vision+mistral_ocr` | 3179 → 3152 | 881 → 830 | 0 → 0 | 120 → 112 |
+| `mistral_haiku+mistral_ocr` | 3128 → 3112 | 790 → 756 | 90 → 90 | 2 → 2 |
+| `gemini38_high+mistral_haiku` | 3061 → 3024 | 804 → 761 | 0 → 0 | 72 → 72 |
+| `gemini38_tiled+mistral_haiku` | 3090 → 3053 | 776 → 735 | 0 → 0 | 72 → 72 |
+| `gemini38_ultra+mistral_haiku` | 3088 → 3051 | 779 → 736 | 0 → 0 | 72 → 72 |
+| `mistral_haiku+opus_vision` | 3086 → 3049 | 767 → 732 | 0 → 0 | 72 → 72 |
+| `mistral_haiku+sonnet_vision` | 3058 → 3021 | 784 → 749 | 0 → 0 | 72 → 72 |
+| `haiku_vision+mistral_haiku` | 2878 → 2843 | 1146 → 1103 | 0 → 0 | 120 → 112 |
+
+### public — 11 pages, truth 261 → 201
+
+| variant | rows | match | miss | extra | valERR |
+|---|---|---|---|---|---|
+| `opus_vision` | 261 → 201 | 261 → 201 | 0 → 0 | 0 → 0 | 2 → 2 |
+| `sonnet_vision` | 261 → 201 | 261 → 201 | 0 → 0 | 0 → 0 | 0 → 0 |
+| `gemini38_ultra` | 261 → 201 | 247 → 187 | 14 → 14 | 14 → 14 | 0 → 0 |
+| `gemini38_high` | 261 → 201 | 247 → 187 | 14 → 14 | 14 → 14 | 0 → 0 |
+| `gemini38_tiled` | 261 → 201 | 247 → 187 | 14 → 14 | 14 → 14 | 0 → 0 |
+| `mistral_ocr` | 235 → 181 | 227 → 173 | 34 → **28** | 8 → 8 | 0 → 0 |
+
+Gemini's fourteen misses are untouched, and that is the right outcome: they are
+the `URE urea` abbreviation-column rows on Břeclav p122, which is Phase D item
+3, not D0.
+
+| pair | confirmed | flagged | UNCAUGHT | caught |
+|---|---|---|---|---|
+| `opus_vision+sonnet_vision` | 259 → 199 | 2 → 2 | 0 → 0 | 2 → 2 |
+| `gemini38_ultra+sonnet_vision` | 247 → 187 | 28 → 28 | 0 → 0 | 0 → 0 |
+| `gemini38_ultra+opus_vision` | 245 → 185 | 30 → 30 | 0 → 0 | 2 → 2 |
+| `gemini38_high+sonnet_vision` | 247 → 187 | 28 → 28 | 0 → 0 | 0 → 0 |
+| `gemini38_high+opus_vision` | 245 → 185 | 30 → 30 | 0 → 0 | 2 → 2 |
+| `gemini38_tiled+sonnet_vision` | 247 → 187 | 28 → 28 | 0 → 0 | 0 → 0 |
+| `gemini38_tiled+opus_vision` | 245 → 185 | 30 → 30 | 0 → 0 | 2 → 2 |
+| `gemini38_high+gemini38_ultra` | 261 → 201 | 0 → 0 | 14 → 14 | 0 → 0 |
+| `gemini38_high+gemini38_tiled` | 261 → 201 | 0 → 0 | 14 → 14 | 0 → 0 |
+| `gemini38_tiled+gemini38_ultra` | 261 → 201 | 0 → 0 | 14 → 14 | 0 → 0 |
+| `mistral_ocr+opus_vision` | 227 → 173 | 42 → 36 | 0 → 0 | 2 → 2 |
+| `mistral_ocr+sonnet_vision` | 227 → 173 | 42 → 36 | 0 → 0 | 0 → 0 |
+| `gemini38_high+mistral_ocr` | 213 → 159 | 70 → 64 | 0 → 0 | 0 → 0 |
+| `gemini38_tiled+mistral_ocr` | 213 → 159 | 70 → 64 | 0 → 0 | 0 → 0 |
+| `gemini38_ultra+mistral_ocr` | 213 → 159 | 70 → 64 | 0 → 0 | 0 → 0 |
+
+### synthetic — 6 scored pages, truth 43 → 41
+
+`U-amyláza` and `dU_Kreatinin` leave `hyphen_comma_prefix.pdf`'s truth. All four
+arms (`opus_text`, `opus_vision`, `sonnet_text`, `sonnet_vision`) read 41 of 41
+with zero misses, zero extras and zero value errors, and every one of the six
+pairs confirms 41 with nothing flagged — exactly as before, two rows shorter.
+The fixture keeps printing both rows: they are there to prove the *parser*
+handles a `U-` and a `dU_` prefix, which is a different question from whether
+the product tracks the analyte.
+
+### text / born-digital — 33 pages, baseline 877 → 850
+
+| variant | rows | match | miss | extra | unitΔ | rangeΔ |
+|---|---|---|---|---|---|---|
+| `sonnet_text` | 855 → 837 | 853 → 835 | 24 → **15** | 2 → 2 | 19 → 18 | 35 → 34 |
+| `haiku_text` | 845 → 827 | 842 → 823 | 35 → **27** | 3 → 4 | 21 → 21 | 33 → 33 |
+| `current(sonnet+haiku)` | 857 → 839 | 854 → 835 | 23 → **15** | 3 → 4 | 19 → 18 | 35 → 34 |
+| `api_sonnet_text` | 844 → 826 | 844 → 826 | 33 → **24** | 0 → 0 | 13 → 13 | 34 → 34 |
+| `api_haiku_text` | 852 → 834 | 852 → 834 | 25 → **16** | 0 → 0 | 21 → 20 | 34 → 34 |
+| `api_current(sonnet+haiku)` | 852 → 834 | 852 → 834 | 25 → **16** | 0 → 0 | 13 → 13 | 34 → 34 |
+| `haiku_text_noname` | 844 → 827 | 829 → 812 | 48 → **38** | 15 → 15 | 19 → 19 | 35 → 35 |
+| `mistral_digital` | 879 → 870 | 847 → 834 | 30 → **16** | 32 → 36 | 485 → 477 | 503 → 503 |
+| `mistral_haiku_digital` | 803 → 800 | 602 → 601 | 273 → **249** | 201 → 199 | 181 → 181 | 313 → 312 |
+
+The text bench had been carrying a hand-written `NON_RESULT` name list to
+discount some of these rows in a side column; it now uses the same
+`isMeasurementRow` as every other class, and its `nonRes` column became
+`dropped` (D0 scope plus bare markers). The one column that moves the wrong way
+is `extra`, `+4` on `mistral_digital` and `+1` on the two Haiku arms, and it is
+entirely the `KO+diferenciál 5p.` marker line: the text baseline used to keep it
+and match it, and the marker rule now drops it from truth while — correctly —
+still charging the reader that returned it.
+
+### Did the ranking change? No.
+
+**Gemini 3.8 Flash `ultra_high` with Sonnet 5 is still the recommendation**, and
+the margins are almost exactly what they were:
+
+| | before | after |
+|---|---|---|
+| Gemini ultra + Opus, confirmed | 3647 / 3677 | 3575 / 3585 |
+| Gemini ultra + Sonnet, confirmed | 3612 / 3677 | 3540 / 3585 |
+| Opus's lead, in rows | 35 | **35** |
+| Gemini + Sonnet flagged vs Gemini + Opus | 67 vs 36 | 59 vs 28 |
+| Gemini + Sonnet vs the deployed Sonnet + Haiku, confirmed | +237 | +233 |
+| Gemini + Sonnet vs deployed, flagged | 67 vs 506 | 59 vs 494 |
+| uncaught value errors, every cross-vendor pair | 0 | 0 |
+
+Not one ordering moved, on any class or any pair. That is a real answer rather
+than a null result, and the reason is worth stating precisely: **D0 keeps the
+very rows Sonnet was losing.** Sonnet's 43 remaining photo misses are 39
+`málo materiálu` status rows (`S_Vitamin D celkový`, `S_TSH`, `S_T4 volný`,
+`S_T3 volný`, `S_Kyselina listová`, `S_Osteokalcin`) and 4 of the blank-named
+vitamin D continuation row that Opus misses too. The status rows are *in* scope
+by rule, so no truth edit could ever have closed that gap. Only the prompt can,
+and the prompt half is not measurable from what is on disk.
+
+### What is not measured, and what measuring it would cost
+
+**The prompt change cannot be re-scored from the persisted output.** Every
+answer in `results/subagent/*/out/` was produced under the old
+`SYSTEM_EXTRACT` — the copy is kept beside the new one as
+`prompts/system_vision.preD0.txt`, and the pre-D0 truth as
+`index.preD0.json`, so this section's "before" column can be reproduced. Only
+the truth-side half of D0 is measured above.
+
+Measuring the prompt half means re-reading the corpus under the new words:
+
+- **Tier 1, free.** The two Claude vision arms over 133 photo pages, 11 public
+  pages and the 6 synthetic pages, at 7 pages per subagent — about 45 subagent
+  reads, no API calls, no cost. That is the run that would show whether
+  Sonnet's 39 status-row misses go away, which is the one number that could
+  move `gemini38_ultra+sonnet_vision` against `gemini38_ultra+opus_vision`.
+- **Tier 2, paid, and needs approval first.** Gemini has no subagent
+  equivalent: 144 pages at ~$0.0133 ≈ **$1.92**, and Mistral 165 pages at
+  $0.004 ≈ **$0.66** — about **$2.60** to bring the non-Claude arms onto the
+  new prompt. Nothing about the recommendation depends on it: Gemini already
+  returns the status rows.
+
+One smaller thing left undone deliberately: the truth in `data/reports` and
+`tests/bench/public_sheets/` was **not** edited. The rows are still there and
+the scorer excludes them, which keeps the transcription faithful to what the
+sheets print — a hand-deleted truth row cannot be audited later, and the
+exclusion is now a testable rule rather than a set of deletions.

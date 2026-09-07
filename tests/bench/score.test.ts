@@ -23,6 +23,8 @@ import {
   nameFusesTwoTruthRows,
   nameKey,
   pairStats,
+  rowMaterialCode,
+  scopeExclusion,
   scoreAgainstBaseline,
   twoIntervals,
   twoValues,
@@ -375,6 +377,128 @@ describe("marker rows are excluded from truth, never from the read", () => {
   it("keeps it out of the pair's truth as well", () => {
     const read = [truth[0]];
     const s = pairStats(read, read, truth);
+    expect(s.confirmedRows).toBe(1);
+    expect(s.flaggedRows).toBe(0);
+    expect(s.uncaughtValueErrors).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------ D0: what a row is */
+
+/**
+ * docs/plans/lab-adaptability.md, Phase D, D0. Every rule below was seen
+ * failing on 2026-09-08 before `scopeExclusion` existed: each of these rows
+ * was in the truth, and every reader that (rightly) left it out was charged a
+ * miss for it.
+ */
+describe("D0 scope — material decides, and it is never read off the name", () => {
+  const urine = (extra: Record<string, string>) => ({ raw_analyte_name: "Glukóza", value_raw: "negat.", ...extra });
+
+  it("drops a urine row named by its prefix", () => {
+    expect(scopeExclusion({ raw_analyte_name: "U_Kreatinin", value_raw: "5,60" })).toBe("material");
+    expect(scopeExclusion({ raw_analyte_name: "dU_Kreatinin", value_raw: "12,4" })).toBe("material");
+    expect(scopeExclusion({ raw_analyte_name: "U-amyláza", value_raw: "3,15" })).toBe("material");
+  });
+
+  it("drops a prefix-free urine row by its Materiál column or its heading", () => {
+    expect(scopeExclusion(urine({ material: "moč" }))).toBe("material");
+    expect(scopeExclusion(urine({ section: "Moč chemicky + sediment" }))).toBe("material");
+    expect(scopeExclusion(urine({ section: "Moč - odpady" }))).toBe("material");
+    // `printed_material` is what annotateMaterial reads off the printed page.
+    expect(scopeExclusion(urine({ printed_material: "u" }))).toBe("material");
+  });
+
+  it("keeps the serum row printed beside it, with the same analyte name", () => {
+    expect(scopeExclusion({ raw_analyte_name: "Glukóza", value_raw: "5,10", section: "Metabolity", material: "sérum" })).toBeNull();
+    expect(scopeExclusion({ raw_analyte_name: "S_Glukóza", value_raw: "6,00" })).toBeNull();
+    expect(scopeExclusion({ raw_analyte_name: "B_Glukóza enzym.", value_raw: "6,00" })).toBeNull();
+    expect(scopeExclusion({ raw_analyte_name: "P_Laktát", value_raw: "2,50" })).toBeNull();
+  });
+
+  // `xxx_eGF (CKD-EPI)` is five real serum rows in data/reports. Treating an
+  // unrecognised prefix as a non-blood material would have dropped them.
+  it("ignores a prefix that is not a known material code", () => {
+    expect(rowMaterialCode({ raw_analyte_name: "xxx_eGF (CKD-EPI)" })).toBeNull();
+    expect(scopeExclusion({ raw_analyte_name: "xxx_eGF (CKD-EPI)", value_raw: "1,49" })).toBeNull();
+    expect(scopeExclusion({ raw_analyte_name: "anti-TPO", value_raw: "9,0" })).toBeNull();
+    expect(scopeExclusion({ raw_analyte_name: "25-OH vitamin D", value_raw: "80,7" })).toBeNull();
+  });
+
+  it("drops a patient's weight and height, and nothing that merely sounds like them", () => {
+    expect(scopeExclusion({ raw_analyte_name: "Pt_Hmotnost pacienta", value_raw: "50,0", unit_raw: "kg" })).toBe("anthropometric");
+    expect(scopeExclusion({ raw_analyte_name: "Pt_Výška pacienta", value_raw: "150", unit_raw: "cm" })).toBe("anthropometric");
+    expect(scopeExclusion({ raw_analyte_name: "Stred.hmot.HGB v RBC [MCH]", value_raw: "30,10" })).toBeNull();
+  });
+
+  it("drops a toxicology screen, including the one row of it printed from serum", () => {
+    expect(scopeExclusion({ raw_analyte_name: "U_THC", value_raw: "pozitivní", section: "Toxikologie" })).toBe("toxicology");
+    expect(scopeExclusion({ raw_analyte_name: "S_Etanol", value_raw: "0,50", section: "Toxikologie" })).toBe("toxicology");
+    // The same analyte outside that block is a blood result like any other.
+    expect(scopeExclusion({ raw_analyte_name: "S_Etanol", value_raw: "0,50", section: "Speciální metody" })).toBeNull();
+  });
+
+  it("drops an auxiliary / POMOCNÉ specimen-handling row", () => {
+    expect(scopeExclusion({ raw_analyte_name: "S_Separace séra 1", value_raw: "1", section: "POMOCNÉ", group: "POMOCNÉ" })).toBe("auxiliary");
+    expect(scopeExclusion({ raw_analyte_name: "P_Separace séra 2", value_raw: "1" })).toBe("auxiliary");
+  });
+
+  // truth_todo.md, 21_10_29.pdf#2: both readers returned nothing for the page
+  // and both were right. Receipt vocabulary, no unit, no range.
+  it("drops a specimen-receipt row", () => {
+    for (const n of ["Krev srážlivá", "Krev nesrážlivá", "Moč"]) {
+      expect(scopeExclusion({ raw_analyte_name: n, value_raw: "přijato", unit_raw: "", ref_range_raw: "" }), n).toBe("receipt");
+    }
+  });
+
+  /**
+   * The asymmetry D0 exists to state, tested in both directions: a status is
+   * a result when the analyte is in scope, and being a status never puts a row
+   * out of scope. Without the first half a vanished TSH looks like a reading
+   * failure; without the second half every urine `negat.` would come back.
+   */
+  it("keeps a blood analyte whose printed result is a status", () => {
+    for (const v of ["málo materiálu", "neprovedeno", "negativní", "negat.", "nevyšetřeno"]) {
+      expect(scopeExclusion({ raw_analyte_name: "S_TSH", value_raw: v, unit_raw: "", ref_range_raw: "" }), v).toBeNull();
+      expect(isMeasurementRow({ raw_analyte_name: "S_TSH", value_raw: v }), v).toBe(true);
+    }
+  });
+
+  it("drops the same statuses when the material is not blood", () => {
+    for (const v of ["málo materiálu", "neprovedeno", "negativní", "negat."]) {
+      expect(isMeasurementRow({ raw_analyte_name: "U_Bilirubin", value_raw: v }), v).toBe(false);
+      expect(isMeasurementRow({ raw_analyte_name: "Bilirubin", value_raw: v, printed_material: "u" }), v).toBe(false);
+    }
+  });
+});
+
+describe("out-of-scope rows leave the read as well as the truth", () => {
+  // Unlike a bare marker: the prompt never tells the model to skip urine —
+  // material is deterministic and the model keeps transcribing — so a reader
+  // that returns the row must not be charged an extra for obeying.
+  const truth = [
+    { raw_analyte_name: "S_Glukóza", value_raw: "5,10" },
+    { raw_analyte_name: "Glukóza", value_raw: "negat.", printed_material: "u" },
+    { raw_analyte_name: "Krev srážlivá", value_raw: "přijato", unit_raw: "", ref_range_raw: "" },
+  ];
+
+  it("charges no extra to the reader that transcribed them", () => {
+    const s = valueErrors(truth, truth);
+    expect(s.truthRows).toBe(1);
+    expect(s.scopeRows).toBe(2);
+    expect(s.matched).toBe(1);
+    expect(s.extra).toEqual([]);
+    expect(s.missing).toEqual([]);
+  });
+
+  it("charges no miss to the reader that left them out", () => {
+    const s = valueErrors([truth[0]], truth);
+    expect(s.truthRows).toBe(1);
+    expect(s.matched).toBe(1);
+    expect(s.missing).toEqual([]);
+  });
+
+  it("keeps them out of the pair, so one reader's judgement call is not a flag", () => {
+    const s = pairStats(truth, [truth[0]], truth);
     expect(s.confirmedRows).toBe(1);
     expect(s.flaggedRows).toBe(0);
     expect(s.uncaughtValueErrors).toEqual([]);

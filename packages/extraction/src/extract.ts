@@ -44,7 +44,20 @@ export const SYSTEM_EXTRACT =
   "neslučuj ani nerozděluj. U každého řádku uveď název analytu přesně jak je " +
   "vytištěn (včetně předpony jako 'S_' nebo 'B_'), hodnotu, jednotku a " +
   "referenční interval. Pokud je jednotka nebo interval ve zvláštním sloupci, " +
-  "přiřaď je ke správnému řádku. Confidence nastav 'low' u čehokoli, co je " +
+  "přiřaď je ke správnému řádku. " +
+  // D0 (docs/plans/lab-adaptability.md, Phase D). Three models independently
+  // dropped rows whose printed result is a status, from three different roles,
+  // because the prompt never said whether such a row is a result. It is: it
+  // explains an absent value, and without it a vanished TSH cannot be told
+  // from a reading failure. Material is NOT mentioned here on purpose — urine
+  // is excluded deterministically by lab-core, and the model's job stays
+  // "transcribe what is printed".
+  "Je-li místo hodnoty vytištěn stav (např. 'málo materiálu', 'neprovedeno'), " +
+  "je to také výsledek — vrať ho jako hodnotu s prázdnou jednotkou i intervalem. " +
+  "Řádky o převzetí vzorku (např. 'Krev srážlivá přijato'), pomocné řádky o " +
+  "zpracování vzorku a údaje o pacientovi jako hmotnost nebo výška výsledky " +
+  "nejsou; nevracej je. " +
+  "Confidence nastav 'low' u čehokoli, co je " +
   "špatně čitelné nebo nejednoznačné.";
 
 /**
@@ -65,6 +78,13 @@ export const SYSTEM_EXTRACT_TEXT =
   "(včetně desetinné čárky, '<', '>' a značek jako '!'). Nic nepočítej ani " +
   "nepřeváděj. Pokud některý sloupec na řádku chybí, vrať prázdný řetězec. " +
   "Hlavičky, patičky a informace o pacientovi mezi výsledky nezahrnuj. " +
+  // The same two sentences as SYSTEM_EXTRACT, and for the same reason; see
+  // the comment there.
+  "Je-li místo hodnoty vytištěn stav (např. 'málo materiálu', 'neprovedeno'), " +
+  "je to také výsledek — vrať ho jako hodnotu s prázdnou jednotkou i intervalem. " +
+  "Řádky o převzetí vzorku (např. 'Krev srážlivá přijato'), pomocné řádky o " +
+  "zpracování vzorku a údaje o pacientovi jako hmotnost nebo výška výsledky " +
+  "nejsou; nevracej je. " +
   "Confidence nastav 'low', pokud si přiřazením sloupců nejsi jistý. " +
   // Without this the model copies the *input's* cell delimiter into the field:
   // an interval printed in "od"/"do" columns came back as "0,17 | 0,78", which
@@ -73,9 +93,15 @@ export const SYSTEM_EXTRACT_TEXT =
   "Pokud je referenční interval vytištěn ve dvou sloupcích (např. 'od' a " +
   "'do'), spoj obě čísla do jednoho pole ve tvaru '0,17 - 0,78'; nikdy " +
   "nepoužívej oddělovač '|' z vstupu. " +
-  "Každý řádek vstupu začíná pořadovým číslem a tabulátorem. U každého " +
-  "výsledku vrať v poli 'row_index' číslo řádku, ze kterého pochází; " +
-  "samotné číslo řádku neopisuj do žádného jiného pole.";
+  // Conditional on the field existing, because this prompt is also handed to
+  // schemas that have no `row_index`: the vision `TOOL` keeps `source_snippet`
+  // instead, and the Mistral annotation arm derives its schema from `TOOL`.
+  // Asking for a field the schema lacks caused no visible harm — no
+  // `row_index` came back and every row carried a snippet — but a prompt that
+  // does not match its own tool is a fault waiting to be believed.
+  "Každý řádek vstupu začíná pořadovým číslem a tabulátorem. Má-li nástroj " +
+  "pole 'row_index', vrať v něm u každého výsledku číslo řádku, ze kterého " +
+  "pochází; samotné číslo řádku neopisuj do žádného jiného pole.";
 
 export const TEXT_LAYER_HINT =
   "Nápověda — textová vrstva PDF (pořadí může být zpřeházené, " +

@@ -473,11 +473,15 @@ the analyte names, units and range notations Czech and Slovak labs actually
 print, from labs whose sheets we have never seen. A handbook is reference
 material, not a patient report, so there is no PHI and no consent question.
 
+**Done 2026-09-08. Results, sources and yield:
+[docs/handbook-vocabulary.md](../handbook-vocabulary.md).**
+
 Sources, vendored as local fixtures — **never fetched at test time, never a CI
 dependency on an external URL**:
 
 - Synlab SK laboratory handbook
-- Fakultní nemocnice Hradec Králové, IV. interní hematologická klinika
+- Fakultní nemocnice Hradec Králové, IV. interní hematologická klinika — the
+  URL above is dead; the live one is in the results doc
 - SPADIA LAB Brno
 
 Method: extract every analyte name, unit and reference-range notation; run each
@@ -496,6 +500,17 @@ Guardrails, restated because they are easy to break by accident:
   string, a range spelling. The PDFs live under git-ignored `data/`.
 - A vocabulary case is not a layout case. If a handbook shows a *layout* we
   cannot parse, that belongs in `make_layout_fixtures.py`, not here.
+
+**What it yielded.** 4 154 distinct printed forms across the three handbooks
+(743 name-shaped cells, 69 units, 1 406 range cells, 1 936 value cells); 22
+forms failed or normalised wrongly; 30 parity cases added, taking the fixture
+from 105 to 135. Two rules widened on both sides — `canonicalize_unit` (the
+ASCII micro fallback `umol/l`, the flattened superscript `x 109/l`, spacing
+round the solidus) and `parse_range` (an interval or bound that carries its
+unit: `7,8 - 12,8 fl`, `< 50 ng/ml`), held by a deny-list of age bands and
+printed criteria so `0 - 15 let` stays text. Value notations yielded nothing:
+every form these labs print already parsed. Five layout items were deferred to
+`make_layout_fixtures.py` and are listed in the results doc.
 
 ### Considered and not done: LabCorp sample reports
 
@@ -516,6 +531,14 @@ deterministically, which a downloaded PDF cannot.
 (append `[x] date — phase — what the gate showed`)
 
 [x] 2026-09-06 — A1–A5, B1–B5 done; C tier 1 on photo+public: 0 value errors both tiers after adjudication
+[x] 2026-09-08 — D0 — scope rule in `isMeasurementRow`, prompt sentences in both
+    system prompts, every persisted arm re-scored. 92 photo / 60 public / 23
+    real / 2 synthetic truth rows excluded; **no ranking moved** — Gemini ultra
+    with Sonnet stands, because D0 keeps the status rows that are Sonnet's
+    whole deficit. The prompt half is unmeasured (persisted reads predate it);
+    a tier-1 re-read is free. Tables in docs/lab-adaptability.md.
+
+[x] 2026-09-08 — F done; 4 154 handbook forms → 22 failures → 30 parity cases, fixture 105 → 135, both sides green, four faults reintroduced and watched failing
 
 ## Open items
 
@@ -530,3 +553,9 @@ deterministically, which a downloaded PDF cannot.
   it with a 400 (288 calls, $0.00, 2026-09-06). The arm runs at `LOW`. The
   bench also no longer reuses a failed call as a persisted result.
 - Whether `data/reports` corrections (A1) are re-exported to the demo.
+- Phase F left three name conventions unimplemented, each for a stated reason
+  (see the results doc): SPADIA's *suffix* material `Glukóza - U`, synlab's
+  Slovak `Glukóza v sére`, and `L-dopa`, which the `L-` liquor code mis-strips.
+  The first two become safe once Python's `Registry.match` gains B7's material
+  check; today recognising them would make the Python pipeline auto-map urine
+  onto serum.

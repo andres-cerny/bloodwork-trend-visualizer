@@ -28,7 +28,10 @@ import { isPrintedOnPage, type TextRow } from "@bw/lab-core";
 
 import { candidateRows, UNIT } from "./candidates";
 import {
+  annotateMaterial,
   fabrications,
+  inScopeReads,
+  isMeasurementRow,
   loadBaseline,
   nameKey,
   rangeIntegrity,
@@ -88,9 +91,6 @@ function readJson(path: string): any | null {
   }
 }
 
-/** Lines the accepted reports counted that are not measurements. */
-const NON_RESULT = /^(?:krev srážlivá|krev nesrážlivá|moč$|ko\+diferenciál)/i;
-
 /**
  * A row_index the client can prove wrong — the value is not on that row —
  * and can usually fix: the same value with the same name sits a row or two
@@ -130,7 +130,8 @@ interface PageScore {
   caught: string[];
   caughtQual: string[];
   repaired: number;
-  missNonResult: number;
+  /** Baseline rows dropped before scoring: D0's scope rule plus bare markers. */
+  droppedRows: number;
   wrongRow: string[];
   outChars: number;
 }
@@ -138,10 +139,20 @@ interface PageScore {
 function scorePage(
   variant: string,
   key: string,
-  arm: RawMeasurement[],
+  armAll: RawMeasurement[],
   rows: TextRow[],
-  base: RawMeasurement[],
+  baseAll: RawMeasurement[],
 ): PageScore {
+  // D0 (docs/plans/lab-adaptability.md, Phase D): the accepted reports carry
+  // rows this product does not track — urine and other non-blood materials,
+  // specimen receipts, patient anthropometrics. `annotateMaterial` reads each
+  // row's material off the printed page, `isMeasurementRow` drops what is out
+  // of scope, and `inScopeReads` drops the same rows from the arm so a reader
+  // is charged neither a miss for leaving them out nor an extra for
+  // transcribing them. This replaced a hand-written `NON_RESULT` name list.
+  const annotated = annotateMaterial(baseAll, rows);
+  const base = annotated.filter(isMeasurementRow);
+  const arm = inScopeReads(armAll, annotated, nameKey);
   const s = matchBaseline(base, arm);
   const fab = fabrications(arm, rows);
   const integ = rangeIntegrity(base, arm);
@@ -168,7 +179,7 @@ function scorePage(
   };
   // A miss is "caught" when the printed row it lives on is an unclaimed
   // candidate — matched loosely by the analyte name appearing in that row.
-  const realMissing = s.missing.filter((n) => !NON_RESULT.test(n));
+  const realMissing = s.missing;
   const caught = realMissing.filter((n) => inRows(n, unclaimed));
   const caughtQual = realMissing.filter((n) => !caught.includes(n) && inRows(n, unclaimedQual));
   return {
@@ -190,7 +201,7 @@ function scorePage(
     caught,
     caughtQual,
     repaired,
-    missNonResult: s.missing.length - realMissing.length,
+    droppedRows: annotated.filter((t) => !isMeasurementRow(t)).length,
     wrongRow,
     outChars: JSON.stringify(arm).length,
   };
@@ -319,7 +330,7 @@ it("subagent bench — score the variants", () => {
   console.log(
     "variant".padEnd(24) + "pages".padStart(6) + "base".padStart(6) + "rows".padStart(6) + "match".padStart(7) +
       "miss".padStart(6) + "extra".padStart(6) + "valΔ".padStart(6) + "unitΔ".padStart(7) + "rangeΔ".padStart(7) +
-      "fab".padStart(5) + "coll".padStart(5) + "nonRes".padStart(7) + "fixedIdx".padStart(9) + "badIdx".padStart(7) + "unclaimed".padStart(10) + "caught".padStart(7) + "caughtQ".padStart(8) + "outChars".padStart(9),
+      "fab".padStart(5) + "coll".padStart(5) + "dropped".padStart(8) + "fixedIdx".padStart(9) + "badIdx".padStart(7) + "unclaimed".padStart(10) + "caught".padStart(7) + "caughtQ".padStart(8) + "outChars".padStart(9),
   );
   for (const v of names) {
     const hits = scores.filter((r) => r.variant === v);
@@ -330,7 +341,7 @@ it("subagent bench — score the variants", () => {
         String(sum((r) => r.missing.length)).padStart(6) + String(sum((r) => r.extra.length)).padStart(6) +
         String(sum((r) => r.valueMismatch.length)).padStart(6) + String(sum((r) => r.unitMismatch.length)).padStart(7) +
         String(sum((r) => r.rangeMismatch.length)).padStart(7) + String(sum((r) => r.fabrications.length)).padStart(5) +
-        String(sum((r) => r.collapsed)).padStart(5) + String(sum((r) => r.missNonResult)).padStart(7) +
+        String(sum((r) => r.collapsed)).padStart(5) + String(sum((r) => r.droppedRows)).padStart(8) +
         String(sum((r) => r.repaired)).padStart(9) + String(sum((r) => r.wrongRow.length)).padStart(7) +
         String(sum((r) => r.unclaimed.length)).padStart(10) + String(sum((r) => r.caught.length)).padStart(7) +
         String(sum((r) => r.caughtQual.length)).padStart(8) + String(sum((r) => r.outChars)).padStart(9),

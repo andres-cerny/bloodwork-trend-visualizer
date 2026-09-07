@@ -257,6 +257,22 @@ describe("rowMaterial and printedMaterial — the Materiál column", () => {
     expect(rowMaterial(cellsRow(["Moč chemicky"]))).toBeNull();
   });
 
+  // Guard seen failing 2026-09-08 with the `.slice(1)` in rowMaterial
+  // removed: the dipstick row came back {code:"b",source:"column"} — the
+  // analyte's own name read as a Materiál cell — and a urine "Krev" row was
+  // offered a blood analyte. Real page: samples/2022_07_01.pdf p2.
+  it("never reads the analyte's own name as the Materiál column", () => {
+    const dipstick = [
+      cellsRow(["Moč chemicky"]),
+      cellsRow(["Bílkovina", "negat.", "|", "0,0 - 0,3", "g/l"]),
+      cellsRow(["Krev", "negat.", "ery/µl"]),
+    ];
+    expect(rowMaterial(dipstick[2])).toBeNull();
+    expect(printedMaterial(dipstick, 2)).toEqual({ code: "u", source: "heading" });
+    // The column still wins when it is a column: the name is cell 0.
+    expect(rowMaterial(cellsRow(["Krev", "negat.", "ery/µl", "moč"]))).toBe("u");
+  });
+
   it("prefers the column, then the heading, and says which it used", () => {
     expect(printedMaterial(rows, 3)).toEqual({ code: "s", source: "column" });
     expect(printedMaterial(rows, 1)).toEqual({ code: "b", source: "column" });

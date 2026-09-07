@@ -320,9 +320,20 @@ export function materialWord(cell: string): string | null {
   return MATERIAL_WORDS[foldText(cell)] ?? null;
 }
 
-/** The material a row's own `Materiál` cell states, or null. */
+/**
+ * The material a row's own `Materiál` cell states, or null.
+ *
+ * The row's **first** cell is skipped, because that column holds the analyte
+ * name and a name can be spelt exactly like a material. A urine dipstick
+ * prints `Krev | negat. | ery/µl` under a `Moč chemicky` heading: reading the
+ * name cell as a Materiál column called that row whole blood and let the
+ * registry offer it a blood analyte, which is the very confusion the material
+ * rules exist to stop. No sheet in the corpus puts the Materiál column first —
+ * it follows the name on every one of them.
+ */
 export function rowMaterial(row: TextRow): string | null {
-  for (const c of row.cells) {
+  const cells = row.cells.map((c) => c.trim()).filter(Boolean);
+  for (const c of cells.slice(1)) {
     const code = materialWord(c);
     if (code) return code;
   }

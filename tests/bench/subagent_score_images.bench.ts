@@ -11,7 +11,12 @@
  *   valERR   value errors against hand-verified truth — column 2 for images
  *   miss     truth rows the variant did not return
  *   extra    rows the variant returned that the truth does not have
- *   marker   truth rows dropped as non-measurements (`isMeasurementRow`)
+ *   marker   truth rows dropped as bare markers (a panel line's `#`)
+ *   scope    truth rows D0 puts out of scope — urine and other non-blood
+ *            materials, specimen receipts, anthropometrics, toxicology,
+ *            auxiliary rows. Dropped from the READ as well, so a reader is
+ *            charged neither a miss nor an extra for them (score.ts,
+ *            `scopeExclusion` and `inScopeReads`)
  *   decens   a censored value (`<1,0`) that came back as a number
  *
  * Two scorer rules do the adjudicating that used to be done by hand: a truth
@@ -95,7 +100,7 @@ it("subagent bench (images) — score the variants against truth", () => {
     if (broken.length) console.log(`${cls}: unparseable outputs: ${broken.join(", ")}`);
 
     console.log(`\n## ${cls} — variants against ${[...new Set(index.map((p) => p.truthSource))].join(", ")}`);
-    console.log("variant".padEnd(22) + pad("pages", 6) + pad("read", 5) + pad("truth", 6) + pad("rows", 6) + pad("match", 6) + pad("miss", 6) + pad("extra", 6) + pad("marker", 7) + pad("valERR", 7) + pad("decens", 7));
+    console.log("variant".padEnd(22) + pad("pages", 6) + pad("read", 5) + pad("truth", 6) + pad("rows", 6) + pad("match", 6) + pad("miss", 6) + pad("extra", 6) + pad("marker", 7) + pad("scope", 6) + pad("valERR", 7) + pad("decens", 7));
     for (const v of variants) {
       const rows = index.filter((p) => p.truth);
       const scored = rows.map((p) => {
@@ -110,7 +115,7 @@ it("subagent bench (images) — score the variants against truth", () => {
       const sum = (f: (s: (typeof ok)[number]) => number) => ok.reduce((n, s) => n + f(s), 0);
       console.log(
         v.padEnd(22) + pad(rows.length, 6) + pad(ok.length, 5) + pad(sum((s) => s.truthRows), 6) + pad(sum((s) => s.readRows), 6) + pad(sum((s) => s.matched), 6) +
-          pad(sum((s) => s.missing.length), 6) + pad(sum((s) => s.extra.length), 6) + pad(sum((s) => s.markerRows), 7) + pad(sum((s) => s.errors.length), 7) + pad(sum((s) => s.decensored), 7),
+          pad(sum((s) => s.missing.length), 6) + pad(sum((s) => s.extra.length), 6) + pad(sum((s) => s.markerRows), 7) + pad(sum((s) => s.scopeRows), 6) + pad(sum((s) => s.errors.length), 7) + pad(sum((s) => s.decensored), 7),
       );
       for (const s of ok) {
         const bits: string[] = [];
