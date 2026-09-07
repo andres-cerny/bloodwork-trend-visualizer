@@ -184,6 +184,83 @@
  *     `(*)`, a lone `.` — evaluation markers, and never a value, unit or
  *     range. `MARKER_CELL`. A bare `-` is deliberately excluded: it is a
  *     printed unit and the separator inside a split interval.
+ *
+ * ### The five rules that fixed the range and unit columns
+ *
+ * Same class of fault as R1, found the same way — from the stored `call.raw`,
+ * not from a suspicion about the model. In every one of them Mistral read the
+ * page correctly and this mapping threw the reading away. Against the accepted
+ * reports on the born-digital class they take the unit disagreements from 485
+ * to 57 and the range disagreements from 503 to 86, with `matched` 847 → 849
+ * and no value error introduced; on the photo class, unit 1678 → 141 and range
+ * 1827 → 268. `BENCH_REMAP=1 npm run bench:adapt` re-runs it, for free.
+ *
+ * R6. **A lone comparison operator belongs to the number after it.** A
+ *     one-sided reference bound prints its operator in its *own* cell:
+ *
+ *         |  CK | **12,54** | µkat/l |  | < | 2,85 | ( )X  |
+ *
+ *     R1 only recognised `bound | separator | bound`, so the operator cell was
+ *     discarded and `< 2,85` came back as a bare `2,85`. That is not a
+ *     notation difference. `< 2,85` is an interval with no lower bound;
+ *     `2,85` parses in `parseRange` as descriptive text with neither bound,
+ *     and the flag the app computes from it is then computed from nothing.
+ *     The operator now joins the bound it governs, in the form
+ *     packages/lab-core/src/normalize.ts and the accepted reports both spell:
+ *     `< 2,85` (`UPPER_BOUND`/`LOWER_BOUND` there accept `<`, `≤`, `>`, `≥`;
+ *     `parse_range` in tools/pipeline/tests/parity_cases.json fixes
+ *     `"< 5,00"` → `[null, 5.0, null]`). `OPERATOR_CELL`, `operatorOf`,
+ *     `joinRange`.
+ * R7. **The same operator before a *value* is a censor, and is never
+ *     dropped.** `| < | 1,0 |` in the value columns is "below the assay
+ *     floor", and a censored value quietly becoming `1,0` is precisely the
+ *     `decensored` failure `rangeIntegrity` in score.ts tracks. The operator
+ *     column standing immediately before the value joins onto it as `<1,0` —
+ *     no space, which is how the accepted reports spell a censored *value*
+ *     (`<1,0`) as against a one-sided *range* (`< 2,85`). The two rules
+ *     cannot collide: R6 fires only where the low-bound cell beside the
+ *     operator is **empty**, R7 only where the operator abuts the value
+ *     column and no range group has claimed it. No stored answer exercises
+ *     R7 — 77 operator cells across `results/adapt/mistral*` and every one of
+ *     them a range bound — so it is a guard, and its test says so.
+ * R8. **A row wider than its own header has had a column split, not gained
+ *     one.** Several labs print `Hodnocení` as a little graphical scale, and
+ *     Mistral returns its segments as separate cells:
+ *
+ *         | Vyšetření | Výsledek | Hodnocení | Jednotky | Ref. interval |
+ *         | S_Urea | 4,5 | | * | | mmol/l | (2,8-8,3) |
+ *
+ *     Five header cells, seven or eight in the row. Every column after the
+ *     scale is then read one or two places to the left, so `unit_raw` came
+ *     back as `*` or blank and `ref_range_raw` with it — 403 of the 485 unit
+ *     disagreements and 373 of the 503 range disagreements on the born-digital
+ *     class, all of them ours. A run of two or more adjacent cells that are
+ *     blank or `MARKER_CELL` collapses back to one until the row is as wide as
+ *     its header, keeping whatever the run held. `collapseMarkerRuns`, applied
+ *     only where a header was accepted (so there is a width to trust) and only
+ *     to rows wider than it.
+ * R9. **A share computed over one cell is not a majority.** `shareOf` counts
+ *     only non-empty cells, so a column blank in every data row scores 1.0 on
+ *     its own header label alone. On the `A | Výkon | Název metody | …` layout
+ *     the empty `Výkon` was elected the name, which left the real name column
+ *     unclaimed for `isUnitCell` to take: `MCV` came back as the unit of MCV,
+ *     41 rows of the 485 — 25 of which this fixes outright, while the other 16
+ *     become the honest residual below (Mistral printed their unit inside the
+ *     range cell, so there is no unit cell to read). A column must now be
+ *     non-empty on at least two rows to be elected anything, the name column
+ *     is moved to wherever `nameAt` actually lands on a majority of rows
+ *     (`nameIndexAt`), and a printed date
+ *     can no longer be elected the value — without which the signature block
+ *     `Výsledky uvolnil : | 01.07.2022 | …` is mapped as a results table.
+ * R10. **The same interval split across two cells, not three**, because the
+ *     separator or the operator was printed against the bound: `1,00 | - 2,10`
+ *     and ` | < 5,20`. Neither cell is an interval on its own and there is no
+ *     separator cell, so R1 and R6 both saw nothing and the whole reference
+ *     column of two pages came back empty — 38 rows here, 215 on the photo
+ *     class. The dash form requires the space (`-10,0` is a negative bound and
+ *     `BOUND_CELL` already reads it as one); the operator form does not, since
+ *     no bound starts with `<`. Looked for only after the three-cell form has
+ *     found nothing. `GLUED_SEP_BOUND`, `GLUED_OP_BOUND`, `isGluedRangeRow`.
  */
 import { Mistral } from "@mistralai/mistralai";
 import type { OCRPageObject, OCRRequest, OCRResponse } from "@mistralai/mistralai/models/components";
@@ -372,6 +449,41 @@ const ABBREVIATION = /^[A-ZÀ-Ž0-9][A-ZÀ-Ž0-9._-]{1,5}$/;
  * separator between two range bounds.
  */
 export const MARKER_CELL = /^(?=.*[()[\]*!.])[()[\]\s*!.]*[XxHL]?[()[\]\s*!.]*$/;
+/**
+ * R6/R7. A comparison operator printed in a cell of its own.
+ *
+ * The entity forms are markdown's encoding of the printed glyph, exactly as
+ * `**5,00**` is markdown's encoding of printed boldness (R2) — `&lt;` was
+ * never a character on the page, so decoding it is not "tidying a value".
+ */
+export const OPERATOR_CELL = /^(?:<=?|>=?|≤|≥|&lt;=?|&gt;=?|&le;|&ge;)$/;
+
+/**
+ * The operator this cell prints, spelled the way lab-core reads it, or null.
+ *
+ * `UPPER_BOUND`/`LOWER_BOUND` in packages/lab-core/src/normalize.ts accept
+ * `<`, `≤`, `>`, `≥` — and nothing else, so `<=` must fold to `≤` or
+ * `parseRange` would take the `=` as the start of the number and give up.
+ */
+export function operatorOf(cell: string | undefined): string | null {
+  const t = (cell ?? "").trim();
+  if (!OPERATOR_CELL.test(t)) return null;
+  switch (t) {
+    case "<":
+    case "&lt;":
+      return "<";
+    case ">":
+    case "&gt;":
+      return ">";
+    case "<=":
+    case "&lt;=":
+    case "≤":
+    case "&le;":
+      return "≤";
+    default:
+      return "≥";
+  }
+}
 
 const isNumericCell = (s: string) => NUMERIC.test(s.trim());
 const isIntervalCell = (s: string) => (s.match(INTERVAL_RE) ?? []).length >= 1;
@@ -415,10 +527,26 @@ export interface RangeGroup {
 const RANGE_LOW_LABEL = /^(od|dolni|dolnimez|dolnihranice|min|minimum|low|lower|from)$/;
 const RANGE_HIGH_LABEL = /^(do|horni|hornimez|hornihranice|max|maximum|high|upper|to)$/;
 
-/** The one form the deployed prompt asks Claude for: `0,17 - 0,78`. */
-export function joinRange(low: string, high: string): string {
+/**
+ * The one form the deployed prompt asks Claude for: `0,17 - 0,78`.
+ *
+ * R6: when the middle cell holds a comparison operator rather than a dash the
+ * interval is one-sided, and the operator belongs to the bound after it —
+ * `| | < | 2,85 |` is `< 2,85`, the spelling `parseRange` and the accepted
+ * reports both use. A low bound *and* an operator is a contradiction no sheet
+ * prints; the two bounds win there, because inventing a one-sided interval
+ * out of a two-sided one would throw a number away.
+ */
+export function joinRange(low: string, high: string, sep?: string): string {
   const a = (low ?? "").trim();
   const b = (high ?? "").trim();
+  const op = operatorOf(sep);
+  if (op && !a) return b ? `${op} ${b}` : "";
+  // R10: the separator or the operator printed against the bound itself.
+  const glued = GLUED_OP_BOUND.exec(b);
+  if (glued) return a ? `${a} - ${glued[2]}` : `${operatorOf(glued[1])} ${glued[2]}`;
+  const dashed = GLUED_SEP_BOUND.exec(b);
+  if (dashed) return a ? `${a} - ${dashed[1]}` : "";
   if (a && b) return `${a} - ${b}`;
   return a || b;
 }
@@ -452,13 +580,50 @@ const emphasisShare = (rows: string[][], emph: boolean[][], i: number): number =
  * Two forms are recognised, and only two:
  *   - **named** — the header says `od`/`do` (also `dolní`/`horní`, `min`/`max`);
  *   - **printed** — three consecutive columns read `bound | - | bound` in a
- *     majority of rows, the layout `19_06_12.pdf` prints.
+ *     majority of rows, the layout `19_06_12.pdf` prints. R6: the same three
+ *     columns read `(blank) | < | bound` where the interval is one-sided, on
+ *     the same page and in the same columns — `19_06_12.pdf` prints both, six
+ *     rows of the second kind among thirty-four of the first.
  *
  * A bare pair of adjacent numeric columns with neither a separator nor a
  * header is deliberately NOT a group: `value | bound` and `bound | bound` are
  * indistinguishable from the cells alone, and guessing there would invent the
- * very failure this fixes.
+ * very failure this fixes. Nor is `(blank) | - | bound`: a dash with nothing
+ * on its left is not an interval, and reading one there would be the same
+ * guess.
  */
+
+/** One printed row of a three-cell split interval: `4,00 | - | 10,00`, ` | < | 2,85`. */
+function isSplitRangeRow(low: string, mid: string, high: string): boolean {
+  if (!BOUND_CELL.test(high)) return false;
+  if (BOUND_CELL.test(low) && SEPARATOR_CELL.test(mid)) return true;
+  return low === "" && operatorOf(mid) !== null;
+}
+
+/**
+ * R10. The same interval, split across **two** cells rather than three,
+ * because the separator or the operator was printed against the bound:
+ *
+ *     |  HDL-cholesterol | **1,51** | mmol/l | 1,00 | - 2,10 | (X)  |
+ *     |  Cholesterol celkový | **3,92** | mmol/l |  | < 5,20 | (X)  |
+ *
+ * Neither cell is an interval on its own and there is no separator cell, so
+ * both R1 and R6 saw nothing and `ref_range_raw` came back empty — the whole
+ * reference column of `19_06_12.pdf` p2 and `19_10_31.pdf` p1, 38 rows on the
+ * born-digital class alone. The dash form requires the space: `-10,0` is a
+ * negative bound and `BOUND_CELL` already reads it as one, while `- 10,0`
+ * cannot be anything but a separator and a bound. The operator form needs no
+ * space, since no bound starts with `<`.
+ */
+const GLUED_SEP_BOUND = /^(?:-|–|—|až|az)\s+(-?\d+(?:[.,]\d+)?)$/i;
+const GLUED_OP_BOUND = /^(<=?|>=?|≤|≥|&lt;=?|&gt;=?|&le;|&ge;)\s*(-?\d+(?:[.,]\d+)?)$/;
+
+/** One printed row of a two-cell split interval. */
+function isGluedRangeRow(low: string, high: string): boolean {
+  const op = GLUED_OP_BOUND.exec(high);
+  if (op) return low === "";
+  return BOUND_CELL.test(low) && GLUED_SEP_BOUND.test(high);
+}
 export function findRangeGroup(rows: string[][], header: string[] | null): RangeGroup | null {
   if (header) {
     for (let i = 0; i + 1 < header.length; i++) {
@@ -475,11 +640,8 @@ export function findRangeGroup(rows: string[][], header: string[] | null): Range
   for (let i = 0; i + 2 < width; i++) {
     const seen = rows.filter((r) => [i, i + 1, i + 2].some((k) => (r[k] ?? "").trim() !== ""));
     if (!seen.length) continue;
-    const hits = seen.filter(
-      (r) =>
-        BOUND_CELL.test((r[i] ?? "").trim()) &&
-        SEPARATOR_CELL.test((r[i + 1] ?? "").trim()) &&
-        BOUND_CELL.test((r[i + 2] ?? "").trim()),
+    const hits = seen.filter((r) =>
+      isSplitRangeRow((r[i] ?? "").trim(), (r[i + 1] ?? "").trim(), (r[i + 2] ?? "").trim()),
     ).length;
     const s = hits / seen.length;
     if (s > bestShare) {
@@ -487,7 +649,95 @@ export function findRangeGroup(rows: string[][], header: string[] | null): Range
       bestShare = s;
     }
   }
+  if (best) return best;
+  // R10, only once the three-cell form has found nothing: the two-cell form
+  // carries strictly more evidence per row (the separator is *in* the cell),
+  // but it is also a narrower window, so the wider layout gets first refusal.
+  bestShare = 0.5;
+  for (let i = 0; i + 1 < width; i++) {
+    const seen = rows.filter((r) => [i, i + 1].some((k) => (r[k] ?? "").trim() !== ""));
+    if (!seen.length) continue;
+    const hits = seen.filter((r) => isGluedRangeRow((r[i] ?? "").trim(), (r[i + 1] ?? "").trim())).length;
+    const s = hits / seen.length;
+    if (s > bestShare) {
+      best = { low: i, sep: null, high: i + 1 };
+      bestShare = s;
+    }
+  }
   return best;
+}
+
+/* ------------------------------- rule 8: a row wider than its own header */
+
+/** Nothing, or nothing but evaluation decoration. Never a value, unit or bound. */
+const isBlankOrMarker = (c: string) => {
+  const t = (c ?? "").trim();
+  return t === "" || MARKER_CELL.test(t);
+};
+
+/**
+ * R8. Put a row that came back wider than its header back on the header's grid.
+ *
+ * A `Hodnocení` column printed as a graphical scale comes back as several
+ * cells — `| | * | |`, `| | | * | |` — and every column after it is then read
+ * one or two places to the left of where the header put it. The signal is
+ * unambiguous: markdown has no ragged table, so a row wider than its own
+ * header is a column that was split, never a column the row gained.
+ *
+ * The leftmost run of two or more adjacent blank-or-marker cells collapses to
+ * one, keeping whatever the run held (`| | * | |` → `*`), and only as far as
+ * the excess width requires; then the next run, until the row fits. A row with
+ * no such run is left exactly as it came, because there is nothing here that
+ * could tell which of its cells to fuse.
+ */
+export function collapseMarkerRuns(row: string[], width: number): string[] {
+  let out = row.slice();
+  let i = 0;
+  while (out.length > width && i < out.length) {
+    if (!isBlankOrMarker(out[i])) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j + 1 < out.length && isBlankOrMarker(out[j + 1])) j++;
+    const run = j - i + 1;
+    if (run < 2) {
+      i = j + 1;
+      continue;
+    }
+    const drop = Math.min(run - 1, out.length - width);
+    const kept = out.slice(i, j + 1).map((c) => c.trim()).filter((c) => c !== "");
+    const merged = [kept.join(" "), ...Array(run - drop - 1).fill("")];
+    out = [...out.slice(0, i), ...merged, ...out.slice(j + 1)];
+    i += merged.length;
+  }
+  return out;
+}
+
+/* ------------------------------ rule 7: an operator standing before a value */
+
+/**
+ * R7. The column that censors the value, when a sheet prints one.
+ *
+ * `| CRP | < | 5,0 | mg/l |` is a result below the assay floor, and the `<`
+ * must reach `value_raw` or `censoredLostMarker` in score.ts is looking at a
+ * number the lab never printed. Only the column immediately left of the value
+ * qualifies, it must not already be spoken for (name, unit, range, or any cell
+ * of the split-interval group R1/R6 claimed), and a simple majority of its
+ * non-empty cells must be operators — the same majority every other rule here
+ * uses.
+ */
+function valueOperatorColumn(
+  body: string[][],
+  cols: Partial<Record<Field, number>>,
+  group: RangeGroup | null,
+): number | null {
+  const v = cols.value;
+  if (v === undefined || v <= 0) return null;
+  const j = v - 1;
+  if (j === cols.name || j === cols.unit || j === cols.range) return null;
+  if (group && (j === group.low || j === group.sep || j === group.high)) return null;
+  return shareOf(body, j, (c) => operatorOf(c) !== null) > 0.5 ? j : null;
 }
 
 /* ---------------------------------------------------------- the column map */
@@ -498,6 +748,14 @@ interface ColumnMapping {
   group: RangeGroup | null;
   /** True when row 0 was consumed as a header. */
   hasHeader: boolean;
+  /**
+   * The column the name was elected from before R9 moved it right, and the
+   * fallback for the odd row that prints its name there anyway: `Moč
+   * chemicky` gives `| 81347 | pH | | 5,5 | …` where its neighbours give
+   * `| | | Bilkovina | negat. | …`. Only consulted where the name column
+   * itself yields nothing, so it can never override a name that is there.
+   */
+  nameFallback?: number;
   /** Header labels we saw and did not model — reported, never silently dropped. */
   droppedColumns: string[];
 }
@@ -551,18 +809,56 @@ function fromShape(rows: string[][], emph: boolean[][], group: RangeGroup | null
       dropped.push("evaluation marker column");
     }
   }
-  const leftmost = (pred: (s: string) => boolean) => idx.find((i) => !taken.has(i) && shareOf(rows, i, pred) > 0.5) ?? -1;
+  // R9. A share computed over one cell is not a majority of anything.
+  //
+  // `shareOf` counts only the non-empty cells, so a column that is blank in
+  // every data row and carries nothing but its own header label scores 1.0 and
+  // wins whatever role it is tested for. On the `A | Výkon | Název metody | …`
+  // layout that made the empty `Výkon` column the name, which left the real
+  // name column free — and `isUnitCell` then claimed it, so `MCV` came back as
+  // the unit of MCV. A column must be non-empty on at least two rows (or on
+  // every row there is, for a table too short for that to mean anything)
+  // before it can be elected to anything.
+  const support = Math.min(2, rows.length);
+  const seenIn = (i: number) => rows.filter((r) => (r[i] ?? "").trim() !== "").length;
+  const elect = (pred: (s: string) => boolean) => (i: number) =>
+    !taken.has(i) && seenIn(i) >= support && shareOf(rows, i, pred) > 0.5;
+  const leftmost = (pred: (s: string) => boolean) => idx.find(elect(pred)) ?? -1;
 
   let name = leftmost(isNameCell);
   // `Zkr.` without a header: an all-caps code column reads as words, but the
   // name is the column after it. candidates.ts drops the same cell for the
   // text path.
   if (name >= 0 && shareOf(rows, name, (c) => ABBREVIATION.test(c)) > 0.5) {
-    const next = idx.find((i) => i > name && !taken.has(i) && shareOf(rows, i, isNameCell) > 0.5);
+    const next = idx.find((i) => i > name && elect(isNameCell)(i));
     if (next !== undefined) {
       taken.add(name);
       dropped.push("abbreviation column");
       name = next;
+    }
+  }
+  let nameFallback: number | undefined;
+  // R9, second half: the name column is where the names actually are.
+  //
+  // `nameAt` walks up to three cells past the column it is given, so a mostly
+  // empty LIS column (`A | Výkon | Název metody | …`, `Výkon` holding one `pH`
+  // in twenty rows) can be elected the name and still produce the right names
+  // — while leaving the *real* name column unclaimed for `isUnitCell` to take,
+  // which is how `Neutrofily` came back as the unit of Neutrofily. So ask
+  // where the walk lands: when a majority of rows resolve their name from one
+  // later column, that column is the name.
+  if (name >= 0) {
+    const landed = rows.map((r) => nameIndexAt(r, name)).filter((k) => k >= 0);
+    const tally = new Map<number, number>();
+    for (const k of landed) tally.set(k, (tally.get(k) ?? 0) + 1);
+    for (const [k, n] of tally) {
+      if (k > name && !taken.has(k) && n / landed.length > 0.5) {
+        taken.add(name);
+        dropped.push("LIS code column standing before the name");
+        nameFallback = name;
+        name = k;
+        break;
+      }
     }
   }
   if (name >= 0) {
@@ -591,7 +887,13 @@ function fromShape(rows: string[][], emph: boolean[][], group: RangeGroup | null
   }
   // Rule 3: the value is what is left that reads as a number. Mistral bolds
   // the printed result, so an emphasised column wins; otherwise the leftmost.
-  const numeric = idx.filter((i) => !taken.has(i) && shareOf(rows, i, isNumericCell) > 0.5);
+  //
+  // A printed date reads as numeric (`01.07.2022`) and is never a result —
+  // `nameAt` already refuses one for the same reason. Without this the
+  // signature block `Výsledky uvolnil : | 01.07.2022 | Číslo vzorku: | …`
+  // elects its date column as the value and the footer is mapped as a results
+  // table.
+  const numeric = idx.filter(elect((c) => isNumericCell(c) && !DATE_CELL.test(c.trim())));
   let value = -1;
   let bestEmph = 0;
   for (const i of numeric) {
@@ -611,7 +913,7 @@ function fromShape(rows: string[][], emph: boolean[][], group: RangeGroup | null
     cols.unit = unit;
     taken.add(unit);
   }
-  return { cols, group, hasHeader: false, droppedColumns: dropped };
+  return { cols, group, hasHeader: false, droppedColumns: dropped, nameFallback };
 }
 
 /**
@@ -624,14 +926,20 @@ function fromShape(rows: string[][], emph: boolean[][], group: RangeGroup | null
  * name. Reach is three cells, as there.
  */
 export function nameAt(cells: string[], start: number | undefined): string {
-  if (start === undefined || start < 0) return "";
+  const k = nameIndexAt(cells, start);
+  return k < 0 ? "" : (cells[k] ?? "").trim();
+}
+
+/** Which cell `nameAt` takes the name from, or -1. R9 asks this per row. */
+export function nameIndexAt(cells: string[], start: number | undefined): number {
+  if (start === undefined || start < 0) return -1;
   for (let k = start; k < Math.min(cells.length, start + 3); k++) {
     const c = (cells[k] ?? "").trim();
     if (!c || MARKER_CELL.test(c)) continue;
-    if (LETTERS2.test(c) && !isNumericCell(c) && !DATE_CELL.test(c)) return c;
-    if (!FLAG_CELL.test(c) && !LAB_CODE.test(c)) return "";
+    if (LETTERS2.test(c) && !isNumericCell(c) && !DATE_CELL.test(c)) return k;
+    if (!FLAG_CELL.test(c) && !LAB_CODE.test(c)) return -1;
   }
-  return "";
+  return -1;
 }
 
 export interface MappedTable {
@@ -650,13 +958,27 @@ export function rowsFromGrid(grid: string[][], blockConfidence?: number | null):
   const cells = grid.map((r) => r.map(stripEmphasis));
 
   let map = fromHeader(cells[0]);
+  let body: string[][];
   // Rule 3 of the file header: the header is accepted only if it names both a
   // name and a value column. Otherwise row 0 is data and the shape decides.
   if (map.cols.name !== undefined && map.cols.value !== undefined) {
+    // R8 first, and only here: the header is what says how wide a row should
+    // be, so a header we did not accept gives nothing to realign against.
+    const width = cells[0].length;
+    let realigned = 0;
+    body = cells.slice(1).map((row) => {
+      if (row.length <= width) return row;
+      const fitted = collapseMarkerRuns(row, width);
+      if (fitted.length !== row.length) realigned++;
+      return fitted;
+    });
+    if (realigned) {
+      map.droppedColumns.push(`evaluation scale split across cells — ${realigned} row(s) realigned to the header`);
+    }
     // A header that names a whole range column keeps it — unless the interval
     // it names starts there and spills into the columns beside it, which is
     // the same split range with a label over its left half.
-    const group = findRangeGroup(cells.slice(1), cells[0]);
+    const group = findRangeGroup(body, cells[0]);
     if (group && (map.cols.range === undefined || map.cols.range === group.low)) {
       map.group = group;
       map.cols.range = undefined;
@@ -664,23 +986,30 @@ export function rowsFromGrid(grid: string[][], blockConfidence?: number | null):
     }
   } else {
     map = fromShape(cells, emph, findRangeGroup(cells, null));
+    body = cells;
   }
-  const body = map.hasHeader ? cells.slice(1) : cells;
   const { cols, group } = map;
   // Rule 7.
   if (cols.name === undefined || cols.value === undefined) {
     return { rows: [], droppedColumns: map.droppedColumns, skipped: "no name/value column" };
   }
+  // R7: the censor column, if this sheet prints one.
+  const opCol = valueOperatorColumn(body, cols, group);
+  if (opCol !== null) map.droppedColumns.push("censor operator column — joined onto the value");
 
   const need = Math.max(cols.name, cols.value, cols.unit ?? -1, cols.range ?? -1, group?.high ?? -1);
   const conf = blockConfidence ?? null;
   const out: RawMeasurement[] = [];
   for (const row of body) {
     const cell = (i: number | undefined) => (i === undefined || i < 0 || i >= row.length ? "" : row[i]);
-    const name = nameAt(row, cols.name);
-    const value = cell(cols.value);
+    const name = nameAt(row, cols.name) || nameAt(row, map.nameFallback);
+    const printed = cell(cols.value);
     // Rule 8, plus rule 5: a marker is not a value.
-    if (!name || !value || isNumericCell(name) || MARKER_CELL.test(value)) continue;
+    if (!name || !printed || isNumericCell(name) || MARKER_CELL.test(printed)) continue;
+    // R7: `| < | 1,0 |` is one censored value, spelled as the accepted
+    // reports spell it — no space between the censor and the number.
+    const censor = opCol === null ? null : operatorOf(cell(opCol));
+    const value = censor ? `${censor}${printed}` : printed;
     const ragged = row.length <= need;
     const shaky = conf !== null && conf < CONF_LOW;
     out.push({
@@ -688,8 +1017,8 @@ export function rowsFromGrid(grid: string[][], blockConfidence?: number | null):
       value_raw: value,
       unit_raw: cell(cols.unit),
       // Rule 1: `4,00 | - | 10,00` is one field, in the form the deployed
-      // prompt asks for.
-      ref_range_raw: group ? joinRange(cell(group.low), cell(group.high)) : cell(cols.range),
+      // prompt asks for. R6: `| < | 2,85` is the same field, one-sided.
+      ref_range_raw: group ? joinRange(cell(group.low), cell(group.high), cell(group.sep ?? undefined)) : cell(cols.range),
       source_snippet: row.join(" | "),
       confidence: !isNumericCell(value) || ragged || shaky ? "low" : conf !== null && conf < CONF_HIGH ? "medium" : "high",
     });

@@ -18,14 +18,18 @@ import { describe, expect, it } from "vitest";
 
 import { SYSTEM_EXTRACT_TEXT } from "@bw/extraction";
 
+import { computeFlag, parseRange } from "@bw/lab-core";
+
 import { RAW_FIELD_MAX } from "./extract";
 import {
+  collapseMarkerRuns,
   findRangeGroup,
   headerKey,
   isEmphasised,
   joinRange,
   markdownTables,
   nameAt,
+  operatorOf,
   rawAnswerFor,
   remapFromRaw,
   remapMeasurements,
@@ -34,7 +38,7 @@ import {
   splitMarkdownTable,
   stripEmphasis,
 } from "./mistral";
-import { mergedRows, type RawMeasurement } from "./score";
+import { mergedRows, rangeIntegrity, type RawMeasurement } from "./score";
 
 /** breclav.pdf p121, rendered at 220 DPI — the results table, verbatim. */
 const BRECLAV_RESULTS = `|  Zkr. | Vyšetření | Výsl. | Text. výsl. | Jedn. |  | Referenční hodnoty | Kontrola l.stupně | Uvolnil  |
@@ -551,5 +555,431 @@ describe("remapMeasurements — re-judging a mapping without paying again", () =
 
   it("cannot invent a row the old mapping dropped", () => {
     expect(remapMeasurements([])).toEqual([]);
+  });
+});
+
+/* ==========================================================================
+ * The three rules that fixed the range and unit columns.
+ *
+ * Same class as R1 and found the same way — from `call.raw`, not from a
+ * suspicion about the model. On the born-digital class the arm scored 485 unit
+ * and 503 range disagreements against the accepted reports; 444 of each were
+ * one column split into several by Mistral and read one place to the left by
+ * us, and six ranges were an upper bound whose `<` we had thrown away.
+ * ======================================================================== */
+
+/**
+ * `results/adapt/mistral_ocr_digital/19_06_12__p1.json`, verbatim.
+ *
+ * The same page and the same three range columns as `SPLIT_RANGE_PAGE`, on the
+ * rows where the interval is one-sided: the lab prints `< 2,85` and Mistral
+ * returns the operator in the cell the two-sided rows use for their `-`.
+ */
+const ONE_SIDED_PAGE = `|  BIOCHEMIE - sérum | Výsledek | Jednotka | Referenční interval |   |   | Hodnocení  |
+| --- | --- | --- | --- | --- | --- | --- |
+|  Celkový bilirubin | **14,86** | µmol/l | 2,00 | - | 21,00 | (X)  |
+|  CK | **12,54** | µkat/l |  | < | 2,85 | ( )X  |
+|  ALT | **0,49** | µkat/l |  | < | 0,75 | (X)  |
+|  AST | **0,60** | µkat/l |  | < | 0,58 | ( )X  |
+|  ALP | **1,92** | µkat/l | 0,66 | - | 2,20 | (X)  |
+|  LDH | **3,42** | µkat/l |  | < | 4,14 | (X)  |
+|  gGT | **0,26** | µkat/l |  | < | 0,92 | (X)  |
+|  Glukóza | **3,52** | mmol/l | 3,90 | - | 5,60 | X( )  |
+|  Kreatinin | **99,1** | µmol/l | 62,00 | - | 110 | (X)  |
+|  Urea | **6,01** | mmol/l | 2,80 | - | 8,00 | (X)  |
+|  Kyselina močová | **345,7** | µmol/l | 220 | - | 420 | (X)  |
+|  Bílkovina celková | **67,6** | g/l | 66,00 | - | 88,00 | (X)  |
+|  CRP | **0,1** | mg/l |  | < | 5,00 | (X)  |`;
+
+describe("R6 — a lone operator cell belongs to the number after it", () => {
+  it("THE REGRESSION: CK's interval is `< 2,85`, not `2,85`", () => {
+    const { rows } = rowsFromTable(ONE_SIDED_PAGE, 0.99);
+    // The sheet's own section heading — `BIOCHEMIE - sérum | Výsledek | …` —
+    // is a row here, as it is in the persisted read: this table's header
+    // names no analyte column, so rule 3 refuses it and rule 8 keeps it. That
+    // is a separate, visible fault (it shows up as an `extra`), not this one.
+    expect(rows[0].raw_analyte_name).toBe("BIOCHEMIE - sérum");
+    expect(rows.find((r) => r.raw_analyte_name === "CK")).toMatchObject({
+      value_raw: "12,54",
+      unit_raw: "µkat/l",
+      ref_range_raw: "< 2,85",
+    });
+    // `2,85` is not a weaker spelling of `< 2,85`: parseRange reads the first
+    // as descriptive text with neither bound, so the flag the app computes
+    // from it is computed from nothing. data/reports spells it `< 2,85`.
+    expect(rows.slice(1).map((r) => r.ref_range_raw)).toEqual([
+      "2,00 - 21,00",
+      "< 2,85",
+      "< 0,75",
+      "< 0,58",
+      "0,66 - 2,20",
+      "< 4,14",
+      "< 0,92",
+      "3,90 - 5,60",
+      "62,00 - 110",
+      "2,80 - 8,00",
+      "220 - 420",
+      "66,00 - 88,00",
+      "< 5,00",
+    ]);
+  });
+
+  it("parses in lab-core exactly as the deployed reader's own answer does", () => {
+    // The whole point of matching the spelling: a Mistral range and a Claude
+    // range must reach `normalizeMeasurement` as the same interval.
+    const { rows } = rowsFromTable(ONE_SIDED_PAGE, 0.99);
+    const ck = rows.find((r) => r.raw_analyte_name === "CK")!;
+    expect(parseRange(ck.ref_range_raw)).toEqual({ low: null, high: 2.85, text: null });
+    // …and the flag then follows from the interval, not from the printed glyph.
+    expect(computeFlag(12.54, null, 2.85)).toBe("high");
+    // tools/pipeline/tests/parity_cases.json fixes this exact pair.
+    expect(parseRange("< 5,00")).toEqual({ low: null, high: 5, text: null });
+  });
+
+  it("finds the group even where the sheet prints both forms in one table", () => {
+    const group = findRangeGroup(splitMarkdownTable(ONE_SIDED_PAGE).slice(1), null);
+    expect(group).toEqual({ low: 3, sep: 4, high: 5 });
+  });
+
+  it("takes every operator the deployed parser accepts, and folds `<=` to `≤`", () => {
+    for (const [printed, joined] of [
+      ["<", "< 2,85"],
+      [">", "> 2,85"],
+      ["≤", "≤ 2,85"],
+      ["≥", "≥ 2,85"],
+      ["<=", "≤ 2,85"],
+      [">=", "≥ 2,85"],
+      ["&lt;", "< 2,85"],
+      ["&gt;=", "≥ 2,85"],
+    ] as const) {
+      const t = `| S_ALT | 0,49 | µkat/l |  | ${printed} | 2,85 | (X) |
+| S_AST | 0,60 | µkat/l |  | ${printed} | 0,58 | (X) |`;
+      expect(rowsFromTable(t, 0.99).rows[0].ref_range_raw).toBe(joined);
+      // `UPPER_BOUND`/`LOWER_BOUND` in lab-core accept `<`, `≤`, `>`, `≥` and
+      // nothing else — an un-folded `<=` would leave the `=` in the number.
+      expect(parseRange(joined).text).toBeNull();
+    }
+  });
+
+  it("joins through joinRange, and only where the low bound is empty", () => {
+    expect(joinRange("", "2,85", "<")).toBe("< 2,85");
+    expect(joinRange("", "", "<")).toBe("");
+    // Two bounds AND an operator is a contradiction no sheet prints. The
+    // bounds win: inventing a one-sided interval would throw a number away.
+    expect(joinRange("0,66", "2,20", "<")).toBe("0,66 - 2,20");
+    // The two-sided form is untouched.
+    expect(joinRange("4,00", "10,00", "-")).toBe("4,00 - 10,00");
+    expect(joinRange("4,00", "10,00")).toBe("4,00 - 10,00");
+  });
+
+  it("a genuine two-sided range on the same page is unchanged", () => {
+    const { rows } = rowsFromTable(SPLIT_RANGE_PAGE, 0.99);
+    expect(rows.map((r) => r.ref_range_raw)).toEqual([
+      "4,00 - 10,00",
+      "1,20 - 4,00",
+      "0,10 - 1,40",
+      "1,70 - 7,50",
+      "0,38 - 0,52",
+    ]);
+  });
+
+  it("does NOT read `(blank) | - | bound` as an interval", () => {
+    // A dash with nothing on its left is not a one-sided interval, and
+    // reading one there would be the guess R1 exists to refuse.
+    const t = `| S_ALT | 0,49 | µkat/l |  | - | 2,85 | (X) |
+| S_AST | 0,60 | µkat/l |  | - | 0,58 | (X) |`;
+    expect(findRangeGroup(splitMarkdownTable(t), null)).toBeNull();
+  });
+
+  it("a bare marker cell is still decoration, never an operator", () => {
+    expect(operatorOf("(X)")).toBeNull();
+    expect(operatorOf("*")).toBeNull();
+    expect(operatorOf(".")).toBeNull();
+    expect(operatorOf("-")).toBeNull();
+    expect(operatorOf("< 2,85")).toBeNull(); // a whole cell only
+    const { rows } = rowsFromTable(ONE_SIDED_PAGE, 0.99);
+    for (const r of rows) {
+      expect(r.unit_raw).not.toMatch(/[()[\]*!]/);
+      expect(r.ref_range_raw).not.toMatch(/[()[\]*!]/);
+    }
+  });
+});
+
+describe("R7 — the same operator before a value is a censor, never dropped", () => {
+  /**
+   * A guard, and the tests say so: 77 lone operator cells sit in the stored
+   * answers under `results/adapt/mistral*` and every one of them is a range
+   * bound (7-cell rows at index 4, 8-cell rows at index 5 — the separator slot
+   * of the interval group). No sheet in this corpus prints `| < | 1,0 |` in
+   * the value columns. It is written anyway because the failure it prevents —
+   * `<1,0` silently becoming `1,0` — is the one `rangeIntegrity` already
+   * tracks as `decensored`, and it must not depend on nobody printing it.
+   */
+  it("joins the censor onto the value, spelled as data/reports spells it", () => {
+    const t = `| Analyt | Cens | Výsledek | Jedn. |
+| --- | --- | --- | --- |
+| S_Troponin | < | 1,0 | µg/l |
+| S_hCG | < | 2,0 | IU/l |
+| S_PSA | < | 0,1 | µg/l |`;
+    const { rows } = rowsFromTable(t, 0.99);
+    // No space: the accepted reports carry `<1,0` for a censored VALUE and
+    // `< 2,85` for a one-sided RANGE, and both spellings are load-bearing.
+    expect(rows.map((r) => r.value_raw)).toEqual(["<1,0", "<2,0", "<0,1"]);
+    expect(rows[0].unit_raw).toBe("µg/l");
+  });
+
+  it("survives the check that would have caught it being dropped", () => {
+    const t = `| S_Troponin | < | 1,0 | µg/l |\n| S_hCG | < | 2,0 | IU/l |`;
+    const { rows } = rowsFromTable(t, 0.99);
+    const truth: RawMeasurement[] = [
+      { raw_analyte_name: "S_Troponin", value_raw: "<1,0" },
+      { raw_analyte_name: "S_hCG", value_raw: "<2,0" },
+    ];
+    expect(rangeIntegrity(truth, rows).decensored).toEqual([]);
+    // …and it really is the guard that would have fired.
+    const dropped = rows.map((r) => ({ ...r, value_raw: (r.value_raw ?? "").replace(/^</, "") }));
+    expect(rangeIntegrity(truth, dropped).decensored).toHaveLength(2);
+  });
+
+  it("never claims a cell the range group already owns", () => {
+    // ONE_SIDED_PAGE's `<` stands in the interval, two columns right of the
+    // value. R6 owns it; R7 must not also read it onto the value.
+    const { rows } = rowsFromTable(ONE_SIDED_PAGE, 0.99);
+    expect(rows.slice(1).map((r) => r.value_raw)).toEqual([
+      "14,86", "12,54", "0,49", "0,60", "1,92", "3,42", "0,26",
+      "3,52", "99,1", "6,01", "345,7", "67,6", "0,1",
+    ]);
+  });
+
+  it("does not fire on a column that is merely blank beside the value", () => {
+    const t = `| S_Sodík | | 141 | mmol/l |\n| S_Draslík | | 4,32 | mmol/l |`;
+    expect(rowsFromTable(t, 0.99).rows.map((r) => r.value_raw)).toEqual(["141", "4,32"]);
+  });
+});
+
+/**
+ * `results/adapt/mistral_ocr_digital/2023_12_19__p1.json`, verbatim.
+ *
+ * Five header cells; seven and eight in the rows. `Hodnocení` is printed as a
+ * little graphical scale and Mistral returns its segments as separate cells,
+ * so `Jednotky` was read at the header's index 3 — which by then held the
+ * scale's `*` — and `Ref. interval` fell off the end.
+ */
+const SPLIT_SCALE_PAGE = `| Vyšetření | Výsledek | Hodnocení | Jednotky | Ref. interval |
+| --- | --- | --- | --- | --- |
+| **BIOCHEMIE** |
+| S_Urea | 4,5 | | * | | mmol/l | (2,8-8,3) |
+| S_Kreatinin | 115 ! | | | * | | µmol/l | (62-106) |
+| S_AST | 0,87 ! | | | * | | µkat/l | (0,17-0,85) |
+| S_GGT | 0,44 | | * | | µkat/l | (0,17-1,19) |`;
+
+describe("R8 — a row wider than its own header had a column split", () => {
+  it("THE REGRESSION: the unit was `*` and the range was gone", () => {
+    const { rows } = rowsFromTable(SPLIT_SCALE_PAGE, 0.99);
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({ raw_analyte_name: "S_Urea", value_raw: "4,5", unit_raw: "mmol/l", ref_range_raw: "(2,8-8,3)" });
+    expect(rows.map((r) => r.unit_raw)).toEqual(["mmol/l", "µmol/l", "µkat/l", "µkat/l"]);
+    expect(rows.map((r) => r.ref_range_raw)).toEqual(["(2,8-8,3)", "(62-106)", "(0,17-0,85)", "(0,17-1,19)"]);
+    // The lab's own out-of-range marker rides along on the value, untouched.
+    expect(rows[1].value_raw).toBe("115 !");
+  });
+
+  it("says it realigned, so a split column is visible and not silent", () => {
+    expect(rowsFromTable(SPLIT_SCALE_PAGE, 0.99).droppedColumns.join(" ")).toContain("realigned to the header");
+  });
+
+  it("collapses the leftmost blank-or-marker run, and only as far as needed", () => {
+    expect(collapseMarkerRuns(["S_Urea", "4,5", "", "*", "", "mmol/l", "(2,8-8,3)"], 5)).toEqual(["S_Urea", "4,5", "*", "mmol/l", "(2,8-8,3)"]);
+    expect(collapseMarkerRuns(["S_AST", "0,87 !", "", "", "*", "", "µkat/l", "(0,17-0,85)"], 5)).toEqual(["S_AST", "0,87 !", "*", "µkat/l", "(0,17-0,85)"]);
+    // One cell too many, a run of three: only one cell is given up, and the
+    // run keeps the shape it still has room for.
+    expect(collapseMarkerRuns(["A", "", "*", "", "g/l"], 4)).toEqual(["A", "*", "", "g/l"]);
+  });
+
+  it("leaves a row that fits, and a row with nothing to fuse, exactly as it came", () => {
+    expect(collapseMarkerRuns(["A", "1", "g/l"], 5)).toEqual(["A", "1", "g/l"]);
+    // No run of two adjacent blank-or-marker cells: nothing here could say
+    // which of these to fuse, so nothing is fused.
+    expect(collapseMarkerRuns(["A", "1", "g/l", "2 - 3"], 3)).toEqual(["A", "1", "g/l", "2 - 3"]);
+  });
+
+  it("never realigns a table whose header was not accepted", () => {
+    // TIGHT_ROWS has no printed titles at all — row 0 is data, and there is
+    // no width to trust. Rule 6 decides, exactly as before.
+    const { rows } = rowsFromTable(TIGHT_ROWS, 0.99);
+    expect(rows).toHaveLength(4);
+    expect(rows[0]).toMatchObject({ raw_analyte_name: "S_Sodík", value_raw: "141", ref_range_raw: "137-145" });
+  });
+
+  it("a `-` between two bounds is not decoration, so a split range never collapses", () => {
+    // MARKER_CELL deliberately excludes a bare `-`; if it did not, R8 would
+    // eat the separator R1 depends on.
+    expect(collapseMarkerRuns(["WBS", "5,00", "10^9/l", "4,00", "-", "10,00", "(X)"], 5)).toEqual(["WBS", "5,00", "10^9/l", "4,00", "-", "10,00", "(X)"]);
+  });
+});
+
+/**
+ * `results/adapt/mistral_ocr_digital/2022_10_17_krev__p2.json`, verbatim.
+ *
+ * `Výkon` is empty in every data row. `shareOf` counts only non-empty cells,
+ * so that column scored 1.0 on its own header label and was elected the name —
+ * which left the real name column unclaimed, and `isUnitCell` took it. Every
+ * row came back with the analyte as its own unit: `MCV` in `unit_raw`.
+ *
+ * One departure from the stored answer, stated because it matters: that page
+ * has `Ref.meze` and `Rozměr` fused into one printed cell (`82,0 - 98,0 fl`),
+ * which is Mistral's table reconstruction and not something this mapping can
+ * undo. They are separated here so the column election is the only thing under
+ * test; the fusion is reported as a residual, not fixed.
+ */
+const EMPTY_LIS_COLUMN_PAGE = `|  A | Výkon | Název metody | Hodnocení | Ref.meze | Rozměr  |
+| --- | --- | --- | --- | --- | --- |
+|  A |  | MCV | 89,0 | | * |  82,0 - 98,0  | fl |
+|  A |  | MCH | 30,9 | | * |  28,0 - 34,0  | pg |
+|   |  | Neutrofily-abs | 3,13 | | * |  2,00 - 7,00  | 10^9/l |
+|   |  | Lymfocyty-abs | 1,91 | | * |  0,80 - 4,00  | 10^9/l |`;
+
+describe("R9 — a share computed over one cell is not a majority", () => {
+  it("THE REGRESSION: MCV came back as the unit of MCV", () => {
+    // Row 0 is this table's own header, kept for the same reason as on
+    // ONE_SIDED_PAGE: `Hodnocení` is not a value label anywhere in
+    // COLUMN_RULES, so rule 3 refuses the header and row 0 is data.
+    const rows = rowsFromTable(EMPTY_LIS_COLUMN_PAGE, 0.99).rows.slice(1);
+    expect(rows.map((r) => r.raw_analyte_name)).toEqual(["MCV", "MCH", "Neutrofily-abs", "Lymfocyty-abs"]);
+    for (const r of rows) expect(r.unit_raw).not.toBe(r.raw_analyte_name);
+    expect(rows.map((r) => r.unit_raw)).toEqual(["fl", "pg", "10^9/l", "10^9/l"]);
+    expect(rows[0].ref_range_raw).toBe("82,0 - 98,0");
+  });
+
+  it("refuses to elect a column whose only non-empty cell is its own label", () => {
+    // `Výkon` is empty in all four data rows. Before R9 it scored 1.0 for
+    // "mostly words" on that single header cell and was elected the name.
+    const grid = splitMarkdownTable(EMPTY_LIS_COLUMN_PAGE);
+    expect(grid.map((r) => r[1])).toEqual(["Výkon", "", "", "", ""]);
+    expect(rowsFromTable(EMPTY_LIS_COLUMN_PAGE, 0.99).rows[1].raw_analyte_name).toBe("MCV");
+  });
+
+  it("still keeps the odd row that prints its name in the code column", () => {
+    // `| 81347 | pH | | 5,5 | 4,5 - 5,5 |` among neighbours that print the
+    // name one cell further right. The fallback fires only where the name
+    // column itself yields nothing, so it can never override a real name.
+    // `results/adapt/mistral_ocr_digital/2024_02_02__p2.json`, verbatim.
+    const t = `|  A | Výkon | Název metody | Hodnocení | Ref.meze | Rozměr  |
+| --- | --- | --- | --- | --- | --- |
+|   |  | Neutrofily | 58,6 | 45,0 - 70,0 | %  |
+|   |  | Lymfocyty | 26,0 | 20,0 - 45,0 | %  |
+|  81347 | pH |  | 5,5 | 4,5 - 5,5 |   |
+|   |  | Urobilinogen | 3,2 | 3,2 - 16,0 | µmol/l  |
+|   |  | Bakterie | 169 | 0 - 130 | el/µl  |`;
+    const m = rowsFromTable(t, 0.99);
+    expect(m.droppedColumns.join(" ")).toContain("LIS code column");
+    expect(m.rows.slice(1).map((r) => r.raw_analyte_name)).toEqual(["Neutrofily", "Lymfocyty", "pH", "Urobilinogen", "Bakterie"]);
+    expect(m.rows.slice(1).map((r) => r.unit_raw)).toEqual(["%", "%", "", "µmol/l", "el/µl"]);
+  });
+
+  it("does not disenfranchise a table too short for two rows to mean anything", () => {
+    const t = `| S_Sodík | 141 | mmol/l | 137-145 |`;
+    expect(rowsFromTable(t, 0.99).rows[0]).toMatchObject({ raw_analyte_name: "S_Sodík", value_raw: "141", unit_raw: "mmol/l" });
+  });
+
+  it("refuses a date column as the value, so a signature block is not a table", () => {
+    // `results/adapt/mistral_ocr_digital/2022_07_01__p2.json`: the footer
+    // Mistral returns beside the results. `01.07.2022` reads as numeric.
+    const t = `|  Výsledky uvolnil : | 01.07.2022 | Číslo vzorku: | 01.MM-0035 | RNDr. Rozprimová Ladislava, CSc.  |
+| --- | --- | --- | --- | --- |
+|   | 01.07.2022 | Číslo vzorku: | 01.BB-0035 | RNDr. Rozprimová Ladislava, CSc.  |
+|   | 01.07.2022 | Číslo vzorku: | 01.HH-0035 | RNDr. Rozprimová Ladislava, CSc.  |`;
+    expect(rowsFromTable(t, 0.99).rows).toEqual([]);
+  });
+});
+
+describe("the whole page, re-mapped off the answer Mistral gave", () => {
+  it("re-maps 19_06_12 p1 with both interval forms and no bound as a value", () => {
+    const page = {
+      markdown: "",
+      tables: [{ id: "tbl-0.md", content: `${SPLIT_RANGE_PAGE}\n${ONE_SIDED_PAGE.split("\n").slice(2).join("\n")}` }],
+      blocks: [],
+    } as any;
+    const raw = rawAnswerFor(page);
+    const rows = remapFromRaw(raw)!;
+    expect(rows.map((r) => r.ref_range_raw)).toEqual([
+      "4,00 - 10,00",
+      "1,20 - 4,00",
+      "0,10 - 1,40",
+      "1,70 - 7,50",
+      "0,38 - 0,52",
+      "2,00 - 21,00",
+      "< 2,85",
+      "< 0,75",
+      "< 0,58",
+      "0,66 - 2,20",
+      "< 4,14",
+      "< 0,92",
+      "3,90 - 5,60",
+      "62,00 - 110",
+      "2,80 - 8,00",
+      "220 - 420",
+      "66,00 - 88,00",
+      "< 5,00",
+    ]);
+    expect(rows.map((r) => r.value_raw)).toEqual([
+      "5,00", "1,40", "0,50", "3,10", "0,468",
+      "14,86", "12,54", "0,49", "0,60", "1,92", "3,42", "0,26",
+      "3,52", "99,1", "6,01", "345,7", "67,6", "0,1",
+    ]);
+  });
+});
+
+/**
+ * `results/adapt/mistral_ocr_digital/19_06_12__p2.json`, verbatim.
+ *
+ * The same lab, the page after `ONE_SIDED_PAGE`, and the interval printed
+ * across *two* cells rather than three — the separator and the operator come
+ * back against the bound. Neither cell is an interval on its own and there is
+ * no separator cell, so R1 and R6 both saw nothing and every reference range
+ * on the page came back empty.
+ */
+const GLUED_RANGE_PAGE = `|  LIPIDY - sérum | Výsledek | Jednotka | Referenční interval |   | Hodnocení  |
+| --- | --- | --- | --- | --- | --- |
+|  Cholesterol celkový | **3,92** | mmol/l |  | < 5,20 | (X)  |
+|  HDL-cholesterol | **1,51** | mmol/l | 1,00 | - 2,10 | (X)  |
+|  LDL-cholesterol | **1,93** | mmol/l | 1,20 | - 3,00 | (X)  |
+|  Triacylglyceroly | **0,9** | mmol/l |  | < 2,30 | (X)  |`;
+
+describe("R10 — the same interval split across two cells, not three", () => {
+  it("THE REGRESSION: the whole reference column came back empty", () => {
+    const rows = rowsFromTable(GLUED_RANGE_PAGE, 0.99).rows.slice(1);
+    expect(rows.map((r) => r.ref_range_raw)).toEqual(["< 5,20", "1,00 - 2,10", "1,20 - 3,00", "< 2,30"]);
+    expect(rows.map((r) => r.value_raw)).toEqual(["3,92", "1,51", "1,93", "0,9"]);
+    expect(rows.map((r) => r.unit_raw)).toEqual(["mmol/l", "mmol/l", "mmol/l", "mmol/l"]);
+  });
+
+  it("finds the two-column group and joins it in the deployed form", () => {
+    expect(findRangeGroup(splitMarkdownTable(GLUED_RANGE_PAGE).slice(1), null)).toEqual({ low: 3, sep: null, high: 4 });
+    expect(joinRange("1,00", "- 2,10")).toBe("1,00 - 2,10");
+    expect(joinRange("", "< 5,20")).toBe("< 5,20");
+    expect(joinRange("", "≤ 5,20")).toBe("≤ 5,20");
+    expect(joinRange("", "<5,20")).toBe("< 5,20");
+    // A dash with no low bound is not an interval, here as anywhere else.
+    expect(joinRange("", "- 2,10")).toBe("");
+  });
+
+  it("parses in lab-core as one interval, both ways round", () => {
+    const rows = rowsFromTable(GLUED_RANGE_PAGE, 0.99).rows.slice(1);
+    expect(parseRange(rows[0].ref_range_raw)).toEqual({ low: null, high: 5.2, text: null });
+    expect(parseRange(rows[1].ref_range_raw)).toEqual({ low: 1, high: 2.1, text: null });
+  });
+
+  it("does NOT read a negative bound as a separator and a number", () => {
+    // `-10,0` is a bound; only `- 10,0` — with the space — is a separator and
+    // a bound, and BOUND_CELL already claims the first.
+    expect(joinRange("4,00", "-10,0")).toBe("4,00 - -10,0");
+    const t = `| S_Base excess | -1,2 | mmol/l | -3,0 | -3,0 |\n| S_Anion gap | 12 | mmol/l | 8 | 16 |`;
+    expect(findRangeGroup(splitMarkdownTable(t), null)).toBeNull();
+  });
+
+  it("leaves the three-cell form to R1 and R6, which get first refusal", () => {
+    expect(findRangeGroup(splitMarkdownTable(SPLIT_RANGE_PAGE).slice(1), null)).toEqual({ low: 3, sep: 4, high: 5 });
+    expect(findRangeGroup(splitMarkdownTable(ONE_SIDED_PAGE).slice(1), null)).toEqual({ low: 3, sep: 4, high: 5 });
   });
 });
