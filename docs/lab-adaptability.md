@@ -299,3 +299,98 @@ A1 already excluded from its tally), and key the two clipped names on
 `20_10_6` p1 by the printed text. With those, photo meets C3's bar (0
 uncaught value errors on every shot including `angle`, `crop`, `twopage`);
 public meets it once the compound-cell convention is settled in Phase D.
+
+## Phase C — tier 2, the Gemini run (2026-09-06, $3.72)
+
+Two arms of Google Gemini 3.8 Flash over the eleven public pages and all 133
+simulated photos, 288 calls, approved by Ondřej beforehand. The arms differ
+only in media resolution: `high` spends 1,120 visual tokens per image,
+`ultra_high` 2,240. Thinking is `LOW` — `MINIMAL` is in the SDK enum and the
+model rejects it with a 400 (the first attempt: 288 calls, $0.00).
+
+### Was that a fair setting?
+
+Yes, and it is measured rather than assumed. The deployed Claude readers force
+a tool call, which suppresses thinking entirely (docs/extraction-speed.md,
+"Turning thinking off"). Of the 288 Gemini calls at `LOW`, **one** returned any
+thinking tokens at all. Both sides transcribe without reasoning.
+
+### On the identical 45 photo pages, 1,621 rows
+
+```
+variant                pages read truth  rows match  miss extra marker valERR decens
+gemini38_ultra           133   45  1621  1625  1620     1     5     12      0      0
+gemini38_high            133   45  1621  1630  1615     6    15     12      0      0
+opus_vision              133   45  1621  1621  1621     0     0     12      0      0
+sonnet_vision            133   45  1621  1606  1606    15     0     12      0      0
+```
+
+**Nobody misread a value.** Four readers, 1,621 rows, zero value errors and
+zero decensored rows each. The column that would have disqualified a reader
+stayed empty for all of them.
+
+What separates them is which rows they return, and every divergence is a
+judgement call rather than a misread:
+
+- Gemini emits the AGILAB panel line `KO+diferenciál 5p.`, whose printed value
+  is `#`. Both Claude readers omit it. It is printed, so this is a defensible
+  reading, but it is not a measurement and lab-core cannot map it — four
+  spurious rows that would reach the mapping tab. Four of Gemini ultra's five
+  "extras".
+- The fifth is `Vazebná kapacita l` on the sheet that clips its name column:
+  the same clipped glyph the Claude readers rendered as `I`. Now aliased.
+- Sonnet's fifteen misses are the `málo materiálu` rows it declined to treat
+  as results — the same prompt ambiguity tier 1 found.
+
+So the honest ranking on photos is: **Opus and Gemini ultra tied at the top,
+Sonnet last**, and the gap is about which rows count as rows, not about
+reading digits.
+
+### Resolution: ultra earns its tokens
+
+`ultra_high` beats `high` on the same pages — 1,620 matched against 1,615, one
+miss against six, five extras against fifteen. The extra 1,120 visual tokens
+cost about **$0.001 per page**. There is no reason to run `high`.
+
+### On the eleven public sheets, 261 rows
+
+```
+variant                pages read truth  rows match  miss extra marker valERR decens
+gemini38_high             11   11   261   261   247    14    14      0      0      0
+gemini38_ultra            11   11   261   261   247    14    14      0      0      0
+opus_vision               11   11   261   261   261     0     0      0      2      0
+sonnet_vision             11   11   261   261   261     0     0      0      0      0
+```
+
+Again zero value errors for Gemini. All fourteen of its misses are one page —
+Břeclav p122 — where it returned `URE urea` instead of `urea`, folding the
+`Zkr.` abbreviation column into the name. It read the same layout correctly on
+p121. This is Phase D item 3 exactly: the prompt never mentions an
+abbreviation column, and the Claude readers were told about it in their brief.
+The prompt owes Gemini that sentence before any verdict on this class.
+
+Opus's two errors are the Unilabs compound cells (`1,0 pozitívne` returned as
+`1,0`); the pair catches both.
+
+### Pairs — and why the second reader must come from elsewhere
+
+```
+pair                               pages single confirmed flagged UNCAUGHT
+gemini38_ultra+opus_vision            45      0      1620       6        0
+gemini38_ultra+sonnet_vision          45      0      1605      21        0
+gemini38_high+gemini38_ultra          45      0      1618      19        3
+opus_vision+sonnet_vision             45      0      1606      15        0
+```
+
+Every cross-vendor pair reaches **zero uncaught errors**, which is the bar.
+The one pair that does not is the two Gemini arms against each other: three
+rows where both made the same call and neither caught the other. That is the
+whole argument for a second reader from another vendor, arriving as a
+measurement instead of an assumption.
+
+### What this does not yet settle
+
+Gemini has not been given the abbreviation-column sentence, so its public-sheet
+number is a prompt artefact, not a ceiling. These are still simulated photos.
+And nobody has been measured at Sonnet's visual budget: Sonnet sees 4,784
+tokens per page, Gemini ultra 2,240. The tiled arm exists to close that gap.
