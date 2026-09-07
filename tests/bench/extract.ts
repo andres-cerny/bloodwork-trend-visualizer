@@ -97,6 +97,67 @@ export interface Arm {
   supersededBy?: string;
 }
 
+/* -------------------------------------------------- the provider's own answer */
+
+/**
+ * A single field of a `RawAnswer` is truncated at this many characters.
+ *
+ * Generous on purpose: a dense A4 lab page comes back as a few kilobytes of
+ * markdown, so this is roughly an order of magnitude of headroom and in
+ * practice never fires. It exists so that one pathological page — a scan that
+ * OCRs into a wall of repeated glyphs — cannot put megabytes into
+ * `results/adapt/<arm>/<slug>.json` and make the directory unusable.
+ */
+export const RAW_FIELD_MAX = 100_000;
+
+/**
+ * Truncate one field and **say so in the file**: the marker is left inside the
+ * value, where anyone reading the JSON will see it, and the field's name is
+ * also listed in `RawAnswer.truncated` so a program can check without parsing
+ * prose. A silent truncation would make a stored answer look complete.
+ */
+export function truncateRawField(s: string, name: string, truncated: string[]): string {
+  if (s.length <= RAW_FIELD_MAX) return s;
+  truncated.push(name);
+  return s.slice(0, RAW_FIELD_MAX) + `\n…[truncated at ${RAW_FIELD_MAX} characters by RAW_FIELD_MAX]`;
+}
+
+/**
+ * What the provider actually said, beside what we made of it.
+ *
+ * `extraction` is our *mapping* of the answer. For an LLM arm those are nearly
+ * the same thing — the model returned our tool schema — but for the OCR arm
+ * the mapping is the whole accuracy of the arm (mistral.ts, "Mapping OCR
+ * output onto RawMeasurement"), and storing only the mapped rows means a
+ * mapping bug found later can only be re-judged through whatever those rows
+ * happened to carry. That is a real limit and it cost us: re-mapping from
+ * `source_snippet` alone can move a row from wrong to right but never from
+ * absent to present, and one page whose table was dropped entirely could not
+ * be judged at all.
+ *
+ * So the provider's own answer is stored next to ours. It is set **only** where
+ * there is a real one to store — Mistral OCR's page: its markdown, the tables
+ * it isolated, and the per-block confidences the derived `confidence` field
+ * rests on. For Anthropic and Gemini it is left `undefined` rather than filled
+ * with a re-serialisation of the tool input we already have; inventing a `raw`
+ * that is just `extraction` again would make the field a lie about what is
+ * recoverable.
+ */
+export interface RawAnswer {
+  /** Which API said it — the answer's shape is only meaningful per provider. */
+  provider: "mistral";
+  /** The page as the provider rendered it, tables replaced by placeholders. */
+  markdown?: string;
+  /** Each table the provider isolated, in its own markup, with its id. */
+  tables?: Array<{ id: string; content: string }>;
+  /** Per-block average content confidence, keyed to the table a block points at. */
+  blocks?: Array<{ tableId: string; confidence: number | null }>;
+  /** The page-level average, the fallback when a table has no block of its own. */
+  pageConfidence?: number | null;
+  /** Names of the fields cut by `RAW_FIELD_MAX`. Absent when nothing was cut. */
+  truncated?: string[];
+}
+
 export interface CallResult {
   ok: boolean;
   model: string;
@@ -110,6 +171,11 @@ export interface CallResult {
   /** Gemini only: prompt tokens the image cost — the plan's open item on $/page. */
   imageTokens?: number;
   extraction: PageExtraction | null;
+  /**
+   * The provider's own answer, where there is one worth storing. See
+   * `RawAnswer` — deliberately unset for the arms that have nothing to add.
+   */
+  raw?: RawAnswer;
   error: string | null;
 }
 

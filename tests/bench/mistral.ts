@@ -149,6 +149,12 @@
  *     verification"), and what `isPrintedOnPage` provenance would read. It is
  *     also what makes `remapMeasurements` possible: a mapping change can be
  *     re-judged against the API's real answers without paying for them again.
+ * 13. **The OCR answer itself is kept**, in `CallResult.raw` — the page
+ *     markdown, the tables and the block confidences, which is every input
+ *     `rowsFromOcrPage` reads (`rawAnswerFor`). Rule 12's snippets can only
+ *     re-judge a row the old mapping *kept*; `raw` re-judges the whole page,
+ *     through `remapFromRaw`. That distinction is not academic: the first
+ *     mapping bug found here dropped rows, and dropped rows leave no snippet.
  *
  * ### The five rules that fixed the value column
  *
@@ -184,7 +190,7 @@ import type { OCRPageObject, OCRRequest, OCRResponse } from "@mistralai/mistrala
 
 import { type Usage } from "@bw/extraction";
 
-import { type CallResult, type Reader } from "./extract";
+import { truncateRawField, type CallResult, type RawAnswer, type Reader } from "./extract";
 import { type RawMeasurement } from "./score";
 
 /**
@@ -298,8 +304,9 @@ function classifyHeader(label: string): { field: Field | null; known: boolean; w
  * asterisk: `0,93 !`, `1,04 *`, `* urea`, `*Leukocyty`, `(*)`, `[*]`. So only a
  * balanced wrapper is stripped — `**x**`, `__x__`, `*x*`, and `_x_` around a
  * whole cell — and a lone, unpaired `*` or `!` is left exactly as printed.
- * `score.ts`'s `valKey` strips `!`/`*` before comparing anyway, and
- * `normalize()` does the same in the deployed parser; a *wrapper* is not that.
+ * `score.ts`'s `valKey` folds the printed markers away before comparing anyway
+ * (`stripValueMarkers`, the one place that rule is stated), and `normalize()`
+ * does the same in the deployed parser; a *wrapper* is not that.
  *
  * The single-underscore form is restricted to a whole cell whose interior
  * carries no other underscore, because Czech analyte names are full of them
@@ -751,10 +758,79 @@ export function rowsFromOcrPage(page: OCRPageObject): MappedPage {
   return { measurements, droppedColumns: [...dropped], skippedTables: skipped };
 }
 
+/* --------------------------------------------- the OCR answer, kept verbatim */
+
+/**
+ * The provider's own answer for this page, for `CallResult.raw`.
+ *
+ * Everything `rowsFromOcrPage` reads and nothing else: the page markdown, the
+ * tables as Mistral isolated them, the per-block content confidences (which is
+ * where the derived `confidence` field comes from, rule 10) and the page-level
+ * average that stands in when a table has no block. Cropped images are not
+ * requested and would not be stored; word-level boxes are not requested either.
+ *
+ * That set is exactly what makes a stored run re-judgeable: a mapping change
+ * can be re-run against this and produce rows the old mapping never emitted —
+ * which `remapMeasurements` from `source_snippet` structurally cannot do, since
+ * a row the old mapping dropped left no snippet behind.
+ */
+export function rawAnswerFor(page: OCRPageObject): RawAnswer {
+  const truncated: string[] = [];
+  const blocks: Array<{ tableId: string; confidence: number | null }> = [];
+  for (const b of page.blocks ?? []) {
+    const any = b as any;
+    if (any?.type === "table" && any.tableId) {
+      blocks.push({ tableId: any.tableId, confidence: any.confidenceScores?.averageContentConfidenceScore ?? null });
+    }
+  }
+  const raw: RawAnswer = {
+    provider: "mistral",
+    markdown: truncateRawField(page.markdown ?? "", "markdown", truncated),
+    tables: (page.tables ?? []).map((t) => ({ id: t.id, content: truncateRawField(t.content ?? "", `tables[${t.id}]`, truncated) })),
+    blocks,
+    pageConfidence: page.confidenceScores?.averagePageConfidenceScore ?? null,
+  };
+  if (truncated.length) raw.truncated = truncated;
+  return raw;
+}
+
+/**
+ * Re-map a stored `RawAnswer` — the whole point of storing one.
+ *
+ * `rowsFromOcrPage` is run again on the provider's own answer, so today's
+ * mapping sees exactly what it would have seen on the day of the call. Unlike
+ * `remapMeasurements` below, this *can* bring a row back from absent to
+ * present, and it can re-judge a page whose tables the old mapping rejected
+ * outright. Returns `null` when there is nothing to work from, so a caller can
+ * fall back to the snippet route for the runs recorded before `raw` existed.
+ */
+export function remapFromRaw(raw: RawAnswer | null | undefined): RawMeasurement[] | null {
+  if (!raw || raw.provider !== "mistral") return null;
+  if (!raw.tables?.length && !raw.markdown) return null;
+  const conf = new Map((raw.blocks ?? []).map((b) => [b.tableId, b.confidence] as const));
+  const page = {
+    markdown: raw.markdown ?? "",
+    tables: (raw.tables ?? []).map((t) => ({ id: t.id, content: t.content })),
+    blocks: [...conf].map(([tableId, confidence]) => ({
+      type: "table",
+      tableId,
+      confidenceScores: { averageContentConfidenceScore: confidence },
+    })),
+    confidenceScores:
+      raw.pageConfidence === null || raw.pageConfidence === undefined
+        ? undefined
+        : { averagePageConfidenceScore: raw.pageConfidence },
+  } as unknown as OCRPageObject;
+  return rowsFromOcrPage(page).measurements;
+}
+
 /* ------------------------------------------------- re-mapping, without paying */
 
 /**
  * Re-map measurements this file produced earlier, from their own snippets.
+ *
+ * The fallback route, for runs persisted before `CallResult.raw` existed.
+ * `remapFromRaw` is strictly better where a stored `raw` is available.
  *
  * Rule 12 makes `source_snippet` the whole printed row, cells rejoined with
  * `" | "`, and no cell can contain a `|` because that is what they were split
@@ -900,6 +976,10 @@ async function attemptOcr(client: Mistral, reader: Reader, request: OCRRequest):
           usage: EMPTY,
           model: reader.model,
         },
+        // What Mistral said, beside what we made of it. `extract.ts`,
+        // `RawAnswer`: the mapping *is* this arm's accuracy, so a stored run
+        // has to carry the answer the mapping was applied to.
+        raw: rawAnswerFor(page),
         error: null,
       },
     };

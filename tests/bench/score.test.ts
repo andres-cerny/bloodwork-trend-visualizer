@@ -115,6 +115,87 @@ describe("scoreAgainstBaseline", () => {
   });
 });
 
+/**
+ * The asymmetry this suite exists to prevent coming back.
+ *
+ * `valueErrors` folded the lab's printed `!` away; `scoreAgainstBaseline`
+ * compared values text-exact. So the same two reads — one keeping the printed
+ * marker, as the deployed prompt asks, one dropping it, as `normalize()` does
+ * a moment later — scored clean on a photographed page and as 25 "value
+ * errors" on the born-digital page beside it, none of which was a disagreement
+ * about a number. Both directions are asserted here, on both scorers, because
+ * a rule that only holds one way round is the same bug wearing a mirror.
+ */
+describe("a printed out-of-range marker is not a value disagreement", () => {
+  const withMarker = { raw_analyte_name: "S_IGF 1", value_raw: "53,1 !", unit_raw: "µg/l", ref_range_raw: "41,0 - 246,0" };
+  const without = { ...withMarker, value_raw: "53,1" };
+
+  it("scoreAgainstBaseline: the arm keeps the marker the baseline dropped", () => {
+    const s = scoreAgainstBaseline([without], [withMarker]);
+    expect(s.matched).toBe(1);
+    expect(s.valueMismatch).toEqual([]);
+  });
+
+  it("scoreAgainstBaseline: the arm drops the marker the baseline kept", () => {
+    const s = scoreAgainstBaseline([withMarker], [without]);
+    expect(s.matched).toBe(1);
+    expect(s.valueMismatch).toEqual([]);
+  });
+
+  it("valueErrors: both directions, the same answer", () => {
+    expect(valueErrors([withMarker], [without]).errors).toEqual([]);
+    expect(valueErrors([without], [withMarker]).errors).toEqual([]);
+  });
+
+  it("pairStats: two readers that disagree only about the marker confirm the row", () => {
+    const p = pairStats([withMarker], [without], [without]);
+    expect(p.confirmedRows).toBe(1);
+    expect(p.flaggedRows).toBe(0);
+    expect(p.uncaughtValueErrors).toEqual([]);
+  });
+
+  it("covers every marker normalize() strips, and no more", () => {
+    for (const marked of ["53,1 !", "53,1 *", "53,1 ↑", "53,1↓", "! 53,1"]) {
+      const s = scoreAgainstBaseline([without], [{ ...withMarker, value_raw: marked }]);
+      expect(s.valueMismatch, marked).toEqual([]);
+    }
+  });
+
+  it("a real digit difference still counts, marker or no marker", () => {
+    // The one genuine value error the photo arm has left: 358 read as 359.
+    const s = scoreAgainstBaseline([withMarker], [{ ...withMarker, value_raw: "53,2 !" }]);
+    expect(s.valueMismatch).toHaveLength(1);
+    const t = scoreAgainstBaseline([withMarker], [{ ...withMarker, value_raw: "53,2" }]);
+    expect(t.valueMismatch).toHaveLength(1);
+    expect(valueErrors([{ ...withMarker, value_raw: "53,2" }], [withMarker]).errors).toHaveLength(1);
+  });
+
+  it("does not fold a censor away with the marker", () => {
+    const truth = [{ raw_analyte_name: "S_CRP", value_raw: "<1,0" }];
+    expect(scoreAgainstBaseline(truth, [{ raw_analyte_name: "S_CRP", value_raw: "1,0 !" }]).valueMismatch).toHaveLength(1);
+    expect(scoreAgainstBaseline(truth, [{ raw_analyte_name: "S_CRP", value_raw: "< 1,0 !" }]).valueMismatch).toEqual([]);
+  });
+
+  it("censoredLostMarker reads through the marker rather than tripping over it", () => {
+    expect(censoredLostMarker("<1,0", "! <1,0")).toBe(false);
+    expect(censoredLostMarker("! <1,0", "1,0")).toBe(true);
+  });
+
+  it("units and ranges stay text-exact — the marker rule is about values", () => {
+    const s = scoreAgainstBaseline([withMarker], [{ ...withMarker, ref_range_raw: "41,0 - 246,0 *", unit_raw: "µg/l *" }]);
+    expect(s.rangeMismatch).toHaveLength(1);
+    expect(s.unitMismatch).toHaveLength(1);
+  });
+
+  it("a value that is nothing but a marker never folds into a blank", () => {
+    // AGILAB prints a bare "*" where a panel row's number would be. Emptying it
+    // would let it match a reader that returned no value at all.
+    const panel = [{ raw_analyte_name: "KO+diferenciál 5p.", value_raw: "*" }];
+    const blank = [{ raw_analyte_name: "KO+diferenciál 5p.", value_raw: "" }];
+    expect(scoreAgainstBaseline(panel, blank).valueMismatch).toHaveLength(1);
+  });
+});
+
 describe("duplicate analyte names — the differential-count page", () => {
   // A real lab page prints B_Neutrofily twice: once as a fraction and once as
   // an absolute count, on two separate printed rows. Keying by name alone

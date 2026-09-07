@@ -10,6 +10,13 @@
  *     the page. This one *is* objective, and it is the only one where a
  *     non-zero result is disqualifying rather than interesting.
  *  3. `rangeIntegrity` — the named check. See below.
+ *
+ * One cross-cutting rule, stated once at `stripValueMarkers` and used by every
+ * value comparison here: the lab's printed out-of-range markers (`!`, `*`, `↑`,
+ * `↓`) are decoration on a number, not the number, exactly as `normalize()`
+ * treats them. Keeping one and dropping one are both faithful reads, so
+ * neither is charged a value error. Digits, the decimal comma and the `<`/`>`
+ * censors are untouched.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -149,9 +156,82 @@ export function aliasedNameKey(opts?: MatchOptions): (name: string | undefined) 
   };
 }
 
-/** Whitespace-insensitive, otherwise exact — the decimal comma must survive. */
+/* ------------------------------ the printed out-of-range marker, stated once */
+
+/**
+ * Whitespace squashed, and nothing else. The decimal comma must survive: `5,32`
+ * and `5.32` are different numbers and this file will always say so.
+ */
+export const squash = (x: string | undefined): string => (x ?? "").replace(/\s+/g, "");
+
+/**
+ * The markers a Czech lab prints *beside* a value to say it is out of range.
+ *
+ * Exactly the set `parseValue()` in packages/lab-core/src/normalize.ts strips
+ * before parsing (`VALUE_MARKERS` there): `!`, `*`, `↑`, `↓`. They are
+ * decoration on the number, never part of it — the deployed app throws them
+ * away and computes the flag from the reference interval instead.
+ */
+const VALUE_MARKERS = /[!*↑↓]/g;
+
+/**
+ * **The one rule this file has about markers, and it lives here.**
+ *
+ * Two readers can be equally right about `53,1 !` — the deployed prompt asks
+ * for the row as printed, so keeping the `!` is faithful; `normalize()` drops
+ * it a moment later, so dropping it loses nothing. Whichever way the truth
+ * happens to have been recorded, charging the other reader a *value error* is
+ * a claim about the number, and there is no disagreement about the number.
+ *
+ * So every comparison of a **value** in this file goes through `valKey`, and
+ * the asymmetry that made this rule necessary is worth naming: `valueErrors`
+ * already used `valKey` while `scoreAgainstBaseline` compared values
+ * text-exact, so the same pair of reads scored clean on a photo page and as 25
+ * value errors on the born-digital page beside it. One rule, one place.
+ *
+ * What it deliberately does **not** do:
+ *
+ *   - it never touches a digit, a decimal comma or a decimal point, so a
+ *     genuine misread (`358` against `359`, `5,32` against `5.32`) still
+ *     counts, exactly as before;
+ *   - it never touches `<` or `>`. Those are censors, not markers: `<1,0`
+ *     means "below the assay floor" and turning it into `1,0` invents a
+ *     result. `censoredLostMarker` is the guard for that and it runs on the
+ *     marker-stripped string, so a censor is caught whether or not a `!`
+ *     stands beside it;
+ *   - it never empties a cell. A value that is *nothing but* markers (`*`, the
+ *     panel row AGILAB prints where a number would go) keeps its printed form,
+ *     so it can never fold together with a blank and match by accident.
+ *     `isMeasurementRow` is what drops those from truth.
+ *
+ * Units and reference ranges are compared with `sameText` — text-exact once
+ * whitespace is squashed — because the out-of-range marker is decoration on a
+ * *value*; a unit and an interval do not carry one, and folding `*` out of a
+ * printed range would hide a real difference rather than a notational one.
+ * Analyte names need no rule of their own: `nameKey` already drops every
+ * non-alphanumeric, markers included.
+ *
+ * (tests/bench/subagent_score.bench.ts keeps its own two-line copy of this fold
+ * for a different, already-published run. It is not imported from here on
+ * purpose — re-defining it there would silently restate that benchmark's
+ * numbers — but if a third copy is ever wanted, import this one instead.)
+ */
+export function stripValueMarkers(s: string): string {
+  const bare = s.replace(VALUE_MARKERS, "");
+  return bare === "" ? s : bare;
+}
+
+/** The comparison key for a **value**. See `stripValueMarkers`. */
+export const valKey = (x: string | undefined): string => stripValueMarkers(squash(x));
+
+/**
+ * Whitespace-insensitive, otherwise exact — the decimal comma must survive.
+ *
+ * For units and ranges only. Values go through `valKey`; see above for why the
+ * two are different and why that difference is not an oversight.
+ */
 function sameText(a: string | undefined, b: string | undefined): boolean {
-  return (a ?? "").replace(/\s+/g, "") === (b ?? "").replace(/\s+/g, "");
+  return squash(a) === squash(b);
 }
 
 export interface BaselineScore {
@@ -218,7 +298,9 @@ export function scoreAgainstBaseline(
     taken.set(k, n + 1);
     score.matched++;
     const name = b.raw_analyte_name ?? "?";
-    if (!sameText(b.value_raw, a.value_raw))
+    // Values through `valKey`, units and ranges through `sameText` — the one
+    // marker rule, stated at `stripValueMarkers`.
+    if (valKey(b.value_raw) !== valKey(a.value_raw))
       score.valueMismatch.push({ name, baseline: b.value_raw ?? "", arm: a.value_raw ?? "" });
     if (!sameText(b.unit_raw, a.unit_raw))
       score.unitMismatch.push({ name, baseline: b.unit_raw ?? "", arm: a.unit_raw ?? "" });
@@ -331,7 +413,8 @@ export function twoValues(value: string | undefined): boolean {
   // A range printed in the value column is a different fault, not a merge.
   if (countIntervals(raw) >= 1) return false;
   const t = raw
-    .replace(/[!*]/g, " ")
+    // The same marker set `stripValueMarkers` folds — one number, decorated.
+    .replace(VALUE_MARKERS, " ")
     .replace(/[<>]/g, " ")
     // Czech thousands: a space before exactly three digits belongs to the
     // number in front of it. Conservative on purpose — see the header.
@@ -410,11 +493,15 @@ export function looksCollapsed(range: string | undefined): boolean {
  *
  * `<1,0` means "below the assay's floor". Dropping the `<` turns "we could not
  * measure it" into "it is 1,0", which reads as a real result.
+ *
+ * `<` and `>` are censors, not out-of-range markers, so `valKey` leaves them
+ * alone; running the test on the marker-stripped string is only what makes
+ * `! <1,0` and `<1,0` read as the same censored value, so a reader that keeps
+ * the lab's `!` is not accused of decensoring.
  */
 export function censoredLostMarker(baselineValue: string, armValue: string): boolean {
-  const hadMarker = /^[<>]/.test(baselineValue.trim());
-  const hasMarker = /^[<>]/.test(armValue.trim());
-  return hadMarker && !hasMarker;
+  const censored = (v: string) => /^[<>]/.test(valKey(v));
+  return censored(baselineValue) && !censored(armValue);
 }
 
 export interface RangeIntegrity {
@@ -459,13 +546,11 @@ export function rangeIntegrity(
  * ten errors for coming back the other way round. Names are keyed through
  * `aliasedNameKey`, so a page whose printed name is clipped can be matched by
  * what it prints; truth rows that are not measurements are dropped first by
- * `isMeasurementRow`. Values are compared with
- * whitespace squashed and the lab's own `!`/`*` markers stripped, because
- * `normalize()` strips them before parsing — a dropped marker is not a wrong
- * number. The decimal comma survives.
+ * `isMeasurementRow`. Values are compared through `valKey`, the file's single
+ * marker rule — see `stripValueMarkers`, which `scoreAgainstBaseline` now
+ * shares, so the same read is scored the same way whether the page was a
+ * photograph or a born-digital PDF.
  */
-export const squash = (x: string | undefined): string => (x ?? "").replace(/\s+/g, "");
-export const valKey = (x: string | undefined): string => squash(x).replace(/[!*]/g, "");
 
 export interface ValueErrors {
   /** Truth rows that carry a value — marker rows are not counted. */

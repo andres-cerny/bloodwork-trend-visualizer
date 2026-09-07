@@ -34,6 +34,28 @@
  * results/adapt.jsonl. Scores go to results/adapt/scores.jsonl and to the
  * tables below, which are hand-copied into docs/lab-adaptability.md.
  *
+ * ## A stored run is fully re-judgeable
+ *
+ * Each persisted record now carries `call.raw` — the provider's own answer,
+ * not only our mapping of it (extract.ts, `RawAnswer`; for Mistral OCR the
+ * page markdown, its tables and the block confidences, truncated per field at
+ * RAW_FIELD_MAX with the cut recorded in the file). It is set only where there
+ * is a real one: the LLM arms return our tool schema, so their `extraction`
+ * already *is* their answer and `raw` stays unset rather than restating it.
+ *
+ * Why that is worth the kilobytes. For the OCR arms the accuracy of the arm is
+ * our mapping code, not the model, so every mapping change has to be re-judged
+ * against answers we have already paid for. Before this field the only route
+ * back was `source_snippet`, and a snippet exists only for a row the *old*
+ * mapping kept: BENCH_REMAP could move a row from wrong to right and never
+ * from absent to present, a page whose table the old mapping rejected scored
+ * zero forever, and the one real mapping bug found so far was precisely a bug
+ * that dropped rows — the failure mode the re-judging route was blind to. With
+ * `raw`, `remapFromRaw` re-runs the whole page through today's mapping and the
+ * dropped rows come back. `printRemap` prefers it and says, per class, how many
+ * pages it had; records written before this field fall back to the snippet
+ * route and carry its caveats, which are printed with them.
+ *
  * Columns per class:
  *   text pages   matched / missing / extra / valΔ against the baseline,
  *                fabrications against the printed rows, collapsed + decensored
@@ -72,6 +94,7 @@ import {
   PAGE_PRICE_USD,
   describeRequest as describeMistralRequest,
   mistralRequest,
+  remapFromRaw,
   remapMeasurements,
 } from "./mistral";
 import { readDocument, readImage, readText } from "./readers";
@@ -357,22 +380,37 @@ function printSingles(cls: CorpusClass, scores: PageScore[], truthSource: string
  * judged against the API's real answers — and paying for the same 146 pages a
  * second time to grade our own regex is not a benchmark, it is a bill.
  *
- * What makes this honest is rule 12: `source_snippet` is the whole printed
- * row, rejoined with `" | "`, and no cell can contain a `|`. So the cells
- * survive the round trip exactly and `remapMeasurements` re-runs the mapping on
- * them. What it cannot do must be said wherever these numbers are quoted:
+ * There are two routes back to those answers, and which one a record gets is
+ * printed per class, because they are not equally good.
+ *
+ * **`raw`** — the provider's own answer, stored with the record since
+ * `CallResult.raw` existed. `remapFromRaw` re-runs `rowsFromOcrPage` on it, so
+ * today's mapping sees the page exactly as the day's call did: rows the old
+ * mapping dropped come back, a table it rejected outright is re-judged, and the
+ * header is read rather than reconstructed. This is the honest route and the
+ * only caveat left is the obvious one — a page the API never answered for (or
+ * answered 429 to) has nothing to re-map and stays at zero.
+ *
+ * **`snippet`** — the fallback for records written before that field, resting
+ * on rule 12: `source_snippet` is the whole printed row, rejoined with `" | "`,
+ * and no cell can contain a `|`, so the cells survive the round trip exactly
+ * and `remapMeasurements` re-runs the mapping on them. What it cannot do must
+ * be said wherever *those* numbers are quoted:
  *
  *   - a row the OLD mapping dropped is not in the file, so it cannot come back
  *     — the "after" column can move a row from wrong to right, never from
  *     absent to present;
- *   - a page the API never answered for (or answered 429 to) stays at zero;
+ *   - a page whose tables the old mapping rejected entirely stays at zero even
+ *     though the answer may have been fine;
  *   - the table's header row was consumed, so a re-mapped table is inferred
  *     from its cells even where the original read a header. Run this mode
  *     BEFORE a mapping change too: "before" against the persisted score is the
  *     reconstruction's own error bar, and only the movement beyond it is the
  *     change.
  */
-function printRemap(rows: Array<{ cls: CorpusClass; arm: string; slug: string; kind: Input; before: PageScore; after: PageScore }>): void {
+type RemapSource = "raw" | "snippet";
+
+function printRemap(rows: Array<{ cls: CorpusClass; arm: string; slug: string; kind: Input; source: RemapSource; before: PageScore; after: PageScore }>): void {
   if (!rows.length) {
     console.log("\nnothing to re-map: no persisted OCR output for the selected arms and classes.");
     return;
@@ -382,7 +420,17 @@ function printRemap(rows: Array<{ cls: CorpusClass; arm: string; slug: string; k
   for (const cls of classes) {
     const here = rows.filter((r) => r.cls === cls);
     if (!here.length) continue;
+    const fromRaw = here.filter((r) => r.source === "raw").length;
     console.log(`\n## ${cls} — persisted mapping → re-mapped`);
+    // Which route, said before the numbers rather than after them: the two
+    // carry different caveats and only one of them can un-drop a row.
+    console.log(
+      fromRaw === here.length
+        ? `re-mapped from the provider's own answer (call.raw) on all ${here.length} pages.`
+        : fromRaw === 0
+          ? `re-mapped from source_snippet on all ${here.length} pages — no record carries call.raw, so a row the old mapping dropped cannot come back.`
+          : `re-mapped from call.raw on ${fromRaw} of ${here.length} pages; the other ${here.length - fromRaw} fell back to source_snippet, where a dropped row cannot come back.`,
+    );
     console.log("arm".padEnd(22) + pad("pages", 6) + pad("truth", 7) + heads.map((h) => pad(h, 16)).join(""));
     for (const arm of [...new Set(here.map((r) => r.arm))]) {
       const hits = here.filter((r) => r.arm === arm);
@@ -514,7 +562,7 @@ it("lab adaptability — class × arm, scored per class", async () => {
 
   if (REMAP) {
     console.log("\n# BENCH_REMAP — persisted OCR responses re-mapped offline. Nothing is sent, nothing is spent.");
-    const rows: Array<{ cls: CorpusClass; arm: string; slug: string; kind: Input; before: PageScore; after: PageScore }> = [];
+    const rows: Array<{ cls: CorpusClass; arm: string; slug: string; kind: Input; source: RemapSource; before: PageScore; after: PageScore }> = [];
     for (const cls of classes) {
       for (const page of pages.get(cls)!) {
         if (!page.truth) continue;
@@ -522,14 +570,17 @@ it("lab adaptability — class × arm, scored per class", async () => {
           const p = loadPersisted(arm.id, page.slug);
           if (!p?.call.extraction) continue;
           const before = scoreSingle(page, arm.id, p);
-          const measurements = remapMeasurements(p.call.extraction.measurements as RawMeasurement[]);
+          // The provider's own answer where the record has one — that route can
+          // bring a dropped row back. Otherwise the snippets, with their limits.
+          const fromRaw = remapFromRaw(p.call.raw);
+          const source: RemapSource = fromRaw ? "raw" : "snippet";
+          const measurements = fromRaw ?? remapMeasurements(p.call.extraction.measurements as RawMeasurement[]);
           const after = scoreSingle(page, arm.id, { ...p, call: { ...p.call, extraction: { ...p.call.extraction, measurements: measurements as any } } });
-          if (before && after) rows.push({ cls, arm: arm.id, slug: page.slug, kind: page.kind, before, after });
+          if (before && after) rows.push({ cls, arm: arm.id, slug: page.slug, kind: page.kind, source, before, after });
         }
       }
     }
     printRemap(rows);
-    console.log("\nre-mapped only — a row the old mapping dropped is not in the file and cannot come back (see printRemap).");
     return;
   }
 
@@ -639,7 +690,10 @@ it("lab adaptability — class × arm, scored per class", async () => {
       mkdirSync(join(OUT, arm.id), { recursive: true });
       // Persist a failure too: "Paying twice" applies to knowing it failed.
       writeFileSync(outPath(arm.id, page.slug), JSON.stringify(rec, null, 1));
-      appendFileSync(JSONL, JSON.stringify({ ...rec, call: { ...call, extraction: undefined, rows: call.extraction?.measurements.length ?? null } }) + "\n");
+      // One line per call: the mapped rows and the provider's answer both live
+      // in the per-page file, and a page of markdown here would stop this being
+      // a log.
+      appendFileSync(JSONL, JSON.stringify({ ...rec, call: { ...call, extraction: undefined, raw: undefined, rows: call.extraction?.measurements.length ?? null } }) + "\n");
       persisted.set(pkey(arm.id, page.slug), rec);
       console.log(
         `${arm.id.padEnd(16)} ${page.cls.padEnd(9)} ${page.slug.padEnd(34)} ${call.ok ? pad(Math.round(call.ms), 6) + " ms" : "FAILED " + call.error} ` +

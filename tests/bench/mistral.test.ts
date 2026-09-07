@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 
 import { SYSTEM_EXTRACT_TEXT } from "@bw/extraction";
 
+import { RAW_FIELD_MAX } from "./extract";
 import {
   findRangeGroup,
   headerKey,
@@ -25,6 +26,8 @@ import {
   joinRange,
   markdownTables,
   nameAt,
+  rawAnswerFor,
+  remapFromRaw,
   remapMeasurements,
   rowsFromOcrPage,
   rowsFromTable,
@@ -173,6 +176,88 @@ describe("rowsFromOcrPage — one page, several tables", () => {
   it("mines no rows out of prose", () => {
     const prose = { ...page, tables: [], blocks: [], markdown: "Glukóza 5,32 mmol/l 3,9 - 5,6" };
     expect(rowsFromOcrPage(prose).measurements).toEqual([]);
+  });
+});
+
+/**
+ * Rule 13 — the stored answer, and the thing the snippet route cannot do.
+ *
+ * The re-map that judged the last mapping change ran off `source_snippet`, and
+ * a snippet exists only for a row the *old* mapping kept. So the one failure
+ * mode a mapping bug most often takes — dropping rows — was exactly the one
+ * that route could not re-judge. `raw` is the fix, and the test that matters is
+ * the second one below: a page the old mapping read as empty comes back full.
+ */
+describe("call.raw — the provider's own answer, and re-mapping off it", () => {
+  const page: any = {
+    index: 0,
+    markdown: "# Nemocnice\n\n[tbl-0.md](tbl-0.md)\n\n[tbl-1.md](tbl-1.md)",
+    images: [],
+    dimensions: { dpi: 200, width: 1820, height: 2573 },
+    tables: [
+      { id: "tbl-0.md", content: BRECLAV_PATIENT, format: "markdown" },
+      { id: "tbl-1.md", content: BRECLAV_RESULTS, format: "markdown" },
+    ],
+    blocks: [
+      { type: "table", tableId: "tbl-1.md", content: "", confidenceScores: { averageContentConfidenceScore: 0.998 } },
+      { type: "text", content: "Nemocnice" },
+    ],
+    confidenceScores: { averagePageConfidenceScore: 0.98, minimumPageConfidenceScore: 0.11 },
+  };
+
+  it("keeps every input the mapping reads, and nothing it does not", () => {
+    const raw = rawAnswerFor(page);
+    expect(raw.provider).toBe("mistral");
+    expect(raw.markdown).toBe(page.markdown);
+    expect(raw.tables?.map((t) => t.id)).toEqual(["tbl-0.md", "tbl-1.md"]);
+    expect(raw.tables?.[1].content).toBe(BRECLAV_RESULTS);
+    // Only table blocks carry a confidence the mapping uses; prose blocks and
+    // the cropped images are not stored.
+    expect(raw.blocks).toEqual([{ tableId: "tbl-1.md", confidence: 0.998 }]);
+    expect(raw.pageConfidence).toBe(0.98);
+    expect(raw.truncated).toBeUndefined();
+    expect(JSON.stringify(raw)).not.toContain("dimensions");
+  });
+
+  it("round-trips: re-mapping the stored answer reproduces the live mapping", () => {
+    const live = rowsFromOcrPage(page).measurements;
+    expect(remapFromRaw(rawAnswerFor(page))).toEqual(live);
+  });
+
+  it("brings back rows a mapping had dropped — what source_snippet cannot do", () => {
+    // Stand in for the old mapping by persisting a read that returned nothing:
+    // no snippet exists, so `remapMeasurements` has nothing to work from and
+    // the page would score zero forever. `raw` re-judges the page itself.
+    const droppedEverything: RawMeasurement[] = [];
+    expect(remapMeasurements(droppedEverything)).toEqual([]);
+    expect(remapFromRaw(rawAnswerFor(page))).toHaveLength(4);
+  });
+
+  it("re-reads a real header rather than reconstructing one from cells", () => {
+    const raw = rawAnswerFor({ ...page, tables: [{ id: "t", content: BRECLAV_RESULTS, format: "markdown" }] } as any);
+    const rows = remapFromRaw(raw)!;
+    // The header row is present in `raw` and consumed as a header, so the four
+    // data rows survive — and `Text. výsl.`/`Kontrola l.stupně` are dropped by
+    // name rather than guessed at.
+    expect(rows.map((r) => r.raw_analyte_name)).toEqual(["* urea", "* kreatinin", "* kyselina močová", "laktátdehydrogenáza"]);
+  });
+
+  it("truncates one oversized field, says so in the file, and leaves the rest alone", () => {
+    const huge = "x".repeat(RAW_FIELD_MAX + 500);
+    const raw = rawAnswerFor({ ...page, markdown: huge } as any);
+    expect(raw.truncated).toEqual(["markdown"]);
+    expect(raw.markdown!.length).toBeLessThan(huge.length);
+    expect(raw.markdown).toContain("truncated at");
+    // The cut is per field: the tables beside it are untouched.
+    expect(raw.tables?.[1].content).toBe(BRECLAV_RESULTS);
+    expect(remapFromRaw(raw)).toHaveLength(4);
+  });
+
+  it("refuses to invent a re-map when there is nothing stored", () => {
+    expect(remapFromRaw(null)).toBeNull();
+    expect(remapFromRaw(undefined)).toBeNull();
+    expect(remapFromRaw({ provider: "mistral" })).toBeNull();
+    expect(remapFromRaw({ provider: "mistral", tables: [], markdown: "" })).toBeNull();
   });
 });
 
