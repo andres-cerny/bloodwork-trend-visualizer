@@ -537,3 +537,98 @@ insurance whose premium we can measure and whose payout we have not seen.
   `málo materiálu`, which are measurements.
 - The vitamin D continuation row prints no name at all. Aliasing an empty name
   is unsafe, so this one stays a known artefact rather than a scorer rule.
+
+## Phase C — Mistral OCR, both paths (2026-09-07, $0.99 including a wasted first attempt)
+
+Two arms, run sequentially after the first attempt ran them in parallel and
+rate-limited itself away. `mistral-ocr-4-1`, pinned to the dated id so a moving
+alias cannot void these numbers, billed per page at $0.004.
+
+### The born-digital path — genuinely competitive, and twelve times cheaper
+
+32 text-layer pages, 877 accepted rows. The competition is the deployed text
+path, measured on the real API in docs/extraction-speed.md.
+
+| reader | matched / 877 | value errors | merged rows | $/page |
+|---|---|---|---|---|
+| Haiku 4.5 (deployed) | 851 | 0 | 0 | ~0.014 |
+| **Mistral OCR** | **847** | **0** | **0** | **0.004** |
+| Sonnet 5 (deployed) | 843 | 0 | 0 | ~0.037 |
+
+Mistral lands between the two Claude readers on recall, with no value errors
+and no merged rows, at roughly a third of Haiku's price and a twelfth of the
+deployed pair's. **This is the cost question answered, and the answer is yes.**
+
+Two caveats stated rather than buried. The arm scores 109 "fabrications", and
+they are not inventions: the page prints its exponent glyph in a form the
+checker searches for literally, Mistral normalises it to `10^9/l`, and the
+accepted baseline stores `10^9/l` too — so the value matches truth exactly and
+only the printed-text check disagrees. This is the same caveat A7 made about
+Docling's 210. And 30 rows are still missing; the stored answers now carry
+Mistral's own output, so whether we or it lost them is answerable without
+another bill.
+
+### Photographs — not a photo reader, and the reason is structural
+
+133 simulated shots, 3,677 rows, scored beside the other five arms.
+
+```
+variant                pages read truth  rows match  miss extra marker valERR decens
+gemini38_ultra           133  133  3677  3673  3663    14    10     16      0      0
+opus_vision              133  133  3677  3657  3649    28     8     16      0      0
+sonnet_vision            133  133  3677  3618  3614    63     4     16      0      0
+mistral_ocr              133  133  3677  3692  3504   173   188     16     72      2
+```
+
+72 value errors and two decensored values, where every other reader has zero.
+But the distribution is the finding: **all 72 sit on 7 pages of 133, and 5 of
+those 7 are the `angle` condition** with the other 2 `dark`. Flat and glare
+shots are clean.
+
+The mechanism, read off the stored answer for `sim__2024_06_07_p2_angle`:
+
+```
+#   Mistral                        value  |  truth                        value
+2   S_Albumin                       66,3  |  S_Albumin                     46,6
+3   Štitná žláza                    46,6  |  S_TSH               málo materiálu
+```
+
+A section heading is emitted as a data row and absorbs the next real row's
+value, and everything shifts by one until the table re-syncs. Five headings on
+that page, five cascades. **This is a table-reconstruction failure, not a
+misreading**: a document parser builds a grid, and a grid shears when the page
+is photographed at an angle. The Claude and Gemini readers look at a page
+rather than rebuilding a lattice over it, and they do not have this failure.
+
+It follows that browser-side perspective correction stops being optional if
+Mistral ever reads photographs. Phase E deferred de-skew pending evidence; this
+is the evidence, and it is specific to this reader.
+
+### The pairing insurance paid out
+
+The previous section said cross-vendor pairing was a demonstrated mechanism
+with an unproven consequence, because no reader had yet misread a value. One
+now has.
+
+```
+pair                          confirmed flagged UNCAUGHT caught
+mistral_ocr+opus_vision            3432     413        0     72
+mistral_ocr+sonnet_vision          3399     440        0     72
+gemini38_ultra+mistral_ocr         3437     419        7     72
+```
+
+**Every one of the 72 errors was caught.** Both Claude pairings end at zero
+uncaught. The row-offset cascade is exactly the shape a second reader is good
+at catching, because a shifted value is still a plausible number and only
+disagreement reveals it. The cost is visible too: 413 flagged rows is a real
+review burden, an order of magnitude above the 36 that Gemini and Opus flag
+against each other.
+
+### Where this leaves the two paths
+
+- **Photographs**: Gemini ultra with a Claude reader, unchanged. Mistral is not
+  a candidate until de-skew exists, and even then it must re-earn it.
+- **Born-digital PDFs**: Mistral deserves a serious look. Same accuracy class,
+  no merged rows, a twelfth of the price, and roughly three times faster. What
+  it does not have is the deployed path's guarantee that every value was
+  checked against characters taken from the file itself.
