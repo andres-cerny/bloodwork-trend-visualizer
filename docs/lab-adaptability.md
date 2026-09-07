@@ -632,3 +632,58 @@ against each other.
   no merged rows, a twelfth of the price, and roughly three times faster. What
   it does not have is the deployed path's guarantee that every value was
   checked against characters taken from the file itself.
+
+## Phase C — the deployed pair, measured at last (2026-09-07)
+
+Every comparison so far told us which pair is good in the abstract. None told
+us how much better it is than what the app runs today, because Haiku had never
+been scored on this corpus. It has now, on subagents, free, over the same 133
+pages.
+
+```
+variant                pages read truth  rows match  miss extra marker valERR decens  $/page
+gemini38_ultra           133  133  3677  3673  3663    14    10     16      0      0  0.0133
+gemini38_tiled           133  133  3677  3674  3663    14    11     16      0      0  0.0150
+opus_vision              133  133  3677  3657  3649    28     8     16      0      0  0.1065*
+gemini38_high            133  132  3643  3644  3626    17    18     16      0      0  0.0126
+sonnet_vision            133  133  3677  3618  3614    63     4     16      0      0  0.0426*
+mistral_ocr              133  133  3677  3692  3504   173   188     16     72      2  0.0040
+haiku_vision             133  133  3677  3650  3436   241   214     16     48      0  0.0181*
+```
+
+`*` estimated: these arms ran on subagents, priced with the documented image
+tokens and Gemini ultra's measured output length on the same pages.
+
+**Haiku makes 48 value errors.** It is the only Claude reader that misreads a
+number here, which confirms on 133 pages what the earlier speed benchmark saw
+on a handful: Haiku must never read an image alone. It is also the reader the
+app pairs with Sonnet on that path today.
+
+### What the swap actually buys
+
+```
+pair                              confirmed flagged UNCAUGHT caught   $/page
+gemini38_ultra+sonnet_vision           3612      67        0      0    0.056
+gemini38_ultra+opus_vision             3647      36        0      0    0.120
+sonnet_vision+haiku_vision  (today)    3375     506        0     48    0.061
+```
+
+The deployed pair is safe — zero uncaught, because Sonnet catches all 48 of
+Haiku's misreads — but it pays for that safety twice over. It confirms **237
+fewer rows** automatically and puts **506 rows in front of a human instead of
+67**, which is a sevenfold review burden. And it costs slightly more per page
+than the pair that beats it.
+
+**So the recommendation is Gemini ultra with Sonnet 5**: same zero uncaught,
+237 more rows confirmed without a human, 439 fewer rows to review, and a
+fractionally lower bill. Against Gemini with Opus it gives up 35 confirmed rows
+and 31 review rows for less than half the price, and Sonnet's remaining deficit
+is the status-row prompt gap rather than a capability limit — so that
+comparison should be re-run after Phase D, not settled now.
+
+One number is worth keeping for its own sake: `haiku_vision+mistral_ocr`, the
+two cheapest readers paired, catches 120 errors between them and still reaches
+zero uncaught. Cross-checking is doing an enormous amount of work there. It is
+not a recommendation — 881 flagged rows is not a product — but it is the
+clearest demonstration in this document that the pair, not the reader, is what
+makes the number trustworthy.
