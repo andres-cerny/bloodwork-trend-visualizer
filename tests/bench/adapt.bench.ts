@@ -10,9 +10,17 @@
  *   BENCH_MAX_USD=5 npm run bench:adapt          paid — proposed to Ondřej with
  *                                                 the dry run's estimate first
  *
+ *   BENCH_REMAP=1 npm run bench:adapt            free — re-map the persisted OCR
+ *                                                 outputs with today's mapping
+ *                                                 code and re-score them
+ *                                                 against the same truth. No
+ *                                                 call is made and no key is
+ *                                                 needed; see `printRemap`.
+ *
  * Knobs: BENCH_CLASSES=real,synthetic,public,photo  BENCH_ARMS=sonnet5,gemini38_ultra
  *        BENCH_MAX_USD (default 15, the hard stop)  BENCH_FRESH=1 (ignore persisted outputs)
  *        PYTHON_BIN (a python with PyMuPDF, for rendering)  PHOTO_DIR  PUBLIC_SHEETS_DIR
+ *        MISTRAL_IN_FLIGHT (default 2 — the OCR provider's rate limit, not ours)
  *
  * Arms are declared once, in ARMS. A single arm names one reader and which
  * inputs it takes — Gemini is a photo reader, so it never sees a text page
@@ -64,6 +72,7 @@ import {
   PAGE_PRICE_USD,
   describeRequest as describeMistralRequest,
   mistralRequest,
+  remapMeasurements,
 } from "./mistral";
 import { readDocument, readImage, readText } from "./readers";
 import {
@@ -83,7 +92,39 @@ const JSONL = "tests/bench/results/adapt.jsonl";
 const MAX_USD = parseFloat(process.env.BENCH_MAX_USD ?? "15");
 const DRY = process.env.BENCH_DRY_RUN === "1" || process.argv.includes("--dry-run");
 const FRESH = process.env.BENCH_FRESH === "1";
+const REMAP = process.env.BENCH_REMAP === "1";
 const IN_FLIGHT = 4;
+/**
+ * How many OCR calls may be in flight at once — the OCR provider only.
+ *
+ * The first sweep put both Mistral arms through the shared pool and took 429 on
+ * 91 of 146 photo pages and 14 of 32 born-digital pages, which is not a fact
+ * about the reader. Every other arm keeps the pool's full width, so latency
+ * stays comparable; mistral.ts, "429 is not a bad read", holds the other half
+ * of the fix (a bounded retry with backoff, on 429 and nothing else).
+ */
+const MISTRAL_IN_FLIGHT = Math.max(1, parseInt(process.env.MISTRAL_IN_FLIGHT ?? "2", 10));
+
+/**
+ * A counting semaphore. `release` hands the slot straight to a waiter rather
+ * than incrementing a counter, so two tasks cannot both see it free.
+ */
+function gate(n: number) {
+  let free = n;
+  const waiting: Array<() => void> = [];
+  return async <T,>(fn: () => Promise<T>): Promise<T> => {
+    if (free > 0) free--;
+    else await new Promise<void>((r) => waiting.push(r));
+    try {
+      return await fn();
+    } finally {
+      const w = waiting.shift();
+      if (w) w();
+      else free++;
+    }
+  };
+}
+const mistralGate = gate(MISTRAL_IN_FLIGHT);
 
 /* -------------------------------------------------------------------- arms */
 
@@ -306,6 +347,65 @@ function printSingles(cls: CorpusClass, scores: PageScore[], truthSource: string
   }
 }
 
+/* ------------------------------------------------- re-mapping, without paying */
+
+/**
+ * Re-map the persisted OCR outputs and re-score them, offline.
+ *
+ * This arm's accuracy is decided by *our* code, not by a model (mistral.ts,
+ * "Mapping OCR output onto RawMeasurement"), so a mapping change has to be
+ * judged against the API's real answers — and paying for the same 146 pages a
+ * second time to grade our own regex is not a benchmark, it is a bill.
+ *
+ * What makes this honest is rule 12: `source_snippet` is the whole printed
+ * row, rejoined with `" | "`, and no cell can contain a `|`. So the cells
+ * survive the round trip exactly and `remapMeasurements` re-runs the mapping on
+ * them. What it cannot do must be said wherever these numbers are quoted:
+ *
+ *   - a row the OLD mapping dropped is not in the file, so it cannot come back
+ *     — the "after" column can move a row from wrong to right, never from
+ *     absent to present;
+ *   - a page the API never answered for (or answered 429 to) stays at zero;
+ *   - the table's header row was consumed, so a re-mapped table is inferred
+ *     from its cells even where the original read a header. Run this mode
+ *     BEFORE a mapping change too: "before" against the persisted score is the
+ *     reconstruction's own error bar, and only the movement beyond it is the
+ *     change.
+ */
+function printRemap(rows: Array<{ cls: CorpusClass; arm: string; slug: string; kind: Input; before: PageScore; after: PageScore }>): void {
+  if (!rows.length) {
+    console.log("\nnothing to re-map: no persisted OCR output for the selected arms and classes.");
+    return;
+  }
+  const col = (s: PageScore) => [s.readRows, s.matched, s.missing, s.extra, s.valueErrors.length, s.merged.length, s.collapsed];
+  const heads = ["rows", "match", "miss", "extra", "valERR", "MERGED", "coll"];
+  for (const cls of classes) {
+    const here = rows.filter((r) => r.cls === cls);
+    if (!here.length) continue;
+    console.log(`\n## ${cls} — persisted mapping → re-mapped`);
+    console.log("arm".padEnd(22) + pad("pages", 6) + pad("truth", 7) + heads.map((h) => pad(h, 16)).join(""));
+    for (const arm of [...new Set(here.map((r) => r.arm))]) {
+      const hits = here.filter((r) => r.arm === arm);
+      const b = heads.map((_, i) => sum(hits, (h) => col(h.before)[i]));
+      const a = heads.map((_, i) => sum(hits, (h) => col(h.after)[i]));
+      console.log(
+        arm.padEnd(22) + pad(hits.length, 6) + pad(sum(hits, (h) => h.before.truthRows), 7) +
+          heads.map((_, i) => pad(`${b[i]} → ${a[i]}`, 16)).join(""),
+      );
+    }
+    for (const r of here) {
+      const b = col(r.before);
+      const a = col(r.after);
+      if (b.every((x, i) => x === a[i])) continue;
+      console.log(`   ${r.arm.padEnd(20)} ${r.slug.padEnd(30)} ` + heads.map((h, i) => (b[i] === a[i] ? "" : `${h} ${b[i]}→${a[i]}`)).filter(Boolean).join("  "));
+    }
+    // The class that matters most: a wrong number that reads as a real result.
+    for (const r of here) {
+      for (const e of r.after.valueErrors) console.log(`   !! ${r.arm} ${r.slug}: STILL WRONG ${e.name} ${e.truth}→${e.read}`);
+    }
+  }
+}
+
 interface PairScore extends PairStats {
   cls: CorpusClass;
   arm: string;
@@ -412,6 +512,27 @@ it("lab adaptability — class × arm, scored per class", async () => {
     );
   }
 
+  if (REMAP) {
+    console.log("\n# BENCH_REMAP — persisted OCR responses re-mapped offline. Nothing is sent, nothing is spent.");
+    const rows: Array<{ cls: CorpusClass; arm: string; slug: string; kind: Input; before: PageScore; after: PageScore }> = [];
+    for (const cls of classes) {
+      for (const page of pages.get(cls)!) {
+        if (!page.truth) continue;
+        for (const arm of singles.filter((a) => a.reader.provider === "mistral")) {
+          const p = loadPersisted(arm.id, page.slug);
+          if (!p?.call.extraction) continue;
+          const before = scoreSingle(page, arm.id, p);
+          const measurements = remapMeasurements(p.call.extraction.measurements as RawMeasurement[]);
+          const after = scoreSingle(page, arm.id, { ...p, call: { ...p.call, extraction: { ...p.call.extraction, measurements: measurements as any } } });
+          if (before && after) rows.push({ cls, arm: arm.id, slug: page.slug, kind: page.kind, before, after });
+        }
+      }
+    }
+    printRemap(rows);
+    console.log("\nre-mapped only — a row the old mapping dropped is not in the file and cannot come back (see printRemap).");
+    return;
+  }
+
   if (DRY) {
     const gem = singles.find((a) => a.reader.provider === "google");
     if (gem) {
@@ -466,6 +587,9 @@ it("lab adaptability — class × arm, scored per class", async () => {
         continue;
       }
       const provider = arm.reader.provider ?? "anthropic";
+      // The OCR provider answers 429 when asked too fast, and a 429 is not a
+      // reading failure. It alone is gated; every other arm keeps the pool.
+      const polite = <T,>(fn: () => Promise<T>): Promise<T> => (provider === "mistral" ? mistralGate(fn) : fn());
       let call: CallResult;
       let imagePath: string | undefined;
       if (page.kind === "text" && arm.sourcePdf) {
@@ -475,13 +599,10 @@ it("lab adaptability — class × arm, scored per class", async () => {
           console.log(`${arm.id.padEnd(16)} ${page.slug} skipped: no source PDF for a text page`);
           continue;
         }
-        call = await readDocument(keys[provider], arm.reader, {
-          base64: readFileSync(page.image.pdf).toString("base64"),
-          page: page.image.page,
-          name: page.slug + ".pdf",
-        });
+        const doc = { base64: readFileSync(page.image.pdf).toString("base64"), page: page.image.page, name: page.slug + ".pdf" };
+        call = await polite(() => readDocument(keys[provider], arm.reader, doc));
       } else if (page.kind === "text") {
-        call = await readText(keys[provider], arm.reader, page.rows!);
+        call = await polite(() => readText(keys[provider], arm.reader, page.rows!));
       } else {
         let rendered;
         try {
@@ -505,12 +626,13 @@ it("lab adaptability — class × arm, scored per class", async () => {
             continue;
           }
         }
-        call = await readImage(keys[provider], arm.reader, {
+        const img = {
           base64: readFileSync(rendered.path).toString("base64"),
           mediaType: rendered.mediaType,
           textLayer: page.rows ? rowsAsText(page.rows) : null,
           tiles,
-        });
+        };
+        call = await polite(() => readImage(keys[provider], arm.reader, img));
       }
       spent += call.costUsd;
       const rec: Persisted = { arm: arm.id, cls: page.cls, slug: page.slug, key: page.key, kind: page.kind, image: imagePath, at: new Date().toISOString(), call };

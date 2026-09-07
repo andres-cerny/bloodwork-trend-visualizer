@@ -16,8 +16,22 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { headerKey, markdownTables, rowsFromOcrPage, rowsFromTable, splitMarkdownTable } from "./mistral";
-import { mergedRows } from "./score";
+import { SYSTEM_EXTRACT_TEXT } from "@bw/extraction";
+
+import {
+  findRangeGroup,
+  headerKey,
+  isEmphasised,
+  joinRange,
+  markdownTables,
+  nameAt,
+  remapMeasurements,
+  rowsFromOcrPage,
+  rowsFromTable,
+  splitMarkdownTable,
+  stripEmphasis,
+} from "./mistral";
+import { mergedRows, type RawMeasurement } from "./score";
 
 /** breclav.pdf p121, rendered at 220 DPI — the results table, verbatim. */
 const BRECLAV_RESULTS = `|  Zkr. | Vyšetření | Výsl. | Text. výsl. | Jedn. |  | Referenční hodnoty | Kontrola l.stupně | Uvolnil  |
@@ -182,5 +196,275 @@ describe("the merged-row guard sees this arm's output like any other", () => {
     const { rows } = rowsFromTable(fused, 0.99);
     const truth = [{ raw_analyte_name: "Glukóza" }, { raw_analyte_name: "Cholesterol", value_raw: "4,80" }];
     expect(mergedRows(rows, [{ ...truth[0], value_raw: "5,32" }, truth[1]])[0].reasons.sort()).toEqual(["name", "range"]);
+  });
+});
+
+/* ==========================================================================
+ * The five rules that fixed the value column.
+ *
+ * Every fixture below is a row the real API returned, copied out of
+ * `tests/bench/results/adapt/`. The arm scored 227/261 on the public class
+ * with five value errors and read a reference bound as the value on whole
+ * born-digital pages; each `describe` here is one step of that failure, made
+ * impossible on its own.
+ * ======================================================================== */
+
+/**
+ * `results/adapt/mistral_ocr_digital/19_06_12__p1.json`, verbatim.
+ *
+ * The page prints WBC 5,00 with a reference interval of 4,00 - 10,00, laid out
+ * as three cells with a lone `-` between the bounds, and the printed result in
+ * bold. Mistral read all of that correctly. The mapping returned value 10,00 —
+ * the upper bound — with an empty range, on every row of the page.
+ */
+const SPLIT_RANGE_PAGE = `| Analyt | Výsledek | Jedn. | Meze |  |  |  |
+| --- | --- | --- | --- | --- | --- | --- |
+| WBS leukocyty | **5,00** | 10^9/l | 4,00 | - | 10,00 | (X) |
+| Lym lymfocyty | **1,40** | 10^9/l | 1,20 | - | 4,00 | (X) |
+| Mon monocyty | **0,50** | 10^9/l | 0,10 | - | 1,40 | (X) |
+| Gra granulocyty | **3,10** | 10^9/l | 1,70 | - | 7,50 | (X) |
+| HCT hematokrit | **0,468** |  | 0,38 | - | 0,52 | (X) |`;
+
+describe("R1 — a reference interval split across cells is one field", () => {
+  it("mirrors the rule the deployed text prompt already gives Claude", () => {
+    // packages/extraction/src/extract.ts. If this instruction is ever
+    // reworded, this file is the other half that has to move with it.
+    expect(SYSTEM_EXTRACT_TEXT).toContain("'od'");
+    expect(SYSTEM_EXTRACT_TEXT).toContain("'0,17 - 0,78'");
+  });
+
+  it("THE REGRESSION: WBS leukocyty is 5,00 in 4,00 - 10,00, not 10,00 in nothing", () => {
+    const { rows } = rowsFromTable(SPLIT_RANGE_PAGE, 0.99);
+    expect(rows[0]).toMatchObject({
+      raw_analyte_name: "WBS leukocyty",
+      value_raw: "5,00",
+      unit_raw: "10^9/l",
+      ref_range_raw: "4,00 - 10,00",
+    });
+    // Not one row on the page may carry a bound as its value.
+    expect(rows.map((r) => r.value_raw)).toEqual(["5,00", "1,40", "0,50", "3,10", "0,468"]);
+    expect(rows.map((r) => r.ref_range_raw)).toEqual([
+      "4,00 - 10,00",
+      "1,20 - 4,00",
+      "0,10 - 1,40",
+      "1,70 - 7,50",
+      "0,38 - 0,52",
+    ]);
+  });
+
+  it("joins in the one form the deployed prompt asks for", () => {
+    expect(joinRange("4,00", "10,00")).toBe("4,00 - 10,00");
+    // A bound printed alone is still that bound, not half a range.
+    expect(joinRange("4,00", "")).toBe("4,00");
+    expect(joinRange("", "")).toBe("");
+  });
+
+  it("takes an en dash or `až` as the separator too", () => {
+    for (const sep of ["-", "–", "—", "až"]) {
+      const t = `| S_Sodík | 141 | mmol/l | 137 | ${sep} | 145 |\n| S_Draslík | 4,32 | mmol/l | 3,80 | ${sep} | 5,20 |`;
+      expect(rowsFromTable(t, 0.99).rows[0].ref_range_raw).toBe("137 - 145");
+    }
+  });
+
+  /**
+   * `split_range.pdf` — the fixture drawn for exactly this layout
+   * (tools/pipeline/scripts/make_layout_fixtures.py, case 4), through the
+   * markdown a table of it comes back as. Its rows carry the lab's own `!`
+   * and `*` out-of-range markers, which must survive rule R2 untouched.
+   */
+  it("joins the `od`/`do` columns split_range.pdf prints, markers intact", () => {
+    const t = `| Analyt | Výsledek | Jedn. | od | do |
+| --- | --- | --- | --- | --- |
+| S_ALT | 0,93 ! | μkat/l | 0,17 | 0,78 |
+| S_AST | 0,60 | μkat/l | 0,17 | 0,85 |
+| S_GGT | 1,04 * | μkat/l | 0,14 | 0,84 |`;
+    const { rows } = rowsFromTable(t, 0.99);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toMatchObject({ raw_analyte_name: "S_ALT", value_raw: "0,93 !", ref_range_raw: "0,17 - 0,78" });
+    expect(rows[2]).toMatchObject({ raw_analyte_name: "S_GGT", value_raw: "1,04 *", ref_range_raw: "0,14 - 0,84" });
+  });
+
+  it("does NOT guess a group out of two adjacent numeric columns", () => {
+    // No separator cell, no `od`/`do` header: `value | bound` and
+    // `bound | bound` cannot be told apart from the cells, and joining here
+    // would invent the failure this rule fixes.
+    const t = `| S_Sodík | 141 | 145 |\n| S_Draslík | 4,32 | 5,20 |`;
+    expect(findRangeGroup(splitMarkdownTable(t), null)).toBeNull();
+  });
+
+  it("does not mistake a printed `-` unit for a separator", () => {
+    // breclav_hem_p80: hematocrit's unit IS "-", and the range is one cell.
+    const t = `| *Hematokrit | 0,454 |  | - | ( 0,400 - 0,500 ) | EDTA |
+| *Hemoglobin | 151,00 |  | g/l | ( 135,00 - 175,00 ) | EDTA |
+| *Leukocyty | 9,60 |  | G/l | ( 4,00 - 10,00 ) | EDTA |`;
+    const { rows } = rowsFromTable(t, 0.99);
+    expect(rows[0]).toMatchObject({ value_raw: "0,454", unit_raw: "-", ref_range_raw: "( 0,400 - 0,500 )" });
+  });
+});
+
+describe("R2 — markdown emphasis is not data", () => {
+  it("strips a wrapper, because bold is how the sheet was printed", () => {
+    expect(stripEmphasis("**5,00**")).toBe("5,00");
+    expect(stripEmphasis("*5,00*")).toBe("5,00");
+    expect(stripEmphasis("__5,00__")).toBe("5,00");
+    expect(stripEmphasis("_5,00_")).toBe("5,00");
+    expect(stripEmphasis("**NOVÁK JAN** ID: **60 12 12 / 555**")).toBe("NOVÁK JAN ID: 60 12 12 / 555");
+  });
+
+  it("KEEPS a lone `*` or `!` — that is the lab's out-of-range marker", () => {
+    for (const printed of ["0,93 !", "1,04 *", "* urea", "*Leukocyty", "(*)", "[*]", "*( )", "( ) *", "!"]) {
+      expect(stripEmphasis(printed)).toBe(printed);
+    }
+  });
+
+  it("keeps the underscores Czech analyte names are made of", () => {
+    for (const name of ["S_Sodík", "fU_Vápník-odpad", "S_Bilirubin.konjug.", "P_D-dimery", "X_LD"]) {
+      expect(stripEmphasis(name)).toBe(name);
+    }
+  });
+
+  it("knows which cells were emphasised, so rule R3 can prefer them", () => {
+    expect(isEmphasised("**5,00**")).toBe(true);
+    expect(isEmphasised("_5,00_")).toBe(true);
+    expect(isEmphasised("1,04 *")).toBe(false);
+    expect(isEmphasised("* urea")).toBe(false);
+    expect(isEmphasised("(*)")).toBe(false);
+    expect(isEmphasised("S_Sodík")).toBe(false);
+  });
+
+  it("does not leave `**` in a value, a name or a snippet", () => {
+    const { rows } = rowsFromTable(SPLIT_RANGE_PAGE, 0.99);
+    for (const r of rows) {
+      expect(r.value_raw).not.toContain("*");
+      expect(r.source_snippet).not.toContain("**");
+    }
+  });
+});
+
+describe("R3 — the value is what is left, never the last numeric", () => {
+  it("prefers the emphasised cell, because Mistral bolds the printed result", () => {
+    // Three numeric columns, no header, no separator cell: only the emphasis
+    // says which one the sheet printed as the result.
+    const t = `| WBS | 4,00 | **5,00** | 10,00 |
+| Lym | 1,20 | **1,40** | 4,00 |
+| Mon | 0,10 | **0,50** | 1,40 |`;
+    expect(rowsFromTable(t, 0.99).rows.map((r) => r.value_raw)).toEqual(["5,00", "1,40", "0,50"]);
+  });
+
+  it("falls back to the LEFTMOST remaining numeric column, not the last", () => {
+    // Nothing emphasised: 4,50 is the result, 8,00 the bound it sits under.
+    const t = `| S_Urea | 4,50 | mmol/l | 2,80 | - | 8,00 |
+| S_Kreatinin | 95 | µmol/l | 44 | - | 115 |`;
+    expect(rowsFromTable(t, 0.99).rows.map((r) => r.value_raw)).toEqual(["4,50", "95"]);
+  });
+
+  it("never takes a unit or a range bound as the value", () => {
+    const { rows } = rowsFromTable(SPLIT_RANGE_PAGE, 0.99);
+    for (const r of rows) {
+      expect(r.value_raw).not.toBe(r.unit_raw);
+      expect((r.ref_range_raw ?? "").split(" - ")).not.toContain(r.value_raw);
+    }
+  });
+});
+
+/** `results/adapt/mistral_ocr_digital/2022_07_01__p1.json`, verbatim. */
+const FLAGGED_ROWS = `| A | 81365 | Bílkovina celková | 66,4 |  | * |  | 65,0 - 85,0 | g/l |
+| A | 81361 | Bilirubin celkový | 14 |  | * |  | < 17 | µmol/l |
+| A | 81337 | ALT | 0,91 |  | * |  | < 0,78 | µkat/l |
+| A | 81439 | Glukóza | 4,5 |  | * |  | 3,6 - 5,6 | mmol/l |
+| A | 81499 | Kreatinin | 95 |  | * |  | 44 - 115 | µmol/l |`;
+
+describe("R4 — a single-letter leading cell is a flag, not a name", () => {
+  it("THE REGRESSION: rows came back named `A`, the accreditation column", () => {
+    const { rows } = rowsFromTable(FLAGGED_ROWS, 0.99);
+    expect(rows.map((r) => r.raw_analyte_name)).toEqual([
+      "Bílkovina celková",
+      "Bilirubin celkový",
+      "ALT",
+      "Glukóza",
+      "Kreatinin",
+    ]);
+    expect(rows[0]).toMatchObject({ value_raw: "66,4", unit_raw: "g/l", ref_range_raw: "65,0 - 85,0" });
+    // A censored bound printed as one cell is still that cell.
+    expect(rows[1].ref_range_raw).toBe("< 17");
+  });
+
+  it("never reads the LIS item code as the value", () => {
+    // bulovka_okbi: the five value errors on the public class were all this.
+    const t = `| 81593 | Sodík | 140 | mmol/l | [*] | 132-149 |
+| 81393 | Draslík | 4.00 | mmol/l | [*] | 3.80-5.50 |
+| 81469 | Chloridy | 100 | mmol/l | [*] | 97-108 |
+| 81621 | Urea | 4.50 | mmol/l | [*] | 2.80-8.00 |
+| 81499 | Kreatinin | 60 | mmol/l | [*] | 44-115 |`;
+    const { rows } = rowsFromTable(t, 0.99);
+    expect(rows.map((r) => r.value_raw)).toEqual(["140", "4.00", "100", "4.50", "60"]);
+    expect(rows.map((r) => r.raw_analyte_name)).toEqual(["Sodík", "Draslík", "Chloridy", "Urea", "Kreatinin"]);
+  });
+
+  it("walks past a flag and a code the way candidates.ts does", () => {
+    expect(nameAt(["A", "81365", "Bílkovina celková", "66,4"], 0)).toBe("Bílkovina celková");
+    expect(nameAt(["81593", "Sodík", "140"], 0)).toBe("Sodík");
+    expect(nameAt([".", "* urea", "4,9000"], 0)).toBe("* urea");
+    // A two-letter analyte is a name, not a flag.
+    expect(nameAt(["A", "81495", "CK", "13,81"], 0)).toBe("CK");
+    // Nothing to find: the row starts with the number.
+    expect(nameAt(["4,9000", "mmol/l"], 0)).toBe("");
+  });
+
+  it("drops an abbreviation column when the name stands beside it", () => {
+    // "URE | urea" — breclav p121 without its header row.
+    const t = `| URE | * urea | 4,9000 | mmol/l | ( 2,5000 - 6,4000 ) |
+| KRE | * kreatinin | 86,0000 | µmol/l | ( 49,0000 - 90,0000 ) |
+| KM | * kyselina močová | 396,0000 | µmol/l | ( 150,0000 - 350,0000 ) |`;
+    const { rows } = rowsFromTable(t, 0.99);
+    expect(rows.map((r) => r.raw_analyte_name)).toEqual(["* urea", "* kreatinin", "* kyselina močová"]);
+    expect(rows[0].value_raw).toBe("4,9000");
+  });
+});
+
+describe("R5 — a trailing marker cell is decoration", () => {
+  it("keeps `(X)`, `( )X` and `*( )` out of value, unit and range", () => {
+    const t = `| WBS leukocyty | **5,00** | 10^9/l | 4,00 | - | 10,00 | (X) |
+| Lym lymfocyty | **1,40** | 10^9/l | 1,20 | - | 4,00 | ( )X |
+| Mon monocyty | **0,50** | 10^9/l | 0,10 | - | 1,40 | *( ) |`;
+    for (const r of rowsFromTable(t, 0.99).rows) {
+      for (const field of [r.value_raw, r.unit_raw, r.ref_range_raw]) {
+        expect(field).not.toMatch(/[()X]/);
+      }
+    }
+  });
+
+  it("keeps a bare `*` out of the unit column", () => {
+    // 171 born-digital rows carried this `*` as their unit or their range.
+    const { rows } = rowsFromTable(FLAGGED_ROWS, 0.99);
+    expect(rows.map((r) => r.unit_raw)).toEqual(["g/l", "µmol/l", "µkat/l", "mmol/l", "µmol/l"]);
+  });
+
+  it("still treats a bare `-` as a unit, never as a marker", () => {
+    const t = `| B_pH | 7,326 | - | 7,350 - 7,450 |\n| B_iVápník | 0,90 | mmol/l | 1,15 - 1,30 |`;
+    expect(rowsFromTable(t, 0.99).rows[0].unit_raw).toBe("-");
+  });
+});
+
+describe("remapMeasurements — re-judging a mapping without paying again", () => {
+  const persisted: RawMeasurement[] = [
+    { raw_analyte_name: "WBS leukocyty", value_raw: "10,00", unit_raw: "10^9/l", ref_range_raw: "", source_snippet: "WBS leukocyty | **5,00** | 10^9/l | 4,00 | - | 10,00 | (X)", confidence: "high" },
+    { raw_analyte_name: "Lym lymfocyty", value_raw: "4,00", unit_raw: "10^9/l", ref_range_raw: "", source_snippet: "Lym lymfocyty | **1,40** | 10^9/l | 1,20 | - | 4,00 | (X)", confidence: "high" },
+    { raw_analyte_name: "Mon monocyty", value_raw: "1,40", unit_raw: "10^9/l", ref_range_raw: "", source_snippet: "Mon monocyty | **0,50** | 10^9/l | 0,10 | - | 1,40 | (X)", confidence: "high" },
+  ];
+
+  it("re-maps a persisted page off its own snippets", () => {
+    const again = remapMeasurements(persisted);
+    expect(again.map((r) => r.value_raw)).toEqual(["5,00", "1,40", "0,50"]);
+    expect(again.map((r) => r.ref_range_raw)).toEqual(["4,00 - 10,00", "1,20 - 4,00", "0,10 - 1,40"]);
+  });
+
+  it("is idempotent — re-mapping its own output changes nothing", () => {
+    const once = remapMeasurements(persisted);
+    expect(remapMeasurements(once)).toEqual(once);
+  });
+
+  it("cannot invent a row the old mapping dropped", () => {
+    expect(remapMeasurements([])).toEqual([]);
   });
 });
