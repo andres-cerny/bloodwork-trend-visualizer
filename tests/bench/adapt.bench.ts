@@ -44,7 +44,17 @@ import { rowsAsText } from "@bw/lab-core";
 
 import { CLASSES, loadClass, pythonWithFitz, renderFor, type CorpusClass, type CorpusPage } from "./corpora";
 import { type CallResult, type Reader } from "./extract";
-import { GEMINI_MODEL, describeRequest, geminiRequest } from "./gemini";
+import {
+  GEMINI_MODEL,
+  IMAGE_TOKENS,
+  TILED_IMAGE_TOKENS,
+  describeRequest,
+  geminiRequest,
+  pythonWithPillow,
+  tilePage,
+  type GeminiInput,
+  type Tile,
+} from "./gemini";
 import { readImage, readText } from "./readers";
 import {
   fabrications,
@@ -74,6 +84,10 @@ interface SingleArm {
   inputs: Input[];
   /** USD per page, from docs/plans/lab-adaptability.md C5 — the dry run's estimate. */
   estimateUsd: Partial<Record<Input, number>>;
+  /** Visual tokens one image page costs this reader — what `estimateUsd.image` rests on. */
+  imageTokens?: number;
+  /** Send the page as two overlapping halves, one image part each (gemini.ts). */
+  tiled?: boolean;
 }
 
 interface PairArm {
@@ -88,16 +102,26 @@ interface PairArm {
  * derived in C5 (Sonnet ≈ $0.09, Haiku ≈ $0.026, Gemini ≈ $0.02 at high and
  * +1,120 image tokens ≈ $0.001 at ultra_high). Estimates, not prices — the
  * run records what it actually spent.
+ *
+ * `imageTokens` is the fixed visual budget per page, and the Gemini estimates
+ * are that budget priced at $0.75/1M input: ultra_high buys 2,240, and the
+ * tiled arm buys TILED_IMAGE_TOKENS = 4,480 by sending two ultra_high parts,
+ * so it costs another 2,240 × $0.75/1M ≈ $0.002 a page — near Sonnet's 4,784
+ * visual tokens (docs/extraction-speed.md) at about a third of the price.
  */
 export const ARMS: SingleArm[] = [
-  { id: "sonnet5", label: "Sonnet 5 alone", reader: { model: MODEL_PRIMARY }, inputs: ["text", "image"], estimateUsd: { text: 0.037, image: 0.09 } },
-  { id: "haiku45", label: "Haiku 4.5 alone", reader: { model: MODEL_ESCALATION }, inputs: ["text", "image"], estimateUsd: { text: 0.014, image: 0.026 } },
-  { id: "gemini38_high", label: "Gemini 3.8 Flash, media high", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "high" }, inputs: ["image"], estimateUsd: { image: 0.02 } },
-  { id: "gemini38_ultra", label: "Gemini 3.8 Flash, media ultra_high", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "ultra_high" }, inputs: ["image"], estimateUsd: { image: 0.021 } },
+  { id: "sonnet5", label: "Sonnet 5 alone", reader: { model: MODEL_PRIMARY }, inputs: ["text", "image"], estimateUsd: { text: 0.037, image: 0.09 }, imageTokens: 4784 },
+  { id: "haiku45", label: "Haiku 4.5 alone", reader: { model: MODEL_ESCALATION }, inputs: ["text", "image"], estimateUsd: { text: 0.014, image: 0.026 }, imageTokens: 4784 },
+  { id: "gemini38_high", label: "Gemini 3.8 Flash, media high", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "high" }, inputs: ["image"], estimateUsd: { image: 0.02 }, imageTokens: IMAGE_TOKENS.high },
+  { id: "gemini38_ultra", label: "Gemini 3.8 Flash, media ultra_high", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "ultra_high" }, inputs: ["image"], estimateUsd: { image: 0.021 }, imageTokens: IMAGE_TOKENS.ultra_high },
+  // ultra_high is the top of the ladder, so more detail costs another *part*:
+  // two overlapping halves, 2 × 2,240 tokens. Not ultra's $0.021 — see above.
+  { id: "gemini38_tiled", label: "Gemini 3.8 Flash, two ultra_high tiles", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "ultra_high" }, inputs: ["image"], estimateUsd: { image: 0.023 }, imageTokens: TILED_IMAGE_TOKENS, tiled: true },
 ];
 
 export const PAIRS: PairArm[] = [
   { id: "sonnet5+gemini38_ultra", label: "the planned photo pair", pair: ["sonnet5", "gemini38_ultra"] },
+  { id: "sonnet5+gemini38_tiled", label: "the pair at matched visual budget", pair: ["sonnet5", "gemini38_tiled"] },
   { id: "sonnet5+gemini38_high", label: "what ultra_high buys the pair", pair: ["sonnet5", "gemini38_high"] },
   { id: "sonnet5+haiku45", label: "the retreat pair (deployed text pair)", pair: ["sonnet5", "haiku45"] },
 ];
@@ -127,7 +151,11 @@ function loadPersisted(arm: string, slug: string): Persisted | null {
   const p = outPath(arm, slug);
   if (FRESH || !existsSync(p)) return null;
   try {
-    return JSON.parse(readFileSync(p, "utf8"));
+    const rec = JSON.parse(readFileSync(p, "utf8")) as Persisted;
+    // A failed call is a note, not a result: it must not be reused as one,
+    // or a 400 on every page would look like a finished arm on the next run.
+    if (rec?.call && rec.call.ok === false) return null;
+    return rec;
   } catch {
     return null;
   }
@@ -305,7 +333,7 @@ it("lab adaptability — class × arm, scored per class", async () => {
   }
   for (const s of skipped) console.log(`   skip ${s.cls}/${s.slug}: ${s.why}`);
 
-  console.log("\narm".padEnd(17) + pad("text", 6) + pad("image", 6) + pad("cached", 7) + pad("to call", 8) + pad("est USD", 9) + "  reader");
+  console.log("\narm".padEnd(17) + pad("text", 6) + pad("image", 6) + pad("imgTok", 8) + pad("cached", 7) + pad("to call", 8) + pad("est USD", 9) + "  reader");
   let estimate = 0;
   for (const arm of singles) {
     const mine = jobs.filter((j) => j.arm === arm);
@@ -315,7 +343,8 @@ it("lab adaptability — class × arm, scored per class", async () => {
     estimate += usd;
     console.log(
       arm.id.padEnd(17) + pad(mine.filter((j) => j.page.kind === "text").length, 6) + pad(mine.filter((j) => j.page.kind === "image").length, 6) +
-        pad(cached, 7) + pad(toCall.length, 8) + pad(usd.toFixed(2), 9) + `  ${arm.reader.provider ?? "anthropic"}:${arm.reader.model}${arm.reader.mediaResolution ? "/" + arm.reader.mediaResolution : ""}`,
+        pad(arm.imageTokens ?? "-", 8) + pad(cached, 7) + pad(toCall.length, 8) + pad(usd.toFixed(2), 9) +
+        `  ${arm.reader.provider ?? "anthropic"}:${arm.reader.model}${arm.reader.mediaResolution ? "/" + arm.reader.mediaResolution : ""}${arm.tiled ? " ×2 tiles" : ""}`,
     );
   }
   for (const p of pairs) console.log(`${p.id.padEnd(24)}${pad("offline", 29)}  ${p.label}`);
@@ -324,8 +353,11 @@ it("lab adaptability — class × arm, scored per class", async () => {
   if (DRY) {
     const gem = singles.find((a) => a.reader.provider === "google");
     if (gem) {
+      const input: GeminiInput = gem.tiled
+        ? { kind: "tiles", tiles: [{ base64: "AAAA", mediaType: "image/png" }, { base64: "BBBB", mediaType: "image/png" }] }
+        : { kind: "image", base64: "AAAA", mediaType: "image/png" };
       console.log(`\n# Gemini request shape (${gem.id}; image bytes elided)\n`);
-      console.log(JSON.stringify(describeRequest(geminiRequest(gem.reader, { kind: "image", base64: "AAAA", mediaType: "image/png" })), null, 1));
+      console.log(JSON.stringify(describeRequest(geminiRequest(gem.reader, input)), null, 1));
     }
     console.log("\ndry run — nothing was sent. Propose the estimate above before running for real.");
     return;
@@ -337,6 +369,7 @@ it("lab adaptability — class × arm, scored per class", async () => {
   for (const p of needs) if (!keys[p]) throw new Error(`${p === "google" ? "GEMINI_API_KEY" : "ANTHROPIC_API_KEY"} not set — set -a; source .env; set +a`);
 
   const python = pythonWithFitz();
+  const pillow = singles.some((a) => a.tiled) ? pythonWithPillow() : null;
   mkdirSync(OUT, { recursive: true });
   const persisted = new Map<string, Persisted>();
   const pkey = (arm: string, slug: string) => `${arm}/${slug}`;
@@ -369,10 +402,25 @@ it("lab adaptability — class × arm, scored per class", async () => {
           continue;
         }
         imagePath = rendered.path;
+        // The tiled arm sends the same rendered page as two overlapping
+        // halves, cached beside the render so a rerun never crops twice.
+        let tiles: Tile[] | undefined;
+        if (arm.tiled) {
+          try {
+            tiles = tilePage(rendered.path, join(OUT, "renders", page.cls), page.slug, pillow).map((path) => ({
+              base64: readFileSync(path).toString("base64"),
+              mediaType: path.endsWith(".png") ? "image/png" : "image/jpeg",
+            }));
+          } catch (e: any) {
+            console.log(`${arm.id.padEnd(16)} ${page.slug} tiling FAILED: ${e?.message ?? e}`);
+            continue;
+          }
+        }
         call = await readImage(keys[provider], arm.reader, {
           base64: readFileSync(rendered.path).toString("base64"),
           mediaType: rendered.mediaType,
           textLayer: page.rows ? rowsAsText(page.rows) : null,
+          tiles,
         });
       }
       spent += call.costUsd;

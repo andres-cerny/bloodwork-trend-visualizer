@@ -17,12 +17,19 @@ import { extractPageText, SYSTEM_EXTRACT, TEXT_LAYER_HINT, TOOL, type Usage } fr
 import { rowsAsText, type TextRow } from "@bw/lab-core";
 
 import { priceUsd, type CallResult, type Reader } from "./extract";
-import { callGemini } from "./gemini";
+import { callGemini, type Tile } from "./gemini";
 
 export interface PageImage {
   base64: string;
   mediaType: string;
   textLayer?: string | null;
+  /**
+   * The same page pre-cut into overlapping halves. Gemini spends a fixed
+   * budget per image *part*, so a tiled arm sends these instead of `base64`
+   * to buy Sonnet-sized visual detail (gemini.ts, TILED_IMAGE_TOKENS). Claude
+   * downscales one whole page either way, so its path ignores them.
+   */
+  tiles?: Tile[];
 }
 
 const EMPTY: Usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
@@ -52,7 +59,15 @@ export async function readText(apiKey: string, reader: Reader, rows: TextRow[]):
 }
 
 export async function readImage(apiKey: string, reader: Reader, image: PageImage): Promise<CallResult> {
-  if (reader.provider === "google") return callGemini(apiKey, reader, { kind: "image", ...image });
+  if (reader.provider === "google") {
+    return callGemini(
+      apiKey,
+      reader,
+      image.tiles?.length
+        ? { kind: "tiles", tiles: image.tiles, textLayer: image.textLayer }
+        : { kind: "image", base64: image.base64, mediaType: image.mediaType, textLayer: image.textLayer },
+    );
+  }
 
   const content: Anthropic.ContentBlockParam[] = [
     { type: "image", source: { type: "base64", media_type: image.mediaType as any, data: image.base64 } },
