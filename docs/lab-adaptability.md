@@ -394,3 +394,72 @@ Gemini has not been given the abbreviation-column sentence, so its public-sheet
 number is a prompt artefact, not a ceiling. These are still simulated photos.
 And nobody has been measured at Sonnet's visual budget: Sonnet sees 4,784
 tokens per page, Gemini ultra 2,240. The tiled arm exists to close that gap.
+
+## Phase C — the tiled arm, and a clean negative result (2026-09-07, $2.16)
+
+Gemini spends a fixed visual budget per image part, and `ultra_high` is the top
+of that ladder at 2,240 tokens — roughly half what Sonnet 5 spends on the same
+page. The way to spend more is to send the page as several parts. This arm cuts
+each page into a top and bottom half overlapping by a twelfth of the page, so
+no printed row is severed, and gives each half its own `ultra_high` budget:
+**4,784 input tokens per page, the same number Sonnet spends.**
+
+The overlap is the risk. On the densest sheet seven measured rows and a section
+heading appear whole on *both* halves, so the arm composes one Czech sentence
+onto the prompt — never onto `SYSTEM_EXTRACT` itself — telling the model it
+holds two overlapping halves of one page and owes each row exactly once.
+
+### It bought nothing
+
+```
+variant                pages read truth  rows match  miss extra marker valERR decens
+opus_vision              133   45  1621  1621  1621     0     0     12      0      0
+gemini38_ultra           133   45  1621  1625  1621     0     4     12      0      0
+gemini38_tiled           133   45  1621  1628  1621     0     7     12      0      0
+gemini38_high            133   45  1621  1630  1618     3    12     12      0      0
+sonnet_vision            133   45  1621  1606  1606    15     0     12      0      0
+```
+
+Tiled matched all 1,621 rows — and so did `ultra_high` at half the tokens and
+half the price. Doubling the visual budget changed nothing a reader could use.
+**`ultra_high` is the production setting**, and the question of whether Gemini
+was handicapped by resolution is closed: it was not.
+
+The de-duplication held completely. All seven of the tiled arm's spurious rows
+are the same panel line `KO+diferenciál 5p.`, whose printed value is `#`. Not
+one row was returned twice across 45 tiled pages, which is the outcome the
+overlap band was most likely to spoil.
+
+### The pairs, all five readers
+
+```
+pair                               pages confirmed flagged UNCAUGHT
+gemini38_ultra+opus_vision            45      1621       4        0
+gemini38_tiled+opus_vision            45      1621       7        0
+gemini38_ultra+sonnet_vision          45      1606      19        0
+opus_vision+sonnet_vision             45      1606      15        0
+gemini38_tiled+gemini38_ultra         45      1624       5        3
+gemini38_high+gemini38_ultra          45      1620      15        2
+gemini38_high+gemini38_tiled          45      1622      14        4
+```
+
+Every cross-vendor pair: **zero uncaught errors**. Every same-vendor pair: two
+to four. Three arms of one model share their blind spots; two vendors do not.
+That was the reason for pairing across vendors, and it is now a measurement.
+
+The best pair is Gemini ultra with Opus — every row confirmed, four flagged for
+review. Gemini with Sonnet confirms fifteen fewer and flags nineteen, and the
+whole difference is Sonnet's `málo materiálu` rows. **That is a prompt
+ambiguity, not a reason to pay for Opus**: Phase D should tell the reader a
+qualitative result is a result, and this pair should then be re-measured before
+anyone reaches for the more expensive model.
+
+### Phase C spend
+
+| Run | Calls | USD |
+|---|---|---|
+| First Gemini attempt (rejected `MINIMAL` thinking) | 288 | 0.00 |
+| Gemini `high` + `ultra_high` | 288 | 3.72 |
+| Gemini tiled | 144 | 2.16 |
+| Every Claude arm, all classes, tier 1 | — | 0.00 |
+| **Total** | | **5.88** |
