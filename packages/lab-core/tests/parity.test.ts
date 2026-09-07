@@ -51,6 +51,9 @@ describe("parity with src/normalize.py", () => {
     }
   });
 
+  // Guards seen failing: folding the ASCII micro case-insensitively turned
+  // U/l into µ/l and mIU/l into mIµ/l, and dropping the "x" multiplier left
+  // x 109/l unfolded (2026-09-08, handbook vocabulary pass).
   it("canonicalizeUnit", () => {
     for (const [input, expected] of CASES.canonicalize_unit) {
       expect(canonicalizeUnit(input), `canonicalizeUnit(${JSON.stringify(input)})`).toBe(expected);
@@ -60,6 +63,10 @@ describe("parity with src/normalize.py", () => {
   // Guard seen failing: "do 5,0", "nad 0,5", "≤ 5,00", "≥ 0,5" and
   // "0,5 až 1,5" all degraded to text before the word/symbol bounds landed
   // (2026-09-06).
+  // Guards seen failing: with the trailing unit accepted unconditionally,
+  // "0 - 15 let" parsed as 0–15 and "<1,0 negatívne" as an upper bound of 1,0;
+  // with the three-word cap lifted, "0,5 - 2 MKC /1 zorné pole," parsed as
+  // 0,5–2 (2026-09-08).
   it("parseRange", () => {
     for (const [input, [low, high, text]] of CASES.parse_range) {
       expect(parseRange(input), `parseRange(${JSON.stringify(input)})`).toEqual({ low, high, text });
@@ -97,6 +104,6 @@ describe("parity with src/normalize.py", () => {
       CASES.norm_key.length;
     // Matches the count tests/test_parity.py reports, so neither side can
     // quietly stop reading part of the fixture.
-    expect(total).toBe(105);
+    expect(total).toBe(135);
   });
 });

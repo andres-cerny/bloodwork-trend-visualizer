@@ -48,7 +48,14 @@ def main() -> int:
     failures = []
     failures += _check("parse_czech_number", parse_czech_number, CASES["parse_czech_number"])
     failures += _check("parse_value", parse_value, CASES["parse_value"])
+    # Guards seen failing: folding the ASCII micro case-insensitively turned
+    # U/l into µ/l and mIU/l into mIµ/l, and dropping the "x" multiplier left
+    # x 109/l unfolded (2026-09-08, handbook vocabulary pass).
     failures += _check("canonicalize_unit", canonicalize_unit, CASES["canonicalize_unit"])
+    # Guards seen failing: with the trailing unit accepted unconditionally,
+    # "0 - 15 let" parsed as 0–15 and "<1,0 negatívne" as an upper bound of 1,0;
+    # with the three-word cap lifted, "0,5 - 2 MKC /1 zorné pole," parsed as
+    # 0,5–2 (2026-09-08).
     failures += _check("parse_range", parse_range, CASES["parse_range"])
     failures += _check("compute_flag", compute_flag, CASES["compute_flag"])
     # Guard seen failing: with the naive ^[a-z]{1,4}[-/_] widening, anti-TPO

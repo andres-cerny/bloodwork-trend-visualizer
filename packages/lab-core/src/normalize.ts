@@ -12,6 +12,14 @@ const MICRO_VARIANTS: Array<[string, string]> = [["μ", "µ"]]; // Greek mu → 
 const DASHES = ["‒", "–", "—", "−"]; // figure/en/em dash, minus
 const THIN_SPACES = [" ", " ", " ", " "]; // NBSP, narrow NBSP, thin, figure
 
+// Micro has three spellings: the micro sign, Greek mu (both above) and the
+// ASCII fallback a lab prints when its LIS cannot emit either. Lowercase only,
+// and only before a stem that has a micro form — "U/l" is the enzyme unit.
+const MICRO_ASCII = /(?<![A-Za-z])u(?=(?:mol|kat|g|l)(?![A-Za-z]))/g;
+// The count units, whose exponent survives a PDF text layer as plain digits:
+// printed "x 10⁹/l", extracted "x 109/l". Only the exponents labs use.
+const EXPONENT = /^\s*[x×*]?\s*10\s*[\^˄*Ee]?\s*(3|6|9|12)(?=\/)/;
+
 const NUMBER_CORE = /^\+?\d[\d\s.,]*$/;
 const HAS_LETTER = /\p{L}/u;
 const VALUE_MARKERS = ["!", "*", "↑", "↓"]; // out-of-range decoration beside a value
@@ -21,8 +29,45 @@ const VALUE_MARKERS = ["!", "*", "↑", "↓"]; // out-of-range decoration besid
 // must be followed by whitespace so "dospělí…" is not read as "do".
 const UPPER_BOUND = /^(?:<|≤|do\s)\s*/iu;
 const LOWER_BOUND = /^(?:>|≥|nad\s)\s*/iu;
-// Both bounds: "a - b" or "a až b", split on the separator between digits.
-const TWO_BOUNDS = /^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*)\s*$/iu;
+// Both bounds: "a - b" or "a až b", split on the separator between digits, with
+// an optional trailing cell the lab printed after the numbers ("7,8 - 12,8 fl").
+const TWO_BOUNDS = /^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*?)\s*([A-Za-zµμ%‰/(×°][\s\S]*)?$/iu;
+// A tail must *start* like a unit, be at most three words, and its first word
+// must not be one of these. Two closed Czech/Slovak vocabularies, because they
+// are the only tails where the numbers in front are not an interval:
+//   "0 - 15 let"      — the numbers are ages, printed in the same column shape
+//   "<1,0 negatívne"  — the numbers define a criterion, not a range
+// Anything else after the numbers ("muži", "nekuřáci") only names the
+// population the interval belongs to, so accepting it costs nothing.
+const NOT_A_UNIT: ReadonlySet<string> = new Set([
+  "let", "léta", "rok", "roku", "roky", "roků", "rokov", "r",
+  "měsíc", "měsíce", "měsíců", "mesiac", "mesiace", "mesiacov", "m",
+  "týden", "týdne", "týdny", "týdnů", "týždeň", "týždne", "týždňov", "t",
+  "den", "dne", "dny", "dní", "dnů", "deň", "dni", "dňov", "d",
+  "hod", "hodin", "hodina", "hodiny", "hodín", "trimestr",
+  "negativní", "negativně", "negatívne", "negatívny", "pozitivní",
+  "pozitívne", "pozitívny", "hraniční", "hraničné", "reaktivní",
+  "nereaktivní", "normální", "patologické", "stopy", "neprovedeno",
+  "nevykonané", "přítomny", "přítomen", "nepřítomny", "nález",
+]);
+// A number followed by the unit the lab printed beside it ("50 ng/ml", "4g/den").
+const NUMBER_THEN_TAIL = /^\s*([0-9][0-9\s.,]*?)\s*([A-Za-zµμ%‰/(×°][\s\S]*)$/u;
+
+/** Is this trailing cell the unit, rather than an age band or a criterion? */
+function tailIsAUnit(tail: string): boolean {
+  const words = tail.split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 3) return false;
+  return !NOT_A_UNIT.has(words[0].replace(/[.,;:)]+$/, "").toLowerCase());
+}
+
+/** A bound, whether or not the lab printed its unit in the same cell. */
+function numberWithOptionalUnit(raw: string): number | null {
+  const n = parseCzechNumber(raw);
+  if (n !== null) return n;
+  const m = NUMBER_THEN_TAIL.exec(raw);
+  if (m && tailIsAUnit(m[2])) return parseCzechNumber(m[1]);
+  return null;
+}
 
 function applyMicro(s: string): string {
   for (const [bad, good] of MICRO_VARIANTS) s = s.split(bad).join(good);
@@ -143,15 +188,20 @@ export function stripMaterialPrefix(name: string): string {
 
 /**
  * Fold cosmetic unit variants to one form so the same analyte lines up across
- * labs. Dimensionless markers ("-", "") → "".
+ * labs: the micro-sign codepoints (including the ASCII "umol/l" fallback), the
+ * "10^9" vs "10˄9" vs flattened-superscript "x 109/l" exponent spellings,
+ * spacing around the solidus, and the litre-case. Dimensionless ("-", "") → "".
  */
 export function canonicalizeUnit(unitRaw: string | null | undefined): string | null {
   if (unitRaw === null || unitRaw === undefined) return null;
   let s = unitRaw.trim();
   if (s === "" || s === "-" || s === "–" || s === "—") return "";
   s = applyMicro(s);
+  s = s.replace(MICRO_ASCII, "µ"); // ASCII fallback umol/l, ug/l → µmol/l, µg/l
   s = s.split("˄").join("^"); // modifier caret ˄ → ^
+  s = s.replace(/\s*\/\s*/g, "/"); // "µmol / 24 h" → "µmol/24 h"
   s = s.replace(/\/l\b/gi, "/l"); // litre symbol case
+  s = s.replace(EXPONENT, "10^$1"); // x 10⁹/l, 109/l, 10E9/l → 10^9/l
   s = s.replace(/\s+/g, " ").trim();
   return s;
 }
@@ -164,9 +214,10 @@ export interface ParsedRange {
 
 /**
  * Parse a printed reference range into low/high/text. Handles "4,11-5,60",
- * "0,5 až 1,5", "< 5,00", "≤ 5,00", "do 5,0", "> 0,5", "≥ 0,5", "nad 0,5" and
- * non-numeric ranges ("negativní"). An unparseable range degrades to text
- * rather than being dropped.
+ * "0,5 až 1,5", "< 5,00", "≤ 5,00", "do 5,0", "> 0,5", "≥ 0,5", "nad 0,5", the
+ * same forms carrying the unit the lab printed in the cell ("7,8 - 12,8 fl",
+ * "< 50 ng/ml"), and non-numeric ranges ("negativní"). An unparseable range
+ * degrades to text rather than being dropped.
  */
 export function parseRange(refRaw: string | null | undefined): ParsedRange {
   const none: ParsedRange = { low: null, high: null, text: null };
@@ -179,17 +230,17 @@ export function parseRange(refRaw: string | null | undefined): ParsedRange {
   // that is a criterion, not an interval, and we never invent a number.
   const up = UPPER_BOUND.exec(s);
   if (up) {
-    const high = parseCzechNumber(s.slice(up[0].length));
+    const high = numberWithOptionalUnit(s.slice(up[0].length));
     return high !== null ? { low: null, high, text: null } : { low: null, high: null, text: s };
   }
   const lo = LOWER_BOUND.exec(s);
   if (lo) {
-    const low = parseCzechNumber(s.slice(lo[0].length));
+    const low = numberWithOptionalUnit(s.slice(lo[0].length));
     return low !== null ? { low, high: null, text: null } : { low: null, high: null, text: s };
   }
 
   const m = TWO_BOUNDS.exec(s);
-  if (m) {
+  if (m && (m[3] === undefined || tailIsAUnit(m[3]))) {
     const low = parseCzechNumber(m[1]);
     const high = parseCzechNumber(m[2]);
     if (low !== null && high !== null) return { low, high, text: null };

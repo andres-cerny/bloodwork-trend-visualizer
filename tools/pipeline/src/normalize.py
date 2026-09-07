@@ -17,6 +17,14 @@ _MICRO_VARIANTS = {"μ": "µ"}          # Greek mu → micro sign
 _DASHES = {"‒", "–", "—", "−"}  # figure/en/em dash, minus
 _THIN_SPACES = {" ", " ", " ", " "}  # NBSP, narrow NBSP, thin, figure
 
+# Micro has three spellings: the micro sign, Greek mu (both above) and the
+# ASCII fallback a lab prints when its LIS cannot emit either. Lowercase only,
+# and only before a stem that has a micro form — "U/l" is the enzyme unit.
+_MICRO_ASCII = re.compile(r"(?<![A-Za-z])u(?=(?:mol|kat|g|l)(?![A-Za-z]))")
+# The count units, whose exponent survives a PDF text layer as plain digits:
+# printed "x 10⁹/l", extracted "x 109/l". Only the exponents labs use.
+_EXPONENT = re.compile(r"^\s*[x×*]?\s*10\s*[\^˄*Ee]?\s*(3|6|9|12)(?=/)")
+
 _NUMBER_CORE = re.compile(r"^[+]?\d[\d\s.,]*$")
 _HAS_LETTER = re.compile(r"[^\W\d_]", re.UNICODE)  # any unicode letter
 _VALUE_MARKERS = ("!", "*", "↑", "↓")  # out-of-range decoration beside a value
@@ -26,9 +34,52 @@ _VALUE_MARKERS = ("!", "*", "↑", "↓")  # out-of-range decoration beside a va
 # must be followed by whitespace so "dospělí…" is not read as "do".
 _UPPER_BOUND = re.compile(r"^(?:<|≤|do\s)\s*", re.IGNORECASE | re.UNICODE)
 _LOWER_BOUND = re.compile(r"^(?:>|≥|nad\s)\s*", re.IGNORECASE | re.UNICODE)
-# Both bounds: "a - b" or "a až b", split on the separator between digits.
-_TWO_BOUNDS = re.compile(r"^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*)\s*$",
-                         re.IGNORECASE | re.UNICODE)
+# Both bounds: "a - b" or "a až b", split on the separator between digits, with
+# an optional trailing cell the lab printed after the numbers ("7,8 - 12,8 fl").
+_TWO_BOUNDS = re.compile(
+    r"^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*?)\s*"
+    r"([A-Za-zµμ%‰/(×°][\s\S]*)?$",
+    re.IGNORECASE | re.UNICODE)
+# A tail must *start* like a unit, be at most three words, and its first word
+# must not be one of these. Two closed Czech/Slovak vocabularies, because they
+# are the only tails where the numbers in front are not an interval:
+#   "0 - 15 let"      — the numbers are ages, printed in the same column shape
+#   "<1,0 negatívne"  — the numbers define a criterion, not a range
+# Anything else after the numbers ("muži", "nekuřáci") only names the
+# population the interval belongs to, so accepting it costs nothing.
+_NOT_A_UNIT = frozenset({
+    "let", "léta", "rok", "roku", "roky", "roků", "rokov", "r",
+    "měsíc", "měsíce", "měsíců", "mesiac", "mesiace", "mesiacov", "m",
+    "týden", "týdne", "týdny", "týdnů", "týždeň", "týždne", "týždňov", "t",
+    "den", "dne", "dny", "dní", "dnů", "deň", "dni", "dňov", "d",
+    "hod", "hodin", "hodina", "hodiny", "hodín", "trimestr",
+    "negativní", "negativně", "negatívne", "negatívny", "pozitivní",
+    "pozitívne", "pozitívny", "hraniční", "hraničné", "reaktivní",
+    "nereaktivní", "normální", "patologické", "stopy", "neprovedeno",
+    "nevykonané", "přítomny", "přítomen", "nepřítomny", "nález",
+})
+# A number followed by the unit the lab printed beside it ("50 ng/ml", "4g/den").
+_NUMBER_THEN_TAIL = re.compile(r"^\s*([0-9][0-9\s.,]*?)\s*([A-Za-zµμ%‰/(×°][\s\S]*)$",
+                               re.UNICODE)
+
+
+def _tail_is_a_unit(tail: str) -> bool:
+    """Is this trailing cell the unit, rather than an age band or a criterion?"""
+    words = tail.split()
+    if not words or len(words) > 3:
+        return False
+    return words[0].strip(".,;:)").lower() not in _NOT_A_UNIT
+
+
+def _number_with_optional_unit(raw: str) -> Optional[float]:
+    """A bound, whether or not the lab printed its unit in the same cell."""
+    n = parse_czech_number(raw)
+    if n is not None:
+        return n
+    m = _NUMBER_THEN_TAIL.match(raw)
+    if m and _tail_is_a_unit(m.group(2)):
+        return parse_czech_number(m.group(1))
+    return None
 
 
 # --- numbers ----------------------------------------------------------------
@@ -133,8 +184,10 @@ def strip_material_prefix(name: str) -> str:
 def canonicalize_unit(unit_raw: Optional[str]) -> Optional[str]:
     """Fold cosmetic unit variants to one form so the same analyte lines up.
 
-    Unifies micro-sign codepoints, the "10^9" vs "10˄9" exponent glyphs, and
-    the litre-case ("/L" vs "/l"). Dimensionless markers ("-", "") -> "".
+    Unifies micro-sign codepoints (including the ASCII "umol/l" fallback), the
+    "10^9" vs "10˄9" vs flattened-superscript "x 109/l" exponent spellings,
+    spacing around the solidus, and the litre-case ("/L" vs "/l").
+    Dimensionless markers ("-", "") -> "".
     """
     if unit_raw is None:
         return None
@@ -143,8 +196,11 @@ def canonicalize_unit(unit_raw: Optional[str]) -> Optional[str]:
         return ""
     for bad, good in _MICRO_VARIANTS.items():
         s = s.replace(bad, good)
+    s = _MICRO_ASCII.sub("µ", s)       # ASCII fallback umol/l, ug/l → µmol/l, µg/l
     s = s.replace("˄", "^")            # modifier caret ˄ → ^
+    s = re.sub(r"\s*/\s*", "/", s)     # "µmol / 24 h" → "µmol/24 h"
     s = re.sub(r"(?i)/l\b", "/l", s)         # litre symbol case
+    s = _EXPONENT.sub(r"10^\1", s)     # x 10⁹/l, 109/l, 10E9/l → 10^9/l
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
@@ -154,9 +210,10 @@ def parse_range(ref_raw: Optional[str]) -> tuple[Optional[float], Optional[float
     """Parse a printed reference range into (low, high, text).
 
     Handles "4,11-5,60", "62,00 - 110", "0,5 až 1,5", "< 5,00", "≤ 5,00",
-    "do 5,0", "> 0,5", "≥ 0,5", "nad 0,5" and non-numeric ranges
-    ("negativní"). The raw string is always preserved by the caller, so an
-    unparseable range degrades to text rather than being dropped.
+    "do 5,0", "> 0,5", "≥ 0,5", "nad 0,5", the same forms carrying the unit the
+    lab printed in the cell ("7,8 - 12,8 fl", "< 50 ng/ml"), and non-numeric
+    ranges ("negativní"). The raw string is always preserved by the caller, so
+    an unparseable range degrades to text rather than being dropped.
     """
     if ref_raw is None:
         return None, None, None
@@ -170,15 +227,15 @@ def parse_range(ref_raw: Optional[str]) -> tuple[Optional[float], Optional[float
     # that is a criterion, not an interval, and we never invent a number.
     up = _UPPER_BOUND.match(s)
     if up:
-        high = parse_czech_number(s[up.end():])
+        high = _number_with_optional_unit(s[up.end():])
         return (None, high, None) if high is not None else (None, None, s)
     lo = _LOWER_BOUND.match(s)
     if lo:
-        low = parse_czech_number(s[lo.end():])
+        low = _number_with_optional_unit(s[lo.end():])
         return (low, None, None) if low is not None else (None, None, s)
 
     m = _TWO_BOUNDS.match(s)
-    if m:
+    if m and (m.group(3) is None or _tail_is_a_unit(m.group(3))):
         low = parse_czech_number(m.group(1))
         high = parse_czech_number(m.group(2))
         if low is not None and high is not None:
