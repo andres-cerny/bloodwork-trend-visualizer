@@ -26,6 +26,7 @@ import {
   rowMaterialCode,
   scopeExclusion,
   scoreAgainstBaseline,
+  splitTruth,
   twoIntervals,
   twoValues,
   valueErrors,
@@ -380,6 +381,76 @@ describe("marker rows are excluded from truth, never from the read", () => {
     expect(s.confirmedRows).toBe(1);
     expect(s.flaggedRows).toBe(0);
     expect(s.uncaughtValueErrors).toEqual([]);
+  });
+});
+
+/**
+ * The two scorers disagreeing about what a measurement is — the bug, and the
+ * two things the fix must not break.
+ *
+ * `valueErrors` dropped a bare-marker truth row and `pairStats` did not, so
+ * two readers that both faithfully returned AGILAB's printed
+ * `KO+diferenciál 5p.  #` were recorded as having *invented* a row between
+ * them: six UNCAUGHT on `gemini38_ultra+sonnet_vision_dF`, seven carried by
+ * `gemini38_tiled+gemini38_ultra` for two days, every one of them
+ * `KO+diferenciál 5p. ∅→#`. Fidelity scored as invention.
+ *
+ * Both functions now read `splitTruth`, so they cannot drift apart again. The
+ * exemption is deliberately narrow, and the two tests below are the fence
+ * around it: an agreed wrong number on a real measurement is still uncaught,
+ * and a name the page does not print at all is still charged.
+ */
+describe("splitTruth — one rule, read by both scorers", () => {
+  const marker = { raw_analyte_name: "KO+diferenciál 5p.", value_raw: "#" };
+  const truth = [
+    { raw_analyte_name: "Leukocyty", value_raw: "6,17" },
+    { raw_analyte_name: "Sodík", value_raw: "141" },
+    marker,
+  ];
+
+  it("partitions truth into measurements, markers and out-of-scope rows", () => {
+    const withUrine = [...truth, { raw_analyte_name: "U_Kreatinin", value_raw: "5,60" }];
+    const s = splitTruth(withUrine, nameKey);
+    expect(s.measurements.map((t) => t.raw_analyte_name)).toEqual(["Leukocyty", "Sodík"]);
+    expect(s.markerRows).toBe(1);
+    expect(s.scopeRows).toBe(1);
+    expect(s.measurements.length + s.markerRows + s.scopeRows).toBe(withUrine.length);
+    expect(s.markers.get(nameKey("KO+diferenciál 5p."))).toBe(1);
+  });
+
+  it("both readers returning the printed marker row is fidelity, not invention", () => {
+    const read = [truth[0], truth[1], marker];
+    const s = pairStats(read, read, truth);
+    expect(s.uncaughtValueErrors).toEqual([]);
+    // Not a measurement, so not confirmed either — `valueErrors` does not
+    // count it in `matched`, and the pair must not count it in `confirmed`.
+    expect(s.confirmedRows).toBe(2);
+    expect(s.flaggedRows).toBe(0);
+    expect(s.markerRows).toBe(1);
+  });
+
+  it("still counts an agreed wrong number on a real measurement as uncaught", () => {
+    const read = [truth[0], { raw_analyte_name: "Sodík", value_raw: "144" }, marker];
+    const s = pairStats(read, read, truth);
+    expect(s.uncaughtValueErrors).toEqual([{ name: "Sodík", truth: "141", read: "144" }]);
+    expect(s.markerRows).toBe(1);
+  });
+
+  it("still counts a row the page does not print as an invention", () => {
+    const ghost = { raw_analyte_name: "S_Neexistuje", value_raw: "1,0" };
+    const read = [...truth.slice(0, 2), marker, ghost];
+    const s = pairStats(read, read, truth);
+    expect(s.uncaughtValueErrors).toEqual([{ name: "S_Neexistuje", truth: "", read: "1,0" }]);
+    expect(s.markerRows).toBe(1);
+  });
+
+  it("the exemption is spent per printed marker row, so a duplicate is still charged", () => {
+    // Truth prints the panel line once. A reader returning it twice invented
+    // the second one, and the budget runs out rather than forgiving both.
+    const read = [truth[0], truth[1], marker, marker];
+    const s = pairStats(read, read, truth);
+    expect(s.markerRows).toBe(1);
+    expect(s.uncaughtValueErrors).toEqual([{ name: "KO+diferenciál 5p.", truth: "", read: "#" }]);
   });
 });
 

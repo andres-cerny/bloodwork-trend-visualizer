@@ -950,7 +950,10 @@ to `printedMaterial` that every mapping in the app would then inherit.
 ### One rule that is not the marker rule
 
 A bare `#` panel line is dropped from the truth **only**: a reader that returns
-it is still charged an extra, because nothing tells it to. The D0 exclusions are
+it is still charged an extra, because nothing tells it to. It is never charged
+as a *value* error, on either side of either scorer — there is no number on the
+page to be wrong about — and since 2026-09-08 `pairStats` reads that rule from
+the same place `valueErrors` does. The D0 exclusions are
 dropped from the **read as well** (`inScopeReads`), for the opposite reason —
 the prompt deliberately does not mention urine, so charging a reader an extra
 for a row it was told to transcribe would score obedience as error. The app
@@ -977,34 +980,39 @@ product does not track. Nobody else's value-error column moves at all.
 
 | pair | confirmed | flagged | UNCAUGHT | caught |
 |---|---|---|---|---|
-| `gemini38_ultra+opus_vision` | 3647 → 3575 | 36 → 28 | 0 → 0 | 0 → 0 |
-| `gemini38_ultra+sonnet_vision` | 3612 → 3540 | 67 → 59 | 0 → 0 | 0 → 0 |
-| `gemini38_tiled+opus_vision` | 3649 → 3577 | 33 → 27 | 0 → 0 | 0 → 0 |
-| `gemini38_tiled+sonnet_vision` | 3614 → 3542 | 64 → 58 | 0 → 0 | 0 → 0 |
+| `gemini38_ultra+opus_vision` | 3647 → 3575 | 36 → 21 | 0 → 0 | 0 → 0 |
+| `gemini38_ultra+sonnet_vision` | 3612 → 3540 | 67 → 52 | 0 → 0 | 0 → 0 |
+| `gemini38_tiled+opus_vision` | 3649 → 3577 | 33 → 19 | 0 → 0 | 0 → 0 |
+| `gemini38_tiled+sonnet_vision` | 3614 → 3542 | 64 → 50 | 0 → 0 | 0 → 0 |
 | `opus_vision+sonnet_vision` | 3614 → 3542 | 47 → 47 | 4 → 4 | 0 → 0 |
 | `sonnet_vision+haiku_vision` (deployed) | 3375 → 3307 | 506 → 494 | 0 → 0 | 48 → 40 |
-| `gemini38_high+opus_vision` | 3610 → 3538 | 81 → 73 | 0 → 0 | 0 → 0 |
-| `gemini38_high+sonnet_vision` | 3575 → 3503 | 112 → 104 | 0 → 0 | 0 → 0 |
-| `gemini38_high+gemini38_tiled` | 3632 → 3554 | 54 → 52 | 8 → 8 | 0 → 0 |
-| `gemini38_high+gemini38_ultra` | 3630 → 3550 | 57 → 57 | 6 → 6 | 0 → 0 |
-| `gemini38_tiled+gemini38_ultra` | 3668 → 3590 | 11 → 9 | 7 → 7 | 0 → 0 |
-| `gemini38_high+haiku_vision` | 3351 → 3283 | 544 → 532 | 0 → 0 | 48 → 40 |
-| `gemini38_tiled+haiku_vision` | 3388 → 3320 | 502 → 490 | 0 → 0 | 48 → 40 |
-| `gemini38_ultra+haiku_vision` | 3386 → 3318 | 503 → 491 | 0 → 0 | 48 → 40 |
-| `gemini38_high+mistral_ocr` | 3405 → 3378 | 454 → 399 | 12 → 12 | 72 → 72 |
-| `gemini38_tiled+mistral_ocr` | 3442 → 3415 | 410 → 357 | 10 → 10 | 72 → 72 |
-| `gemini38_ultra+mistral_ocr` | 3437 → 3410 | 419 → 364 | 7 → 7 | 72 → 72 |
-| `mistral_ocr+opus_vision` | 3432 → 3405 | 413 → 366 | 0 → 0 | 72 → 72 |
-| `mistral_ocr+sonnet_vision` | 3399 → 3372 | 440 → 393 | 0 → 0 | 72 → 72 |
+| `gemini38_high+opus_vision` | 3610 → 3538 | 81 → 61 | 0 → 0 | 0 → 0 |
+| `gemini38_high+sonnet_vision` | 3575 → 3503 | 112 → 92 | 0 → 0 | 0 → 0 |
+| `gemini38_high+gemini38_tiled` | 3632 → 3547 | 54 → 46 | 8 → 1 | 0 → 0 |
+| `gemini38_high+gemini38_ultra` | 3630 → 3545 | 57 → 48 | 6 → 1 | 0 → 0 |
+| `gemini38_tiled+gemini38_ultra` | 3668 → 3584 | 11 → 6 | 7 → 1 | 0 → 0 |
+| `gemini38_high+haiku_vision` | 3351 → 3283 | 544 → 520 | 0 → 0 | 48 → 40 |
+| `gemini38_tiled+haiku_vision` | 3388 → 3320 | 502 → 482 | 0 → 0 | 48 → 40 |
+| `gemini38_ultra+haiku_vision` | 3386 → 3318 | 503 → 484 | 0 → 0 | 48 → 40 |
+| `gemini38_high+mistral_ocr` | 3405 → 3367 | 454 → 394 | 12 → 1 | 72 → 72 |
+| `gemini38_tiled+mistral_ocr` | 3442 → 3408 | 410 → 348 | 10 → 3 | 72 → 72 |
+| `gemini38_ultra+mistral_ocr` | 3437 → 3404 | 419 → 354 | 7 → 1 | 72 → 72 |
+| `mistral_ocr+opus_vision` | 3432 → 3405 | 413 → 351 | 0 → 0 | 72 → 72 |
+| `mistral_ocr+sonnet_vision` | 3399 → 3372 | 440 → 378 | 0 → 0 | 72 → 72 |
 | `haiku_vision+opus_vision` | 3380 → 3312 | 507 → 495 | 0 → 0 | 48 → 40 |
-| `haiku_vision+mistral_ocr` | 3179 → 3152 | 881 → 830 | 0 → 0 | 120 → 112 |
-| `mistral_haiku+mistral_ocr` | 3128 → 3112 | 790 → 756 | 90 → 90 | 2 → 2 |
-| `gemini38_high+mistral_haiku` | 3061 → 3024 | 804 → 761 | 0 → 0 | 72 → 72 |
-| `gemini38_tiled+mistral_haiku` | 3090 → 3053 | 776 → 735 | 0 → 0 | 72 → 72 |
-| `gemini38_ultra+mistral_haiku` | 3088 → 3051 | 779 → 736 | 0 → 0 | 72 → 72 |
+| `haiku_vision+mistral_ocr` | 3179 → 3152 | 881 → 815 | 0 → 0 | 120 → 112 |
+| `mistral_haiku+mistral_ocr` | 3128 → 3112 | 790 → 741 | 90 → 90 | 2 → 2 |
+| `gemini38_high+mistral_haiku` | 3061 → 3024 | 804 → 749 | 0 → 0 | 72 → 72 |
+| `gemini38_tiled+mistral_haiku` | 3090 → 3053 | 776 → 727 | 0 → 0 | 72 → 72 |
+| `gemini38_ultra+mistral_haiku` | 3088 → 3051 | 779 → 729 | 0 → 0 | 72 → 72 |
 | `mistral_haiku+opus_vision` | 3086 → 3049 | 767 → 732 | 0 → 0 | 72 → 72 |
 | `mistral_haiku+sonnet_vision` | 3058 → 3021 | 784 → 749 | 0 → 0 | 72 → 72 |
 | `haiku_vision+mistral_haiku` | 2878 → 2843 | 1146 → 1103 | 0 → 0 | 120 → 112 |
+
+The "after" column was re-scored on 2026-09-08 once `pairStats` stopped
+charging a bare-marker truth row to the pair — see *the pair scorer's marker
+bug* at the end of this document for what moved and by how much. Nothing in
+the "before" column can be re-scored: it is the pre-D0 truth.
 
 ### public — 11 pages, truth 261 → 201
 
@@ -1082,9 +1090,9 @@ the margins are almost exactly what they were:
 | Gemini ultra + Opus, confirmed | 3647 / 3677 | 3575 / 3585 |
 | Gemini ultra + Sonnet, confirmed | 3612 / 3677 | 3540 / 3585 |
 | Opus's lead, in rows | 35 | **35** |
-| Gemini + Sonnet flagged vs Gemini + Opus | 67 vs 36 | 59 vs 28 |
+| Gemini + Sonnet flagged vs Gemini + Opus | 67 vs 36 | 52 vs 21 |
 | Gemini + Sonnet vs the deployed Sonnet + Haiku, confirmed | +237 | +233 |
-| Gemini + Sonnet vs deployed, flagged | 67 vs 506 | 59 vs 494 |
+| Gemini + Sonnet vs deployed, flagged | 67 vs 506 | 52 vs 494 |
 | uncaught value errors, every cross-vendor pair | 0 | 0 |
 
 Not one ordering moved, on any class or any pair. That is a real answer rather
@@ -1319,24 +1327,24 @@ value, never as a measurement on a chart.
 
 ```
 pair                              pages confirmed flagged UNCAUGHT caught
-gemini38_ultra+sonnet_vision_dF     133      3589       8        6      0
-gemini38_ultra+opus_vision          133      3575      28        0      0
-gemini38_ultra+sonnet_vision        133      3540      59        0      0
-gemini38_tiled+sonnet_vision_dF     133      3592       5        7      0
-opus_vision+sonnet_vision_dF        133      3577      24        0      0
+gemini38_ultra+sonnet_vision_dF     133      3583       5        0      0
+gemini38_ultra+opus_vision          133      3575      21        0      0
+gemini38_ultra+sonnet_vision        133      3540      52        0      0
+gemini38_tiled+sonnet_vision_dF     133      3585       3        0      0
+opus_vision+sonnet_vision_dF        133      3577      16        0      0
 opus_vision+sonnet_vision           133      3542      47        4      0
 ```
 
-**All six "uncaught" rows on `gemini38_ultra+sonnet_vision_dF` are the same
-`KO+diferenciál 5p. ∅→#` marker**, and they are a scorer artefact, not a value
-error. `valueErrors` already exempts a bare-marker truth row from being charged
-to anyone; `pairStats` does not, so when both readers faithfully return the
-printed `#` the pair is recorded as having invented a row. The Gemini-only
-pairs show the same thing — `gemini38_tiled+gemini38_ultra` carries 7 of them
-and has for two days. Adjudicated to 0 genuine uncaught value errors, which is
-the same verdict every Claude+Gemini pair has had; if the column is to be
-trusted without adjudication, `pairStats` needs the exemption `valueErrors`
-already has.
+**This table was first published with 6 uncaught on
+`gemini38_ultra+sonnet_vision_dF` and 7 on `gemini38_tiled+sonnet_vision_dF`,
+adjudicated to 0 by hand.** Every one was the same `KO+diferenciál 5p. ∅→#`
+marker line, and that adjudication is now the scorer's own: `pairStats` reads
+the same rule about what a measurement is that `valueErrors` always had, so the
+column needs no adjudication to be believed. The numbers above are the
+re-scored ones — *the pair scorer's marker bug*, at the end of this document,
+has the full before and after. The confirmed and flagged columns move with it:
+nine marker rows leave `gemini38_ultra+sonnet_vision_dF`'s ledger, which is why
+3589/8 became 3583/5.
 
 The four uncaught rows on `opus_vision+sonnet_vision` are *not* an artefact:
 both readers returned `76,7` on a row whose printed name they both dropped. The
@@ -1347,7 +1355,7 @@ new prompt removes them — `opus_vision+sonnet_vision_dF` is clean.
 **The case for Opus on photographs is gone.** It was bought to recover rows
 Sonnet was dropping; Sonnet now drops none, and Opus drops eight that Sonnet
 returns. On flagged rows — the cost of human review — the Sonnet pair is four
-times cheaper to check: 8 flagged against 28.
+times cheaper to check: 5 flagged against 21.
 
 `gemini38_ultra+sonnet_vision` stands as the recommendation, and now stands on
 better ground than "Opus is not worth twice the price": it is the better pair on
@@ -1355,3 +1363,106 @@ every column, adjudication included. Two caveats, both already in this document:
 Gemini's numbers are tier-2 reads taken under the *pre-D0* prompt, so the pair
 table mixes prompts and the Gemini half can only improve when it is re-read
 (≈ $1.92, needs approval); and a subagent is not the API.
+
+## Phase D — the pair scorer's marker bug (2026-09-08, free)
+
+`valueErrors` and `pairStats` disagreed about what a measurement is, and the
+pair column had been publishing that disagreement as if it were a reader
+fault. Fixed in `tests/bench/score.ts`; every class re-scored from the reads
+already on disk, no API calls.
+
+### The rule, now stated once
+
+`splitTruth` partitions the truth in three, and both scorers read it:
+
+> Truth is **measurements**, **markers** and **out-of-scope rows**, and the
+> three are exhaustive. A *measurement* is a blood analyte's row carrying a
+> result, number or status — only these can be read right or wrong. A *marker*
+> is an in-scope row the page prints with a bare `#`, `*`, `-`, `—` or nothing
+> where a value would go; the page does print the line, so a reader returning
+> it is being faithful, and it carries no number, so **no scorer in this file
+> makes a value claim about it, on either side**. `valueErrors` leaves it out
+> of `truthRows` and `matched`; `pairStats` leaves it out of `confirmedRows`,
+> `flaggedRows` and `uncaughtValueErrors`. Both report the count instead, so
+> the drop is visible rather than silent.
+
+The exemption is a **budget, not a licence**: `splitTruth` counts how many
+times each name is printed as a marker row and `pairStats` spends one per
+exempted slot. A reader that returns the panel line twice where the page
+prints it once is still charged for the second.
+
+Three guards in `tests/bench/score.test.ts`, each seen failing before it
+passed: the marker row exempted; two readers agreeing on a wrong number for a
+genuine measurement still uncaught; a row the page does not print at all still
+charged as an invention. A fourth asserts the partition sums to `truth.length`,
+and a fifth spends the budget.
+
+### Every pair whose UNCAUGHT changed
+
+Only the photo class moves — it is the only corpus whose truth holds marker
+rows. Public, synthetic and born-digital are identical to the row.
+
+| pair | UNCAUGHT before | after | confirmed | flagged | marker rows exempted |
+|---|---|---|---|---|---|
+| `gemini38_high+mistral_ocr` | 12 | **1** | 3378 → 3367 | 399 → 394 | 16 |
+| `gemini38_tiled+mistral_ocr` | 10 | **3** | 3415 → 3408 | 357 → 348 | 16 |
+| `gemini38_high+gemini38_tiled` | 8 | **1** | 3554 → 3547 | 52 → 46 | 13 |
+| `gemini38_high+sonnet_vision_dF` | 7 | **0** | 3553 → 3546 | 51 → 45 | 13 |
+| `gemini38_tiled+gemini38_ultra` | 7 | **1** | 3590 → 3584 | 9 → 6 | 9 |
+| `gemini38_tiled+sonnet_vision_dF` | 7 | **0** | 3592 → 3585 | 5 → 3 | 9 |
+| `gemini38_ultra+mistral_ocr` | 7 | **1** | 3410 → 3404 | 364 → 354 | 16 |
+| `mistral_ocr+sonnet_vision_dF` | 7 | **0** | 3412 → 3405 | 360 → 351 | 16 |
+| `gemini38_high+gemini38_ultra` | 6 | **1** | 3550 → 3545 | 57 → 48 | 14 |
+| `gemini38_ultra+sonnet_vision_dF` | 6 | **0** | 3589 → 3583 | 8 → 5 | 9 |
+
+**69 uncaught entries removed across 10 pairs, and every single one of them was
+`KO+diferenciál 5p. ∅→#`.** Nothing was added anywhere: the removed set has
+exactly one distinct analyte name in it. `mistral_haiku+mistral_ocr` keeps all
+90 of its uncaught rows — those are the row-offset cascade, which is a real
+fault and is untouched.
+
+A further **20 pairs change only `flagged`, by 200 rows in total** — the shots
+where one reader returned the panel line and the other did not, previously
+counted as review cost for a row nobody can be wrong about. No pair's `caught`
+moves at all, and every variant's `valERR`, `miss`, `extra` and `marker` column
+is identical before and after: `valueErrors` was already right and its output
+did not change by a single row.
+
+### What is left, and why it is not the same thing
+
+Seventeen `KO+diferenciál 5p.` rows survive as uncaught, and every one is the
+same printed page: `2022_07_01` p1, mostly its `angle` shot, plus `flat` and
+`crop` on the one pair where both readers returned it there. That page's
+accepted report in `data/reports` never recorded the panel line at all,
+so the truth has no marker row there to exempt. That is a truth-set gap, not a
+scorer artefact, and the exemption deliberately does not paper over it: it is
+keyed to what the truth carries, exactly as `valueErrors` is. It is why
+`gemini38_tiled+mistral_ocr` lands on 3 rather than 0 and four Gemini pairs
+land on 1.
+
+### What this changes, and what it does not
+
+**It changes bookkeeping. No reader behaves any differently.** Not one model
+was re-run, not one prompt moved, and the reads scored here are byte-for-byte
+the ones scored two days ago. What was wrong was the arithmetic on top of them.
+
+Which published numbers were wrong, and by how much:
+
+- **the Phase D0 photo pairs table** — three pairs' UNCAUGHT overstated by 7,
+  5 and 6 (`gemini38_high+gemini38_tiled` 8, `gemini38_high+gemini38_ultra` 6,
+  `gemini38_tiled+gemini38_ultra` 7, all now 1), and the Mistral pairs by 11, 7
+  and 6. Twenty more pairs' `flagged` overstated, by 200 rows between them;
+- **the final Phase D pairs block** — `gemini38_ultra+sonnet_vision_dF`
+  published 6 uncaught and `gemini38_tiled+sonnet_vision_dF` 7, both actually
+  0. Both were adjudicated to 0 in prose at the time, so the conclusion drawn
+  from them was already right; the table was not;
+- **the Phase C pair tables** (2026-09-06 and 2026-09-07, above) carry the same
+  artefact in their same-vendor rows — 3, 2 and 4 uncaught on 45 pages, 7 and 6
+  on 133. They are left as printed. They were scored against the pre-D0 truth,
+  which no longer exists in the scorer, so re-running them would produce a
+  third set of numbers rather than a correction. The prose beside them already
+  identifies every one of those rows as the panel line.
+
+The recommendation does not move. `gemini38_ultra+sonnet_vision` was chosen on
+zero uncaught after adjudication and it still has zero, on a column that no
+longer needs adjudicating.

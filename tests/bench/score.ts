@@ -107,6 +107,9 @@ export function nameKey(s: string | undefined): string {
  * bare marker (`#`, `*`, `-`, `—`) or blank is dropped from truth before
  * scoring. It is dropped from *truth* only — a reader that emits such a row is
  * still charged an extra, which is the signal we want to keep.
+ *
+ * Where that drop is applied, and by whom, is `splitTruth` below: one rule,
+ * read by `valueErrors` and `pairStats` alike.
  */
 const BARE_MARKERS = new Set(["#", "*", "-", "—"]);
 
@@ -216,6 +219,69 @@ export function isMeasurementRow(row: RawMeasurement | null | undefined): boolea
   const v = (row?.value_raw ?? "").trim();
   if (v === "" || BARE_MARKERS.has(v)) return false;
   return inScope(row);
+}
+
+/**
+ * **What a value claim can be made about, stated once for every scorer here.**
+ *
+ * Truth partitions in three, and the three are exhaustive — `measurements`
+ * plus `markerRows` plus `scopeRows` is always `truth.length`:
+ *
+ *   - **measurements** — a blood analyte's row carrying a result, number or
+ *     status. Only these can be read right or wrong;
+ *   - **markers** — an in-scope row the page prints with a bare marker where
+ *     a value would go (AGILAB's `KO+diferenciál 5p.  #`). The page *does*
+ *     print the line, so a reader returning it is being faithful; it simply
+ *     carries no number, so **no scorer in this file makes a value claim
+ *     about it, on either side**. `valueErrors` leaves it out of `truthRows`
+ *     and `matched`; `pairStats` leaves it out of `confirmedRows`,
+ *     `flaggedRows` and `uncaughtValueErrors`. Both report the count instead,
+ *     so the drop is visible rather than silent;
+ *   - **scopeRows** — dropped by D0's scope rule, and dropped from the read
+ *     too (`inScopeReads`), for the different reason given there.
+ *
+ * This function exists because the rule used to live in two places. It lived
+ * in `valueErrors` as `truth.filter(isMeasurementRow)` and it did *not* live
+ * in `pairStats`, so two readers that both faithfully returned the printed
+ * `#` were scored as having invented a row between them — six on
+ * `gemini38_ultra+sonnet_vision_dF`, seven carried by
+ * `gemini38_tiled+gemini38_ultra` for two days. Copying the condition across
+ * would have left the same drift free to happen again; both now read this.
+ *
+ * `markers` is a **budget, not a licence**: it counts how many times each
+ * name is printed as a marker row, and `pairStats` spends one per exempted
+ * slot. A reader that returns the panel line twice when the page prints it
+ * once is still charged for the second, so the exemption cannot be used to
+ * smuggle an invented row past the pair check.
+ */
+export interface TruthSplit {
+  /** Truth rows a value claim can be made about. */
+  measurements: RawMeasurement[];
+  /** In-scope bare-marker rows, keyed by name — how many the page prints. */
+  markers: Map<string, number>;
+  /** Total of `markers`. */
+  markerRows: number;
+  /** Truth rows D0 puts out of scope — see `scopeExclusion`. */
+  scopeRows: number;
+}
+
+export function splitTruth(
+  truth: RawMeasurement[],
+  key: (n: string | undefined) => string,
+): TruthSplit {
+  const out: TruthSplit = { measurements: [], markers: new Map(), markerRows: 0, scopeRows: 0 };
+  for (const t of truth) {
+    if (!inScope(t)) {
+      out.scopeRows++;
+    } else if (isMeasurementRow(t)) {
+      out.measurements.push(t);
+    } else {
+      const k = key(t.raw_analyte_name);
+      out.markers.set(k, (out.markers.get(k) ?? 0) + 1);
+      out.markerRows++;
+    }
+  }
+  return out;
 }
 
 /**
@@ -763,16 +829,16 @@ export function valueErrors(
   opts?: MatchOptions,
 ): ValueErrors {
   const key = aliasedNameKey(opts);
-  const rows = truth.filter(isMeasurementRow);
-  const scopeRows = truth.filter((t) => !inScope(t)).length;
+  // The one rule about what a measurement is — see `splitTruth`. The three
+  // counts partition truth, so the columns still sum to truth.length.
+  const split = splitTruth(truth, key);
+  const rows = split.measurements;
   const read = inScopeReads(readAll, truth, key);
   const free = read.map((m) => m);
   const out: ValueErrors = {
     truthRows: rows.length,
-    // The two drops partition truth: a row out of scope is counted there
-    // whatever its value, so the columns still sum to truth.length.
-    markerRows: truth.filter((t) => inScope(t) && !isMeasurementRow(t)).length,
-    scopeRows,
+    markerRows: split.markerRows,
+    scopeRows: split.scopeRows,
     readRows: read.length,
     matched: 0,
     errors: [],
@@ -815,11 +881,18 @@ export function valueErrors(
  * (`"druhé čtení se nezdařilo"`), `singleReader` is true, and the surviving
  * read's own value errors are listed under `singleReaderErrors` so the
  * condition is visible per shot rather than hidden in a 0.
+ *
+ * Rows the truth prints as a bare marker leave this ledger entirely and are
+ * counted in `markerRows` — the rule is `splitTruth`'s, and `valueErrors`
+ * reads the same one. A name the truth does not carry *at all* is still an
+ * invention and still lands in `uncaughtValueErrors` with an empty truth.
  */
 export interface PairStats {
   singleReader: boolean;
   confirmedRows: number;
   flaggedRows: number;
+  /** Rows exempted as bare-marker truth lines — neither confirmed nor flagged. */
+  markerRows: number;
   /** Confirmed rows whose agreed value is not the truth (truth "" = a row both invented). */
   uncaughtValueErrors: Array<{ name: string; truth: string; read: string }>;
   /** Flagged rows where at least one read was wrong — the flag earned its keep. */
@@ -844,6 +917,7 @@ export function pairStats(
     singleReader: false,
     confirmedRows: 0,
     flaggedRows: 0,
+    markerRows: 0,
     uncaughtValueErrors: [],
     caughtValueErrors: 0,
     singleReaderErrors: [],
@@ -868,7 +942,12 @@ export function pairStats(
   };
   const a = byName(readA);
   const b = byName(readB);
-  const t = byName(truth.filter(isMeasurementRow));
+  // The one rule about what a measurement is — see `splitTruth`. `markers` is
+  // spent as slots are exempted, so the page's printed marker lines are
+  // forgiven and a duplicate beyond them is not.
+  const split = splitTruth(truth, key);
+  const t = byName(split.measurements);
+  const markers = new Map(split.markers);
   const keys = new Set([...a.keys(), ...b.keys()]);
 
   for (const k of keys) {
@@ -885,6 +964,17 @@ export function pairStats(
         ts.find((x) => valKey(x.value_raw) === valKey(ra?.value_raw) || valKey(x.value_raw) === valKey(rb?.value_raw)) ??
         ts[i] ??
         ts[0];
+      // No truth measurement to judge this slot against, but the page prints
+      // the line with a bare marker: both readers are being faithful, and
+      // there is no number to be right or wrong about.
+      if (!tr) {
+        const left = markers.get(k) ?? 0;
+        if (left > 0) {
+          markers.set(k, left - 1);
+          stats.markerRows++;
+          continue;
+        }
+      }
       const truthVal = tr ? valKey(tr.value_raw) : null;
       if (ra && rb && valKey(ra.value_raw) === valKey(rb.value_raw)) {
         stats.confirmedRows++;
