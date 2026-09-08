@@ -51,8 +51,8 @@ AGEL, the university hospitals — have no sample at all.
 | Photos of real sheets | `data/photos/`, git-ignored, guarded by `.claude/hooks/privacy-guard.mjs`; truth derived from `data/reports/*.json` | Real patient data never enters git; the accepted reports already are the ground truth `loadBaseline()` keys on |
 | Scoring | Three columns, never averaged, per document class (`tests/bench/score.ts`) | A single accuracy % hides the column that disqualifies |
 | Prompt edits | **Last** (Phase D), each proven by the eval | Deterministic fixes are free and permanent; prompt words are neither |
-| Perspective correction in the browser | Deferred until the "angle" photos are scored | Build it only if the models actually fail on skew |
-| **Image resolution per reader** | Each reader gets the most it can see. Sonnet 5: long edge 2576 px (its tier; the PDF path's `MAX_EDGE` 1800 stays for PDFs). Gemini 3.x has no pixel cap — it budgets tokens per image: `high` 1120, `ultra_high` 2240 (Google media-resolution doc) — so Gemini receives the full-resolution photo with `ultra_high`, and Phase C keeps a `high` arm to measure what the extra 1,120 tokens (≈ $0.001) buy | Ondřej, 2026-09-06: "if Gemini can see more pixels, give it a clear picture" |
+| Perspective correction in the browser | ~~Deferred~~ **Not built (2026-09-08)** | The `angle` shots were scored and both deployed readers read them without a value error. Only Mistral sheared, and Mistral is not in the pair |
+| **Image resolution per reader** | ~~Each reader gets the most it can see.~~ **Superseded 2026-09-08: one encode at 2576 px for both.** The original reasoning, kept because the measurement that overturned it only makes sense beside it: each reader gets the most it can see. Sonnet 5: long edge 2576 px (its tier; the PDF path's `MAX_EDGE` 1800 stays for PDFs). Gemini 3.x has no pixel cap — it budgets tokens per image: `high` 1120, `ultra_high` 2240 (Google media-resolution doc) — so Gemini receives the full-resolution photo with `ultra_high`, and Phase C keeps a `high` arm to measure what the extra 1,120 tokens (≈ $0.001) buy | Ondřej, 2026-09-06: "if Gemini can see more pixels, give it a clear picture" |
 | **Single reader is never silent** | When only one read comes back (the other request failed), every row carries `disagreement = "druhé čtení se nezdařilo"` | Ondřej, 2026-09-06, agreed |
 | Results | Hand-copied into [`docs/lab-adaptability.md`](../lab-adaptability.md) (new), like docs/extraction-speed.md | `tests/bench/results/` is git-ignored — derived from real PDFs |
 
@@ -388,17 +388,24 @@ columns; `tests/live/extract.live.ts` green on the new fixtures.
 
 ## Phase E — production wiring for photos
 
-1. **Input.** `UploadPanel.tsx` `accept="application/pdf,image/jpeg,image/png"`
-   plus a `capture="environment"` input on phones. New
+1. **Input — done 2026-09-08, and with *one* encode, not two.**
+   `UploadPanel.tsx` accepts `application/pdf` plus the image types, with a
+   `capture="environment"` input revealed by `(pointer: coarse)`. New
    `apps/bloodwork/src/lib/photo.ts`: EXIF orientation via
    `createImageBitmap(…, { imageOrientation: "from-image" })`, long edge
-   **2576 px** for Sonnet (its tier; `MAX_EDGE` 1800 in `pdf.ts` stays for
-   PDFs and would throw resolution away here) and the uncut original for
-   Gemini at `ultra_high` — two encodes of one photo, one per reader;
-   greyscale, 2nd–98th percentile contrast stretch, JPEG 0.85, manual
-   rectangle crop. Perspective
-   correction: only if the `angle` shots failed in C. One photo consumes one
-   page in `consumePage`; a `twopage` shot is read as one page.
+   **2576 px**, greyscale, 2nd–98th percentile contrast stretch, JPEG 0.85.
+   `MAX_EDGE` 1800 in `pdf.ts` stays for PDFs and is untouched.
+   **The second, full-resolution encode for Gemini was measured and dropped**
+   (docs/lab-adaptability.md, "how many encodes a photograph needs"): at 4x the
+   pixels Gemini matched the same 510 of 510 rows for the same 2,543 input
+   tokens, because `ultra_high` is a budget rather than a resolution. One
+   encode serves both readers; `imageFullBase64` stays on the Worker unused.
+   **Perspective correction: not built, and the question is closed** — every
+   `angle` shot reads clean on both deployed readers; the reader that sheared
+   was Mistral, which is not in the pair. Said so in a comment in `photo.ts`.
+   HEIC is detected by its `ftyp` brand and answered with a Czech sentence
+   naming JPEG, because Chrome cannot decode it. One photo consumes one page in
+   `consumePage`; a `twopage` shot is read as one page.
 2. **Worker.** `extractPageGemini` in `packages/extraction/src/gemini.ts`
    using `@google/genai` — spike its workerd compatibility first; fallback is
    a hardcoded REST call to `generativelanguage.googleapis.com` (the Worker's
@@ -551,6 +558,16 @@ deterministically, which a downloaded PDF cannot.
 
 [x] 2026-09-08 — F done; 4 154 handbook forms → 22 failures → 30 parity cases, fixture 105 → 135, both sides green, four faults reintroduced and watched failing
 
+[x] 2026-09-08 — E1 — the photo input, and one encode instead of two. 30 Gemini
+    calls ($0.48) over five pages at 2576 px and at full resolution: **510 of
+    510 rows matched in both arms, 0 value errors either way, and the same
+    2,543 input tokens** — 4x the pixels reach `ultra_high` as the same budget.
+    Built `apps/bloodwork/src/lib/photo.ts` (one encode, EXIF orientation,
+    greyscale, 2nd–98th stretch, JPEG 0.85, HEIC detected by `ftyp` brand), the
+    camera input, and `tests/e2e/upload.e2e.ts` + `npm run test:upload` — PDF,
+    photo, the single-reader silence and HEIC, all stubbed and free. Nine
+    guards watched failing first. Tables in docs/lab-adaptability.md.
+
 [x] 2026-09-08 — D — four sentences tried, one kept. D0's wording fixed (a status
     is a value, nothing said about the other columns): Opus stops discarding a
     printed unit, Sonnet unchanged. **D1 (prefix list), D3 (abbreviation column)
@@ -562,6 +579,16 @@ deterministically, which a downloaded PDF cannot.
     Opus's 8 misses. The pair recommendation moves: `gemini38_ultra+sonnet` now
     wins on every column and the case for Opus is gone. Tables in
     docs/lab-adaptability.md.
+
+[x] 2026-09-08 — D3 reopened and **kept** ($0.47, 60 deployed Gemini calls). The
+    drop measured Sonnet, which the sentence never moved; the question was
+    Gemini's *variance*. Břeclav p122 folds `URE urea` on 7 of 20 calls under
+    the old prompt and 0 of 20 under the new one, all fourteen rows at once or
+    none (p = 0.004). Sonnet re-read the three abbreviation pages plus six
+    without one, both ways: 142/142 either way, the two reads identical cell
+    for cell. Sentence added to `SYSTEM_EXTRACT` only. The adoption rule gains
+    a clause: target class **or target pair**. Tables in
+    docs/lab-adaptability.md, "D3, reopened".
 
 ## Open items
 

@@ -60,6 +60,22 @@ export const SYSTEM_EXTRACT =
   "vytištěn (včetně předpony jako 'S_' nebo 'B_'), hodnotu, jednotku a " +
   "referenční interval. Pokud je jednotka nebo interval ve zvláštním sloupci, " +
   "přiřaď je ke správnému řádku. " +
+  // D3, dropped on 2026-09-08 for changing nothing on Sonnet, and restored the
+  // same day when the fault turned out to be intermittent rather than absent.
+  // Twenty deployed `extractPageGemini` calls on Břeclav p122: **7 came back
+  // with `URE urea`** and thirteen with `urea`, all fourteen rows of the page
+  // folding or none. An intermittent fold is worse than a steady one — the
+  // reconciler turns the unlucky attempt into a whole page of review rows, so
+  // the review burden on an unchanged page swings between 0 and 14. With this
+  // sentence, 0 of 20. Sonnet is unchanged by it: 142 of 142 rows on the same
+  // three pages plus six with no abbreviation column, the two reads identical
+  // cell for cell.
+  //
+  // Only here. The text path never sees a page image, and its cells arrive
+  // already separated by the PDF's own coordinates — there is nothing to fold.
+  // See docs/lab-adaptability.md, "D3, reopened".
+  "Tiskne-li list zkratku i celý název ve dvou sloupcích, názvem analytu je " +
+  "celý název. " +
   // D0 (docs/plans/lab-adaptability.md, Phase D). Three models independently
   // dropped rows whose printed result is a status, from three different roles,
   // because the prompt never said whether such a row is a result. It is: it

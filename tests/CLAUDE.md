@@ -26,10 +26,11 @@ For a refactor, collect rather than fail:
 `AUDIT_COLLECT=before.json npm run test:audit`, again after, and diff. Zero new
 flaws is the bar.
 
-`upload.e2e.ts` is the only test of the patient-identity guard that proves
-anything — only a browser shows that the wrong PDF actually stops. It stubs
-`/api/extract` and Turnstile, so it is free, and builds its own bundle: the
-upload panel will not render without a site key baked in.
+`upload.e2e.ts` walks a PDF, a photograph and a page only one reader answered
+for. The last is the point: nothing but a browser shows that a failed second
+read turns every row unconfirmed on screen, and the app shipped the opposite
+once. It stubs `/api/extract` and Turnstile, so it is free, and builds its own
+bundle: the upload panel will not render without a site key baked in.
 
 ## bench and evals answer different questions
 

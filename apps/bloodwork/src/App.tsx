@@ -520,10 +520,10 @@ export default function App() {
               <details>
                 <summary>
                   Ukázková data — <strong>smyšlený pacient</strong>, žádné reálné
-                  zdravotní údaje. Co se děje s vlastním PDF?
+                  zdravotní údaje. Co se děje s vlastním PDF nebo fotkou?
                 </summary>
                 <p>
-                  Vlastní PDF se čte ve vašem prohlížeči a nikam se neukládá.{" "}
+                  Vlastní PDF i fotka se čtou ve vašem prohlížeči a nikam se neukládají.{" "}
                   <strong>
                     Obrázky stránek — včetně hlavičky se jménem a rodným číslem — se ale
                     posílají ke zpracování {processorPhrase(photoReaders)}

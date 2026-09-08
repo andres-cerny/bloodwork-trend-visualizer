@@ -4,7 +4,14 @@
  * covering a bounded number of pages, so a multi-page report needs one CAPTCHA,
  * not one per page.
  *
- * Several PDFs can be selected or dropped at once, and more can be added while
+ * **A photograph of a paper sheet is a document too.** A phone camera input
+ * sits beside the picker, and a JPEG or PNG is prepared by
+ * `../lib/photo.ts` — EXIF rotation honoured, one encode at 2576 px, greyscale
+ * and contrast-stretched — then read by exactly the same reader pair as a
+ * scanned PDF page. A photo is one page and spends one page of the session's
+ * allowance.
+ *
+ * Several files can be selected or dropped at once, and more can be added while
  * the first ones are still running — they join a queue. The queue is worked
  * strictly one **file** at a time, which keeps the session's page allowance
  * spending in an order the reader can follow: when it runs out, it is clear
@@ -21,14 +28,21 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, type Budget, extract, isFatalApiError } from "@bw/api-client";
 import { processorPhrase, RETENTION_NOTE, useTurnstile } from "@bw/ui-kit";
 import {
+  isPrintedOnPage,
   type LabReport,
   type Measurement,
   reconcile,
   type Registry,
+  rowBoxAt,
+  rowBoxFor,
+  rowsAsText,
+  rowTextAt,
   count,
   plural,
 } from "@bw/lab-core";
+import type { PageAssets } from "@bw/lab-core/pdf";
 import { createLimiter } from "../lib/inflight";
+import { encodePhoto, isPhotoFile, PHOTO_TYPES, PhotoError } from "../lib/photo";
 import { type Job, makeJob, runQueue } from "../lib/uploadQueue";
 
 /**
@@ -76,6 +90,66 @@ const PAGE_REQUESTS_IN_FLIGHT = 64;
  */
 const FILES_AT_ONCE = 24;
 
+/**
+ * What the picker offers. HEIC is on the list deliberately, although nothing
+ * here can decode it on Chrome: leaving it off greys out every iPhone photo in
+ * the file browser with no explanation, whereas accepting it lets
+ * `encodePhoto` say what to send instead. On iOS, naming `image/jpeg` is also
+ * what makes the Photos picker transcode a HEIC on its way out.
+ */
+const ACCEPT = ["application/pdf", ...PHOTO_TYPES].join(",");
+
+/**
+ * Pages, however they arrived.
+ *
+ * A PDF page and a photograph reach the rest of this file as the same
+ * `PageAssets`, so the queue, the limiter, the reconciler and the verification
+ * tab were not taught about photographs at all — a photo is simply a page with
+ * no text layer, which is exactly what a scanned PDF page already is. The only
+ * thing that differs is where the pixels come from.
+ */
+interface PageSource {
+  kind: "pdf" | "photo";
+  numPages: number;
+  assets(pageNum: number): Promise<PageAssets>;
+}
+
+/**
+ * Open a dropped file as pages.
+ *
+ * The pdf.js import stays dynamic *and* stays on the PDF branch: it is ~1.4 MB,
+ * and someone who photographs a sheet on a phone should not download a PDF
+ * engine to do it. The row helpers a photo still needs (`rowTextAt` and the
+ * rest) come from the @bw/lab-core root, which is why they are imported
+ * statically at the top of this file rather than out of the pdf subpath.
+ */
+async function openSource(file: File): Promise<PageSource> {
+  if (isPhotoFile(file)) {
+    // Decoded once, here, so a failure — HEIC on Chrome, most likely — is
+    // reported against the file before any page allowance is spent on it.
+    const shot = await encodePhoto(file);
+    const assets: PageAssets = {
+      pageNum: 1,
+      imageBase64: shot.imageBase64,
+      mediaType: shot.mediaType,
+      imageWidth: shot.width,
+      imageHeight: shot.height,
+      imageUrl: shot.imageUrl,
+      // A photograph carries no characters of its own. Empty rather than
+      // absent: `isPrintedOnPage` and `rowBoxFor` then answer "no" and "null"
+      // instead of being skipped, and the vision path already expects both.
+      textLayer: "",
+      words: [],
+      rows: [],
+      hasTextLayer: false,
+    };
+    return { kind: "photo", numPages: 1, assets: async () => assets };
+  }
+  const { loadPdf, pageAssets } = await import("@bw/lab-core/pdf");
+  const doc = await loadPdf(file);
+  return { kind: "pdf", numPages: doc.numPages, assets: (p) => pageAssets(doc, p) };
+}
+
 interface Props {
   registry: Registry;
   frozen: boolean;
@@ -114,15 +188,11 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
   // second, empty budget.
   const limiterRef = useRef(createLimiter(PAGE_REQUESTS_IN_FLIGHT));
 
-  /** Read one PDF end to end. Throws only on a fatal, queue-stopping error. */
+  /** Read one document end to end. Throws only on a fatal, queue-stopping error. */
   async function processOne(job: Job<File>) {
     const { registry, maxPages, onReport, onBudget } = propsRef.current;
-    // pdf.js is ~1.4 MB and only the upload path needs it, so it is pulled in
-    // on first use rather than shipped in the landing bundle.
-    const { isPrintedOnPage, loadPdf, pageAssets, rowBoxAt, rowBoxFor, rowsAsText, rowTextAt } =
-      await import("@bw/lab-core/pdf");
-    const doc = await loadPdf(job.file);
-    const pageCount = Math.min(doc.numPages, maxPages);
+    const src = await openSource(job.file);
+    const pageCount = Math.min(src.numPages, maxPages);
     const measurements: Measurement[] = [];
     const pages = [];
     let unverified = 0;
@@ -152,7 +222,7 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
 
     interface PageOutcome {
       pageNum: number;
-      assets: Awaited<ReturnType<typeof pageAssets>>;
+      assets: PageAssets;
       res: Awaited<ReturnType<typeof extract>> | null;
     }
     // Indexed by page, not appended: workers finish out of order and the
@@ -173,7 +243,7 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
         const i = claimed++;
         if (i >= pageCount) return;
         const p = i + 1;
-        const assets = await pageAssets(doc, p);
+        const assets = await src.assets(p);
 
         // Digital PDF: send the reconstructed rows, not the image. The model
         // assigns columns; the characters come from the file.
@@ -315,12 +385,14 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
       // arriving. They land with the final publish.
       if (done) {
         const notes: string[] = [];
-        if (doc.numPages > maxPages)
+        if (src.numPages > maxPages)
           notes.push(
             `Zpracováno prvních ${count(maxPages, "strana", "strany", "stran")} ` +
-              `z ${doc.numPages} — limit ukázky.`,
+              `z ${src.numPages} — limit ukázky.`,
           );
-        if (sawScan)
+        // A photograph has no text layer *by definition*, so saying so would
+        // be noise; a PDF page without one is a scan, and worth naming.
+        if (sawScan && src.kind === "pdf")
           notes.push("Některé strany nemají textovou vrstvu (sken) — přepsány z obrázku.");
         if (failedPages.length)
           notes.push(
@@ -367,8 +439,13 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
         jobs: jobsRef.current,
         process: processOne,
         fatal: isFatalApiError,
+        // A PhotoError already carries the sentence the person needs — which
+        // file it was, and what to send instead. Wrapping it in
+        // "Nepodařilo se zpracovat" would bury the only useful half.
         message: (e) =>
-          e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${e}`,
+          e instanceof ApiError || e instanceof PhotoError
+            ? e.message
+            : `Nepodařilo se zpracovat soubor: ${e}`,
         publish,
         fileConcurrency: FILES_AT_ONCE,
         skipReason: "Nezpracováno — předchozí soubor narazil na limit ukázky.",
@@ -379,11 +456,21 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
     }
   }
 
+  /**
+   * `accept` is only a hint — it is ignored by drag and drop entirely, and a
+   * phone's file browser will hand over a HEIC whatever it says — so the real
+   * filter is here. A photograph that turns out to be undecodable is still
+   * enqueued and then fails *by name* with a reason, because dropping it
+   * silently is the failure the plan's risk list warns about: the person sees
+   * nothing happen and concludes the app is broken.
+   */
   function enqueue(files: File[]) {
-    const pdfs = files.filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
-    if (pdfs.length === 0) return;
+    const usable = files.filter(
+      (f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name) || isPhotoFile(f),
+    );
+    if (usable.length === 0) return;
     setError(null);
-    for (const file of pdfs) jobsRef.current.push(makeJob(++seqRef.current, file));
+    for (const file of usable) jobsRef.current.push(makeJob(++seqRef.current, file));
     publish();
     void run();
   }
@@ -446,7 +533,7 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
         <span className="drop-main">
           {active
             ? `Zpracovávám stránku ${active.page} z ${active.total}…`
-            : "Přetáhněte PDF sem"}
+            : "Přetáhněte PDF nebo fotku sem"}
         </span>
         <span className="drop-sub">
           {busy
@@ -462,11 +549,38 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
         </span>
         <input
           type="file"
-          accept="application/pdf"
+          accept={ACCEPT}
           multiple
           onChange={(e) => {
             enqueue([...(e.target.files ?? [])]);
             // Clear it, or picking the same file twice in a row does nothing.
+            e.target.value = "";
+          }}
+        />
+      </label>
+
+      {/*
+        The camera, on a phone only.
+       
+        `capture="environment"` opens the rear camera directly instead of the
+        photo library, which is the difference between photographing the sheet
+        on the desk and hunting for it among holiday pictures. It is inert on a
+        desktop, so `.shoot` is hidden outside `(pointer: coarse)` in CSS
+        rather than behind a JS guess about the device — a media query is the
+        one test that is right in a resized window, a tablet and a phone at
+        once, and `display: none` keeps it out of the tab order too.
+       
+        Not `multiple`: a camera returns one frame.
+      */}
+      <label className="shoot">
+        <span aria-hidden="true">📷</span>
+        <span>Fotoaparát</span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={(e) => {
+            enqueue([...(e.target.files ?? [])]);
             e.target.value = "";
           }}
         />
@@ -517,7 +631,7 @@ export default function UploadPanel({ registry, frozen, maxPages, photoReaders, 
           a config flip on the deployment must not be able to falsify it
           (docs/security-review-gemini.md, finding 1). */}
       <p className="muted" style={{ margin: "9px 0 0" }}>
-        PDF se čte ve vašem prohlížeči. Obrázky stránek —{" "}
+        PDF i fotka se čtou ve vašem prohlížeči. Obrázky stránek —{" "}
         <strong>včetně hlavičky se jménem a rodným číslem</strong> — se posílají
         k přepisu {processorPhrase(photoReaders)}. {RETENTION_NOTE}
       </p>
