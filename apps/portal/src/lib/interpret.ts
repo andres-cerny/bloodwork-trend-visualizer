@@ -39,13 +39,19 @@ export function interpretPage(
   pageNum: number,
   isScan: boolean,
   match: (rawName: string, pageMaterial?: string | null) => string | null,
+  /**
+   * How many readers the Worker *asked*, not how many answered. Without it a
+   * page whose second read failed is indistinguishable from one two readers
+   * agreed on, and every row comes back confirmed.
+   */
+  readersAttempted?: number,
 ): PageResult {
   const out: PageResult = { measurements: [], unverified: 0, reportDate: null, labName: null };
   for (const read of reads) {
     out.reportDate = out.reportDate ?? read.report_date ?? null;
     out.labName = out.labName ?? read.lab_name ?? null;
   }
-  for (const m of reconcile(reads)) {
+  for (const m of reconcile(reads, { expected: readersAttempted })) {
     // Provenance: on the text path a transcribed value must literally
     // appear on the page. Anything that does not is a fabrication, and it
     // is flagged for review rather than allowed into a trend.

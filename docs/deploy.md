@@ -67,6 +67,23 @@ Generate it rather than inventing it:
 openssl rand -base64 32
 ```
 
+**A fourth secret, extract only.** The image path can pair Claude with Google's
+Gemini — measured at 5 rows flagged for a human against the deployed pair's 494,
+with no value errors either way (docs/lab-adaptability.md). It is off until you
+turn it on, in two steps that are deliberately separate:
+
+```sh
+npx wrangler secret put GEMINI_API_KEY -c workers/extract/wrangler.jsonc
+# then, in workers/extract/wrangler.jsonc: "PHOTO_READERS": "sonnet+gemini"
+```
+
+The agent never gets this key, the same way it never gets a database binding.
+Without the secret the var falls back to `sonnet+haiku` rather than reading a
+page once in silence, and `sonnet+haiku` is also how you retreat — a var, not a
+deploy. **Note the extractor now calls a second host,
+`generativelanguage.googleapis.com`, and the upload copy names Google as a
+processor.** The text path is unaffected in every configuration.
+
 ### 4. The chat demo's data (D1 + evidence KV)
 
 The two practices live in two D1 databases; the ids committed in

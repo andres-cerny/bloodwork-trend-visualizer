@@ -43,21 +43,29 @@ import {
   GoogleGenAI,
   PartMediaResolutionLevel,
   ThinkingLevel,
-  Type,
   type GenerateContentParameters,
   type GenerateContentResponse,
   type Part,
-  type Schema,
 } from "@google/genai";
 
-import { SYSTEM_EXTRACT, SYSTEM_EXTRACT_TEXT, TEXT_LAYER_HINT, TOOL, type Usage } from "@bw/extraction";
+import {
+  geminiImageRequest,
+  GEMINI_IMAGE_TOKENS,
+  SYSTEM_EXTRACT,
+  SYSTEM_EXTRACT_TEXT,
+  TEXT_LAYER_HINT,
+  TOOL,
+  toGeminiSchema,
+  type MediaResolutionArm,
+  type Usage,
+} from "@bw/extraction";
 import { type TextRow } from "@bw/lab-core";
 
 import { priceUsd, rowsIndexed, type CallResult, type Reader } from "./extract";
 
 export const GEMINI_MODEL = "gemini-3.8-flash";
 
-export type MediaResolutionArm = "high" | "ultra_high";
+export type { MediaResolutionArm };
 
 export type GeminiInput =
   /** The text-layer path: rows as the Worker joins them, `row_index` anchor. */
@@ -77,55 +85,13 @@ export interface Tile {
 
 /* ------------------------------------------------------------------ schema */
 
-const TYPE: Record<string, Type> = {
-  string: Type.STRING,
-  number: Type.NUMBER,
-  integer: Type.INTEGER,
-  boolean: Type.BOOLEAN,
-  array: Type.ARRAY,
-  object: Type.OBJECT,
-};
-
 /**
- * JSON Schema (the Anthropic tool's `input_schema`) → Gemini `Schema`.
- *
- * Only the constructs the tool actually uses are handled, and anything else
- * throws rather than being dropped: a schema Gemini quietly relaxes would
- * show up later as fabrications, which is exactly the failure the plan's
- * "Risks" names. `additionalProperties` has no counterpart and is omitted —
- * Gemini's structured output does not emit unknown keys anyway.
+ * The schema conversion and the image request now live in
+ * `packages/extraction/src/gemini.ts`, which is what the Worker calls. They are
+ * re-exported rather than restated for the same reason the Czech prompt is
+ * imported: a harness that keeps its own copy stops measuring the app.
  */
-export function toGeminiSchema(node: any): Schema {
-  if (!node || typeof node !== "object") throw new Error(`toGeminiSchema: not a schema node: ${JSON.stringify(node)}`);
-  const out: Schema = {};
-
-  let type = node.type;
-  if (Array.isArray(type)) {
-    const nonNull = type.filter((t: string) => t !== "null");
-    if (nonNull.length !== 1) throw new Error(`toGeminiSchema: unsupported union ${JSON.stringify(type)}`);
-    if (nonNull.length !== type.length) out.nullable = true;
-    type = nonNull[0];
-  }
-  if (typeof type !== "string" || !TYPE[type]) throw new Error(`toGeminiSchema: unsupported type ${JSON.stringify(type)}`);
-  out.type = TYPE[type];
-
-  if (node.description) out.description = node.description;
-  if (node.enum) out.enum = [...node.enum];
-  if (node.items) out.items = toGeminiSchema(node.items);
-  if (node.properties) {
-    out.properties = {};
-    for (const [k, v] of Object.entries(node.properties)) out.properties[k] = toGeminiSchema(v);
-    out.propertyOrdering = Object.keys(node.properties);
-  }
-  if (node.required) out.required = [...node.required];
-
-  for (const k of Object.keys(node)) {
-    if (!["type", "description", "enum", "items", "properties", "required", "additionalProperties"].includes(k)) {
-      throw new Error(`toGeminiSchema: unsupported keyword "${k}"`);
-    }
-  }
-  return out;
-}
+export { toGeminiSchema };
 
 /** The text path's schema: `source_snippet` swapped for `row_index`, as `TOOL_TEXT` does. */
 function textToolSchema(): any {
@@ -154,7 +120,7 @@ const LEVEL: Record<MediaResolutionArm, PartMediaResolutionLevel> = {
  * corrected", for Sonnet's 4,784 on a 2576 px long edge). ultra_high is the
  * top of the ladder: the only way to buy more detail is to send more parts.
  */
-export const IMAGE_TOKENS: Record<MediaResolutionArm, number> = { high: 1120, ultra_high: 2240 };
+export const IMAGE_TOKENS = GEMINI_IMAGE_TOKENS;
 
 /** Two ultra_high tiles ≈ Sonnet's 4,784 visual tokens, at about a third of the price. */
 export const TILED_IMAGE_TOKENS = 2 * IMAGE_TOKENS.ultra_high;
@@ -206,16 +172,17 @@ export function geminiRequest(reader: Reader, input: GeminiInput): GenerateConte
     }
     parts.push({ text: "Přepiš všechny měřené řádky z této stránky." });
   } else {
-    system = SYSTEM_EXTRACT;
-    schema = TOOL.input_schema;
-    parts.push({
-      inlineData: { data: input.base64, mimeType: input.mediaType },
-      mediaResolution: { level: LEVEL[reader.mediaResolution ?? "ultra_high"] },
+    // The plain image arm IS the deployed path, so it is built by the deployed
+    // builder rather than reassembled here. `attempts: 1` is the one benchmark
+    // difference: a retried call would be recorded as model latency.
+    return geminiImageRequest({
+      model: reader.model,
+      imageBase64: input.base64,
+      mediaType: input.mediaType,
+      textLayer: input.textLayer ?? null,
+      mediaResolution: reader.mediaResolution ?? "ultra_high",
+      attempts: 1,
     });
-    if (input.textLayer && input.textLayer.trim()) {
-      parts.push({ text: TEXT_LAYER_HINT + input.textLayer.slice(0, 20000) });
-    }
-    parts.push({ text: "Přepiš všechny měřené řádky z této stránky." });
   }
 
   return {

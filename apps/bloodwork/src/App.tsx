@@ -520,10 +520,12 @@ export default function App() {
                   Vlastní PDF se čte ve vašem prohlížeči a nikam se neukládá.{" "}
                   <strong>
                     Obrázky stránek — včetně hlavičky se jménem a rodným číslem — se ale
-                    posílají ke zpracování na Anthropic API
+                    posílají ke zpracování na Anthropic API, u fotografií také na Google
+                    Gemini API
                   </strong>{" "}
-                  a projdou serverem této ukázky. Po zavření stránky po nich tady
-                  nezůstane stopa.
+                  a projdou serverem této ukázky. Oba poskytovatelé běží v placeném
+                  režimu: data neukládají ani na nich netrénují. Po zavření stránky po
+                  nich tady nezůstane stopa.
                 </p>
               </details>
             </div>

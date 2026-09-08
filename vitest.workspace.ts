@@ -41,6 +41,17 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The two readers' request construction. Free and offline: the Gemini
+      // request is built without a client and the call goes through a stubbed
+      // fetch, so nothing here needs a key.
+      name: "extraction",
+      root: "./packages/extraction",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "gate",
       root: "./packages/gate",
       include: ["tests/**/*.test.ts"],

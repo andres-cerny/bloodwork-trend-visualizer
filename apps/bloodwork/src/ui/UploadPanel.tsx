@@ -246,7 +246,10 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         out.reportDate = out.reportDate ?? read.report_date ?? null;
         out.labName = out.labName ?? read.lab_name ?? null;
       }
-      for (const m of reconcile(res.reads)) {
+      // `readersAttempted` is what makes a failed second read visible: without
+      // it one read is indistinguishable from agreement, and every row on a page
+      // nobody cross-checked would be presented as confirmed.
+      for (const m of reconcile(res.reads, { expected: res.readersAttempted })) {
         // Provenance: on the text path a transcribed value must literally
         // appear on the page. Anything that does not is a fabrication, and it
         // is flagged for review rather than allowed into a trend.
@@ -511,7 +514,8 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
       <p className="muted" style={{ margin: "9px 0 0" }}>
         PDF se čte ve vašem prohlížeči. Obrázky stránek —{" "}
         <strong>včetně hlavičky se jménem a rodným číslem</strong> — se posílají
-        k přepisu na Anthropic API a nikde se neukládají.
+        k přepisu na Anthropic API, u fotografií také na Google Gemini API, a
+        nikde se neukládají.
       </p>
     </>
   );

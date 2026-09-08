@@ -31,6 +31,9 @@ function makeEnv(over: Partial<Env> = {}): Env {
     SESSION_TTL_SECONDS: "1800",
     TURNSTILE_HOSTNAMES: "demo.test",
     SINGLE_MODEL: "0",
+    // PHOTO_READERS deliberately unset: the default is what a deploy of this
+    // code does, so it is what the suite runs against unless a test says
+    // otherwise.
     ...over,
   };
 }
@@ -73,6 +76,43 @@ function anthropicReply(rows: Array<[string, string, string, string]>, outTokens
   };
 }
 
+
+/** One Gemini reply, structured-output JSON in a text part. */
+function geminiReply(rows: Array<[string, string, string, string]>, outTokens = 1000) {
+  return {
+    candidates: [
+      {
+        content: {
+          parts: [
+            {
+              text: JSON.stringify({
+                report_date: "2025-06-03",
+                report_date_raw: "3.6.2025",
+                lab_name: "Laboratoř Vzor",
+                patient_name: null,
+                patient_id: null,
+                measurements: rows.map(([n, v, u, r]) => ({
+                  raw_analyte_name: n,
+                  value_raw: v,
+                  unit_raw: u,
+                  ref_range_raw: r,
+                  source_snippet: `${n} ${v}`,
+                  confidence: "high",
+                })),
+              }),
+            },
+          ],
+        },
+        finishReason: "STOP",
+      },
+    ],
+    usageMetadata: {
+      promptTokenCount: 2000,
+      candidatesTokenCount: outTokens,
+      thoughtsTokenCount: 0,
+    },
+  };
+}
 
 /**
  * An Anthropic streaming reply, as SSE.
@@ -160,8 +200,12 @@ let turnstileHostname = "demo.test";
 
 let calls: Array<{ url: string; body: any }> = [];
 
+/** Which providers/models the stub should refuse this test. */
+let failing = new Set<string>();
+
 beforeEach(() => {
   calls = [];
+  failing = new Set();
   turnstileHostname = "demo.test";
   nextStream = null;
   // The SDK may call fetch with a Request object rather than (url, init), so
@@ -169,6 +213,20 @@ beforeEach(() => {
   vi.stubGlobal("fetch", async (input: any, init?: any) => {
     const req: Request | null = typeof input === "object" && "url" in input ? (input as Request) : null;
     const u = req ? req.url : String(input);
+
+    if (u.includes("generativelanguage.googleapis.com")) {
+      const raw = req ? await req.clone().text() : init?.body;
+      calls.push({ url: u, body: raw ? JSON.parse(String(raw)) : {} });
+      // 400, not 500: the SDK retries 5xx, and a retried refusal would make
+      // this suite spend seconds proving nothing.
+      if (failing.has("gemini")) {
+        return new Response(JSON.stringify({ error: { message: "forced" } }), { status: 400 });
+      }
+      return new Response(JSON.stringify(geminiReply([["S_Glukóza", "5,32", "mmol/l", "(4,11-5,60)"]])), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
 
     if (u.includes("turnstile")) {
       return new Response(
@@ -180,6 +238,10 @@ beforeEach(() => {
     const rawBody = req ? await req.clone().text() : init?.body;
     const body = rawBody ? JSON.parse(String(rawBody)) : {};
     calls.push({ url: u, body });
+
+    if (failing.has("anthropic") || failing.has(String(body?.model))) {
+      return new Response(JSON.stringify({ error: { message: "forced" } }), { status: 400 });
+    }
 
     // A streaming request is an agent turn; a buffered one is extraction.
     if (body?.stream) {
@@ -364,5 +426,200 @@ describe("the session gate checks where the challenge was solved", () => {
       makeEnv({ TURNSTILE_HOSTNAMES: "" }),
     );
     expect(res.status).toBe(403);
+  });
+});
+
+/**
+ * Which two readers transcribe a page image.
+ *
+ * The measurement behind this is in docs/lab-adaptability.md: on 133
+ * photographed pages the deployed Sonnet+Haiku pair made 40 value errors and
+ * put 494 rows in front of a human; Sonnet paired with Gemini 3.8 Flash made
+ * none and flagged 5. Both reach zero uncaught errors, so this is a review-cost
+ * change, not a safety one — which is exactly why it may be a config flip.
+ *
+ * The property pinned here is that **the default is today's behaviour**. A
+ * deploy of this code with no var set must call Anthropic twice and Google not
+ * at all, or "reversible" is a claim about a code change rather than a setting.
+ */
+describe("PHOTO_READERS", () => {
+  const image = { imageBase64: "AAAA", mediaType: "image/jpeg" };
+  const hosts = () => calls.map((c) => (c.url.includes("googleapis") ? "google" : "anthropic"));
+  const models = () => calls.map((c) => c.body.model).filter(Boolean);
+
+  async function extractImage(env: Env, body: Record<string, unknown> = image) {
+    const s = await mintSession(SECRET, 600, 12);
+    return worker.fetch(post("/api/extract", body, s), env);
+  }
+
+  it("defaults to today's pair, so deploying this code changes nothing", async () => {
+    const res = await extractImage(makeEnv());
+    expect(hosts()).toEqual(["anthropic", "anthropic"]);
+    expect(models()).toEqual(["claude-sonnet-5", "claude-haiku-4-5"]);
+    expect(((await res.json()) as any).readers).toBe("sonnet+haiku");
+  });
+
+  it("sends the image to Google when set to sonnet+gemini", async () => {
+    const res = await extractImage(makeEnv({ PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" }));
+    expect(hosts().sort()).toEqual(["anthropic", "google"]);
+    expect(calls.find((c) => c.url.includes("googleapis"))!.url).toContain("gemini-3.8-flash");
+    expect(((await res.json()) as any).readers).toBe("sonnet+gemini");
+  });
+
+  it("reverses the primary when set to gemini+sonnet", async () => {
+    // Same pair, other order. It exists so "does the order matter?" is
+    // answerable by a flip rather than a deploy — and SINGLE_MODEL then runs
+    // the Google reader alone rather than the Anthropic one.
+    await extractImage(makeEnv({ PHOTO_READERS: "gemini+sonnet", GEMINI_API_KEY: "g", SINGLE_MODEL: "1" }));
+    expect(hosts()).toEqual(["google"]);
+  });
+
+  it("retreats to sonnet+haiku for an unknown value", async () => {
+    const res = await extractImage(makeEnv({ PHOTO_READERS: "sonnet+opus", GEMINI_API_KEY: "g" }));
+    expect(hosts()).toEqual(["anthropic", "anthropic"]);
+    // The response says which pair ran, not which was configured: a var that
+    // quietly did nothing is worse than one that failed.
+    expect(((await res.json()) as any).readers).toBe("sonnet+haiku");
+  });
+
+  it("retreats to sonnet+haiku when the Google key is missing", async () => {
+    // A missing secret must degrade to the pair that still works, never to one
+    // reader in silence.
+    const res = await extractImage(makeEnv({ PHOTO_READERS: "sonnet+gemini" }));
+    expect(hosts()).toEqual(["anthropic", "anthropic"]);
+    expect(((await res.json()) as any).readers).toBe("sonnet+haiku");
+  });
+
+  it("never touches the text path", async () => {
+    // The characters come from the file there, and that path was measured at
+    // 852/877 with zero value errors. Nothing in this change may reach it.
+    const s = await mintSession(SECRET, 600, 12);
+    await worker.fetch(
+      post("/api/extract", { rowsText: "S_Glukóza | 5,32" }, s),
+      makeEnv({ PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" }),
+    );
+    expect(hosts()).toEqual(["anthropic", "anthropic"]);
+    expect(models()).toEqual(["claude-sonnet-5", "claude-haiku-4-5"]);
+  });
+
+  it("gives Gemini the larger encode of the photo and Sonnet the capped one", async () => {
+    // Sonnet's tier caps at a 2576 px long edge; Gemini spends a fixed token
+    // budget per image part whatever the pixels are, so the bigger picture is
+    // free to it. A PDF page sends one image and both readers get it.
+    await extractImage(
+      makeEnv({ PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" }),
+      { ...image, imageFullBase64: "BIGGER", imageFullMediaType: "image/jpeg" },
+    );
+    const google = calls.find((c) => c.url.includes("googleapis"))!;
+    const anthropic = calls.find((c) => !c.url.includes("googleapis"))!;
+    expect(JSON.stringify(google.body)).toContain("BIGGER");
+    expect(JSON.stringify(anthropic.body)).toContain("AAAA");
+    expect(JSON.stringify(anthropic.body)).not.toContain("BIGGER");
+  });
+
+  it("reports the configured pair on /api/status", async () => {
+    const res = await worker.fetch(
+      new Request("https://demo.test/api/status"),
+      makeEnv({ PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" }),
+    );
+    expect(((await res.json()) as any).photoReaders).toBe("sonnet+gemini");
+  });
+});
+
+/**
+ * A page read by one reader must never come back looking cross-checked.
+ *
+ * `reconcile()` sees the reads, not the requests: one read means no two values
+ * to differ and no row only one reader saw, so every row is confirmed. The
+ * Worker is the only place that knows a second reader was *asked*, so it says
+ * so — and `reconcile` turns that into `druhé čtení se nezdařilo` on every row,
+ * which `review.ts` renders unconfirmed.
+ */
+describe("a failed reader is never silent", () => {
+  it("reports two readers attempted when both answered", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), makeEnv());
+    const body = (await res.json()) as any;
+    expect(body.reads).toHaveLength(2);
+    expect(body.readersAttempted).toBe(2);
+  });
+
+  it("still reports two attempted when only one answered", async () => {
+    // This is the whole defect: one read, no disagreement to find, a page of
+    // rows that nothing checked. reconcile cannot see it without this number.
+    failing.add("claude-haiku-4-5");
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), makeEnv());
+    const body = (await res.json()) as any;
+    expect(res.status).toBe(200);
+    expect(body.reads).toHaveLength(1);
+    expect(body.readersAttempted).toBe(2);
+  });
+
+  it("reports one attempted when only one was asked", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/extract", { rowsText: "x | y" }, s),
+      makeEnv({ SINGLE_MODEL: "1" }),
+    );
+    expect(((await res.json()) as any).readersAttempted).toBe(1);
+  });
+
+  it("refuses the page outright when both readers fail", async () => {
+    // Zero reads is not an empty page — an empty page reads as "no results
+    // here", which is a claim about the document.
+    failing.add("anthropic");
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), makeEnv());
+    expect(res.status).toBe(502);
+    expect(((await res.json()) as any).error).toBe("extraction_failed");
+  });
+
+  it("refuses the page when both image readers fail, across vendors too", async () => {
+    failing.add("anthropic");
+    failing.add("gemini");
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/extract", { imageBase64: "AAAA", mediaType: "image/jpeg" }, s),
+      makeEnv({ PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" }),
+    );
+    expect(res.status).toBe(502);
+  });
+
+  it("survives one vendor being down and says the page was read once", async () => {
+    failing.add("gemini");
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/extract", { imageBase64: "AAAA", mediaType: "image/jpeg" }, s),
+      makeEnv({ PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" }),
+    );
+    const body = (await res.json()) as any;
+    expect(res.status).toBe(200);
+    expect(body.reads).toHaveLength(1);
+    expect(body.readersAttempted).toBe(2);
+  });
+});
+
+/**
+ * The spend ledger is the only thing between a public URL and an unbounded
+ * bill, and it prices every call through one table. Gemini is a quarter of
+ * Sonnet's rate; without its own entry the unknown-model fallback is Sonnet's,
+ * which would freeze the demo on numbers nobody spent.
+ */
+describe("the ledger prices the Google reader at Google's rate", () => {
+  it("charges Gemini's rate, not the Sonnet fallback", async () => {
+    const env = makeEnv({ PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" });
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/extract", { imageBase64: "AAAA", mediaType: "image/jpeg" }, s),
+      env,
+    );
+    // Sonnet 2k in + 1k out ($3/$15) = 0.021; Gemini 2k in + 1k out
+    // ($0.75/$3.75) = 0.00525. The fallback rate would have made it 0.042.
+    // 0.02625, rounded to four places by the response.
+    const { costUsd } = (await res.json()) as any;
+    expect(costUsd).toBe(0.0262);
+    // The unknown-model fallback would have charged Sonnet's rate for both.
+    expect(costUsd).toBeLessThan(0.042);
   });
 });

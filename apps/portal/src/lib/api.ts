@@ -54,7 +54,14 @@ export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/a
  * rows — the text path is what keeps the pixels at home.
  */
 export const extractPage = (page: { rowsText: string } | { imageBase64: string; mediaType: string }) =>
-  request<{ reads: any[]; mode: "text" | "vision"; costUsd: number; budget: Budget }>(
+  request<{
+    reads: any[];
+    mode: "text" | "vision";
+    /** How many readers were asked — see `interpretPage`. */
+    readersAttempted?: number;
+    costUsd: number;
+    budget: Budget;
+  }>(
     "/api/extract",
     jsonInit("POST", page),
   );

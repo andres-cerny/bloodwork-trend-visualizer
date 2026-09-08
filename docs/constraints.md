@@ -214,6 +214,26 @@ Its check reads the PDF text layer. It cannot catch an identifier that exists
 only as pixels — a stamp, a signature, a handwritten note. **Look at
 `web/public/demo/pages/` before deploying.**
 
+### Two processors now, not one
+
+Patient data never leaves the machine **except to the model APIs in use**, and
+there are two of them. The text path sends printed rows to Anthropic. The image
+path sends the page image — header, name and rodné číslo included — to Anthropic
+and, when `PHOTO_READERS` names a Gemini pair, to Google as well; both on paid
+tiers, which neither train on nor store the request. That pairing is not a
+preference: on 133 photographed pages the two Claude readers made 40 value
+errors between them and flagged 494 rows for a human, where Sonnet with Gemini
+made none and flagged 5 (docs/lab-adaptability.md). Two readers from one vendor
+make the same judgement calls and so confirm each other on them, which is why
+the pair is cross-vendor.
+
+The obligation this creates is that **every surface claiming where the data goes
+names both**: `apps/bloodwork/src/App.tsx`, `apps/bloodwork/src/ui/UploadPanel.tsx`
+and README's cost note. If you add a third processor, or a third surface, it
+inherits this. `PHOTO_READERS` defaults to `sonnet+haiku`, so a deployment that
+never sets it never reaches Google — but the notice names Google anyway, because
+the alternative is a privacy notice that a config flip silently falsifies.
+
 ## A security review found one real defect
 
 The redaction guard above could not detect the case it existed for: redaction

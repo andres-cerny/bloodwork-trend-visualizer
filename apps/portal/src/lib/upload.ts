@@ -127,7 +127,14 @@ export async function extractReport(
         const res = await extractPage(
           isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
         );
-        const out = interpretPage(res.reads, page.rows, page.pageNum, isScan, (raw, mat) => registry.match(raw, mat));
+        const out = interpretPage(
+          res.reads,
+          page.rows,
+          page.pageNum,
+          isScan,
+          (raw, mat) => registry.match(raw, mat),
+          res.readersAttempted,
+        );
         results[i] = out;
       } catch (e) {
         if (isFatalApiError(e)) {

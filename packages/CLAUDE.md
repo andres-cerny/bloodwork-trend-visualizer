@@ -30,6 +30,11 @@ The model transcribes and never computes. Prompts are lifted from
 `tools/pipeline/src` and must stay in step with it — if the Czech drifts, the
 demo and the local tool stop extracting the same way.
 
+`gemini.ts` is the one non-Anthropic reader, for page **images** only. It
+imports `SYSTEM_EXTRACT` and converts `TOOL.input_schema` rather than restating
+either, and returns through the same `toExtraction` — so `reconcile()` cannot
+tell the two providers apart, which is what the cross-check rests on.
+
 ## ui-kit
 
 Owns the theme tokens and the two shared components. `Chart` is here because

@@ -36,6 +36,21 @@ export const MODEL_PRIMARY = "claude-sonnet-5";
 export const MODEL_ESCALATION = "claude-haiku-4-5";
 
 
+/**
+ * Image resolution, per reader — the photo path only.
+ *
+ * `MAX_EDGE` in packages/lab-core/src/pdf/pdf.ts is 1800 and stays there: a
+ * 220 DPI A4 render is ~1800x2570 and the PDF path has no reason to send more.
+ * A photograph does. Sonnet 5's image tier tops out at a 2576 px long edge, so
+ * that is the most it can be shown; Gemini spends a fixed token budget per
+ * image part whatever the pixels are (`GEMINI_IMAGE_TOKENS` in gemini.ts), so
+ * it is shown the uncut original and nothing is thrown away for it.
+ *
+ * Two encodes of one photo, one per reader. Neither number touches the PDF
+ * path — see docs/plans/lab-adaptability.md, "Image resolution per reader".
+ */
+export const SONNET_IMAGE_MAX_EDGE = 2576;
+
 export const SYSTEM_EXTRACT =
   "Jsi přesný přepisovač českých laboratorních výsledků z obrázku. " +
   "Tvým jediným úkolem je VĚRNĚ PŘEPSAT to, co je vytištěno — nic nepočítej, " +
@@ -199,7 +214,15 @@ function toolInput(message: Anthropic.Message): Record<string, unknown> {
   return (block && "input" in block ? (block.input as Record<string, unknown>) : {}) ?? {};
 }
 
-function toExtraction(input: Record<string, any>, usage: Usage, model: string): PageExtraction {
+/**
+ * The one place a reader's raw tool input becomes a `PageExtraction`.
+ *
+ * Exported so the Gemini reader lands on exactly this shape rather than a
+ * parallel one: `reconcile()` unions reads from both providers, and the moment
+ * the two readers normalise a missing field differently, a disagreement flag
+ * starts meaning "different vendor" instead of "different number".
+ */
+export function toExtraction(input: Record<string, any>, usage: Usage, model: string): PageExtraction {
   return {
     report_date: input.report_date ?? null,
     report_date_raw: input.report_date_raw ?? null,
