@@ -24,7 +24,22 @@ export const DESKTOP = { width: 1200, height: 900 };
 export const WIDE = { width: 1512, height: 950 };
 
 export interface Harness {
-  open(viewport: { width: number; height: number }): Promise<Page>;
+  /**
+   * `prepare` runs on the fresh page *before* it navigates, which is the only
+   * moment a route stub or an init script can be installed: the upload suite
+   * has to answer `/api/extract` and stand in for the Turnstile widget, and
+   * both are consulted during the first paint.
+   */
+  open(
+    viewport: { width: number; height: number },
+    prepare?: (page: Page) => Promise<void>,
+    /**
+     * Extra context options. `hasTouch` is what makes Chromium report
+     * `(pointer: coarse)`, and a rule that only exists on a phone can only be
+     * checked on one.
+     */
+    context?: { hasTouch?: boolean; isMobile?: boolean },
+  ): Promise<Page>;
   stop(): Promise<void>;
 }
 
@@ -71,10 +86,11 @@ export async function startApp(port: number): Promise<Harness> {
      * navigation times out after 30s and the whole suite fails for a reason
      * that has nothing to do with the app.
      */
-    async open(viewport) {
-      const page = await browser.newPage({ viewport, deviceScaleFactor: 2 });
+    async open(viewport, prepare, context) {
+      const page = await browser.newPage({ viewport, deviceScaleFactor: 2, ...context });
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(String(e)));
+      if (prepare) await prepare(page);
       await page.goto(base, { waitUntil: "load" });
       await page.waitForSelector(".patient-bar", { timeout: 15_000 });
       (page as any).__errors = errors;

@@ -375,7 +375,12 @@ export function renderFor(page: CorpusPage, provider: "anthropic" | "google" | "
   return { path: out, mediaType: "image/png" };
 }
 
-function render(python: string | null, src: string, page: number, mode: "dpi" | "edge", arg: number, out: string): void {
+/**
+ * Rasterise one page at a named resolution. Exported so an arm that needs a
+ * resolution other than its provider's default — the photo-edge measurement,
+ * for one — asks for it here rather than restating the PyMuPDF call.
+ */
+export function render(python: string | null, src: string, page: number, mode: "dpi" | "edge", arg: number, out: string): void {
   if (!python) throw new Error("no Python with PyMuPDF — set PYTHON_BIN to the scratch venv's python");
   if (!existsSync(src)) throw new Error(`missing source ${src}`);
   execFileSync(python, ["-c", RENDER_PY, src, String(page), mode, String(arg), out], { stdio: ["ignore", "ignore", "inherit"] });

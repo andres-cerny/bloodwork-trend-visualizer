@@ -1544,3 +1544,76 @@ Which published numbers were wrong, and by how much:
 The recommendation does not move. `gemini38_ultra+sonnet_vision` was chosen on
 zero uncaught after adjudication and it still has zero, on a column that no
 longer needs adjudicating.
+
+## Phase E — how many encodes a photograph needs (2026-09-08, $0.48)
+
+Phase E1 of the plan called for **two** encodes of every phone shot: 2576 px
+for Sonnet's image tier, and the uncut original for Gemini, because Gemini
+spends a fixed token budget per image part whatever the pixels are, so a bigger
+picture looked like free detail. The Worker was built for it — `imageFullBase64`
+in `workers/extract/src/index.ts` — and the browser encoder was about to be.
+
+Free to Gemini; not free to anything else. A second encode costs the phone a
+second full-size canvas while up to 64 pages are in flight, and it costs the
+uplink a body several times larger. So it was measured before it was built.
+
+`tests/bench/photo_edge_gemini.bench.ts`, five pages, two arms, three calls
+each — 30 calls, $0.478 — through the deployed `extractPageGemini` at
+`ultra_high`, scored with `valueErrors` against the same truth every other arm
+in this document is scored against.
+
+Two page classes, because the photo corpus cannot ask the question on its own.
+`data/photos-sim` is 2138×3024, only **1.17×** the 2576 tier, which is the real
+ratio for the pages we hold. So two public sheets were rasterised at 440 DPI
+(3639×5146) and downscaled to 2576 for the other arm: **2× linearly, 4× the
+pixels** — the ratio a 12 MP phone shot of an A4 page actually offers.
+
+| Page | class | tier2576 | full |
+|---|---|---|---|
+| `sim__2024_02_02_p1_flat` | photo | 1822×2576 | 2138×3024 |
+| `sim__2020_09_213_p1_angle` | photo | 1822×2576 | 2138×3024 |
+| `sim__2023_12_19_p1_dark` | photo | 1991×2576 | 2337×3024 |
+| `breclav_p121` | public | 1822×2576 | 3639×5146 |
+| `stod_p1` | public | 1821×2576 | 3637×5146 |
+
+```
+arm        pages calls truth match valERR miss extra  median input tokens  median s
+tier2576       5    15   510   510      0    0     1                2,543      10.9
+full           5    15   510   510      0    0     3                2,543      12.9
+```
+
+**Every truth row matched in both arms, on every one of the thirty calls.** No
+value error either way, nothing missing either way. The only column that moved
+is `extra`, and it moved the wrong way for the larger picture: three spurious
+rows against one, all of them the `KO+diferenciál 5p.` panel line this document
+has been discounting since Phase C.
+
+The mechanism is in the token count, and it is not an inference. **A 5146 px
+page and a 2576 px page reach the model as the same 2,543 input tokens.**
+`ultra_high` is a budget, not a resolution — 2,240 tokens for the image part
+plus ~300 for the prompt and schema, whatever is sent. Four times the pixels
+bought exactly nothing, which is the same answer the tiled arm returned when it
+spent twice the budget on the same pixels.
+
+So the two experiments close the question from both sides: more budget over the
+same pixels buys nothing, and more pixels into the same budget buys nothing.
+
+**Decision: one encode at 2576 px, for both readers.** It is simpler, it halves
+what the phone does and what the uplink carries, and it removes the collision
+with the request-size ceiling that a full-resolution body would have created.
+`imageFullBase64` stays on the Worker — it costs nothing to keep and it is the
+seam a future reader with a real resolution appetite would arrive through — and
+the browser never sends it. The constant lives in
+`apps/bloodwork/src/lib/photo.ts` as `PHOTO_MAX_EDGE` and is pinned equal to
+`SONNET_IMAGE_MAX_EDGE` by `apps/bloodwork/tests/photo.test.ts`.
+
+### Perspective correction: closed, not deferred
+
+The plan deferred browser-side de-skew "until the angle photos are scored".
+They are scored. Under the final prompt, on all 133 photographed pages
+including every `angle` shot, Sonnet 5 returned 3,585 of 3,585 rows with zero
+value errors and Gemini `ultra_high` zero as well. The one reader that sheared
+on angle was `mistral_ocr`, which is not in the deployed pair. A homography in
+the browser would add a slow, failure-prone step in front of two readers that
+demonstrably do not need it. It is written into `photo.ts` as a comment so the
+next person does not rebuild it on the strength of the plan alone.
