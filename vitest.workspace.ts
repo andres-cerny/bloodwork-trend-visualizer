@@ -151,6 +151,16 @@ export default defineWorkspace([
   },
   {
     test: {
+      // Repo-wide, so it is rooted here rather than in any one package: it
+      // reads every wrangler.jsonc and imports the entry each one names.
+      name: "guards",
+      root: ".",
+      include: ["tests/guards/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "bench",
       root: ".",
       include: ["tests/bench/**/*.test.ts"],

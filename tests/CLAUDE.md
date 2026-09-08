@@ -1,49 +1,49 @@
-# tests — four suites, two of which cost money
+# tests — five suites, three of which cost money
 
-Unit tests live beside the code they test, in each package. This directory is
-everything that needs a browser, a corpus, or an API key.
+Unit tests live beside the code they test. This directory holds what needs a
+browser, a corpus or an API key — plus `guards/`, for rules no package owns.
 
 | Suite | Command | Cost |
 |---|---|---|
+| `guards/` | `npm test` | free, repo-wide |
 | `e2e/` | `test:e2e`, `test:audit`, `test:upload` | free, needs Chromium |
 | `live/` | `test:live` | **real API**, ~$0.10 |
 | `bench/` | `bench:*` | **real API**, sweeps |
 | `evals/` | `eval` | **real API**, per case × reps |
 
 A hook asks before the paid three. `BENCH_MAX_USD` and `EVAL_MAX_USD` stop a
-runaway, but a ceiling only protects a run from itself.
+runaway, but a ceiling only protects a run from itself. `guards/` is the
+opposite: free, in `npm test`, and it catches what only `wrangler dev` would —
+`entry-exports.test.ts` reads every `wrangler.jsonc` and imports the entry it
+names, because workerd rejects a Worker that exports anything but its handler.
 
 ## e2e is the gate for any UI change
 
 Neither suite compares screenshots. `visual.e2e.ts` measures **rendered
-geometry** — it exists because the two worst defects in this project passed
-every unit test: a source highlight that pointed at the wrong row on a phone,
-and a chart that plotted a value the app had itself flagged as a misread.
-`audit.e2e.ts` sweeps every screen at five widths in both palettes through one
-shared invariant set.
+geometry** — it exists because the two worst defects in this project passed every
+unit test: a source highlight that pointed at the wrong row on a phone, and a
+chart that plotted a value the app had itself flagged as a misread. `audit.e2e.ts`
+sweeps every screen at five widths in both palettes through one invariant set.
 
-For a refactor, collect rather than fail:
-`AUDIT_COLLECT=before.json npm run test:audit`, again after, and diff. Zero new
-flaws is the bar.
+For a refactor, collect rather than fail: `AUDIT_COLLECT=before.json npm run
+test:audit`, again after, and diff. Zero new flaws is the bar.
 
 `upload.e2e.ts` walks a PDF, a photograph and a page only one reader answered
-for. The last is the point: nothing but a browser shows that a failed second
-read turns every row unconfirmed on screen, and the app shipped the opposite
-once. It stubs `/api/extract` and Turnstile, so it is free, and builds its own
-bundle: the upload panel will not render without a site key baked in.
+for. The last is the point: nothing but a browser shows that a failed second read
+turns every row unconfirmed on screen, and the app shipped the opposite once. It
+stubs `/api/extract` and Turnstile, so it is free, and builds its own bundle —
+the upload panel will not render without a site key baked in.
 
 ## bench and evals answer different questions
 
 `bench/` asks how fast and how accurate extraction is — sweeps that print tables
 and write JSONL, with vitest used only as a loader. `evals/` asks whether the
-agent still answers correctly, and has its own contract in
-[evals/CONTEXT.md](evals/CONTEXT.md).
-
+agent still answers correctly; its contract is [evals/CONTEXT.md](evals/CONTEXT.md).
 Results are git-ignored: both derive from real lab PDFs.
 
 ## Configs live here too
 
 `config/` holds the two vitest configs for the paid and browser suites. They sit
 outside `vitest.workspace.ts` deliberately — and one directory down, because
-vitest looks for a workspace file beside the config it was given, and a root
+vitest looks for a workspace beside the config it was given, and a root
 workspace would silently void their `include`.

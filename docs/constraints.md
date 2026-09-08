@@ -190,6 +190,31 @@ withheld-reading path in the browser, because the demo's misread is not at the
 last draw — say so in the test file rather than letting a green run imply
 coverage it does not have.
 
+## A Worker entry module exports its handler and nothing else
+
+workerd reads **every named export** of the module named by `main` as a service
+or a handler. So a helper left on that surface is not dead weight, it is a
+startup error:
+
+```
+service core:user:bloodwork-extract: Uncaught TypeError: Incorrect type for map
+entry 'DEFAULT_PHOTO_READERS': the provided value is not of type 'function or
+ExportedHandler'.
+```
+
+The trap is that nothing else notices. `wrangler deploy` accepts the module,
+production serves every route, and `/api/status` returns the new field — the
+entire cost lands on whoever next runs `wrangler dev`, as a failure that names
+a constant rather than the rule it broke. That is why `PHOTO_PAIRS` and its
+neighbours live in `workers/extract/src/readers.ts` and index.ts imports them.
+
+`export interface Env` is fine: type-only exports are erased before workerd
+sees the module. A Durable Object class is fine too, and is the reason the
+allowance is read from each config's `durable_objects` bindings rather than
+hard-coded. Pinned by `tests/guards/entry-exports.test.ts`, which finds every
+`wrangler.jsonc` in the repo, imports the entry each one names, and compares
+the export names against that set.
+
 ## Privacy — the one hard rule
 
 `data/`, `samples/*.pdf` and `web/public/demo/real/` are git-ignored because
