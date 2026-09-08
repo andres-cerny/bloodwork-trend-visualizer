@@ -27,6 +27,9 @@ function makeEnv(): Env & { seen: string[] } {
 const get = (path: string, headers: Record<string, string> = {}) =>
   new Request(`https://demo.test${path}`, { headers });
 
+const post = (path: string, body: string) =>
+  new Request(`https://demo.test${path}`, { method: "POST", body });
+
 describe("the app shell", () => {
   it("serves anything that is not an API route from assets", async () => {
     const env = makeEnv();
@@ -60,5 +63,50 @@ describe("the app shell", () => {
     const env = makeEnv();
     const res = await shell.fetch(get("/api/session", { "cf-connecting-ip": "203.0.113.7" }), env);
     expect(res.headers.get("x-ip")).toBe("203.0.113.7");
+  });
+});
+
+/**
+ * The extract body's ceiling.
+ *
+ * The extractor parses the whole request with `request.json()` and caps
+ * nothing: `textLayer` and `rowsText` are truncated downstream, the two image
+ * fields are not. The portal's shell already refuses over 6 MB with a 413
+ * (workers/portal/src/index.ts), and the demo path simply lacked it
+ * (docs/security-review-gemini.md, finding 3) — same number, same error shape.
+ *
+ * Refusing here rather than in the extractor is what makes it worth doing:
+ * `handleExtract` spends the session's page allowance *before* it reads the
+ * body, so an oversize post that got that far burned a page to be rejected.
+ */
+describe("the extract body cap", () => {
+  const big = (mb: number) => "x".repeat(mb * 1024 * 1024);
+
+  it("refuses a body over 6 MB without waking the extractor", async () => {
+    const env = makeEnv();
+    const res = await shell.fetch(post("/api/extract", big(7)), env);
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: "too_large", message: "Stránka je příliš velká." });
+    expect(env.seen).toEqual([]);
+  });
+
+  it("lets an ordinary page through with its session header intact", async () => {
+    const env = makeEnv();
+    const req = new Request("https://demo.test/api/extract", {
+      method: "POST",
+      headers: { "x-demo-session": "tok", "cf-connecting-ip": "203.0.113.7" },
+      body: JSON.stringify({ imageBase64: "AAAA" }),
+    });
+    const res = await shell.fetch(req, env);
+    expect(env.seen).toEqual(["extract /api/extract"]);
+    expect(res.headers.get("x-session")).toBe("tok");
+    expect(res.headers.get("x-ip")).toBe("203.0.113.7");
+  });
+
+  it("caps nothing else — a chat turn is a stream, and must stay one", async () => {
+    const env = makeEnv();
+    const res = await shell.fetch(post("/api/chat", big(7)), env);
+    expect(res.status).toBe(200);
+    expect(env.seen).toEqual(["agent /api/chat"]);
   });
 });

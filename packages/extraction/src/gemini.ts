@@ -211,6 +211,30 @@ export function geminiImageRequest(req: GeminiImageRequest): GenerateContentPara
   };
 }
 
+/* ------------------------------------------------------------------ client */
+
+/**
+ * The only host this reader may talk to, stated here rather than inherited.
+ *
+ * `new GoogleGenAI({ apiKey })` alone takes its host from whichever build the
+ * resolver picked: `dist/web` hardcodes this string, `dist/node` reads
+ * `GOOGLE_GEMINI_BASE_URL` from the environment. Wrangler resolves the browser
+ * condition today, so the property holds — but docs/constraints.md records
+ * "the Worker's only outbound hosts are hardcoded" as a property of the *code*,
+ * and without this it is a property of module resolution
+ * (docs/security-review-gemini.md, finding 2). An explicit `baseUrl` is
+ * returned by the SDK's `getBaseUrl` ahead of both the default and the
+ * environment, so it is the same host whichever build resolves — which is also
+ * what makes the assertion in gemini.test.ts worth something, since the tests
+ * run in plain node.
+ */
+export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/";
+
+/** How every client in this repo is constructed. One call site; pinned. */
+export function geminiClientOptions(apiKey: string) {
+  return { apiKey, httpOptions: { baseUrl: GEMINI_BASE_URL } };
+}
+
 /* -------------------------------------------------------------------- call */
 
 /**
@@ -229,6 +253,35 @@ function usageOf(r: GenerateContentResponse): Usage {
 }
 
 /**
+ * A call the provider has already billed, whose answer could not be read.
+ *
+ * The Anthropic reader cannot reach this state: `toolInput` answers `{}` for a
+ * malformed reply, so the read fulfils and is priced. This one throws, and the
+ * usage went with the exception — Google charged for a call the ledger never
+ * saw (docs/security-review-gemini.md, finding 4). The spend freeze is the one
+ * thing between a public URL and an unbounded bill, and it can only count what
+ * it is told about.
+ *
+ * The message is the caller's fixed string, never the provider's or V8's.
+ */
+export class BilledReadError extends Error {
+  readonly name = "BilledReadError";
+  constructor(message: string, readonly model: string, readonly usage: Usage) {
+    super(message);
+  }
+}
+
+/**
+ * The usage a rejected read still owes, or null if nobody was billed.
+ *
+ * Exported so the Worker's `Promise.allSettled` loop can price a rejection
+ * without knowing which reader produced it.
+ */
+export function billedUsage(reason: unknown): { model: string; usage: Usage } | null {
+  return reason instanceof BilledReadError ? { model: reason.model, usage: reason.usage } : null;
+}
+
+/**
  * Structured output still arrives as text, and a model that wraps it in a
  * fence has not failed — it has been polite. Strip the fence, then parse; a
  * genuinely unparseable body throws, which is what the caller's
@@ -237,7 +290,17 @@ function usageOf(r: GenerateContentResponse): Usage {
 export function parseGeminiJson(text: string | undefined): Record<string, unknown> {
   const t = (text ?? "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
   if (!t) throw new Error("Gemini returned an empty body");
-  return JSON.parse(t) as Record<string, unknown>;
+  try {
+    return JSON.parse(t) as Record<string, unknown>;
+  } catch {
+    // Never let V8's message out: it is built from the *input*, and the input
+    // is model output transcribed from the patient's page — `SyntaxError:
+    // Unexpected token 'O', "Omlouvam s"... is not valid JSON`. The extract
+    // Worker returns a reason to the client and the portal logs one
+    // (docs/security-review-gemini.md, finding 6), so this string is the only
+    // one either of them can carry.
+    throw new Error("Gemini returned a body that is not JSON");
+  }
 }
 
 /**
@@ -257,7 +320,7 @@ export async function extractPageGemini(
 ): Promise<PageExtraction> {
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI(geminiClientOptions(apiKey));
   const response = await ai.models.generateContent(
     geminiImageRequest({
       model,
@@ -271,5 +334,16 @@ export async function extractPageGemini(
     }),
   );
 
-  return toExtraction(parseGeminiJson(response.text) as Record<string, any>, usageOf(response), model);
+  // Read the meter before reading the answer. The call is billed by the time
+  // this line runs, and a body that will not parse used to take its usage down
+  // with the exception (docs/security-review-gemini.md, finding 4).
+  const usage = usageOf(response);
+  let input: Record<string, unknown>;
+  try {
+    input = parseGeminiJson(response.text);
+  } catch (e) {
+    throw new BilledReadError((e as Error).message, model, usage);
+  }
+
+  return toExtraction(input as Record<string, any>, usage, model);
 }

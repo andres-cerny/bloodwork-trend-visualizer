@@ -16,7 +16,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  billedUsage,
   extractPageGemini,
+  GEMINI_BASE_URL,
+  geminiClientOptions,
   geminiImageRequest,
   GEMINI_IMAGE_TOKENS,
   GEMINI_MEDIA_RESOLUTION,
@@ -244,5 +247,110 @@ describe("parseGeminiJson", () => {
     // An empty page reads as "this page has no results", which is a claim.
     expect(() => parseGeminiJson("")).toThrow(/empty/);
     expect(() => parseGeminiJson(undefined)).toThrow(/empty/);
+  });
+
+  it("throws a fixed string, never V8's message built from the body", () => {
+    // `SyntaxError: Unexpected token 'O', "Omlouvam s"... is not valid JSON`
+    // is ten characters of the patient's page, and the portal logs whatever
+    // the extractor hands it (docs/security-review-gemini.md, finding 6).
+    const modelOutput = "Omlouvám se, Jan Novák 800101/0006 nelze přečíst";
+    expect(() => parseGeminiJson(modelOutput)).toThrow(/not JSON/);
+    try {
+      parseGeminiJson(modelOutput);
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).not.toContain("Novák");
+      expect((e as Error).message).not.toContain("Omlouvám");
+    }
+  });
+});
+
+/**
+ * Where the request actually goes, pinned in this repo rather than in the
+ * bundler's choice of build (docs/security-review-gemini.md, finding 2).
+ *
+ * `new GoogleGenAI({ apiKey })` alone reads the host from whichever build the
+ * resolver picked: the web build hardcodes it, the node build takes
+ * `GOOGLE_GEMINI_BASE_URL` from the environment. These tests run in node, so
+ * without an explicit `baseUrl` they prove a different binary from the one
+ * that deploys — and the constraint "the Worker's only outbound hosts are
+ * hardcoded" becomes a property of module resolution.
+ */
+describe("the outbound host", () => {
+  it("is a constant this repo passes, not one the SDK supplies", () => {
+    expect(GEMINI_BASE_URL).toBe("https://generativelanguage.googleapis.com/");
+    expect(geminiClientOptions("k")).toEqual({
+      apiKey: "k",
+      httpOptions: { baseUrl: GEMINI_BASE_URL },
+    });
+  });
+
+  it("is not moved by GOOGLE_GEMINI_BASE_URL", async () => {
+    // The environment override the node build honours. An explicit baseUrl is
+    // returned by getBaseUrl ahead of both the default and the environment,
+    // so the same assertion now holds for whichever build resolves.
+    vi.stubEnv("GOOGLE_GEMINI_BASE_URL", "https://not-google.test/");
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: any) => {
+      calls.push(typeof input === "string" ? input : input.url);
+      return geminiReply(PAGE);
+    });
+    await extractPageGemini("test-key", MODEL_GEMINI, IMG, "image/jpeg", null);
+    expect(calls[0]).toContain("generativelanguage.googleapis.com");
+    expect(calls[0]).not.toContain("not-google.test");
+    vi.unstubAllEnvs();
+  });
+});
+
+/**
+ * A call the provider has already billed, whose body will not parse.
+ *
+ * The Anthropic reader cannot reach this state — `toolInput` answers `{}` for
+ * a malformed reply, so the read fulfils and is priced. The Gemini reader
+ * throws, and the usage from that same response used to be discarded with the
+ * exception, so Google charged for a call the ledger never saw
+ * (docs/security-review-gemini.md, finding 4).
+ */
+describe("a billed call whose body will not parse", () => {
+  const unparseable = () =>
+    new Response(
+      JSON.stringify({
+        candidates: [{ content: { parts: [{ text: "Omlouvám se, Jan Novák 800101/0006" }] } }],
+        usageMetadata: { promptTokenCount: 2000, candidatesTokenCount: 700, thoughtsTokenCount: 300 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+  it("throws an error carrying the usage, so the ledger can still book it", async () => {
+    vi.stubGlobal("fetch", async () => unparseable());
+    const err = await extractPageGemini("test-key", MODEL_GEMINI, IMG, "image/jpeg", null).then(
+      () => null,
+      (e) => e,
+    );
+    expect(err).toBeTruthy();
+    expect(billedUsage(err)).toEqual({
+      model: MODEL_GEMINI,
+      // Thoughts fold into output here as they do on the happy path — the
+      // page cost what it cost whether or not the answer could be read.
+      usage: { inputTokens: 2000, outputTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    });
+  });
+
+  it("answers nothing for a failure nobody was billed for", async () => {
+    expect(billedUsage(new Error("connection reset"))).toBeNull();
+    expect(billedUsage("nope")).toBeNull();
+    expect(billedUsage(undefined)).toBeNull();
+  });
+
+  // Finding 6, at its source. V8 builds a JSON parse message out of the input,
+  // and that input is model output transcribed from the patient's page.
+  it("never carries the model's own text in its message", async () => {
+    vi.stubGlobal("fetch", async () => unparseable());
+    const err = (await extractPageGemini("test-key", MODEL_GEMINI, IMG, "image/jpeg", null).catch(
+      (e) => e,
+    )) as Error;
+    expect(err.message).not.toContain("Novák");
+    expect(err.message).not.toContain("Omlouvám");
+    expect(err.message).not.toContain("800101");
   });
 });

@@ -24,6 +24,7 @@ import {
 import { guard, json, budgetLimit, maxPages, sessionTtl, type BaseEnv } from "@bw/gate/http";
 import { priceUsd } from "@bw/agent-core";
 import {
+  billedUsage,
   extractPage,
   extractPageGemini,
   extractPageText,
@@ -101,8 +102,17 @@ const TEXT_READERS: readonly [ReaderId, ReaderId] = ["sonnet", "haiku"];
  */
 export function photoReaders(env: Env): { name: string; readers: readonly ReaderId[] } {
   const asked = env.PHOTO_READERS ?? DEFAULT_PHOTO_READERS;
+  // `Object.hasOwn`, not a truthiness check on the lookup: `PHOTO_PAIRS`
+  // inherits `constructor`, `__proto__`, `toString` and `valueOf` from
+  // Object.prototype, and each of those returned something truthy — so the
+  // retreat below was skipped and `pair.includes` threw, 500ing /api/status
+  // and 500ing /api/extract *after* a page had been spent
+  // (docs/security-review-gemini.md, finding 5). It never failed open; the
+  // false part was this function's own promise to fall back.
+  if (!Object.hasOwn(PHOTO_PAIRS, asked)) {
+    return { name: DEFAULT_PHOTO_READERS, readers: PHOTO_PAIRS[DEFAULT_PHOTO_READERS] };
+  }
   const pair = PHOTO_PAIRS[asked];
-  if (!pair) return { name: DEFAULT_PHOTO_READERS, readers: PHOTO_PAIRS[DEFAULT_PHOTO_READERS] };
   if (pair.includes("gemini") && !env.GEMINI_API_KEY) {
     return { name: DEFAULT_PHOTO_READERS, readers: PHOTO_PAIRS[DEFAULT_PHOTO_READERS] };
   }
@@ -213,7 +223,22 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   let spent = 0;
   const reads = [];
   for (const r of results) {
-    if (r.status !== "fulfilled") continue;
+    if (r.status !== "fulfilled") {
+      // A call the provider billed whose body would not parse: the money is
+      // gone whether or not the answer could be read, and only fulfilled reads
+      // used to be priced (docs/security-review-gemini.md, finding 4).
+      const billed = billedUsage(r.reason);
+      if (billed) {
+        spent += priceUsd(
+          billed.model,
+          billed.usage.inputTokens,
+          billed.usage.outputTokens,
+          billed.usage.cacheReadTokens,
+          billed.usage.cacheWriteTokens,
+        );
+      }
+      continue;
+    }
     spent += priceUsd(
       r.value.model,
       r.value.usage.inputTokens,
@@ -226,8 +251,19 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   if (spent > 0) await recordSpendUsd(env.BUDGET, "extract", spent);
 
   if (reads.length === 0) {
-    const why = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
-    return json({ error: "extraction_failed", message: String(why?.reason ?? "unknown") }, 502);
+    // The provider's own error text does not come back out. Google's is a
+    // JSON.stringify of its error body, and a Gemini body that will not parse
+    // yields a message V8 builds from the *input* — model output transcribed
+    // from the patient's page. The portal logs whatever the extractor hands it
+    // (docs/security-review-gemini.md, finding 6), so what is returned is a
+    // stable code the client can act on and a sentence the reader can act on.
+    return json(
+      {
+        error: "extraction_failed",
+        message: "Stránku se nepodařilo přečíst. Zkuste ji prosím nahrát znovu.",
+      },
+      502,
+    );
   }
 
   return json({

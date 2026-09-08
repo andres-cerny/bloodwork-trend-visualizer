@@ -84,6 +84,12 @@ deploy. **Note the extractor now calls a second host,
 `generativelanguage.googleapis.com`, and the upload copy names Google as a
 processor.** The text path is unaffected in every configuration.
 
+That second host and second key were reviewed on their own:
+[the Gemini security review](security-review-gemini.md) traces where the key can
+and cannot go, what crosses the boundary, and what the gate and the ledger do
+with a Google call. Read its last section before flipping the var — the demo is
+clear, the portal deployment is not.
+
 ### 4. The chat demo's data (D1 + evidence KV)
 
 The two practices live in two D1 databases; the ids committed in

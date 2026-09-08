@@ -24,6 +24,9 @@ interface Props {
   frozen: boolean;
   budget: Budget | null;
   maxPages: number;
+  /** The reader pair /api/status reports, or null while it is unknown — the
+      upload note names its processors from it. */
+  photoReaders: string | null;
   /** True while the shipped sample patient is among the loaded reports. */
   demoLoaded: boolean;
   canRestoreDemo: boolean;
@@ -45,6 +48,7 @@ export default function Sidebar({
   frozen,
   budget,
   maxPages,
+  photoReaders,
   demoLoaded,
   canRestoreDemo,
   onReport,
@@ -76,6 +80,7 @@ export default function Sidebar({
             registry={registry}
             frozen={frozen}
             maxPages={maxPages}
+            photoReaders={photoReaders}
             onReport={onReport}
             onBudget={onBudget}
             onUnlock={onUnlock}

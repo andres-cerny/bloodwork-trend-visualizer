@@ -263,8 +263,12 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   } else if (!res.ok) {
     // The extractor's reason, in the log as well as in the answer: a page that
     // fails for every member of the family is a deployment problem, and the
-    // log is where the operator looks first.
-    console.error(`extract refused: ${res.status} ${data.error ?? ""} ${data.message ?? ""}`.trim());
+    // log is where the operator looks first. Its `message` is deliberately not
+    // logged — a Gemini body that will not parse produces one V8 built out of
+    // the model's own output, which came off the page
+    // (docs/security-review-gemini.md, finding 6). The status and the code are
+    // ours and say the same thing to an operator.
+    console.error(`extract refused: ${res.status} ${data.error ?? ""}`.trim());
   }
   // The extractor's own ceiling is the family's shared fuse; its message is
   // written for the demo, so it is replaced. Its `budget` is the capability
@@ -482,6 +486,18 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   });
 }
 
+/**
+ * Which reader pair the extractor is actually running, or null if it will not
+ * say. `null` is the honest answer and the privacy page treats it as the
+ * broader claim: over-disclosure ages safely, the other direction does not.
+ */
+async function extractPhotoReaders(env: Env): Promise<string | null> {
+  const res = await env.EXTRACT.fetch(new Request("https://extract/api/status")).catch(() => null);
+  if (!res || !res.ok) return null;
+  const data = (await res.json().catch(() => ({}))) as { photoReaders?: string };
+  return data.photoReaders ?? null;
+}
+
 /* ----------------------------------------------------------------- router */
 
 const REPORT = /^\/api\/reports\/([^/]+)$/;
@@ -503,6 +519,14 @@ export default {
         return confirmPost(request, env);
       case "POST /api/auth/logout":
         return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
+      // Public because the page that needs it is: /soukromi is reachable
+      // logged out, and its processor sentence has to come from the
+      // deployment rather than from whoever last edited the copy
+      // (docs/security-review-gemini.md, finding 1). It discloses the pair
+      // name only — exactly what the demo's own /api/status already tells
+      // anyone who asks.
+      case "GET /api/processors":
+        return json({ photoReaders: await extractPhotoReaders(env) });
     }
 
     // Everything below is the account's own data.

@@ -49,6 +49,14 @@ export const loginConfirm = (token: string) => request<{ ok: true }>("/api/auth/
 export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
 
 /**
+ * Which reader pair the extractor runs, for the privacy page's processor
+ * sentence. Public — /soukromi is reachable logged out — and `null` whenever
+ * the answer does not arrive, which the copy reads as the broader claim.
+ */
+export const getProcessors = () =>
+  request<{ photoReaders: string | null }>("/api/processors");
+
+/**
  * One page to the extractor: the printed rows of a digital page, or the
  * painted image of a scan. Never both, and never an image of a page that has
  * rows — the text path is what keeps the pixels at home.

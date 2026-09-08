@@ -9,6 +9,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../src/index";
 import { mintSession, recordSpendUsd, totalSpentUsd } from "@bw/gate";
+import { priceUsd } from "@bw/agent-core";
+import { MODEL_GEMINI } from "@bw/extraction";
 
 const SECRET = "test-session-secret";
 
@@ -203,9 +205,18 @@ let calls: Array<{ url: string; body: any }> = [];
 /** Which providers/models the stub should refuse this test. */
 let failing = new Set<string>();
 
+/**
+ * When set, Gemini answers 200 with a body that is not JSON — the one shape
+ * that is billed and unreadable at once (docs/security-review-gemini.md,
+ * finding 4). The text is page-derived on purpose: finding 6 is about it
+ * escaping in an error message.
+ */
+let geminiUnparseable = false;
+
 beforeEach(() => {
   calls = [];
   failing = new Set();
+  geminiUnparseable = false;
   turnstileHostname = "demo.test";
   nextStream = null;
   // The SDK may call fetch with a Request object rather than (url, init), so
@@ -221,6 +232,15 @@ beforeEach(() => {
       // this suite spend seconds proving nothing.
       if (failing.has("gemini")) {
         return new Response(JSON.stringify({ error: { message: "forced" } }), { status: 400 });
+      }
+      if (geminiUnparseable) {
+        return new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: "Omlouvám se, Jan Novák 800101/0006" }] } }],
+            usageMetadata: { promptTokenCount: 2000, candidatesTokenCount: 1000, thoughtsTokenCount: 0 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
       }
       return new Response(JSON.stringify(geminiReply([["S_Glukóza", "5,32", "mmol/l", "(4,11-5,60)"]])), {
         status: 200,
@@ -621,5 +641,79 @@ describe("the ledger prices the Google reader at Google's rate", () => {
     expect(costUsd).toBe(0.0262);
     // The unknown-model fallback would have charged Sonnet's rate for both.
     expect(costUsd).toBeLessThan(0.042);
+  });
+});
+
+/**
+ * `PHOTO_READERS` set to a key every object inherits.
+ *
+ * `PHOTO_PAIRS["constructor"]` is truthy — it is `Object`'s — so the `if
+ * (!pair)` retreat was skipped and `pair.includes("gemini")` threw. That is a
+ * 500 from /api/status, and a 500 from /api/extract *after* `consumePage` has
+ * already spent a page (docs/security-review-gemini.md, finding 5). It never
+ * failed open; what was false was the promise, in the wrangler comment and in
+ * the function's own docstring, that an unrecognised value falls back.
+ */
+describe("PHOTO_READERS on an inherited key", () => {
+  for (const key of ["constructor", "__proto__", "toString", "valueOf"]) {
+    it(`retreats to sonnet+haiku for "${key}" rather than throwing`, async () => {
+      const env = makeEnv({ PHOTO_READERS: key, GEMINI_API_KEY: "g" });
+
+      const status = await worker.fetch(new Request("https://demo.test/api/status"), env);
+      expect(status.status).toBe(200);
+      expect(((await status.json()) as any).photoReaders).toBe("sonnet+haiku");
+
+      const s = await mintSession(SECRET, 600, 12);
+      const res = await worker.fetch(
+        post("/api/extract", { imageBase64: "AAAA", mediaType: "image/jpeg" }, s),
+        env,
+      );
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as any).readers).toBe("sonnet+haiku");
+    });
+  }
+});
+
+/**
+ * The two things a failed read must still do: charge, and say nothing.
+ *
+ * A Gemini response that is billed and unparseable is the one shape the
+ * Anthropic path cannot produce — `toolInput` answers `{}` rather than
+ * throwing — and it used to be dropped from the ledger with the exception
+ * (finding 4). Its message is built by V8 out of the model's own output,
+ * which came off the patient's page, and the portal logs whatever the
+ * extractor hands it (finding 6).
+ */
+describe("a Gemini call that was billed and could not be read", () => {
+  async function readOnePage() {
+    geminiUnparseable = true;
+    const env = makeEnv({ PHOTO_READERS: "gemini+sonnet", GEMINI_API_KEY: "g", SINGLE_MODEL: "1" });
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(
+      post("/api/extract", { imageBase64: "AAAA", mediaType: "image/jpeg" }, s),
+      env,
+    );
+    return { env, res };
+  }
+
+  it("books the spend Google charged for it", async () => {
+    const { env, res } = await readOnePage();
+    expect(res.status).toBe(502);
+    // 2000 in, 1000 out at Gemini's own rate. The freeze is the only thing
+    // between a public URL and an unbounded bill, and it can only count what
+    // it is told about.
+    expect(await totalSpentUsd(env.BUDGET, "extract")).toBeCloseTo(
+      priceUsd(MODEL_GEMINI, 2000, 1000),
+      6,
+    );
+  });
+
+  it("answers with a stable reason, carrying none of the page back", async () => {
+    const { res } = await readOnePage();
+    const body = (await res.json()) as any;
+    expect(body.error).toBe("extraction_failed");
+    expect(JSON.stringify(body)).not.toContain("Novák");
+    expect(JSON.stringify(body)).not.toContain("Omlouvám");
+    expect(JSON.stringify(body)).not.toContain("800101");
   });
 });

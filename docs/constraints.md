@@ -220,19 +220,29 @@ Patient data never leaves the machine **except to the model APIs in use**, and
 there are two of them. The text path sends printed rows to Anthropic. The image
 path sends the page image — header, name and rodné číslo included — to Anthropic
 and, when `PHOTO_READERS` names a Gemini pair, to Google as well; both on paid
-tiers, which neither train on nor store the request. That pairing is not a
-preference: on 133 photographed pages the two Claude readers made 40 value
+tiers, **which do not train on the request**. Not *store* — neither vendor
+publishes that, both retain inputs briefly for abuse monitoring, and the copy
+claimed it until 2026-09-08. Claim the commitment that exists.
+
+That pairing is not a preference: on 133 photographed pages the two Claude readers made 40 value
 errors between them and flagged 494 rows for a human, where Sonnet with Gemini
 made none and flagged 5 (docs/lab-adaptability.md). Two readers from one vendor
 make the same judgement calls and so confirm each other on them, which is why
 the pair is cross-vendor.
 
 The obligation this creates is that **every surface claiming where the data goes
-names both**: `apps/bloodwork/src/App.tsx`, `apps/bloodwork/src/ui/UploadPanel.tsx`
-and README's cost note. If you add a third processor, or a third surface, it
-inherits this. `PHOTO_READERS` defaults to `sonnet+haiku`, so a deployment that
-never sets it never reaches Google — but the notice names Google anyway, because
-the alternative is a privacy notice that a config flip silently falsifies.
+renders it from `/api/status`, never from memory** — `processorPhrase` in
+`packages/ui-kit/src/processors.ts`, used by `apps/bloodwork/src/App.tsx`,
+`apps/bloodwork/src/ui/UploadPanel.tsx` and `apps/portal/src/ui/Privacy.tsx`.
+It was a hand-written sentence in each until a review pointed out that
+`workers/portal-extract` is config over the same code, so two commands would
+have sent real family pages to a second vendor with nothing failing and nothing
+warning. README's cost note is prose and still says it by hand.
+
+**Not knowing must say more, never less.** While the status request is in
+flight, and whenever it fails, the copy names every processor: over-disclosure
+ages safely, and the other direction is a false statement to a patient about
+their own medical record. A third processor inherits both rules.
 
 ## A security review found one real defect
 

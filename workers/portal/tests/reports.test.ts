@@ -8,7 +8,7 @@
  * freeze another — and the promise the schema makes: identity a client sends
  * is emptied before it is stored.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../src/index";
 import { SQL } from "../src/db";
 import { mintCookieToken } from "../src/session";
@@ -313,5 +313,68 @@ describe("settings", () => {
 
   it("refuses anything but an object", async () => {
     expect((await call(A, "PUT", "/api/settings", [1, 2])).status).toBe(400);
+  });
+});
+
+/**
+ * Who processes a page, answered by the deployment.
+ *
+ * workers/portal-extract is config over the extractor's code, so a
+ * `GEMINI_API_KEY` secret and a `PHOTO_READERS` var would send redacted page
+ * images of real family data to Google while /soukromi still named Anthropic
+ * alone (docs/security-review-gemini.md, finding 1). The privacy page is
+ * reachable logged out, so this route is public — it says nothing the demo's
+ * own /api/status does not already say to anyone.
+ */
+describe("GET /api/processors", () => {
+  const extractStatus = (body: unknown, status = 200) =>
+    ({
+      fetch: async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }),
+    }) as unknown as Fetcher;
+
+  const ask = () => worker.fetch(new Request("https://portal/api/processors"), env);
+
+  it("reports the extractor's pair without a session", async () => {
+    env.EXTRACT = extractStatus({ photoReaders: "sonnet+gemini" });
+    const res = await ask();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ photoReaders: "sonnet+gemini" });
+  });
+
+  it("answers null when the extractor cannot be asked, so the page claims more rather than less", async () => {
+    env.EXTRACT = extractStatus({ error: "nope" }, 500);
+    expect(await (await ask()).json()).toEqual({ photoReaders: null });
+
+    env.EXTRACT = { fetch: async () => { throw new Error("down"); } } as unknown as Fetcher;
+    expect(await (await ask()).json()).toEqual({ photoReaders: null });
+  });
+});
+
+/**
+ * What the operator's log may hold.
+ *
+ * The extractor's refusal used to be logged with its `message`, and a Gemini
+ * body that will not parse produced a message V8 built out of the model's own
+ * output — a fragment of the patient's page, in Workers observability
+ * (docs/security-review-gemini.md, finding 6). Status and error code are the
+ * part that helps and the part that is ours.
+ */
+describe("the extract refusal log", () => {
+  it("logs the status and the code, never the extractor's message", async () => {
+    const logged: string[] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((m?: unknown) => void logged.push(String(m)));
+    extract = fakeExtract({
+      status: 502,
+      body: { error: "extraction_failed", message: "Unexpected token 'O', \"Omlouvám se, Jan Novák\"... is not valid JSON" },
+    });
+    env.EXTRACT = extract.fetcher;
+
+    await call(A, "POST", "/api/extract", { rowsText: "x" });
+
+    expect(logged.join(" ")).toContain("502");
+    expect(logged.join(" ")).toContain("extraction_failed");
+    expect(logged.join(" ")).not.toContain("Novák");
+    expect(logged.join(" ")).not.toContain("Omlouvám");
+    spy.mockRestore();
   });
 });

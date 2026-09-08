@@ -7,8 +7,25 @@
  * tests/account.test.ts walks. If a sentence here stops being true, the
  * sentence is the bug report.
  */
+import { useEffect, useState } from "react";
+import { processorPhrase, RETENTION_NOTE } from "@bw/ui-kit";
+import { getProcessors } from "../lib/api";
 
 export default function Privacy() {
+  // Who processes a page is asked of the deployment, not written down here.
+  // workers/portal-extract is config over the extractor's code, so a secret
+  // and a var would have sent redacted page images of real family data to a
+  // second vendor while this page still named only the first
+  // (docs/security-review-gemini.md, finding 1). `null` — loading, or the
+  // request failed — names every processor rather than fewer.
+  const [photoReaders, setPhotoReaders] = useState<string | null>(null);
+  useEffect(() => {
+    getProcessors().then(
+      (p) => setPhotoReaders(p.photoReaders),
+      () => setPhotoReaders(null),
+    );
+  }, []);
+
   return (
     <main className="privacy">
       <p>
@@ -40,8 +57,8 @@ export default function Privacy() {
 
       <h2>Ke zpracování odchází</h2>
       <p>
-        Začerněné řádky s hodnotami (u skenů začerněný obrázek stránky) na náš server a z něj do
-        Anthropic API, které je přepíše na čísla. Přepis se neukládá u zpracovatele; útrata za
+        Začerněné řádky s hodnotami (u skenů začerněný obrázek stránky) na náš server a z něj{" "}
+        {processorPhrase(photoReaders)}, kde se přepíšou na čísla. {RETENTION_NOTE} Útrata za
         zpracování má měsíční strop na osobu.
       </p>
 

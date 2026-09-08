@@ -15,3 +15,9 @@ export { default as ThemeSwitch } from "./ThemeSwitch";
 export { default as Chart, niceTicks } from "./Chart";
 export { default as TrendChart, Sparkline, trendDomain } from "./TrendChart";
 export * from "./useTurnstile";
+/**
+ * The privacy copy's processor clause. Here rather than in either app because
+ * both make the same promise about the same page images, and a claim asserted
+ * twice is a claim that drifts once.
+ */
+export * from "./processors";

@@ -19,7 +19,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { ApiError, type Budget, extract, isFatalApiError } from "@bw/api-client";
-import { useTurnstile } from "@bw/ui-kit";
+import { processorPhrase, RETENTION_NOTE, useTurnstile } from "@bw/ui-kit";
 import {
   type LabReport,
   type Measurement,
@@ -80,12 +80,14 @@ interface Props {
   registry: Registry;
   frozen: boolean;
   maxPages: number;
+  /** The reader pair /api/status reports, or null while it is unknown. */
+  photoReaders: string | null;
   onReport: (report: LabReport) => void;
   onBudget: (b: Budget) => void;
   onUnlock: () => void;
 }
 
-export default function UploadPanel({ registry, frozen, maxPages, onReport, onBudget, onUnlock }: Props) {
+export default function UploadPanel({ registry, frozen, maxPages, photoReaders, onReport, onBudget, onUnlock }: Props) {
   const { boxRef, ready, available, error: gateError } = useTurnstile(
     import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined,
     onUnlock,
@@ -511,11 +513,13 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
 
       {error && <p className="err" style={{ margin: "8px 0 0" }}>{error}</p>}
 
+      {/* Who processes a page is read from /api/status, never asserted here:
+          a config flip on the deployment must not be able to falsify it
+          (docs/security-review-gemini.md, finding 1). */}
       <p className="muted" style={{ margin: "9px 0 0" }}>
         PDF se čte ve vašem prohlížeči. Obrázky stránek —{" "}
         <strong>včetně hlavičky se jménem a rodným číslem</strong> — se posílají
-        k přepisu na Anthropic API, u fotografií také na Google Gemini API, a
-        nikde se neukládají.
+        k přepisu {processorPhrase(photoReaders)}. {RETENTION_NOTE}
       </p>
     </>
   );

@@ -30,7 +30,7 @@ import ChatPanel from "./ui/ChatPanel";
 import MappingTab from "./ui/MappingTab";
 import PatientCard from "./ui/PatientCard";
 import Sidebar from "./ui/Sidebar";
-import { ThemeSwitch } from "@bw/ui-kit";
+import { processorPhrase, RETENTION_NOTE, ThemeSwitch } from "@bw/ui-kit";
 import SummaryTab from "./ui/SummaryTab";
 import TrendsTab from "./ui/TrendsTab";
 import VerifyTab from "./ui/VerifyTab";
@@ -139,6 +139,10 @@ export default function App() {
   const [tab, setTab] = useState<TabId>("trends");
   const [budget, setBudget] = useState<Budget | null>(null);
   const [maxPages, setMaxPages] = useState(12);
+  // Which reader pair the deployment actually runs, straight from /api/status.
+  // `null` until it answers, and after a failure — which the copy reads as
+  // "name every processor", never as "name fewer" (@bw/ui-kit, processors.ts).
+  const [photoReaders, setPhotoReaders] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Two separate states for two separate layouts, deliberately not one.
@@ -188,6 +192,7 @@ export default function App() {
       .then((s) => {
         setBudget(s.budget);
         setMaxPages(s.maxPages);
+        setPhotoReaders(s.photoReaders ?? null);
       })
       .catch(() => {
         /* status is best-effort; the pre-baked demo works without it */
@@ -424,6 +429,7 @@ export default function App() {
           frozen={frozen}
           budget={budget}
           maxPages={maxPages}
+          photoReaders={photoReaders}
           demoLoaded={demoLoaded}
           canRestoreDemo={demoReports.current.length > 0}
           // Upsert, not append. A report is now published *while* it is being
@@ -520,12 +526,10 @@ export default function App() {
                   Vlastní PDF se čte ve vašem prohlížeči a nikam se neukládá.{" "}
                   <strong>
                     Obrázky stránek — včetně hlavičky se jménem a rodným číslem — se ale
-                    posílají ke zpracování na Anthropic API, u fotografií také na Google
-                    Gemini API
+                    posílají ke zpracování {processorPhrase(photoReaders)}
                   </strong>{" "}
-                  a projdou serverem této ukázky. Oba poskytovatelé běží v placeném
-                  režimu: data neukládají ani na nich netrénují. Po zavření stránky po
-                  nich tady nezůstane stopa.
+                  a projdou serverem této ukázky. Zpracování běží v placeném režimu.{" "}
+                  {RETENTION_NOTE} Po zavření stránky po nich tady nezůstane stopa.
                 </p>
               </details>
             </div>

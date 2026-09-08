@@ -420,8 +420,12 @@ columns; `tests/live/extract.live.ts` green on the new fixtures.
    (stubbed `/api/extract`, free).
 4. **Privacy copy.** `App.tsx` (~L573–583) and `UploadPanel.tsx` (~L543–547)
    name only Anthropic. Both gain: photos are also sent to the Google Gemini
-   API (paid tier, not used for training, not stored). `docs/constraints.md`
-   privacy section and `workers/CLAUDE.md` ("extract is finished") updated.
+   API (paid tier, not used for training — *not* "not stored"; neither vendor
+   commits to that, see `docs/constraints.md`). Done differently in the end:
+   the sentence is rendered from `/api/status` rather than written down, so a
+   config flip cannot falsify it (`docs/security-review-gemini.md`, finding 1).
+   `docs/constraints.md` privacy section and `workers/CLAUDE.md` ("extract is
+   finished") updated.
 
 **Gate:** `npm test`, `typecheck`, `docs:check`, `test:audit`, `test:upload`;
 `/security-review` on `workers/extract`; a phone photo of a *synthetic*
