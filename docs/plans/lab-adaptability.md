@@ -391,7 +391,8 @@ columns; `tests/live/extract.live.ts` green on the new fixtures.
 1. **Input — done 2026-09-08, and with *one* encode, not two.**
    `UploadPanel.tsx` accepts `application/pdf` plus the image types, with a
    `capture="environment"` input revealed by `(pointer: coarse)`. New
-   `apps/bloodwork/src/lib/photo.ts`: EXIF orientation via
+   `apps/bloodwork/src/lib/photo.ts` (moved to `packages/lab-core/src/photo.ts`
+   on 2026-09-08 when apps/portal needed the same encoder): EXIF orientation via
    `createImageBitmap(…, { imageOrientation: "from-image" })`, long edge
    **2576 px**, greyscale, 2nd–98th percentile contrast stretch, JPEG 0.85.
    `MAX_EDGE` 1800 in `pdf.ts` stays for PDFs and is untouched.

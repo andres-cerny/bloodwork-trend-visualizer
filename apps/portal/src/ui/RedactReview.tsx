@@ -14,6 +14,13 @@
  * first version explained itself in three paragraphs and a per-page tick,
  * and the reader had to click past them to see the page.
  *
+ * A photograph is that same page and is handled by that same branch — it is in
+ * `scanPages`, drawing is on when it opens, nothing is claimed about it. It is
+ * called a fotografie rather than a sken only because that is what it is; a
+ * person who has just photographed a sheet with their phone and is told the app
+ * found a "sken" has been told something they can tell is wrong, on the one
+ * screen that is asking them to trust it.
+ *
  * The screen never says what a box covers. An earlier version listed the
  * boxes as chips under the page — "jméno · Jan Novák" — which told the
  * reader we had read the name, on the one screen whose job is to look like
@@ -52,6 +59,7 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
   // One box selected at a time, across all pages.
   const [selected, setSelected] = useState<IdentityHit | null>(null);
   const scans = prepared.scanPages;
+  const photo = prepared.kind === "photo";
 
   // A tap anywhere that is not a box, or Escape, deselects.
   useEffect(() => {
@@ -82,7 +90,9 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
           <h2>Je vše osobní začerněné?</h2>
           <p className="sub" style={{ marginBottom: 0 }}>
             {prepared.name} · {count(prepared.pages.length, "strana", "strany", "stran")}
-            {scans.length > 0 && ` · ${count(scans.length, "sken", "skeny", "skenů")} — začerněte ručně`}
+            {photo
+              ? " · fotografie — začerněte ručně"
+              : scans.length > 0 && ` · ${count(scans.length, "sken", "skeny", "skenů")} — začerněte ručně`}
           </p>
         </div>
         <button className={`btn small${drawing ? " primary" : ""}`} aria-pressed={drawing} onClick={() => setDrawing((d) => !d)}>
@@ -98,6 +108,7 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
           width={page.imageWidth}
           height={page.imageHeight}
           scan={scans.includes(page.pageNum)}
+          photo={photo}
           drawing={drawing}
           hits={hits.filter((h) => h.pageNum === page.pageNum)}
           selected={selected}
@@ -159,6 +170,7 @@ function ReviewPage({
   width,
   height,
   scan,
+  photo,
   drawing,
   hits,
   selected,
@@ -171,6 +183,7 @@ function ReviewPage({
   width: number;
   height: number;
   scan: boolean;
+  photo: boolean;
   drawing: boolean;
   hits: IdentityHit[];
   selected: IdentityHit | null;
@@ -225,8 +238,8 @@ function ReviewPage({
   return (
     <figure className={`review-page${scan ? " scan" : ""}`}>
       <figcaption className="muted">
-        Strana {pageNum}
-        {scan && " · sken — nic nenalezeno, začerněte ručně"}
+        {photo ? "Fotografie" : `Strana ${pageNum}`}
+        {scan && (photo ? " · nic nenalezeno, začerněte ručně" : " · sken — nic nenalezeno, začerněte ručně")}
       </figcaption>
       <div
         ref={canvasRef}
@@ -263,7 +276,7 @@ function ReviewPage({
         }}
         onPointerCancel={() => setDrag(null)}
       >
-        <img src={imageUrl} alt={`Strana ${pageNum}`} draggable={false} />
+        <img src={imageUrl} alt={photo ? "Fotografie" : `Strana ${pageNum}`} draggable={false} />
         {/* The ink: exactly what will be painted, and nothing a finger can
             hit. */}
         {hits.map((h, i) => (

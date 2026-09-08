@@ -14,9 +14,23 @@
  * where confirmed files are read; the log under it is where each one ends
  * up, with the notes an honest read produces — a page that failed, a value
  * that disagreed with the print, a printed row nobody read.
+ *
+ * ## Two inputs, because one cannot do both jobs
+ *
+ * `capture="environment"` is not a hint that a camera would be nice: on
+ * several mobile browsers it *replaces* the picker, so an input carrying it
+ * offers the camera and nothing else — no gallery, no Files, no Drive. An
+ * input without it offers the library and the file browser and never the
+ * viewfinder. There is no third value that means "both", so there are two
+ * controls: the drop target's picker (PDF and photo types, no `capture`) and
+ * `.shoot` beside it (`image/*` plus `capture`). `.shoot` is revealed by
+ * `(pointer: coarse)` in CSS rather than by a guess about the user agent,
+ * which also keeps it out of the tab order on a desktop, where it would open
+ * a file dialog labelled as a camera.
  */
 import { useRef, useState } from "react";
 import { type IdentityHit, type LabReport, type Registry, count } from "@bw/lab-core";
+import { PHOTO_TYPES, PhotoError, isPhotoFile } from "@bw/lab-core/photo";
 import { type Budget, ApiError, isFatalApiError } from "../lib/api";
 import {
   type PreparedFile,
@@ -43,6 +57,17 @@ type Stage =
   | { kind: "preparing"; name: string }
   | { kind: "review"; prepared: PreparedFile }
   | { kind: "redacting"; name: string };
+
+/**
+ * What the picker offers.
+ *
+ * HEIC is named although no browser here can be relied on to decode it:
+ * leaving it off greys out every iPhone photo in the file browser with no
+ * explanation, whereas accepting it lets `photoAssets` fail with a sentence
+ * that says what to send instead. Naming `image/jpeg` is also what makes the
+ * iOS Photos picker transcode a HEIC on its way out.
+ */
+const ACCEPT = ["application/pdf", ...PHOTO_TYPES].join(",");
 
 /** What the machine is doing — as many files as have been confirmed. */
 interface Running {
@@ -92,7 +117,10 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
       const prepared = await prepareFile(file, maxPages);
       setStage({ kind: "review", prepared });
     } catch (e) {
-      addLog({ name: file.name, status: "failed", notes: [], error: `Soubor se nepodařilo otevřít: ${e}` });
+      // A PhotoError already carries the sentence the person needs — which
+      // format it was and what to send instead. Wrapping it would bury it.
+      const error = e instanceof PhotoError ? e.message : `Soubor se nepodařilo otevřít: ${e}`;
+      addLog({ name: file.name, status: "failed", notes: [], error });
       finish();
     }
   }
@@ -171,10 +199,17 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
     dropRunning(id);
   }
 
+  /**
+   * `accept` is a hint and nothing more — drag and drop ignores it outright,
+   * and a phone's file browser hands over a HEIC whatever it says — so the
+   * real filter is here, and it takes photographs as well as PDFs. A mixed
+   * selection is normal: two PDFs and a photo of the third page go in one
+   * queue, each one reviewed in turn.
+   */
   function enqueue(files: File[]) {
-    const pdfs = files.filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
-    if (pdfs.length === 0) return;
-    queueRef.current.push(...pdfs);
+    const usable = files.filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name) || isPhotoFile(f));
+    if (usable.length === 0) return;
+    queueRef.current.push(...usable);
     publishQueue();
     void startNext();
   }
@@ -230,7 +265,7 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
         <span className="drop-icon" aria-hidden="true">
           {busy ? "⏳" : "📄"}
         </span>
-        <span className="drop-main">{status ?? "Přetáhněte PDF z laboratoře sem"}</span>
+        <span className="drop-main">{status ?? "Přetáhněte PDF nebo fotku sem"}</span>
         <span className="drop-sub">
           {keepOpen
             ? queued.length > 0
@@ -238,10 +273,35 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
               : "Nechte okno otevřené."
             : `nebo klepněte a vyberte — i více najednou · nejvýše ${count(maxPages, "strana", "strany", "stran")} na report`}
         </span>
+        {/*
+          The picker half of the pair: no `capture`, so iOS offers Fotky and
+          Procházet, and Android the gallery beside the file browser. `multiple`
+          because a selection may be several PDFs, several photographs, or both
+          at once — a photograph is simply one more page in the queue.
+        */}
         <input
           type="file"
-          accept="application/pdf"
+          accept={ACCEPT}
           multiple
+          disabled={busy}
+          onChange={(e) => {
+            enqueue([...(e.target.files ?? [])]);
+            e.target.value = "";
+          }}
+        />
+      </label>
+
+      {/*
+        The camera half, on a phone only — see the note at the top of the file.
+        Not `multiple`: a camera returns one frame.
+      */}
+      <label className={`shoot${busy ? " busy" : ""}`}>
+        <span aria-hidden="true">📷</span>
+        <span>Vyfotit papír</span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
           disabled={busy}
           onChange={(e) => {
             enqueue([...(e.target.files ?? [])]);
@@ -308,10 +368,18 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
         </ul>
       )}
 
+      {/*
+        The claim has to survive a photograph, and the old one did not: it said
+        the identity is removed from the file, which on a PDF the automatic
+        detection does and on a photograph nothing can — there is no text to
+        search. So the sentence names who does the removing in each case.
+      */}
       <p className="muted" style={{ margin: "9px 0 0" }}>
-        PDF se otevře ve vašem prohlížeči. Jméno, rodné číslo, datum narození a adresa se z něj
-        odstraní <strong>před</strong> odesláním; na server odejdou jen začerněné obrázky stránek a
-        vytištěné řádky s hodnotami. Původní soubor se nikam neukládá.
+        PDF i fotka se otevřou ve vašem prohlížeči. U PDF najdeme jméno, rodné číslo, datum narození
+        a adresu v textu a začerníme je <strong>před</strong> odesláním; ve fotce ani ve skenu není
+        text, ve kterém by se dalo hledat — tam je začerníte při kontrole vy. Na server pak odejdou
+        jen začerněné obrázky stránek a vytištěné řádky s hodnotami. Původní soubor se nikam
+        neukládá.
       </p>
     </>
   );

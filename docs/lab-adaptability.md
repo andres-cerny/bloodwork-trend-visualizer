@@ -1604,8 +1604,11 @@ with the request-size ceiling that a full-resolution body would have created.
 `imageFullBase64` stays on the Worker — it costs nothing to keep and it is the
 seam a future reader with a real resolution appetite would arrive through — and
 the browser never sends it. The constant lives in
-`apps/bloodwork/src/lib/photo.ts` as `PHOTO_MAX_EDGE` and is pinned equal to
-`SONNET_IMAGE_MAX_EDGE` by `apps/bloodwork/tests/photo.test.ts`.
+`packages/lab-core/src/photo.ts` as `PHOTO_MAX_EDGE` and is pinned equal to
+`SONNET_IMAGE_MAX_EDGE` by `packages/lab-core/tests/photo.test.ts`. (It was in
+`apps/bloodwork/src/lib/` until Moje krev learned to take photographs too;
+sharing the encoder is what keeps the two apps' pixels identical, and therefore
+what keeps this measurement true of both.)
 
 ### Perspective correction: closed, not deferred
 

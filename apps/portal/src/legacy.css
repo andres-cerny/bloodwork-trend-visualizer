@@ -126,6 +126,31 @@ ul.reportlist {
 .drop .drop-sub { display: block; font-size: 0.76rem; color: var(--ink-muted); margin-top: 3px; }
 .drop input[type="file"] { display: none; }
 
+/*
+ * The camera, on a phone only.
+ *
+ * `capture="environment"` opens the rear camera instead of the photo library,
+ * which is the difference between photographing the sheet on the table and
+ * hunting for it among holiday pictures. It does nothing on a desktop, so the
+ * control is revealed by `(pointer: coarse)` rather than by a guess about the
+ * user agent — a media query is right in a resized window, on a tablet and on
+ * a phone at once, and `display: none` keeps a dead button out of the tab
+ * order as well as out of the layout.
+ */
+.shoot { display: none; }
+@media (pointer: coarse) {
+  .shoot {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin-top: 8px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface-1); color: var(--ink-2);
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  }
+  .shoot:hover { background: var(--surface-3); color: var(--ink-1); }
+  .shoot.busy { cursor: progress; opacity: 0.75; }
+  .shoot input[type="file"] { display: none; }
+}
+
 /* A processing run, reported step by step rather than as a spinner. */
 .runlog {
   margin: 9px 0 0; padding: 9px 10px; border-radius: var(--radius-sm);

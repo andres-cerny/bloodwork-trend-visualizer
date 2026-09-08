@@ -18,6 +18,15 @@
  * hand and confirms the page, and the painted image goes to the extractor's
  * vision path. On such a page the reader's look is the only guard — which is
  * why the confirmation is per page and explicit.
+ *
+ * **A photograph enters through that same door, and through no other.** It has
+ * no text layer either — not because a scanner lost it but because a camera
+ * never had one — so `prepareFile` gives it the identical shape a scan gets:
+ * no words, `canRedact` false, no hits, its page number in `scanPages`. There
+ * is deliberately no path on which a photograph is reported as "nothing found":
+ * detection did not fail on it, detection could not run. The only thing that
+ * differs is the word on screen, because telling someone their phone snapshot
+ * is a "sken" is telling them something false about their own file.
  */
 import {
   type IdentityHit,
@@ -32,12 +41,16 @@ import {
   survivingIdentity,
 } from "@bw/lab-core";
 import type { PageAssets, RedactedPage } from "@bw/lab-core/pdf";
+import { isPhotoFile, photoAssets } from "@bw/lab-core/photo";
 import { type ProvisionalRow, extractPage, isFatalApiError, putPage, putReport } from "./api";
 import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
 
 export interface PreparedFile {
   name: string;
+  /** Where the pixels came from. Only the copy reads this — every step of the
+   *  pipeline routes on `scanPages`, which a photograph is always in. */
+  kind: "pdf" | "photo";
   pages: PageAssets[];
   hits: IdentityHit[];
   /** Pages with no usable text layer: nothing was found on them automatically,
@@ -48,8 +61,18 @@ export interface PreparedFile {
 }
 
 /** Pages are read one at a time: each holds a rendered canvas, and a phone
- *  opening a thirty-page report is the memory case that matters. */
+ *  opening a thirty-page report is the memory case that matters.
+ *
+ *  A photograph short-circuits all of it: one page, decoded and enhanced by
+ *  `photoAssets`, no pdf.js (~1.4 MB that someone photographing a sheet on a
+ *  phone should not download), and — the part that matters — no `findIdentity`
+ *  call at all. Running the detector over an empty word list would return an
+ *  empty `hits` that is indistinguishable from a clean page. */
 export async function prepareFile(file: File, maxPages: number): Promise<PreparedFile> {
+  if (isPhotoFile(file)) {
+    const page = await photoAssets(file);
+    return { name: file.name, kind: "photo", pages: [page], hits: [], scanPages: [page.pageNum], truncated: 0 };
+  }
   const { loadPdf, pageAssets } = await import("@bw/lab-core/pdf");
   const doc = await loadPdf(file);
   const n = Math.min(doc.numPages, maxPages);
@@ -58,7 +81,7 @@ export async function prepareFile(file: File, maxPages: number): Promise<Prepare
   await doc.destroy();
   const scanPages = pages.filter((p) => !p.hasTextLayer || !canRedact(p.words)).map((p) => p.pageNum);
   const { hits } = findIdentity(pages.map((p) => ({ pageNum: p.pageNum, words: p.words })));
-  return { name: file.name, pages, hits, scanPages, truncated: doc.numPages - n };
+  return { name: file.name, kind: "pdf", pages, hits, scanPages, truncated: doc.numPages - n };
 }
 
 /** Paint the boxes the reader confirmed, and strip their strings everywhere. */
@@ -184,7 +207,14 @@ export async function extractReport(
   }
 
   const notes: string[] = [];
-  if (prepared.scanPages.length)
+  // A photograph has no text layer by definition, so calling it a sken would
+  // name the wrong thing; what carries over is the consequence, which is that
+  // nothing checked the numbers against the print.
+  if (prepared.kind === "photo")
+    notes.push(
+      "Fotografie nemá textovou vrstvu — přepsána z obrázku; hodnoty nelze ověřit proti tištěnému textu, zkontrolujte je v Ověření.",
+    );
+  else if (prepared.scanPages.length)
     notes.push(
       `${plural(prepared.scanPages.length, "Strana", "Strany", "Strany")} ${prepared.scanPages.join(", ")} ${plural(prepared.scanPages.length, "nemá", "nemají", "nemají")} textovou vrstvu (sken) — ${plural(prepared.scanPages.length, "přepsána", "přepsány", "přepsány")} z obrázku; hodnoty z ní nelze ověřit proti tištěnému textu, zkontrolujte je v Ověření.`,
     );

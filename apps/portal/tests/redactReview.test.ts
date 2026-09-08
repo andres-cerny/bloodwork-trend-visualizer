@@ -41,9 +41,10 @@ const page = (pageNum: number) =>
     hasTextLayer: true,
   }) as unknown as PreparedFile["pages"][number];
 
-const prepared: PreparedFile = { name: "vysledky.pdf", pages: [page(1), page(2)], hits, scanPages: [], truncated: 0 };
+const prepared: PreparedFile = { name: "vysledky.pdf", kind: "pdf", pages: [page(1), page(2)], hits, scanPages: [], truncated: 0 };
 
-const render = () => renderToStaticMarkup(createElement(RedactReview, { prepared, onConfirm: () => {}, onCancel: () => {} }));
+const draw = (p: PreparedFile) => renderToStaticMarkup(createElement(RedactReview, { prepared: p, onConfirm: () => {}, onCancel: () => {} }));
+const render = () => draw(prepared);
 
 describe("RedactReview", () => {
   it("renders none of the strings the detector found", () => {
@@ -72,6 +73,58 @@ describe("RedactReview", () => {
 
   it("carries no chip list", () => {
     expect(render()).not.toContain("review-hits");
+  });
+});
+
+/**
+ * A photograph reaches this screen through the scan door and no other: it is
+ * in `scanPages` with an empty `hits`, which is how the screen knows that
+ * nothing was found *because nothing could be looked at*.
+ *
+ * The two things this pins are the two ways it could go wrong. It must not
+ * imply detection ran — an empty `hits` with the ordinary caption reads as "we
+ * looked and your page is clean", which for a photograph is a false statement
+ * about a header that is fully legible in the picture. And it must not call the
+ * thing a sken, because the person just took it with their phone.
+ */
+const photo: PreparedFile = {
+  name: "IMG_0042.jpg",
+  kind: "photo",
+  pages: [page(1)],
+  hits: [],
+  scanPages: [1],
+  truncated: 0,
+};
+
+describe("RedactReview, given a photograph", () => {
+  it("says nothing was found and that blacking out is the reader's job", () => {
+    const html = draw(photo);
+    expect(html).toContain("nic nenalezeno");
+    expect(html).toContain("začerněte ručně");
+  });
+
+  it("calls it a fotografie, never a sken and never a strana", () => {
+    const html = draw(photo);
+    expect(html).toContain("Fotografie");
+    expect(html.toLowerCase()).not.toContain("sken");
+    expect(html).not.toContain("Strana 1");
+  });
+
+  it("opens with drawing already on, because drawing is the only way to redact it", () => {
+    // The toggle reads "Hotovo" while drawing and "Začernit" while not.
+    expect(draw(photo)).toContain('aria-pressed="true"');
+    expect(draw(photo)).toContain("Hotovo");
+  });
+
+  it("still offers the confirm the flow cannot proceed without", () => {
+    // No skip on this screen, for a photo least of all: `UploadFlow` renders
+    // it instead of the queue and only `onConfirm` moves the file on.
+    expect(draw(photo)).toContain("Ano, nahrát");
+    expect(draw(photo)).toContain("Je vše osobní začerněné?");
+  });
+
+  it("presents no found box to dismiss", () => {
+    expect(draw(photo)).not.toContain("Začerněné pole 1");
   });
 });
 

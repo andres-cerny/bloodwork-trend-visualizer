@@ -289,6 +289,18 @@ and verification both ran through the text layer, so on a scanned page nothing
 matched, nothing was painted over, and a page whose header carries the
 patient's name rendered straight through looking clean. Fixed as described.
 
+**A photograph enters by that same door, and by no other.** Moje krev takes
+phone photos as well as PDFs, and a photograph has no text layer at all — not
+lost in a scanner, never present. So `prepareFile` gives it precisely a scan's
+shape: no words, `canRedact` false, no hits, its page listed in `scanPages`.
+The review screen therefore says nothing was found *because nothing could be
+looked at* and hands the reader the pencil; there is no path on which a photo
+is reported clean, and none on which it is sent without that confirmation. One
+word differs: it is a *fotografie*, never a *sken*, because telling someone
+their own phone snapshot is a scan is a false statement on the single screen
+asking them to trust the app. Pinned by
+`apps/portal/tests/redactReview.test.ts` and `tests/e2e/upload-portal.e2e.ts`.
+
 Confirmed sound in the same review: HMAC session verification denies on every
 malformed path rather than falling through; no secret can reach the client
 bundle or an error body; the spend ledger is driven only by token counts the

@@ -8,6 +8,12 @@
  * pixel buffer, so the pipeline is unit-testable without a browser and only the
  * one canvas call needs a DOM.
  *
+ * It lives here, behind `@bw/lab-core/photo`, because two apps now photograph
+ * lab sheets — the demo (apps/bloodwork) and Moje krev (apps/portal) — and a
+ * second copy of a contrast stretch is a second thing to measure. Browser-only,
+ * so it is a subpath like `@bw/lab-core/pdf` and never reaches the root export,
+ * which must stay free of DOM globals.
+ *
  * ## One encode, not two — measured
  *
  * The plan (docs/plans/lab-adaptability.md, Phase E1) called for *two* encodes
@@ -47,6 +53,8 @@
  * that measurement — not this comment — is what reopens the question.
  */
 
+import type { PageAssets } from "./pdf/pdf";
+
 /**
  * The long edge every photo is downscaled to.
  *
@@ -54,11 +62,11 @@
  * the two must stay equal: sending more than the tier only makes Anthropic
  * downscale it again, in a way we cannot see. It is restated rather than
  * imported because @bw/extraction pulls the Anthropic SDK, which has no
- * business in a browser bundle — `photo.test.ts` imports both and pins them
- * together, so the duplication cannot drift silently.
+ * business in a browser bundle — `tests/photo.test.ts` imports both and pins
+ * them together, so the duplication cannot drift silently.
  *
- * The PDF path's `MAX_EDGE` (1800, packages/lab-core/src/pdf/pdf.ts) is a
- * different number for a different reason and is not touched by this file.
+ * The PDF path's `MAX_EDGE` (1800, src/pdf/pdf.ts next door) is a different
+ * number for a different reason and is not touched by this file.
  */
 export const PHOTO_MAX_EDGE = 2576;
 
@@ -313,4 +321,42 @@ function base64ToBlob(base64: string): Blob {
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Blob([bytes], { type: "image/jpeg" });
+}
+
+
+/* --------------------------------------------------------- a photo as a page */
+
+/**
+ * A photograph in the shape both upload pipelines already speak.
+ *
+ * This is the whole reason a photo needed no new pipeline in either app: it
+ * arrives as a `PageAssets` with **no text layer**, which is exactly what a
+ * scanned PDF page already is. Everything downstream — `canRedact`, the review
+ * screen's manual boxes, the vision route in the extractor, the verification
+ * highlight — reads those three fields and routes itself.
+ *
+ * `textLayer: ""`, `words: []` and `rows: []` are empty rather than absent on
+ * purpose: `canRedact([])` is then `false` and `findIdentity` returns nothing,
+ * so detection *reports that it could not look* instead of reporting a clean
+ * page. An `undefined` here would be a page nobody asked the question about.
+ */
+export function photoPage(shot: EncodedPhoto, pageNum = 1): PageAssets {
+  return {
+    pageNum,
+    imageBase64: shot.imageBase64,
+    mediaType: shot.mediaType,
+    imageWidth: shot.width,
+    imageHeight: shot.height,
+    imageUrl: shot.imageUrl,
+    textLayer: "",
+    words: [],
+    rows: [],
+    hasTextLayer: false,
+  };
+}
+
+/** `encodePhoto` and `photoPage`, which is all either app needs of this file.
+ *  Split only so the shaping above can be proven without a canvas. */
+export async function photoAssets(file: Blob, pageNum = 1): Promise<PageAssets> {
+  return photoPage(await encodePhoto(file), pageNum);
 }

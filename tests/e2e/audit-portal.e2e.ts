@@ -145,7 +145,7 @@ const SCREENS: Screen[] = [
     name: "kontrola anonymizace",
     go: async (page) => {
       await tab(page, "Reporty").click();
-      await page.locator('input[type="file"]').setInputFiles(FIXTURE);
+      await page.locator('label.drop input[type="file"]').setInputFiles(FIXTURE);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.waitForTimeout(500);
     },
@@ -156,7 +156,7 @@ const SCREENS: Screen[] = [
     name: "kontrola anonymizace (pole vybrané)",
     go: async (page) => {
       await tab(page, "Reporty").click();
-      await page.locator('input[type="file"]').setInputFiles(FIXTURE);
+      await page.locator('label.drop input[type="file"]').setInputFiles(FIXTURE);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.waitForTimeout(500);
       await page.getByRole("button", { name: "Začerněné pole 1" }).first().click();

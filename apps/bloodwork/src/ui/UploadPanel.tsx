@@ -6,7 +6,7 @@
  *
  * **A photograph of a paper sheet is a document too.** A phone camera input
  * sits beside the picker, and a JPEG or PNG is prepared by
- * `../lib/photo.ts` — EXIF rotation honoured, one encode at 2576 px, greyscale
+ * `@bw/lab-core/photo` — EXIF rotation honoured, one encode at 2576 px, greyscale
  * and contrast-stretched — then read by exactly the same reader pair as a
  * scanned PDF page. A photo is one page and spends one page of the session's
  * allowance.
@@ -41,8 +41,8 @@ import {
   plural,
 } from "@bw/lab-core";
 import type { PageAssets } from "@bw/lab-core/pdf";
+import { isPhotoFile, PHOTO_TYPES, PhotoError, photoAssets } from "@bw/lab-core/photo";
 import { createLimiter } from "../lib/inflight";
-import { encodePhoto, isPhotoFile, PHOTO_TYPES, PhotoError } from "../lib/photo";
 import { type Job, makeJob, runQueue } from "../lib/uploadQueue";
 
 /**
@@ -127,22 +127,9 @@ async function openSource(file: File): Promise<PageSource> {
   if (isPhotoFile(file)) {
     // Decoded once, here, so a failure — HEIC on Chrome, most likely — is
     // reported against the file before any page allowance is spent on it.
-    const shot = await encodePhoto(file);
-    const assets: PageAssets = {
-      pageNum: 1,
-      imageBase64: shot.imageBase64,
-      mediaType: shot.mediaType,
-      imageWidth: shot.width,
-      imageHeight: shot.height,
-      imageUrl: shot.imageUrl,
-      // A photograph carries no characters of its own. Empty rather than
-      // absent: `isPrintedOnPage` and `rowBoxFor` then answer "no" and "null"
-      // instead of being skipped, and the vision path already expects both.
-      textLayer: "",
-      words: [],
-      rows: [],
-      hasTextLayer: false,
-    };
+    // `photoAssets` is what makes a photo a page with no text layer, which is
+    // the whole of what the rest of this file needs to know about it.
+    const assets = await photoAssets(file);
     return { kind: "photo", numPages: 1, assets: async () => assets };
   }
   const { loadPdf, pageAssets } = await import("@bw/lab-core/pdf");

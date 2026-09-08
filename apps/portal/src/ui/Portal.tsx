@@ -273,7 +273,8 @@ export default function Portal({ email, onLogout }: Props) {
         <div>
           <h2>Nahrát výsledky</h2>
           <p className="sub" style={{ marginBottom: 0 }}>
-            PDF z laboratoře — přepíše se, ověří proti stránce a přidá do trendů.
+            PDF z laboratoře nebo fotka papíru — přepíše se a přidá do trendů; u PDF navíc
+            ověříme čísla proti stránce.
           </p>
         </div>
       </div>

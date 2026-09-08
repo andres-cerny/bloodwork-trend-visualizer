@@ -51,18 +51,24 @@ export default function Privacy() {
 
       <h2>Nikdy neopustí váš prohlížeč</h2>
       <ul>
-        <li>původní PDF — otevře se u vás a nikam se nenahrává,</li>
-        <li>jméno, rodné číslo, datum narození a adresa — před odesláním začerněné z obrázků i z textu,</li>
+        <li>původní PDF i fotka — otevřou se u vás a nikam se nenahrávají,</li>
+        <li>jméno, rodné číslo, datum narození a adresa — začerněné z obrázků i z textu, vždy před odesláním,</li>
         <li>vše, co při kontrole začerníte sami.</li>
       </ul>
       <p>
         Kontrola před nahráním není formalita: automatika čte textovou vrstvu a nevidí razítko ani
         podpis. Poslední pohled je váš.
       </p>
+      <p>
+        U fotky a u skenu žádná textová vrstva není, takže automatika nemá kde hledat a nenajde nic
+        — ne proto, že by tam nic nebylo. Tam začerníte hlavičku vy: kontrola u nich začíná bez
+        jediného nalezeného pole a s tužkou v ruce, a bez ní se fotka neodesílá.
+      </p>
 
       <h2>Ke zpracování odchází</h2>
       <p>
-        Začerněné řádky s hodnotami (u skenů začerněný obrázek stránky) na náš server a z něj{" "}
+        Začerněné řádky s hodnotami (u skenů a fotek začerněný obrázek stránky) na náš server a z
+        něj{" "}
         {processorPhrase(photoReaders)}, kde se přepíšou na čísla. {RETENTION_NOTE} Útrata za
         zpracování má měsíční strop na osobu.
       </p>
