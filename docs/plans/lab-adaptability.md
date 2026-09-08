@@ -559,6 +559,16 @@ deterministically, which a downloaded PDF cannot.
     wins on every column and the case for Opus is gone. Tables in
     docs/lab-adaptability.md.
 
+[x] 2026-09-08 — D3 reopened and **kept** ($0.47, 60 deployed Gemini calls). The
+    drop measured Sonnet, which the sentence never moved; the question was
+    Gemini's *variance*. Břeclav p122 folds `URE urea` on 7 of 20 calls under
+    the old prompt and 0 of 20 under the new one, all fourteen rows at once or
+    none (p = 0.004). Sonnet re-read the three abbreviation pages plus six
+    without one, both ways: 142/142 either way, the two reads identical cell
+    for cell. Sentence added to `SYSTEM_EXTRACT` only. The adoption rule gains
+    a clause: target class **or target pair**. Tables in
+    docs/lab-adaptability.md, "D3, reopened".
+
 ## Open items
 
 - Confirm scanned PDF pages take the photo reader pair (assumed above).

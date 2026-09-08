@@ -1285,10 +1285,88 @@ cannot be tested for free, and adding an untested sentence on the strength of
 another provider's failure is how the D0 wording went wrong in the first place.
 It stays available, written down here, for whoever proposes that paid run.
 
+That run happened the same afternoon, and it reversed the decision — see
+"D3, reopened", below.
+
 The general finding is the one Phase C already recorded and this measures
 properly: **adaptability lives in lab-core, not in the prompt.** Three
 conventions that broke the parser outright never troubled the reader, even with
 nothing in its brief to warn it.
+
+### D3, reopened — kept, because Gemini is unstable rather than wrong (2026-09-08, 60 calls, $0.47)
+
+D3 was dropped hours earlier on a fair test that asked the wrong question. The
+test asked whether the sentence changes what Sonnet returns; it does not. What
+it never asked is how often Gemini folds the column **on repeated calls to the
+same page**, and the deployed-call confirmation had just seen that page come
+back 28 rows with every one flagged on one attempt and 14 rows with none
+flagged on a repeat — both readers correct in the repeat. That is not one
+provider being wrong once. That is a coin.
+
+So the rate was measured, on the deployed `extractPageGemini` at the deployed
+`ultra_high`, prompt and schema imported rather than restated, no text-layer
+hint (the reader must see the columns to fold them), on the three
+abbreviation-column pages: Břeclav p121, Břeclav p122 and the `zkr_column`
+fixture render. `tests/bench/zkr_gemini.bench.ts`.
+
+| page | before, folded / calls | after, folded / calls |
+|---|---|---|
+| `breclav_p121` | 0 / 5 | 0 / 5 |
+| `breclav_p122` | **7 / 20** | **0 / 20** |
+| `zkr_column` | 0 / 5 | 0 / 5 |
+| **all three, first round** | **1 / 15** | **0 / 15** |
+
+The first round was five calls per page; p122 was then given fifteen more per
+arm, because it is the only page that ever folded and one event in fifteen
+settles nothing. Břeclav p122 folds on **7 of 20 calls under the old prompt and
+0 of 20 under the new one** (Fisher exact, one-sided, p = 0.004). Nothing else
+on any page changed: the same 14, 14 and 5 rows came back every time, with the
+same values.
+
+**The fold is all-or-nothing within a call.** Every folded read returned
+`URE urea`, `KRE kreatinin`, `KM kyselina močová` — all fourteen rows — and
+every other read returned all fourteen full names. The model does not hesitate
+row by row; it decides once per page which column is the name, and then it is
+consistent with itself. That is exactly what makes it expensive: a page whose
+review burden is 0 rows on one attempt and 14 on the next, from the same bytes.
+
+**Which is the argument the drop missed.** A steady error is a known quantity
+and lab-core could alias it. An intermittent one cannot be aliased, cannot be
+reproduced on demand, and reaches the user as a pair disagreement on every row
+of a page that was read correctly the last time. Unpredictable review is worse
+than a predictable error, and that is a property of the *pair*, which is why no
+measurement of Sonnet alone could have found it.
+
+**And Sonnet is untouched.** Sonnet-shaped subagents re-read the three
+abbreviation pages plus six with no abbreviation column (`euc_p34`,
+`unilabs_sk_p2`, `stod_p1`, `standard`, `slash_prefix`, `slovak_grouped`),
+under a brief naming nothing about these sheets, once with the sentence and
+once without — the two prompt files verified byte-identical to this morning's
+`dA` and `dC`.
+
+```
+                     ── public, 5 pages ──   ── synthetic, 4 pages ──
+arm                 truth match miss extra   truth match miss extra   valERR
+sonnet_zkrA (base)    116   116    0     0      26    26    0     0        0
+sonnet_zkrC (+D3)     116   116    0     0      26    26    0     0        0
+```
+
+142 of 142 rows either way, and the pair `sonnet_zkrA+sonnet_zkrC` confirms all
+142 with **nothing flagged**: the two reads agree cell for cell. The sentence
+buys Sonnet nothing and costs it nothing, which is the whole condition for
+keeping it.
+
+**Kept**, in `SYSTEM_EXTRACT` only. The text path never sees a page image and
+its cells arrive separated by the PDF's own coordinates, so there is no column
+to fold and no reason to spend the tokens.
+
+The correction this owes the morning's finding: "adaptability lives in lab-core,
+not in the prompt" still holds for what a reader *can* do — Sonnet needed none
+of these four sentences to read any of these layouts. What it missed is that a
+prompt can also buy **agreement between two readers**, and the pair is the
+product. A sentence that changes nothing for one reader and removes a
+one-in-three coin flip for the other is worth its tokens. The rule "adopt only
+if the target class improves" should read *target class or target pair*.
 
 ### The full corpus under the final prompt — 133 photo pages, 3,585 truth rows
 
