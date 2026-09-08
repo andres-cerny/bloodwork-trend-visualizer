@@ -28,7 +28,7 @@
     //   "gemini+sonnet"  the same pair, primary reversed
     // An unknown value, or a Gemini pair with no key, falls back to
     // "sonnet+haiku" rather than reading a page once in silence.
-    "PHOTO_READERS": "sonnet+haiku"
+    "PHOTO_READERS": "sonnet+gemini"
   },
 
   "observability": { "enabled": true }
