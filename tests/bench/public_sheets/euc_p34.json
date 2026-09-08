@@ -1,0 +1,281 @@
+{
+  "slug": "euc_p34",
+  "source": "euc.pdf",
+  "page": 34,
+  "language": "cs",
+  "lab": "EUC Klinika Ostrava a.s., Laboratoř klinické biochemie a hematologie",
+  "lis": "unknown",
+  "conventions": [
+    "slash material prefix on names (S/Sodík, B/Hemoglobin); some rows prefix-free (CKD-EPI, Aterogenní index, non HDL-Cholesterol)",
+    "accredited tests marked with '*' in a narrow column left of the name; stored in `accredited`",
+    "Hodnocení column: '( * )' in range, '* (  )' below range, '(  ) *' above range — internal spacing approximate",
+    "out-of-range values printed in red (value_printed_red)",
+    "ranges 'lo - hi' with spaced hyphen, decimal comma, no parentheses",
+    "column order: name | Výsledek | Hodnocení | Ref. meze | Jednotka (unit last)",
+    "units with caret exponent (10^12/l, 10^9/l), '1/1' for ratio, 'ml/s/1,73 m^2', '-' for unitless",
+    "section headings Biochemie / Krevní obraz, underlined bold",
+    "embedded bitmap — no text layer for the sheet"
+  ],
+  "rows": [
+    {
+      "raw_analyte_name": "S/Sodík",
+      "accredited": true,
+      "value_raw": "137,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "136,00 - 145,00",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/Draslík",
+      "accredited": true,
+      "value_raw": "4,63",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "3,50 - 5,10",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/Chloridy",
+      "accredited": true,
+      "value_raw": "95,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "* ( )",
+      "ref_range_raw": "98,00 - 107,00",
+      "section": "Biochemie",
+      "value_printed_red": true
+    },
+    {
+      "raw_analyte_name": "S/Hořčík",
+      "accredited": true,
+      "value_raw": "0,95",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "0,66 - 1,07",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/Urea",
+      "accredited": true,
+      "value_raw": "7,50",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( ) *",
+      "ref_range_raw": "2,14 - 7,14",
+      "section": "Biochemie",
+      "value_printed_red": true
+    },
+    {
+      "raw_analyte_name": "S/Kreatinin",
+      "accredited": true,
+      "value_raw": "94,00",
+      "unit_raw": "µmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "62,00 - 106,00",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "CKD-EPI",
+      "accredited": false,
+      "value_raw": "1,48",
+      "unit_raw": "ml/s/1,73 m^2",
+      "flag_raw": "( * )",
+      "ref_range_raw": "1,00 - 5,00",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/Kys.močová",
+      "accredited": true,
+      "value_raw": "320,00",
+      "unit_raw": "µmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "202,00 - 417,00",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/Bilirubin-celkový",
+      "accredited": true,
+      "value_raw": "13,20",
+      "unit_raw": "µmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "0,00 - 21,00",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/GGT",
+      "accredited": true,
+      "value_raw": "1,54",
+      "unit_raw": "µkat/l",
+      "flag_raw": "( ) *",
+      "ref_range_raw": "0,00 - 1,00",
+      "section": "Biochemie",
+      "value_printed_red": true
+    },
+    {
+      "raw_analyte_name": "S/Cholesterol",
+      "accredited": true,
+      "value_raw": "6,58",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( ) *",
+      "ref_range_raw": "2,90 - 5,00",
+      "section": "Biochemie",
+      "value_printed_red": true
+    },
+    {
+      "raw_analyte_name": "S/Triacylglyceroly",
+      "accredited": true,
+      "value_raw": "1,40",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "0,45 - 1,70",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/HDL-Cholesterol",
+      "accredited": true,
+      "value_raw": "1,54",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "1,00 - 2,10",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "S/LDL-Cholesterol",
+      "accredited": true,
+      "value_raw": "4,40",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( ) *",
+      "ref_range_raw": "1,20 - 3,00",
+      "section": "Biochemie",
+      "value_printed_red": true
+    },
+    {
+      "raw_analyte_name": "Aterogenní index",
+      "accredited": false,
+      "value_raw": "4,27",
+      "unit_raw": "-",
+      "flag_raw": "( * )",
+      "ref_range_raw": "0,00 - 5,00",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "non HDL-Cholesterol",
+      "accredited": false,
+      "value_raw": "5,04",
+      "unit_raw": "mmol/l",
+      "flag_raw": "( ) *",
+      "ref_range_raw": "1,50 - 3,80",
+      "section": "Biochemie",
+      "value_printed_red": true
+    },
+    {
+      "raw_analyte_name": "S/TSH",
+      "accredited": true,
+      "value_raw": "4,860",
+      "unit_raw": "mIU/l",
+      "flag_raw": "( ) *",
+      "ref_range_raw": "0,270 - 4,200",
+      "section": "Biochemie",
+      "value_printed_red": true
+    },
+    {
+      "raw_analyte_name": "S/T4 volný",
+      "accredited": true,
+      "value_raw": "14,57",
+      "unit_raw": "pmol/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "12,00 - 22,00",
+      "section": "Biochemie",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Hemoglobin",
+      "accredited": true,
+      "value_raw": "151",
+      "unit_raw": "g/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "135 - 175",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Hematokrit",
+      "accredited": true,
+      "value_raw": "0,453",
+      "unit_raw": "1/1",
+      "flag_raw": "( * )",
+      "ref_range_raw": "0,400 - 0,500",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Erytrocyty",
+      "accredited": true,
+      "value_raw": "4,66",
+      "unit_raw": "10^12/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "4,00 - 5,80",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Hb erytr.(MCH)",
+      "accredited": true,
+      "value_raw": "32,4",
+      "unit_raw": "pg",
+      "flag_raw": "( * )",
+      "ref_range_raw": "28,0 - 34,0",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Hb konc.(MCHC)",
+      "accredited": true,
+      "value_raw": "333",
+      "unit_raw": "g/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "320 - 360",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Stř.objem erytr.(MCV)",
+      "accredited": true,
+      "value_raw": "97",
+      "unit_raw": "fl",
+      "flag_raw": "( * )",
+      "ref_range_raw": "82 - 98",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Trombocyty",
+      "accredited": true,
+      "value_raw": "202",
+      "unit_raw": "10^9/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "150 - 400",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    },
+    {
+      "raw_analyte_name": "B/Leukocyty",
+      "accredited": true,
+      "value_raw": "8,1",
+      "unit_raw": "10^9/l",
+      "flag_raw": "( * )",
+      "ref_range_raw": "4,0 - 10,0",
+      "section": "Krevní obraz",
+      "value_printed_red": false
+    }
+  ]
+}

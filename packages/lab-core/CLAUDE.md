@@ -15,7 +15,18 @@ arithmetic.
 
 `normalize.ts` mirrors `tools/pipeline/src/normalize.py`. Both read
 `tools/pipeline/tests/parity_cases.json`, and CI runs both sides. A change to
-one that is not mirrored fails there rather than drifting silently.
+one that is not mirrored fails there rather than drifting silently. The
+material-prefix rule (`S_`, `S/`, `S-`, `S,P-`, `dU_`) lives there too: underscore
+is generic, slash and hyphen are allowlisted so `anti-TPO` keeps its `anti`, and
+`s,p` stays one code that `materialsCompatible` accepts against `s` or `p`.
+
+The automatic match respects material too. `Registry.match(name, pageMaterial)`
+refuses a canonical whose material — derived from its prefixed synonyms,
+`S_Glukóza` → `s`, and relearned on every accepted mapping — contradicts the
+row's (its prefix, else its `Materiál` cell or the heading above it, which
+`matchRow` reads). Unknown on either side is compatible. `reconcile` keys a
+name one read returned twice on its row index, so the two rows survive to be
+matched. Python's `match` has no page material and stays name-only.
 
 ## Four rules with teeth
 

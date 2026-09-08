@@ -13,6 +13,7 @@ import {
   type RawRead,
   type TextRow,
   isPrintedOnPage,
+  printedMaterial,
   reconcile,
   rowBoxAt,
   rowBoxFor,
@@ -37,7 +38,7 @@ export function interpretPage(
   rows: TextRow[],
   pageNum: number,
   isScan: boolean,
-  match: (rawName: string) => string | null,
+  match: (rawName: string, pageMaterial?: string | null) => string | null,
 ): PageResult {
   const out: PageResult = { measurements: [], unverified: 0, reportDate: null, labName: null };
   for (const read of reads) {
@@ -64,7 +65,9 @@ export function interpretPage(
       sourcePage: pageNum,
       confidence,
       disagreement,
-      canonicalId: match(m.rawAnalyteName),
+      // The row's Materiál cell or heading rides along, so a bare "Glukóza"
+      // under Moč is refused the serum glukoza (Registry.match).
+      canonicalId: match(m.rawAnalyteName, isScan ? null : printedMaterial(rows, m.rowIndex)?.code ?? null),
       bbox: isScan ? null : rowBoxAt(m.rowIndex, rows) ?? rowBoxFor(m.rawAnalyteName, rows),
     });
   }

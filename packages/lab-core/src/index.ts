@@ -35,3 +35,5 @@ export * from "./chartSpec";
 export * from "./pdf/rows";
 export * from "./chatContext";
 export * from "./watch";
+
+export * from "./candidates";

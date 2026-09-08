@@ -1,0 +1,245 @@
+{
+  "note": "PDFs (and one JPG) are git-ignored under data/public-sheets/; only these transcribed facts are committed. Render at run time from data/public-sheets/<source> page N; an `image_only` source is loaded as an image directly, a `text_layer` source also has extractable text.",
+  "sheets": [
+    {
+      "slug": "breclav_p121",
+      "source": "breclav.pdf",
+      "url": "https://www.nembv.cz/obrazky-soubory/lpk_olb_v18-71756.pdf",
+      "sha256": "ab62939f68db3bf098991050b2097cc8fc462495e16800fa5b9b433df167dedc",
+      "page": 121,
+      "language": "cs",
+      "patient": "redacted",
+      "conventions": [
+        "zkr_column",
+        "four_decimals",
+        "spaced_paren_range",
+        "flag_cell_H_dot",
+        "accreditation_star_in_name",
+        "signature_cells",
+        "no_prefix",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "breclav_p122",
+      "source": "breclav.pdf",
+      "url": "https://www.nembv.cz/obrazky-soubory/lpk_olb_v18-71756.pdf",
+      "sha256": "ab62939f68db3bf098991050b2097cc8fc462495e16800fa5b9b433df167dedc",
+      "page": 122,
+      "language": "cs",
+      "patient": "redacted",
+      "conventions": [
+        "zkr_column",
+        "four_decimals",
+        "spaced_paren_range",
+        "flag_cell_H_dot",
+        "signature_cells",
+        "no_prefix",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "euc_p34",
+      "source": "euc.pdf",
+      "url": "https://euc.cz/media/6691/laboratorn%C3%AD-p%C5%99%C3%ADru%C4%8Dka-2025-1.pdf",
+      "sha256": "20608c9c59548bed846c7cd7731a0acf444521e8a6d121bba7f4a895e5991225",
+      "page": 34,
+      "language": "cs",
+      "patient": "fictitious",
+      "conventions": [
+        "slash_prefix",
+        "hodnoceni_paren_star",
+        "red_out_of_range",
+        "unit_last_column",
+        "accreditation_star_column",
+        "section_headings",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "unilabs_sk_p2",
+      "source": "unilabs_sk_smartreports.pdf",
+      "url": "https://www.unilabs.sk/media/2023/12/1/7/SmartReports-A4-RGB-.pdf",
+      "sha256": "8d49f80a845899680236aa6b4166a6ec99336d8945473aaa75568331cc460095",
+      "page": 2,
+      "language": "sk",
+      "patient": "fictitious",
+      "conventions": [
+        "slovak",
+        "grouped_sections",
+        "material_column",
+        "hyphen_prefix",
+        "bracket_codes",
+        "icon_flags",
+        "en_dash_range",
+        "qualitative_rows",
+        "accreditation_icon",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "stod_p1",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 1,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer"
+      ]
+    },
+    {
+      "slug": "stod_p2",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 2,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "open_range",
+        "inequality_value"
+      ]
+    },
+    {
+      "slug": "stod_p3",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 3,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "two_column_block",
+        "qualitative_rows"
+      ]
+    },
+    {
+      "slug": "stod_p4",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 4,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "qualitative_rows",
+        "padded_name_codes"
+      ]
+    },
+    {
+      "slug": "stod_p5",
+      "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+      "url": "https://stod.nemocnicepk.cz/data/folders/P%C5%99%C3%ADloha%20%C4%8D.2%20Vzor%20v%C3%BDsledkov%C3%A9ho%20listu-f214.pdf?show",
+      "sha256": "bfb74fc61970a21205055a5a689b18e9856983da24cd4abf841b126f5abe91db",
+      "page": 5,
+      "language": "cs",
+      "patient": "fictitious",
+      "text_layer": true,
+      "conventions": [
+        "underscore_prefix",
+        "histogram_flags",
+        "bold_out_of_range",
+        "spaced_hyphen_range",
+        "mixed_unit_case",
+        "unit_one_for_ratio",
+        "section_headings",
+        "grouped_sections",
+        "comment_lines",
+        "repeated_header",
+        "text_layer",
+        "qualitative_rows",
+        "no_numeric_rows"
+      ]
+    },
+    {
+      "slug": "breclav_hem_p80",
+      "source": "fetched/nembv_hem_9c9c0.pdf",
+      "url": "https://www.nembv.cz/obrazky-soubory/hem-9c9c0.pdf?redir",
+      "sha256": "3d0b229521ab13e016a838cb4a90bb224fba9be91edf353c1b0c804ccbf8036a",
+      "page": 80,
+      "language": "cs",
+      "patient": "fictitious",
+      "conventions": [
+        "no_prefix",
+        "accreditation_star_in_name",
+        "spaced_paren_range",
+        "flag_cell_L_dot",
+        "three_decimals",
+        "giga_tera_units",
+        "material_column",
+        "signature_cells",
+        "bitmap"
+      ]
+    },
+    {
+      "slug": "bulovka_okbi",
+      "source": "fetched/renders/bulovka_okbi_vyslist.jpg",
+      "url": "https://bulovka.cz/wp-content/oddeleni/okbi/laboratorni_prirucka/HVEZDA5AAM_soubory/image001.jpg",
+      "sha256": "3842d61663d8005846e4e3cfdc3c24a449db2f24525717ff4f58a49168f670a9",
+      "page": 1,
+      "language": "cs",
+      "patient": "fictitious",
+      "image_only": true,
+      "conventions": [
+        "no_prefix",
+        "vykon_code_column",
+        "material_group_line",
+        "period_decimals",
+        "hyphen_range_nospace",
+        "bracket_star_flag",
+        "monospace_values",
+        "preliminary_banner",
+        "bitmap"
+      ]
+    }
+  ]
+}

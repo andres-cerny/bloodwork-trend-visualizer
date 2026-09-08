@@ -4,8 +4,11 @@
  * analyte set is fixed), so only the lookup side is needed at runtime.
  */
 import type { AnalyteDef } from "./models";
+import { MATERIAL_CODES, compartmentCompatible, materialPrefix, stripMaterialPrefix } from "./normalize";
+import { printedMaterial, type TextRow } from "./pdf/rows";
 
-const PREFIX = /^[a-z]{1,4}_/; // Czech material prefixes: S_, B_, P_, U_, …
+// The material-prefix rule (S_, S/, S-, S,P-, dU_ …) lives in normalize.ts,
+// beside its Python twin, so the registry and the mapping evidence agree.
 const NONALNUM = /[^a-z0-9]+/g;
 
 function stripDiacritics(s: string): string {
@@ -20,11 +23,32 @@ export function normKey(name: string): string {
   let s = (name || "").trim().toLowerCase();
   s = s.replace(/\s+#/g, " abs"); // standalone "#" = absolute count
   s = s.split("#").join(" "); // any other "#" is decoration
-  s = s.trim().replace(PREFIX, ""); // drop material prefix
+  s = stripMaterialPrefix(s.trim()); // drop material prefix
   s = stripDiacritics(s);
   s = s.replace(NONALNUM, " ").trim();
   s = s.replace(/\s+/g, " ");
   return s;
+}
+
+/** A code the registry can reason about; any other prefix is no evidence. */
+const knownMaterial = (code: string | null | undefined): string | null =>
+  code && MATERIAL_CODES.has(code) ? code : null;
+
+/**
+ * The material a set of names announces: the union of their known prefix
+ * codes, comma-joined so `materialsCompatible` can split it again
+ * ("S_Glukóza", "P_Glukóza" → "s,p"). Null when no name carries one — the
+ * twelve seed entries without a prefix (eGFR, IgA, troponin…), and any
+ * synonym whose underscore prefix is not a material ("xxx_eGF").
+ */
+export function materialOfNames(names: Iterable<string>): string | null {
+  const codes: string[] = [];
+  for (const n of names) {
+    const code = knownMaterial(materialPrefix(n));
+    if (!code) continue;
+    for (const c of code.split(",")) if (!codes.includes(c)) codes.push(c);
+  }
+  return codes.length > 0 ? codes.join(",") : null;
 }
 
 export class Registry {
@@ -39,14 +63,49 @@ export class Registry {
 
   addAnalyte(a: AnalyteDef): void {
     this.analytes.set(a.canonicalId, a);
-    for (const n of [a.canonicalId, a.displayNameCs, ...a.synonyms]) {
+    a.material = materialOfNames(a.synonyms);
+    // A canonical id is not a printed name: "non_hdl" must not lose its
+    // "non_" to the material-prefix rule and land on the bare "hdl" key.
+    // Guard seen failing 2026-09-06 (registry.test.ts "keeps non_hdl").
+    this.index.set(normKey(a.canonicalId.replace(/_/g, " ")), a.canonicalId);
+    for (const n of [a.displayNameCs, ...a.synonyms]) {
       const k = normKey(n);
       if (k) this.index.set(k, a.canonicalId);
     }
   }
 
-  match(rawName: string): string | null {
-    return this.index.get(normKey(rawName)) ?? null;
+  /**
+   * The canonical id a printed name resolves to, or null.
+   *
+   * Name first, then material: the index is keyed on the name with its
+   * prefix stripped, so "Glukóza", "S_Glukóza" and "U_Glukóza" all find the
+   * serum glukoza. The material check then refuses what the name found when
+   * the row's stated material contradicts the entry's — a urine Glukóza is a
+   * different test, and a refused row stays unmapped for the mapping tab,
+   * where the suggester explains why. The row's material is its prefix
+   * when it has one, else `pageMaterial`: what the page says for the row
+   * (its Materiál cell or the heading above it; see `matchRow`). Unknown on
+   * either side is compatible, so a page that says nothing maps as before.
+   */
+  match(rawName: string, pageMaterial?: string | null): string | null {
+    const id = this.index.get(normKey(rawName));
+    if (!id) return null;
+    const stated = knownMaterial(materialPrefix(rawName)) ?? knownMaterial(pageMaterial);
+    const known = this.analytes.get(id)?.material;
+    // Guard seen failing 2026-09-06 (registry.test.ts "material",
+    // layouts.test.ts mixed_material.pdf): without this line the urine
+    // Glukóza auto-mapped to the serum glukoza.
+    if (stated && known && !compartmentCompatible(stated, known)) return null;
+    return id;
+  }
+
+  /**
+   * `match` for a measurement the text path placed on a page row: the
+   * material comes from the row's own cells when the name carries none.
+   * With no rows (a scan) or no index it is plain `match`.
+   */
+  matchRow(rawName: string, rows: TextRow[], rowIndex: number | undefined): string | null {
+    return this.match(rawName, printedMaterial(rows, rowIndex)?.code);
   }
 
   get(canonicalId: string): AnalyteDef | undefined {
@@ -65,6 +124,9 @@ export class Registry {
       a.synonyms.push(rawName);
       this.learned.add(`${canonicalId}\u0000${rawName}`);
     }
+    // Accepting "P_Glukóza" onto a serum entry teaches it plasma too, so the
+    // next report from that lab needs no click.
+    a.material = materialOfNames(a.synonyms);
     const k = normKey(rawName);
     if (k) this.index.set(k, canonicalId);
   }
@@ -87,6 +149,7 @@ export class Registry {
     const i = a.synonyms.indexOf(rawName);
     if (i < 0) return false;
     a.synonyms.splice(i, 1);
+    a.material = materialOfNames(a.synonyms);
     const k = normKey(rawName);
     // Only clear the index entry if it still points here and no remaining
     // name normalizes to the same key.

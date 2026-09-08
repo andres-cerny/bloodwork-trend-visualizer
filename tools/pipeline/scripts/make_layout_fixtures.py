@@ -6,12 +6,24 @@ prefix, a value carrying the lab's own out-of-range marker, a reference range
 split across two columns, an analyte name wrapped onto a second line, two
 tables printed side by side on one page — plus a scan with no text layer at all.
 
+The second group (docs/plans/lab-adaptability.md, Phase A3) models the
+conventions the four-lab corpus turned out not to cover: a slash prefix with a
+separate "Hodnocení" column, hyphen and comma prefixes beside names that only
+look prefixed, an abbreviation column with four-decimal values and signature
+cells, a Slovak sheet with a "Materiál" column, prefix-free urine rows under a
+heading, the same analyte name twice on one page, and a scan that is rotated
+and washed out the way a phone shot is.
+
+Output is byte-identical run to run: the trailer /ID that PyMuPDF would
+otherwise randomise on every save is pinned in save().
+
 No patient data of any kind: names and identifiers are invented.
 
     python3 -m scripts.make_layout_fixtures
 """
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -22,6 +34,19 @@ from scripts._fonts import czech_fonts  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent.parent.parent / "packages" / "lab-core" / "tests" / "fixtures"
 FONT, FONT_B = czech_fonts()
+
+
+def save(doc, path: Path) -> None:
+    """Write the document with a trailer /ID derived from its file name.
+
+    PyMuPDF generates a fresh random /ID on every save, which is the one thing
+    that made two runs of this script differ — 62 bytes in the trailer, with
+    every glyph identical. Pinning it is what lets `git diff --exit-code` mean
+    "the fixtures did not change" rather than "nobody ran the generator".
+    """
+    digest = hashlib.md5(path.name.encode("utf-8")).hexdigest().upper()
+    doc.xref_set_key(-1, "ID", f"[<{digest}><{digest}>]")
+    doc.save(path, no_new_id=True)
 
 
 def new_page(doc, landscape=False):
@@ -243,7 +268,231 @@ def scanned(doc_path: Path):
     out = pymupdf.open()
     p2 = out.new_page(width=595, height=842)
     p2.insert_image(pymupdf.Rect(0, 0, 595, 842), pixmap=pix)
-    out.save(doc_path)
+    save(out, doc_path)
+    out.close()
+    src.close()
+
+
+# ---------------------------------------------------------------------------
+# Phase A3 — the conventions the four-lab corpus did not cover.
+# ---------------------------------------------------------------------------
+
+def cells(page, y, items, size=9):
+    """Print (x, text) pairs on one baseline."""
+    for x, text in items:
+        if text:
+            page.insert_text((x, y), text, fontname="dj", fontsize=size)
+
+
+# 10 — slash prefix ("S/Sodík", "B/Hemoglobin"), a separate "Hodnocení" column
+#      that carries the out-of-range marker as "( * )", the unit printed last,
+#      section names as single cells, and a legend line explaining the prefix.
+def slash_prefix(doc):
+    page = new_page(doc)
+    header(page, "Poliklinika Vzor Sever s.r.o.")
+    cols = [50, 230, 290, 350, 470]
+    y = 130
+    for x, label in zip(cols, ["Název metody", "Výsledek", "Hodnocení", "Ref. meze", "Jednotka"]):
+        page.insert_text((x, y), label, fontname="djb", fontsize=9)
+    y += 22
+    for section, rows in [
+        ("Biochemie", [
+            ("S/Sodík", "141", "", "137 - 145", "mmol/l"),
+            ("S/Draslík", "5,45", "( * )", "3,80 - 5,20", "mmol/l"),
+            ("S/Chloridy", "104", "", "97 - 108", "mmol/l"),
+            ("S/Glukóza", "5,32", "(*)", "4,11 - 5,60", "mmol/l"),
+            ("S/Kreatinin", "89", "", "62 - 110", "µmol/l"),
+        ]),
+        ("Krevní obraz", [
+            ("B/Hemoglobin", "148", "", "135 - 175", "g/l"),
+            ("B/Leukocyty", "11,20", "( * )", "4,00 - 10,00", "10^9/l"),
+            ("B/Trombocyty", "243", "", "150 - 400", "10^9/l"),
+        ]),
+    ]:
+        page.insert_text((50, y), section, fontname="djb", fontsize=9)
+        y += 19
+        for row in rows:
+            cells(page, y, zip(cols, row))
+            y += 19
+        y += 8
+    page.insert_text((50, 790), "Označení vyšetřovaného materiálu: S=sérum, P=plazma, B=plná krev, U=moč",
+                     fontname="dj", fontsize=8)
+
+
+# 11 — hyphen, comma and underscore prefixes on one page ("S-Na", "S,P-glukóza",
+#      "U-amyláza", "P_Amoniak", "dU_Kreatinin") beside two names that look
+#      prefixed and are not: "anti-TPO" and "25-OH vitamin D".
+def hyphen_comma_prefix(doc):
+    page = new_page(doc)
+    header(page)
+    y = 130
+    for label, x in [("Analyt", 50), ("Výsledek", 250), ("Jednotka", 330), ("Referenční meze", 420)]:
+        page.insert_text((x, y), label, fontname="djb", fontsize=9)
+    y += 20
+    for row in [
+        ("S-Na", "141", "mmol/l", "(137 - 145)"),
+        ("S-K", "4,32", "mmol/l", "(3,80 - 5,20)"),
+        ("S,P-glukóza", "5,32", "mmol/l", "(4,11 - 5,60)"),
+        ("U-amyláza", "3,15", "µkat/l", "(0,00 - 7,50)"),
+        ("P_Amoniak", "32", "µmol/l", "(11 - 51)"),
+        ("dU_Kreatinin", "12,4", "mmol/d", "(7,0 - 17,7)"),
+        ("anti-TPO", "18,5", "kIU/l", "(0,0 - 34,0)"),
+        ("25-OH vitamin D", "62", "nmol/l", "(75 - 250)"),
+    ]:
+        cells(page, y, zip([50, 250, 330, 420], row))
+        y += 19
+
+
+# 12 — an abbreviation column in front of the name, four-decimal values, the
+#      lab's "H" flag in its own "Text.výsl." column, a range printed with
+#      spaces inside the parentheses, and two trailing signature cells.
+def zkr_column(doc):
+    page = new_page(doc)
+    header(page, "Nemocnice Vzor, oddělení klinické biochemie")
+    cols = [40, 75, 185, 245, 290, 340, 470, 530]
+    y = 130
+    for x, label in zip(cols, ["Zkr.", "Vyšetření", "Výsl.", "Text.výsl.", "Jedn.",
+                               "Referenční hodnoty", "Kontrola I.stupně", "Uvolnil"]):
+        page.insert_text((x, y), label, fontname="djb", fontsize=7)
+    y += 20
+    for row in [
+        ("URE", "urea", "4,9000", "", "mmol/l", "( 2,5000 - 6,4000 )", "kontr1", "uvoln1"),
+        ("KREA", "kreatinin", "78,0000", "", "µmol/l", "( 44,0000 - 80,0000 )", "kontr1", "uvoln1"),
+        ("KM", "kyselina močová", "396,0000", "H", "µmol/l", "( 150,0000 - 350,0000 )", "kontr1", "uvoln1"),
+        ("GLU", "glukóza", "5,1000", "", "mmol/l", "( 3,9000 - 5,6000 )", "kontr1", "uvoln1"),
+        ("CHOL", "cholesterol", "4,8000", "", "mmol/l", "( 2,9000 - 5,0000 )", "kontr1", "uvoln1"),
+    ]:
+        cells(page, y, zip(cols, row), size=8)
+        y += 18
+
+
+# 13 — a Slovak sheet: group headings, a "Materiál" column, en-dash ranges,
+#      and a qualitative row whose result and criteria are both words.
+def slovak_grouped(doc):
+    page = new_page(doc)
+    page.insert_text((50, 55), "Laboratórium Vzor s.r.o.", fontname="djb", fontsize=13)
+    page.insert_text((50, 74), "Pacient: Testovacia Vzorka", fontname="dj", fontsize=9)
+    page.insert_text((50, 88), "Dátum odberu: 3.6.2025", fontname="dj", fontsize=9)
+    cols = [50, 220, 290, 410, 460, 520]
+    y = 130
+    for x, label in zip(cols, ["Test", "Výsledok", "Hodnotiace kritériá", "Jednotky", "Materiál", "Schválil"]):
+        page.insert_text((x, y), label, fontname="djb", fontsize=8)
+    y += 22
+    for section, rows in [
+        ("Základná hematológia - Krvný obraz", [
+            ("Leukocyty [WBC]", "6,90", "3,80–10,70", "10^9/l", "krv EDTA", "MUDr. Vzorová"),
+            ("Erytrocyty [RBC]", "4,85", "4,20–5,80", "10^12/l", "krv EDTA", "MUDr. Vzorová"),
+            ("Hemoglobín [HGB]", "151", "135–175", "g/l", "krv EDTA", "MUDr. Vzorová"),
+            ("Trombocyty [PLT]", "238", "150–400", "10^9/l", "krv EDTA", "MUDr. Vzorová"),
+        ]),
+        ("Metabolity", [
+            ("Glukóza", "5,10", "3,90–5,60", "mmol/l", "sérum", "MUDr. Vzorová"),
+            ("Kreatinín", "82", "62–106", "µmol/l", "sérum", "MUDr. Vzorová"),
+            ("Kyselina močová", "430", "202–417", "µmol/l", "sérum", "MUDr. Vzorová"),
+        ]),
+        ("Štítna žľaza", [
+            ("TSH", "2,15", "0,27–4,20", "mIU/l", "sérum", "MUDr. Vzorová"),
+            ("fT4", "16,2", "12,0–22,0", "pmol/l", "sérum", "MUDr. Vzorová"),
+        ]),
+        ("Infekčná sérológia", [
+            ("Anti CMV IgM (skríning)", "<1,0 negatívne", "<1,0 negatívne, >=1,0 pozitívne",
+             "index", "sérum", "MUDr. Vzorová"),
+        ]),
+    ]:
+        page.insert_text((50, y), section, fontname="djb", fontsize=9)
+        y += 18
+        for row in rows:
+            cells(page, y, zip(cols, row), size=8)
+            y += 17
+        y += 8
+
+
+# 14 — no prefix anywhere: a serum block, then numeric urine rows under a
+#      "Moč chemicky" heading whose ranges overlap the serum ones, and a
+#      sediment line whose result is a word.
+def urine_no_prefix(doc):
+    page = new_page(doc)
+    header(page, "Laboratoř Vzor Jih a.s.")
+    cols = [50, 250, 330, 420]
+    y = 130
+    for x, label in zip(cols, ["Vyšetření", "Výsledek", "Jednotka", "Referenční meze"]):
+        page.insert_text((x, y), label, fontname="djb", fontsize=9)
+    y += 22
+    for section, rows in [
+        ("Biochemie", [
+            ("Glukóza", "5,4", "mmol/l", "3,9 - 5,6"),
+            ("Urea", "5,1", "mmol/l", "2,8 - 8,1"),
+            ("Kreatinin", "84", "µmol/l", "62 - 106"),
+        ]),
+        ("Moč chemicky", [
+            ("Glukóza", "0,3", "mmol/l", "0 - 0,8"),
+            ("Bílkovina", "0,10", "g/l", "0 - 0,15"),
+            ("pH", "6,0", "", "5,0 - 7,0"),
+            ("Hustota", "1,015", "", "1,003 - 1,030"),
+            ("Močový sediment", "negativní", "", ""),
+        ]),
+    ]:
+        page.insert_text((50, y), section, fontname="djb", fontsize=9)
+        y += 19
+        for row in rows:
+            cells(page, y, zip(cols, row))
+            y += 19
+        y += 8
+
+
+# 15 — the disambiguation case: the same analyte name twice on one page, once
+#      under "Sérum" and once under "Moč", with nothing but the heading to tell
+#      them apart.
+def mixed_material(doc):
+    page = new_page(doc)
+    header(page)
+    cols = [50, 250, 330, 420]
+    y = 130
+    for x, label in zip(cols, ["Analyt", "Výsledek", "Jednotka", "Referenční meze"]):
+        page.insert_text((x, y), label, fontname="djb", fontsize=9)
+    y += 22
+    for section, rows in [
+        ("Sérum", [
+            ("Glukóza", "5,4", "mmol/l", "3,9 - 5,6"),
+            ("Kreatinin", "84", "µmol/l", "62 - 106"),
+        ]),
+        ("Moč", [
+            ("Glukóza", "0,3", "mmol/l", "0 - 0,8"),
+            ("Kreatinin", "9,8", "mmol/l", "3,5 - 25,0"),
+        ]),
+    ]:
+        page.insert_text((50, y), section, fontname="djb", fontsize=9)
+        y += 19
+        for row in rows:
+            cells(page, y, zip(cols, row))
+            y += 19
+        y += 8
+
+
+def scanned_photo_like(doc_path: Path):
+    """scanned() rotated 3° and washed out — the stand-in for a phone shot.
+
+    Still no text layer, so it must route to the vision path; the rotation and
+    the flattened contrast are what a photographed sheet adds to a scan.
+    """
+    src = pymupdf.open()
+    page = new_page(src)
+    header(page, "Laboratoř Sken s.r.o.")
+    y = 140
+    for line in [
+        "S_Glukóza      5,32     mmol/l    (4,11-5,60)",
+        "S_Cholesterol  6,01     mmol/l    (2,90-5,00)",
+        "S_Kreatinin    89       µmol/l    (62-110)",
+    ]:
+        page.insert_text((50, y), line, fontname="dj", fontsize=9)
+        y += 19
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(150 / 72, 150 / 72).prerotate(3), alpha=False)
+    # Black → dark grey, white → light grey: the contrast a phone camera loses.
+    pix.tint_with(0x505050, 0xD0D0D0)
+    out = pymupdf.open()
+    p2 = out.new_page(width=595, height=842)
+    p2.insert_image(pymupdf.Rect(0, 0, 595, 842), pixmap=pix)
+    save(out, doc_path)
     out.close()
     src.close()
 
@@ -260,14 +509,22 @@ def main() -> None:
         ("unit_in_value", unit_in_value),
         ("multipage", multipage),
         ("identity", identity),
+        ("slash_prefix", slash_prefix),
+        ("hyphen_comma_prefix", hyphen_comma_prefix),
+        ("zkr_column", zkr_column),
+        ("slovak_grouped", slovak_grouped),
+        ("urine_no_prefix", urine_no_prefix),
+        ("mixed_material", mixed_material),
     ]:
         doc = pymupdf.open()
         fn(doc)
-        doc.save(OUT / f"{name}.pdf")
+        save(doc, OUT / f"{name}.pdf")
         doc.close()
         print(f"  {name}.pdf")
     scanned(OUT / "scanned.pdf")
     print("  scanned.pdf (no text layer)")
+    scanned_photo_like(OUT / "scanned_photo_like.pdf")
+    print("  scanned_photo_like.pdf (no text layer, rotated 3°, low contrast)")
     print(f"Fixtures → {OUT}")
 
 

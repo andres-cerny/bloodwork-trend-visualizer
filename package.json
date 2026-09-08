@@ -23,6 +23,7 @@
     "bench:batch": "vitest run --config tests/bench/vitest.config.ts tests/bench/batch.bench.ts",
     "bench:triage": "vitest run --config tests/bench/vitest.config.ts tests/bench/triage.bench.ts",
     "bench:docling": "vitest run --config tests/bench/vitest.config.ts tests/bench/docling_eval.bench.ts",
+    "bench:adapt": "vitest run --config tests/bench/vitest.config.ts tests/bench/adapt.bench.ts",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspaces --if-present",
     "test:hooks": "node .claude/hooks/hooks.test.mjs",
     "dev:agent": "npm -w workers/agent run dev -- --port 8788",
@@ -49,21 +50,23 @@
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@bw/agent-core": "*",
+    "@bw/agent-tools": "*",
+    "@bw/api-client": "*",
+    "@bw/datasource": "*",
     "@bw/extraction": "*",
     "@bw/gate": "*",
     "@bw/lab-core": "*",
-    "@anthropic-ai/sdk": "^0.120.0",
+    "@bw/ui-kit": "*",
     "pdfjs-dist": "^4.6.82",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "@bw/api-client": "*",
-    "@bw/ui-kit": "*",
-    "@bw/datasource": "*",
-    "@bw/agent-tools": "*"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260823.1",
+    "@google/genai": "2.21.0",
+    "@mistralai/mistralai": "2.6.4",
     "@types/node": "^26.2.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

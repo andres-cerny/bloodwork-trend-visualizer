@@ -67,3 +67,6 @@ tests/evals/output/*
 # Finder noise
 .DS_Store
 .env.development.local
+
+# The results dir may be a symlink in a worktree; the slash form above matches directories only.
+tests/bench/results
