@@ -5,8 +5,10 @@ reaches the extractor.
 
 ## What each may bind to
 
-**`extract` is finished.** Stable prompts, one secret, bursty parallel load. It
-should stop changing.
+**`extract` was finished; it reopened once, deliberately.** Stable prompts,
+bursty parallel load, now two model keys — the image path may pair Sonnet with
+Google's Gemini (`PHOTO_READERS`, images only; default `sonnet+haiku`, so a
+deploy of it changes nothing), which adds one outbound host. Then stop again.
 
 **`agent` grew its future**: two D1 practices (`DB_SPORT`, `DB_ORTO`, one per
 tenant so isolation is by binding, not by a WHERE clause), a KV evidence shelf for the

@@ -59,7 +59,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export async function getStatus(
   tenant?: string,
-): Promise<{ budget: Budget; maxPages: number; crossCheck: boolean }> {
+): Promise<{ budget: Budget; maxPages: number; crossCheck: boolean; photoReaders?: string }> {
   const res = await fetch(`/api/status${tenant ? `?tenant=${encodeURIComponent(tenant)}` : ""}`);
   if (!res.ok) throw new Error("status unavailable");
   return res.json();
@@ -80,10 +80,18 @@ export async function extract(
   textLayer: string | null,
   rowsText: string | null,
 ) {
-  return post<{ reads: any[]; mode: "text" | "vision"; costUsd: number; budget: Budget }>(
-    "/api/extract",
-    { imageBase64, mediaType, textLayer, rowsText },
-  );
+  return post<{
+    reads: any[];
+    mode: "text" | "vision";
+    /**
+     * How many readers were asked. Hand it to `reconcile` — without it a page
+     * whose second read failed comes back looking cross-checked.
+     */
+    readersAttempted?: number;
+    readers?: string;
+    costUsd: number;
+    budget: Budget;
+  }>("/api/extract", { imageBase64, mediaType, textLayer, rowsText });
 }
 
 /**

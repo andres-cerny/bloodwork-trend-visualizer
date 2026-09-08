@@ -443,8 +443,15 @@ deliberately forced disagreement visible in the verification tab.
 - **Subagents are not the API.** A subagent reader sees no image tier
   downscale and no cache; a tier-1 winner can still lose at tier 2. That is
   why the gate is paid and why the two tiers are never mixed in one table.
-- **`@google/genai` inside workerd** may not run; the REST fallback is
-  planned but unmeasured.
+- ~~**`@google/genai` inside workerd** may not run~~ — **it runs.** The
+  package's `exports` map lists `browser` before `node` and wrangler's esbuild
+  resolves with `["workerd", "worker", "browser"]`, so a Worker build takes
+  `dist/web`, whose only import is `p-retry`: no `fs`, no `ws`, no
+  `google-auth-library`, and every runtime probe it makes (`globalThis.process`,
+  `navigator`, `window`) is optional-chained. Verified by bundling the entry
+  under those conditions and by running the web build with `process` deleted
+  and `fetch` stubbed; not yet verified inside a live workerd, because that
+  needs a deploy. The REST fallback was therefore not built.
 - **Structured-output dialects differ** — nullable unions, enums; a schema
   that Gemini quietly relaxes would show up as fabrications, which is why
   column 2 exists.

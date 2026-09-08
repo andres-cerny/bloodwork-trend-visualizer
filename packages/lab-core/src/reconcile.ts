@@ -26,7 +26,28 @@ export interface RawRead {
   }>;
 }
 
-export function reconcile(reads: RawRead[]): Measurement[] {
+/**
+ * A page read by one reader when two were asked. Every row carries it, because
+ * every row on such a page is uncorroborated — `review.ts` then renders them
+ * `unconfirmed`, which is the whole point.
+ */
+export const SECOND_READ_FAILED = "druhé čtení se nezdařilo";
+
+export interface ReconcileOptions {
+  /**
+   * How many readers were **asked**, not how many answered.
+   *
+   * Without it a failed request is invisible: one read means no two values to
+   * differ and no row only one reader saw, so `reconcile` finds nothing to say
+   * and every row comes back confirmed. A page nobody cross-checked then looks
+   * fully verified — the strongest claim the app makes, made about the one
+   * case with the least behind it. Defaults to `reads.length`, which is the
+   * old behaviour for any caller that does not know.
+   */
+  expected?: number;
+}
+
+export function reconcile(reads: RawRead[], opts: ReconcileOptions = {}): Measurement[] {
   const byKey = new Map<
     string,
     { m: Measurement; models: Set<string>; values: Set<string> }
@@ -85,6 +106,9 @@ export function reconcile(reads: RawRead[]): Measurement[] {
   }
 
   const total = reads.length;
+  // A caller may report fewer readers than answered — it cannot report more
+  // answers than there are — so the two are reconciled rather than trusted.
+  const expected = Math.max(opts.expected ?? total, total);
   const out: Measurement[] = [];
   for (const { m, models, values } of byKey.values()) {
     // Say what the readings were, not which program produced them. A model id
@@ -93,10 +117,15 @@ export function reconcile(reads: RawRead[]): Measurement[] {
     let disagreement: string | null = null;
     if (values.size > 1) {
       disagreement = `dvě nezávislá čtení se liší: ${[...values].join(" / ")}`;
+    } else if (expected > total) {
+      // A whole reader is missing. Nothing on this page was corroborated, so
+      // nothing on it may be presented as confirmed.
+      disagreement = SECOND_READ_FAILED;
     } else if (total > 1 && models.size < total) {
       disagreement = "řádek našlo jen jedno ze dvou čtení";
     }
-    out.push(normalizeMeasurement({ ...m, disagreement, escalated: total > 1 }));
+    // `escalated` says a cross-check was *attempted*, not that it landed.
+    out.push(normalizeMeasurement({ ...m, disagreement, escalated: expected > 1 }));
   }
   return out;
 }

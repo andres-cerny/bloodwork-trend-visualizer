@@ -8,3 +8,4 @@
  */
 export type { Usage } from "@bw/agent-core";
 export * from "./extract";
+export * from "./gemini";
