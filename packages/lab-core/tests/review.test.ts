@@ -68,6 +68,30 @@ describe("tiers", () => {
   });
 });
 
+describe("confirmation answers every kind of doubt at once", () => {
+  it("clears a probable misread once a human vouched for the value", () => {
+    // The implausibility check is recomputed from the value on every render,
+    // so only a stored fact can settle it — a same-value "correction" cannot.
+    const r = reviewOf(m({ valueRaw: "44,5", confirmed: true }), GLUCOSE);
+    expect(r.level).toBe("ok");
+    expect(r.chip).toBe("");
+  });
+
+  it("clears a disagreement and a low-confidence read the same way", () => {
+    const disagreed = m({
+      disagreement: "dvě nezávislá čtení se liší: 0,61 / 0,67",
+      confirmed: true,
+    });
+    expect(reviewOf(disagreed, noRange).level).toBe("ok");
+    expect(reviewOf(m({ confidence: "low", confirmed: true }), noRange).level).toBe("ok");
+  });
+
+  it("changes nothing for an unconfirmed measurement", () => {
+    expect(reviewOf(m({ valueRaw: "44,5", confirmed: false }), GLUCOSE).level).toBe("withheld");
+    expect(reviewOf(m({ valueRaw: "44,5" }), GLUCOSE).level).toBe("withheld");
+  });
+});
+
 describe("needsReview drives one consistent worklist", () => {
   it("counts exactly the rows that show a chip", () => {
     // The filter counter and the table chips were computed separately and

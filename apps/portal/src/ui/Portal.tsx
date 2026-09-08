@@ -1,18 +1,21 @@
 /**
  * The logged-in app: one person's reports, and the screens over them.
  *
- * Přehled is what is out of range now and every parameter at a glance;
- * Trendy, Souhrn změn, Ověření and Přiřazení názvů are the demo's screens
- * (argued over with clinicians — apps/bloodwork/docs/design-notes.md) over
- * the stored payloads; Reporty is where PDFs come in and go out. Every
- * report arrives from the account and every change goes back to it, so the
- * same trend is there on the next device.
+ * Souhrn opens: what changed and what is out of range, with the review
+ * banner on top — the former Přehled tile wall said the same things twice
+ * and was dropped for it. Trendy, Ověření and Přiřazení názvů are the
+ * demo's screens (argued over with clinicians —
+ * apps/bloodwork/docs/design-notes.md) over the stored payloads; Reporty is
+ * where PDFs come in and go out. Every report arrives from the account and
+ * every change goes back to it, so the same trend is there on the next
+ * device.
  *
  * On a phone the tab strip is a bottom bar; on a desktop it stays at the top.
  * Same buttons, same `hidden` panels — CSS decides where the strip sits.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type AiContext,
   type AnalyteDef,
   type LabReport,
   type Measurement,
@@ -24,21 +27,25 @@ import {
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
 import { type Budget, type Settings, deleteAccount, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
+import { mergeSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
-import Overview from "./Overview";
+import ShareTab from "./ShareTab";
 import SummaryTab from "./SummaryTab";
 import TrendsTab from "./TrendsTab";
 import UploadFlow from "./UploadFlow";
 import VerifyTab from "./VerifyTab";
 
-type TabId = "home" | "trends" | "summary" | "verify" | "mapping" | "reports";
+type TabId = "trends" | "summary" | "verify" | "mapping" | "reports" | "share";
+// Six labels fit a 390px phone only if the last one cannot wrap: written
+// with non-breaking spaces, or the bold active label breaks into two lines
+// and the bar jumps in height exactly when this tab is chosen.
 const TABS: Array<[TabId, string]> = [
-  ["home", "Přehled"],
-  ["trends", "Trendy"],
   ["summary", "Souhrn"],
+  ["trends", "Trendy"],
   ["verify", "Ověření"],
   ["mapping", "Přiřazení"],
   ["reports", "Reporty"],
+  ["share", "Sdílet\u00a0s\u00a0AI"],
 ];
 
 /** Mounted whether or not it is active; `hidden` keeps its state and takes it
@@ -60,7 +67,14 @@ export default function Portal({ email, onLogout }: Props) {
   const [reports, setReports] = useState<LabReport[]>([]);
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [learned, setLearned] = useState<Record<string, string[]>>({});
-  const [tab, setTab] = useState<TabId>("home");
+  // The whole settings blob, because PUT /api/settings replaces it: a save
+  // of one field must carry the others (lib/settings.ts).
+  const settingsRef = useRef<Settings>({});
+  // Writes go out one after another: two quick saves whose PUTs crossed
+  // would leave the server with whichever landed last, not the newest.
+  const settingsQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const [aiContext, setAiContext] = useState<AiContext | null>(null);
+  const [tab, setTab] = useState<TabId>("summary");
   const [budget, setBudget] = useState<Budget | null>(null);
   const [maxPages, setMaxPages] = useState(30);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -81,10 +95,12 @@ export default function Portal({ email, onLogout }: Props) {
           getStatus(),
         ]);
         const reg = new Registry(defs);
-        const l = (settings as Settings).learned ?? {};
+        settingsRef.current = settings as Settings;
+        const l = settingsRef.current.learned ?? {};
         for (const [cid, names] of Object.entries(l)) for (const n of names) reg.addSynonym(cid, n);
         setRegistry(reg);
         setLearned(l);
+        setAiContext(settingsRef.current.aiContext ?? null);
         setReports(rs);
         setBudget(status.budget);
         setMaxPages(status.maxPages);
@@ -160,10 +176,31 @@ export default function Portal({ email, onLogout }: Props) {
     [persist],
   );
 
-  const saveLearned = useCallback((next: Record<string, string[]>) => {
-    setLearned(next);
-    putSettings({ learned: next }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
+  /** Every settings write: merge into what the account holds, then PUT the whole. */
+  const saveSettings = useCallback((patch: Partial<Settings>) => {
+    settingsRef.current = mergeSettings(settingsRef.current, patch);
+    const whole = settingsRef.current;
+    const p = settingsQueue.current.then(() => putSettings(whole));
+    settingsQueue.current = p.catch(() => undefined);
+    return p;
   }, []);
+
+  const saveLearned = useCallback(
+    (next: Record<string, string[]>) => {
+      setLearned(next);
+      saveSettings({ learned: next }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
+    },
+    [saveSettings],
+  );
+
+  const saveAiContext = useCallback(
+    async (next: AiContext) => {
+      const value = Object.keys(next).length ? next : undefined;
+      await saveSettings({ aiContext: value });
+      setAiContext(value ?? null);
+    },
+    [saveSettings],
+  );
 
   const acceptMapping = useCallback(
     (rawName: string, canonicalId: string) => {
@@ -364,20 +401,26 @@ export default function Portal({ email, onLogout }: Props) {
           </>
         ) : (
           <>
-            <Panel id="home" active={tab}>
-              <Overview reports={reports} trends={trends} onOpenTrend={showTrend} />
+            <Panel id="summary" active={tab}>
+              <SummaryTab
+                reports={reports}
+                trends={trends}
+                onShowSource={showAnalyteSource}
+                onOpenTrend={showTrend}
+                onOpenVerify={() => setTab("verify")}
+              />
             </Panel>
             <Panel id="trends" active={tab}>
-              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} />
-            </Panel>
-            <Panel id="summary" active={tab}>
-              <SummaryTab reports={reports} trends={trends} onShowSource={showAnalyteSource} />
+              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} />
             </Panel>
             <Panel id="verify" active={tab}>
               <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />
             </Panel>
             <Panel id="mapping" active={tab}>
               <MappingTab reports={reports} registry={registry} onMap={acceptMapping} onUndoMap={undoMapping} onShowSource={showSource} />
+            </Panel>
+            <Panel id="share" active={tab}>
+              <ShareTab reports={reports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />
             </Panel>
             <Panel id="reports" active={tab}>
               {uploadCard}

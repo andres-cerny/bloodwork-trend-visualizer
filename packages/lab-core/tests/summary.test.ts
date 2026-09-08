@@ -22,6 +22,7 @@ const pt = (date: string, value: number | null, flag: TrendPoint["flag"], lo = 4
   refHigh: hi,
   valueRaw: value === null ? "<1,0" : String(value).replace(".", ","),
   reportId: "r",
+  rawName: "",
   suspect: null,
   unconfirmed: null,
 });
@@ -137,6 +138,11 @@ describe("czExact", () => {
 
   it("keeps a censored value verbatim", () => {
     expect(czExact(null, "<1,0")).toBe("<1,0");
+  });
+
+  it("drops the lab's own out-of-range marker, which the screen says in words", () => {
+    expect(czExact(1.97, "1,97 !")).toBe("1,97");
+    expect(czExact(13.8, "13,80*")).toBe("13,80");
   });
 
   it("falls back to the number when nothing was printed", () => {

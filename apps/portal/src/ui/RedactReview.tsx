@@ -14,12 +14,19 @@
  * first version explained itself in three paragraphs and a per-page tick,
  * and the reader had to click past them to see the page.
  *
+ * The screen never says what a box covers. An earlier version listed the
+ * boxes as chips under the page — "jméno · Jan Novák" — which told the
+ * reader we had read the name, on the one screen whose job is to look like
+ * we cannot. A box is "Začerněné pole 3" and nothing more, here and in the
+ * accessibility tree; the detector's strings stay in `hits` for painting and
+ * are never rendered. A test pins it.
+ *
  * Boxes live in image pixels (like every Box in lab-core) and are drawn in
  * percentages of the image, so they stay put when the pane relayouts —
  * the same lesson the verification highlight learned.
  */
-import { useRef, useState } from "react";
-import { type Box, type IdentityHit, type IdentityKind, count } from "@bw/lab-core";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type Box, type IdentityHit, count } from "@bw/lab-core";
 import type { PreparedFile } from "../lib/upload";
 
 interface Props {
@@ -28,24 +35,45 @@ interface Props {
   onCancel: () => void;
 }
 
-const KIND_CS: Record<IdentityKind, string> = {
-  "rodne-cislo": "rodné číslo",
-  "birth-date": "datum narození",
-  name: "jméno",
-  address: "adresa",
-  repeat: "opakování",
-  manual: "ručně",
-};
-
 /** Smaller than this in either direction is a tap, not a box. */
 const MIN_DRAG = 6;
+/** The ✕ control's side, in CSS px — matches `.review-x` in styles.css. */
+const X_SIZE = 32;
+/** How far past its ink a box can be tapped, in CSS px. */
+const HIT_PAD = 16;
+
+const useMeasureEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
   const [hits, setHits] = useState<IdentityHit[]>(prepared.hits);
   // Drawing starts on when nothing was found on some page — on a scan that is
   // always — because drawing is then the only way to redact it.
   const [drawing, setDrawing] = useState(prepared.scanPages.length > 0 || prepared.hits.length === 0);
+  // One box selected at a time, across all pages.
+  const [selected, setSelected] = useState<IdentityHit | null>(null);
   const scans = prepared.scanPages;
+
+  // A tap anywhere that is not a box, or Escape, deselects.
+  useEffect(() => {
+    if (!selected) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!(e.target instanceof Element) || !e.target.closest(".review-hit, .review-x")) setSelected(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected(null);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [selected]);
+
+  const remove = (hit: IdentityHit) => {
+    setHits((hs) => hs.filter((h) => h !== hit));
+    setSelected((s) => (s === hit ? null : s));
+  };
 
   return (
     <section className="card review">
@@ -72,8 +100,10 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
           scan={scans.includes(page.pageNum)}
           drawing={drawing}
           hits={hits.filter((h) => h.pageNum === page.pageNum)}
+          selected={selected}
+          onSelect={setSelected}
           onAdd={(box) => setHits((hs) => [...hs, { pageNum: page.pageNum, box, kind: "manual", text: "" }])}
-          onRemove={(hit) => setHits((hs) => hs.filter((h) => h !== hit))}
+          onRemove={remove}
         />
       ))}
 
@@ -89,6 +119,40 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
   );
 }
 
+/**
+ * The tap zone of a box: the box, padded by PAD screen pixels on every side
+ * and widened to at least the ✕ control, then cut at the midpoint to any
+ * box above or below that shares its columns. So a box over one printed
+ * line is tappable on a phone, and four such boxes stacked six pixels
+ * apart still each own their own band — the nearest box answers, rather
+ * than whichever was drawn last. Image pixels in, image pixels out.
+ */
+export function hitZone(boxes: Box[], i: number, scale: number): Box {
+  const pad = HIT_PAD / scale;
+  const minSide = X_SIZE / scale;
+  const [x0, y0, x1, y1] = boxes[i];
+  const ex = Math.max(pad, (minSide - (x1 - x0)) / 2);
+  let left = x0 - ex;
+  let top = y0 - pad;
+  let right = x1 + ex;
+  let bottom = y1 + pad;
+  for (let j = 0; j < boxes.length; j++) {
+    if (j === i) continue;
+    const b = boxes[j];
+    const sharesColumns = b[2] > x0 && b[0] < x1;
+    const sharesRows = b[3] > y0 && b[1] < y1;
+    if (sharesColumns) {
+      if (b[3] <= y0) top = Math.max(top, (b[3] + y0) / 2);
+      else if (b[1] >= y1) bottom = Math.min(bottom, (y1 + b[1]) / 2);
+    } else if (sharesRows) {
+      // Side by side on one line — name and rodné číslo, typically.
+      if (b[2] <= x0) left = Math.max(left, (b[2] + x0) / 2);
+      else if (b[0] >= x1) right = Math.min(right, (x1 + b[0]) / 2);
+    }
+  }
+  return [left, top, right, bottom];
+}
+
 function ReviewPage({
   pageNum,
   imageUrl,
@@ -97,6 +161,8 @@ function ReviewPage({
   scan,
   drawing,
   hits,
+  selected,
+  onSelect,
   onAdd,
   onRemove,
 }: {
@@ -107,6 +173,8 @@ function ReviewPage({
   scan: boolean;
   drawing: boolean;
   hits: IdentityHit[];
+  selected: IdentityHit | null;
+  onSelect: (hit: IdentityHit | null) => void;
   onAdd: (box: Box) => void;
   onRemove: (hit: IdentityHit) => void;
 }) {
@@ -120,10 +188,29 @@ function ReviewPage({
     setDraft(d ? d.box : null);
   };
 
-  /** Pointer position → image pixels, however wide the image is drawn. */
+  // Screen pixels per image pixel, so the tap zones and the ✕ placement
+  // can be reasoned about in the units a finger has.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useMeasureEffect(() => {
+    const el = canvasRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const read = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setScale(w / width);
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [width]);
+
+  /** Pointer position → image pixels, however wide the image is drawn,
+   *  clamped to the page: a box past its edge redacts nothing. */
   const toImage = (e: React.PointerEvent<HTMLDivElement>): [number, number] => {
     const r = e.currentTarget.getBoundingClientRect();
-    return [((e.clientX - r.left) / r.width) * width, ((e.clientY - r.top) / r.height) * height];
+    const clamp = (v: number, max: number) => Math.min(max, Math.max(0, v));
+    return [clamp(((e.clientX - r.left) / r.width) * width, width), clamp(((e.clientY - r.top) / r.height) * height, height)];
   };
   const pct = (b: Box) => ({
     left: `${(b[0] / width) * 100}%`,
@@ -131,6 +218,9 @@ function ReviewPage({
     width: `${((b[2] - b[0]) / width) * 100}%`,
     height: `${((b[3] - b[1]) / height) * 100}%`,
   });
+  const boxes = hits.map((h) => h.box);
+  const sel = selected ? hits.indexOf(selected) : -1;
+  const label = (i: number) => `Začerněné pole ${i + 1}`;
 
   return (
     <figure className={`review-page${scan ? " scan" : ""}`}>
@@ -139,9 +229,13 @@ function ReviewPage({
         {scan && " · sken — nic nenalezeno, začerněte ručně"}
       </figcaption>
       <div
+        ref={canvasRef}
         className={`review-canvas${drawing ? " drawing" : ""}`}
         onPointerDown={(e) => {
           if (!drawing) return;
+          // A tap on a box or its ✕ is theirs, in drawing mode too: a box
+          // drawn by hand is removed the same way as a found one.
+          if (e.target instanceof Element && e.target.closest(".review-hit, .review-x")) return;
           // Capture so a drag that leaves the image still ends the box. A
           // pointer the browser does not know (a synthetic event) throws here,
           // and losing capture is not worth losing the box.
@@ -170,27 +264,42 @@ function ReviewPage({
         onPointerCancel={() => setDrag(null)}
       >
         <img src={imageUrl} alt={`Strana ${pageNum}`} draggable={false} />
+        {/* The ink: exactly what will be painted, and nothing a finger can
+            hit. */}
         {hits.map((h, i) => (
-          <span key={i} className="review-box" style={pct(h.box)} aria-hidden="true" />
+          <span key={i} className={`review-box${i === sel ? " selected" : ""}`} style={pct(h.box)} aria-hidden="true" />
         ))}
-        {draft && <span className="review-box draft" style={pct(draft)} />}
+        {draft && <span className="review-box draft" style={pct(draft)} aria-hidden="true" />}
+        {/* The targets: transparent, each over its own band of the page. */}
+        {hits.map((h, i) => (
+          <button
+            key={i}
+            type="button"
+            className="review-hit"
+            style={pct(hitZone(boxes, i, scale))}
+            aria-label={label(i)}
+            aria-pressed={i === sel}
+            onClick={() => onSelect(i === sel ? null : h)}
+          />
+        ))}
+        {sel >= 0 && (() => {
+          // The ✕ at the box's top-right: inside the box when the box is at
+          // least the control's height on screen, above it otherwise.
+          const b = boxes[sel];
+          const thin = (b[3] - b[1]) * scale < X_SIZE;
+          return (
+            <button
+              type="button"
+              className={`review-x${thin ? " above" : ""}`}
+              style={{ left: `${(b[2] / width) * 100}%`, top: `${(b[1] / height) * 100}%` }}
+              aria-label={`Odebrat ${label(sel).toLowerCase()}`}
+              onClick={() => onRemove(hits[sel])}
+            >
+              <span aria-hidden="true">✕</span>
+            </button>
+          );
+        })()}
       </div>
-      {hits.length > 0 && (
-        <ul className="review-hits">
-          {/* Removal lives here, not on the boxes: a box over one printed
-              line is a few pixels tall on a phone — no finger hits it, and
-              growing it would preview more black than gets painted. A chip
-              also names what its box covers, which a black rectangle cannot. */}
-          {hits.map((h, i) => (
-            <li key={i}>
-              <button type="button" className="chip review-hit" onClick={() => onRemove(h)} aria-label={`Odebrat pole ${i + 1}: ${KIND_CS[h.kind]}${h.text ? ` ${h.text}` : ""}`}>
-                {KIND_CS[h.kind]}
-                {h.text ? ` · ${h.text}` : ""} <span aria-hidden="true">✕</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </figure>
   );
 }

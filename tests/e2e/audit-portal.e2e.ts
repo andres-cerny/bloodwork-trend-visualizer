@@ -47,14 +47,25 @@ interface Screen {
   name: string;
   go: (page: Page) => Promise<void>;
   skip?: string[];
+  /** A screen outside the logged-in shell: where to open, and what says it is up. */
+  at?: { path: string; ready: string };
 }
 
 const SCREENS: Screen[] = [
-  { name: "přehled", go: async () => {} },
+  // The door, as the two links the operator sends open it. The login form
+  // itself shares these classes and this card; the fake API answers /api/me,
+  // so it cannot be reached here without a second server, and is not.
+  { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
+  { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
+  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
+  // Souhrn is the landing tab since Přehled was dropped — its tile wall said
+  // what the summary groups and tables already say.
+  { name: "souhrn (výchozí)", go: async () => {} },
   {
-    name: "trendy (chart opened from a tile)",
+    name: "trendy (chart opened from a parameter name)",
     go: async (page) => {
-      await page.locator(".watch .tile").first().click();
+      // The name is the door at every width; the sparkline only on a desktop.
+      await page.locator(".sum-table .sum-name").first().click();
       await page.waitForSelector(".tc svg", { timeout: 10_000 });
       await page.waitForTimeout(300);
     },
@@ -65,13 +76,6 @@ const SCREENS: Screen[] = [
       await tab(page, "Trendy").click();
       await page.getByRole("button", { name: /Přidat parametr/ }).click();
       await page.waitForTimeout(250);
-    },
-  },
-  {
-    name: "souhrn",
-    go: async (page) => {
-      await tab(page, "Souhrn").click();
-      await page.waitForTimeout(300);
     },
   },
   {
@@ -98,6 +102,43 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    name: "sdílet s AI (bez odkazu)",
+    go: async (page) => {
+      await tab(page, "Sdílet s AI").click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    name: "sdílet s AI (odkaz, náhled otevřený)",
+    go: async (page) => {
+      await tab(page, "Sdílet s AI").click();
+      await page.getByRole("button", { name: "Vytvořit odkaz pro AI" }).click();
+      await page.waitForSelector(".ai-line", { timeout: 10_000 });
+      await page.getByText("Co AI uvidí").click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    // The context card, saved: the form fills, Uložit collapses it to the
+    // summary line. The fake API acknowledges the PUT and keeps nothing.
+    name: "sdílet s AI (kontext uložený)",
+    go: async (page) => {
+      await tab(page, "Sdílet s AI").click();
+      await page.getByRole("button", { name: "Muž" }).click();
+      await page.getByLabel("Věk").selectOption("30-34");
+      await page.getByLabel("Zajímá mě").selectOption("both");
+      await page.getByLabel("Výška").fill("178");
+      await page.getByLabel("Váha").fill("76");
+      await page.getByLabel("Pohyb").fill("Silniční kolo 6–8 h týdně, 2× posilovna");
+      await page.getByRole("button", { name: "Kreatin" }).click();
+      await page.getByRole("button", { name: "Vitamin D" }).click();
+      await page.getByLabel("Alkohol").selectOption("sometimes");
+      await page.getByRole("button", { name: "Uložit a přidat k odkazu" }).click();
+      await page.waitForSelector(".ctx-summary", { timeout: 10_000 });
+      await page.waitForTimeout(300);
+    },
+  },
+  {
     // The one screen with a page image and boxes over it. The upload stops
     // here for the reader's look, so the audit can reach it without the
     // extractor: the file is read in the browser, nothing is sent.
@@ -107,6 +148,20 @@ const SCREENS: Screen[] = [
       await page.locator('input[type="file"]').setInputFiles(FIXTURE);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.waitForTimeout(500);
+    },
+  },
+  {
+    // A box selected: its ✕ is a control too, and must be reachable and
+    // uncovered at every width — a thin box puts it above the ink.
+    name: "kontrola anonymizace (pole vybrané)",
+    go: async (page) => {
+      await tab(page, "Reporty").click();
+      await page.locator('input[type="file"]').setInputFiles(FIXTURE);
+      await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+      await page.waitForTimeout(500);
+      await page.getByRole("button", { name: "Začerněné pole 1" }).first().click();
+      await page.waitForSelector(".review-x", { timeout: 5_000 });
+      await page.waitForTimeout(200);
     },
   },
 ];
@@ -124,7 +179,7 @@ for (const [vpName, viewport] of VIEWPORTS) {
     describe(`${vpName} · ${theme}`, () => {
       for (const screen of SCREENS) {
         it(`${screen.name} has no layout flaws`, async () => {
-          const page = await app.open(viewport);
+          const page = await app.open(viewport, { at: screen.at });
           await setTheme(page, theme);
           try {
             await screen.go(page);

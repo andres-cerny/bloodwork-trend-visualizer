@@ -18,6 +18,35 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { clientFor, usageOf, type Usage } from "@bw/agent-core";
 
+import { createRowScanner } from "./partial";
+
+/** A row as the model wrote it, before the message is complete. */
+export type OnRow = (row: Record<string, unknown>) => void;
+
+/**
+ * One call, buffered or streamed.
+ *
+ * Without `onRow` this is the plain request the worker has always made. With
+ * it, the same request is streamed with eager tool-input streaming, every
+ * fragment of the tool input goes through the row scanner, and the final
+ * message — parsed whole, exactly as before — is what the caller gets back.
+ * Streaming changes when a row can be *shown*; it changes nothing about what
+ * is stored.
+ */
+async function call(apiKey: string, params: Anthropic.MessageCreateParamsNonStreaming, onRow?: OnRow): Promise<Anthropic.Message> {
+  const client = clientFor(apiKey);
+  if (!onRow) return client.messages.create(params);
+  const scanner = createRowScanner(onRow);
+  const stream = client.messages.stream({
+    ...params,
+    tools: (params.tools ?? []).map((t) => ("input_schema" in t ? { ...t, eager_input_streaming: true } : t)),
+  });
+  for await (const ev of stream) {
+    if (ev.type === "content_block_delta" && ev.delta.type === "input_json_delta") scanner.feed(ev.delta.partial_json);
+  }
+  return stream.finalMessage();
+}
+
 
 
 export const MODEL_PRIMARY = "claude-sonnet-5";
@@ -298,8 +327,9 @@ export async function extractPageText(
   apiKey: string,
   model: string,
   rowsText: string,
+  onRow?: OnRow,
 ): Promise<PageExtraction> {
-  const message = await clientFor(apiKey).messages.create({
+  const message = await call(apiKey, {
     model,
     max_tokens: 8000,
     // No `effort` here, deliberately. Lowering it measured a 0.7% latency gain
@@ -313,7 +343,7 @@ export async function extractPageText(
     messages: [
       { role: "user", content: `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}` },
     ],
-  });
+  }, onRow);
   return toExtraction(toolInput(message), usageOf(message.usage), model);
 }
 
@@ -324,6 +354,7 @@ export async function extractPage(
   imageBase64: string,
   mediaType: string,
   textLayer: string | null,
+  onRow?: OnRow,
 ): Promise<PageExtraction> {
   const content: unknown[] = [
     { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
@@ -333,13 +364,13 @@ export async function extractPage(
   }
   content.push({ type: "text", text: "Přepiš všechny měřené řádky z této stránky." });
 
-  const message = await clientFor(apiKey).messages.create({
+  const message = await call(apiKey, {
     model,
     max_tokens: 8000,
     system: cachedSystem(SYSTEM_EXTRACT),
     tools: [TOOL as unknown as Anthropic.Tool],
     tool_choice: { type: "tool", name: TOOL.name },
     messages: [{ role: "user", content: content as Anthropic.ContentBlockParam[] }],
-  });
+  }, onRow);
   return toExtraction(toolInput(message), usageOf(message.usage), model);
 }

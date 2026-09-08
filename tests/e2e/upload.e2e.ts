@@ -153,7 +153,7 @@ function stub(opts: { readers: 1 | 2 }) {
  * upload flow is testable at a phone width without first driving the drawer.
  */
 async function openReady(viewport: { width: number; height: number }, s: ReturnType<typeof stub>) {
-  const page = await app.open(viewport, s.install);
+  const page = await app.open(viewport, { prepare: s.install });
   await page.waitForSelector("label.drop", { state: "attached", timeout: 15_000 });
   return page;
 }
@@ -349,7 +349,7 @@ describe("a photograph", () => {
     const s = stub({ readers: 2 });
     // A touch context, because `.shoot` is revealed by `(pointer: coarse)` and
     // a desktop page would never see the rule.
-    const page = await app.open(MOBILE, s.install, { hasTouch: true, isMobile: true });
+    const page = await app.open(MOBILE, { prepare: s.install, context: { hasTouch: true, isMobile: true } });
     await page.waitForSelector("label.drop", { state: "attached", timeout: 15_000 });
 
     // The drawer holds the upload panel on a phone.

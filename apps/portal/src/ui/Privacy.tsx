@@ -37,7 +37,12 @@ export default function Privacy() {
       <ul>
         <li>naměřené hodnoty, jednotky a referenční meze z vašich výsledků,</li>
         <li>začerněné obrázky stránek — kvůli ověření přepisu proti dokumentu,</li>
-        <li>přihlašovací e-mail a vaše ruční opravy a přiřazení názvů.</li>
+        <li>přihlašovací e-mail, otisk hesla (heslo samo ne) a vaše ruční opravy a přiřazení názvů,</li>
+        <li>
+          kontext pro AI, pokud jste ho vyplnili — pohlaví, věková skupina, výška, váha, pohyb, léky a
+          doplňky, diagnózy, kouření, alkohol a vaše poznámka. Jméno k němu nepřidáváme; co napíšete
+          sami, uložíme tak, jak jste to napsali. Mizí s účtem.
+        </li>
       </ul>
       <p>
         Nic víc. V databázi není sloupec pro jméno, rodné číslo, datum narození ani adresu —
@@ -60,6 +65,16 @@ export default function Privacy() {
         Začerněné řádky s hodnotami (u skenů začerněný obrázek stránky) na náš server a z něj{" "}
         {processorPhrase(photoReaders)}, kde se přepíšou na čísla. {RETENTION_NOTE} Útrata za
         zpracování má měsíční strop na osobu.
+      </p>
+
+      <h2>Sdílet s AI — jen když chcete</h2>
+      <p>
+        Na záložce Sdílet s AI si můžete vytvořit dočasný odkaz na stránku s prostým textem: vaše
+        hodnoty, jednotky, referenční meze a data odběrů, a pokud jste ho vyplnili, i kontext o vás —
+        bez jména, bez e-mailu, bez obrázků stránek.
+        Odkaz platí 24 hodin, kdykoli ho zrušíte, a nový nahrazuje starý. Je náhodný a nikde
+        zveřejněný není: kdo ho nezná, nic neuvidí. Čte ho asistent, kterému ho sami vložíte — a
+        u něj platí podmínky jeho provozovatele, ne naše.
       </p>
 
       <h2>Vaše data jsou vaše</h2>

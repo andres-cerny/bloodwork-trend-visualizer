@@ -9,13 +9,21 @@
  * byte-for-byte for the demo; both read the same `Trend`, and "the model may
  * name a chart, never fill one" is enforced upstream of either.
  *
+ * The line is straight segments between draws. Nothing is known about the
+ * days between two draws, and a curve — even one that cannot overshoot —
+ * claims a shape for them; a straight segment claims only the two ends.
+ *
  * Still: scale to the data. A ferritin falling 112 → 88 inside a 30–400
  * band must not flatten into a line, so a limit far outside the data stays
  * off the plot and is named in the caption instead.
  *
  * Colour is never the only channel: an out-of-range point is red *and* sits
- * in the tinted zone *and* carries an arrow; an unconfirmed one is hollow
- * *and* named in the caption. Text takes ink tokens; only marks take signal.
+ * in the red-tinted zone, which says which way it is out; it carries no
+ * arrow, the zone already does. An unconfirmed one is hollow *and* named in
+ * the caption. Text takes ink tokens; only marks take
+ * signal. Two colours in the plot, not three: blue says "the line", red
+ * says "outside the range" — as a soft tint for the zone, solid for a point
+ * that is in it.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { czDate, czExact, czMonthYear, czNum, numericPoints, prettyUnit, type Trend, type TrendPoint } from "@bw/lab-core";
@@ -78,6 +86,13 @@ export function trendDomain(pts: TrendPoint[], air = 0.12): Domain {
   return { yMin, yMax, bLow, bHigh, offPlot };
 }
 
+const fmt = (v: number) => String(Math.round(v * 10) / 10);
+
+/** Straight segments between the points, as an SVG path. */
+function linePath(points: Array<[number, number]>): string {
+  return points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${fmt(x)},${fmt(y)}`).join("");
+}
+
 /** Points spaced by date, not by index — time on the time axis. */
 function xScale(pts: TrendPoint[], left: number, width: number): (i: number) => number {
   const times = pts.map((p) => Date.parse(p.date)).map((v) => (Number.isFinite(v) ? v : 0));
@@ -87,7 +102,14 @@ function xScale(pts: TrendPoint[], left: number, width: number): (i: number) => 
   return (i) => (pts.length === 1 || span <= 0 ? left + width / 2 : left + ((times[i] - t0) / span) * width);
 }
 
-export default function TrendChart({ trend }: { trend: Trend }) {
+export default function TrendChart({
+  trend,
+  onVerify,
+}: {
+  trend: Trend;
+  /** Opens the row behind a doubted point; the popover offers it as "Ověřit". */
+  onVerify?: (p: TrendPoint) => void;
+}) {
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
   const figRef = useRef<HTMLElement>(null);
@@ -137,9 +159,21 @@ export default function TrendChart({ trend }: { trend: Trend }) {
   const y = (v: number) => PAD.top + innerH - ((v - d.yMin) / (d.yMax - d.yMin || 1)) * innerH;
   const inView = (v: number | null): v is number => v !== null && v >= d.yMin && v <= d.yMax;
 
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value as number)}`).join(" ");
+  const xy: Array<[number, number]> = pts.map((p, i) => [x(i), y(p.value as number)]);
+  const line = linePath(xy);
   const active = hover !== null ? pts[hover] : null;
   const unit = prettyUnit(trend.unit);
+
+  // One hit surface for the whole plot instead of a circle per point: no dead
+  // zones between points, and the nearest point answers. Touch keeps the tap
+  // toggle; the move handler is mouse-only so a tap does not set-then-unset.
+  const nearest = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    for (let i = 1; i < pts.length; i++) if (Math.abs(x(i) - px) < Math.abs(x(best) - px)) best = i;
+    return best;
+  };
 
   return (
     <figure ref={figRef} className="tc" style={{ margin: 0 }}>
@@ -149,14 +183,17 @@ export default function TrendChart({ trend }: { trend: Trend }) {
         role="img"
         aria-label={`Vývoj ${trend.displayName}${unit ? ` v ${unit}` : ""}`}
         style={{ display: "block", touchAction: "pan-y" }}
-        onMouseLeave={() => setHover(null)}
+        onPointerMove={(e) => { if (e.pointerType === "mouse") setHover(nearest(e)); }}
+        onPointerLeave={() => setHover(null)}
+        onClick={(e) => { const i = nearest(e); setHover((h) => (h === i ? null : i)); }}
       >
         <clipPath id={clipId}>
           <rect x={padLeft} y={PAD.top} width={innerW} height={innerH} />
         </clipPath>
 
-        {/* Beyond each limit, the status tint. Inside the range the paper is
-            left alone: the band is where nothing needs saying. */}
+        {/* Beyond each limit, the soft status tint. Inside the range the
+            paper is left alone: the band is where nothing needs saying, and
+            "outside" is the one thing the zone has to say. */}
         <g clipPath={`url(#${clipId})`}>
           {inView(d.bHigh) && (
             <rect x={padLeft} y={PAD.top} width={innerW} height={Math.max(0, y(d.bHigh) - PAD.top)} fill="var(--status-critical-soft)" />
@@ -175,21 +212,15 @@ export default function TrendChart({ trend }: { trend: Trend }) {
           </g>
         ))}
 
-        {[
-          { v: d.bHigh, label: "horní mez" },
-          { v: d.bLow, label: "dolní mez" },
-        ].map(({ v, label }, i) =>
+        {/* The band edge is a line, not a label: the range is written once,
+            above the chart, and the tint says which side is outside. */}
+        {[d.bHigh, d.bLow].map((v, i) =>
           inView(v) ? (
-            <g key={i}>
-              <line x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--status-critical)" strokeWidth={1} strokeDasharray="4 3" opacity={0.7} />
-              <text x={W - PAD.right} y={y(v) + (i === 0 ? -5 : 13) * k} textAnchor="end" fontSize={11 * k} fill="var(--critical-ink)">
-                {label} {czNum(v)}
-              </text>
-            </g>
+            <line key={i} x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="4 3" />
           ) : null,
         )}
 
-        <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
 
         {pts.map((p, i) => {
           const out = isOut(p);
@@ -198,7 +229,15 @@ export default function TrendChart({ trend }: { trend: Trend }) {
           const cy = y(p.value as number);
           return (
             <g key={i}>
-              <circle cx={cx} cy={cy} r={16} fill="transparent" onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onClick={() => setHover((h) => (h === i ? null : i))} />
+              {last && (
+                <circle
+                  pointerEvents="none"
+                  cx={cx}
+                  cy={cy}
+                  r={11}
+                  fill={out ? "var(--status-critical-soft)" : "var(--series-1-soft)"}
+                />
+              )}
               <circle
                 pointerEvents="none"
                 cx={cx}
@@ -209,28 +248,6 @@ export default function TrendChart({ trend }: { trend: Trend }) {
                 strokeWidth={2}
                 strokeDasharray={p.unconfirmed ? "3 2" : undefined}
               />
-              {out && !last && (
-                <text x={cx} y={cy - 11 * k} textAnchor="middle" fontSize={12 * k} pointerEvents="none" fill="var(--critical-ink)" fontWeight={700}>
-                  {p.flag === "high" ? "↑" : "↓"}
-                </text>
-              )}
-              {last && (() => {
-                // The current value in a tag beside its point: reading a grid
-                // of charts should not mean opening a table each time.
-                const label = `${czNum(p.value)}${out ? (p.flag === "high" ? " ↑" : " ↓") : ""}`;
-                const w = label.length * 7.4 * k + 14 * k;
-                const h = 20 * k;
-                const left = cx + 12 + w > W - PAD.right ? cx - 12 - w : cx + 12;
-                const top = Math.min(Math.max(PAD.top, cy - h / 2), PAD.top + innerH - h);
-                return (
-                  <g pointerEvents="none">
-                    <rect x={left} y={top} width={w} height={h} rx={6} fill="var(--surface-1)" stroke={out ? "var(--status-critical)" : "var(--border-strong)"} strokeWidth={1} />
-                    <text x={left + w / 2} y={top + h / 2 + 4.5 * k} textAnchor="middle" fontSize={13 * k} fontWeight={700} fill={out ? "var(--critical-ink)" : "var(--ink-1)"}>
-                      {label}
-                    </text>
-                  </g>
-                );
-              })()}
             </g>
           );
         })}
@@ -242,8 +259,11 @@ export default function TrendChart({ trend }: { trend: Trend }) {
             active.flag === "high" ? "nad rozmezím" : active.flag === "low" ? "pod rozmezím" : active.refLow !== null || active.refHigh !== null ? "v rozmezí" : "",
           ].filter(Boolean);
           if (active.unconfirmed) lines.push("nepotvrzeno");
+          // The way out of a doubted value, drawn as the last line and the one
+          // thing in the popover that takes the pointer.
+          const verify = !!active.unconfirmed && !!onVerify;
           const w = Math.max(84 * k, ...lines.map((l, i) => l.length * (i === 1 ? 6.9 : 5.6) * k + 18 * k));
-          const h = (16 + lines.length * 14) * k;
+          const h = (16 + (lines.length + (verify ? 1 : 0)) * 14) * k;
           const px = x(hover);
           const py = y(active.value as number);
           const left = px + 14 + w > W - PAD.right ? px - 14 - w : px + 14;
@@ -258,22 +278,60 @@ export default function TrendChart({ trend }: { trend: Trend }) {
                   {l}
                 </text>
               ))}
+              {verify && (
+                <text
+                  role="button"
+                  tabIndex={0}
+                  className="chart-verify"
+                  pointerEvents="all"
+                  cursor="pointer"
+                  x={left + 9 * k}
+                  y={top + (14 + lines.length * 14) * k}
+                  fontSize={10.5 * k}
+                  fontWeight={600}
+                  textDecoration="underline"
+                  fill="var(--accent-ink)"
+                  onPointerMove={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onVerify!(active);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onVerify!(active);
+                    }
+                  }}
+                >
+                  Ověřit
+                </text>
+              )}
             </g>
           );
         })()}
 
-        {pts.map((p, i) => {
+        {(() => {
+          // The newest date always labels, and wins its space: earlier labels
+          // inside its gap are dropped. Exempting the last label from the gap
+          // check while keeping its neighbour drew the two on top of each
+          // other whenever the series ends in draws close together.
           const MIN_GAP = 46 * k;
-          const prevShown = pts.slice(0, i).reduce((acc, _, j) => (x(j) >= acc ? x(j) : acc), -Infinity);
-          if (i > 0 && i < pts.length - 1 && x(i) - prevShown < MIN_GAP) return null;
-          const half = czMonthYear(p.date).length * 12 * k * 0.26;
-          const lx = Math.min(Math.max(x(i), half), W - half);
-          return (
-            <text key={i} x={lx} y={H - 7} textAnchor="middle" fontSize={12 * k} fill="var(--ink-muted)">
-              {czMonthYear(p.date)}
-            </text>
-          );
-        })}
+          const lastI = pts.length - 1;
+          const shown: number[] = [];
+          for (let i = 0; i < lastI; i++) {
+            if (shown.length === 0 || x(i) - x(shown[shown.length - 1]) >= MIN_GAP) shown.push(i);
+          }
+          const labels = [...shown.filter((i) => x(lastI) - x(i) >= MIN_GAP), lastI];
+          return labels.map((i) => {
+            const half = czMonthYear(pts[i].date).length * 12 * k * 0.26;
+            const lx = Math.min(Math.max(x(i), half), W - half);
+            return (
+              <text key={i} x={lx} y={H - 7} textAnchor="middle" fontSize={12 * k} fill="var(--ink-muted)">
+                {czMonthYear(pts[i].date)}
+              </text>
+            );
+          });
+        })()}
       </svg>
 
       <figcaption className="muted" style={{ minHeight: "1.4em", marginTop: 4 }}>
@@ -304,13 +362,14 @@ export function Sparkline({ trend, width = 120, height = 40 }: { trend: Trend; w
   const y = (v: number) => P + (height - P * 2) - ((v - d.yMin) / (d.yMax - d.yMin || 1)) * (height - P * 2);
   const inView = (v: number | null): v is number => v !== null && v >= d.yMin && v <= d.yMax;
   const last = pts[pts.length - 1];
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.value as number).toFixed(1)}`).join(" ");
+  const xy: Array<[number, number]> = pts.map((p, i) => [x(i), y(p.value as number)]);
+  const line = linePath(xy);
   return (
     <svg className="spark" viewBox={`0 0 ${width} ${height}`} width={width} height={height} preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      {/* Tinted zones, no limit lines: at 30px tall two dashed red rules
+          were most of the picture, and the picture is the line. */}
       {inView(d.bHigh) && <rect x={0} y={0} width={width} height={Math.max(0, y(d.bHigh))} fill="var(--status-critical-soft)" />}
       {inView(d.bLow) && <rect x={0} y={y(d.bLow)} width={width} height={Math.max(0, height - y(d.bLow))} fill="var(--status-critical-soft)" />}
-      {inView(d.bHigh) && <line x1={0} x2={width} y1={y(d.bHigh)} y2={y(d.bHigh)} stroke="var(--status-critical)" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />}
-      {inView(d.bLow) && <line x1={0} x2={width} y1={y(d.bLow)} y2={y(d.bLow)} stroke="var(--status-critical)" strokeWidth={1} strokeDasharray="3 2" opacity={0.6} />}
       {pts.length > 1 && <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />}
       <circle
         cx={x(pts.length - 1)}

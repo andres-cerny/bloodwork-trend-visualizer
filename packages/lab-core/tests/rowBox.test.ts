@@ -30,6 +30,18 @@ describe("rowBoxFor", () => {
     expect(rowBoxFor("S_Kyselina močová v séru", rows)).toEqual(rows[0].box);
   });
 
+  it("scores split-name candidates by consumed length, not print order", () => {
+    // A suffix defeats the whole-name pass; the fallback must still pick the
+    // row whose cells consume more of the name, not the row printed first.
+    expect(rowBoxFor("S_Bilirubin konjugovaný v séru", rows)).toEqual(rows[2].box);
+    expect(rowBoxFor("S_Bilirubin celkový v séru", rows)).toEqual(rows[1].box);
+  });
+
+  it("gives up on a tie the page cannot break", () => {
+    // Neither bilirubin row consumes more than the shared first word.
+    expect(rowBoxFor("S_Bilirubin nepřímý", rows)).toBeNull();
+  });
+
   it("gives up rather than guess when nothing fits", () => {
     expect(rowBoxFor("B_Hemoglobin", rows)).toBeNull();
   });

@@ -69,6 +69,7 @@ function point(over: Partial<TrendPoint> = {}): TrendPoint {
     refHigh: 400,
     valueRaw: "21",
     reportId: "r1",
+    rawName: "",
     suspect: null,
     unconfirmed: null,
     ...over,

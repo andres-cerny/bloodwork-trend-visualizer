@@ -10,6 +10,8 @@ export interface TrendPoint {
   refHigh: number | null;
   valueRaw: string;
   reportId: string;
+  /** The name as the lab printed it — what Ověření keys its highlight on. */
+  rawName: string;
   /**
    * Set when the reading is probably *wrong* (a misread decimal). Kept out of
    * the plotted series — see numericPoints.
@@ -88,6 +90,7 @@ export function buildTrends(
         refHigh: m.refRangeHigh,
         valueRaw: m.valueRaw,
         reportId: report.id,
+        rawName: m.rawAnalyteName,
         suspect: suspectFn(m),
         unconfirmed: unconfirmedFn(m),
       });

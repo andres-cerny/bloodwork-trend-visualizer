@@ -63,6 +63,23 @@ function fakeApi(port: number): Promise<Server> {
       case "POST /api/auth/logout":
         res.writeHead(204);
         return res.end();
+      // Sdílet s AI: no link on arrival; minting answers a link-shaped URL
+      // with a 24-hour expiry. Nothing is stored, nothing is fetched.
+      case "GET /api/ai-share":
+        return json(res, null);
+      case "POST /api/ai-share":
+        return json(res, {
+          url: `http://localhost/ai/${"k7QmR2vX9pLw3f".repeat(4).slice(0, 43)}`,
+          expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        });
+      // The two kinds of link the operator sends, and a dead one.
+      case "GET /api/auth/invite/audit-registrace":
+        return json(res, { kind: "signup" });
+      case "GET /api/auth/invite/audit-heslo":
+        return json(res, { kind: "password" });
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/api/auth/invite/")) {
+      return json(res, { error: "invite_invalid", message: "Odkaz už neplatí. Napište mi a pošlu nový." }, 404);
     }
     // Writes are acknowledged and forgotten; the audit reads, it does not keep.
     if (req.method === "PUT" || req.method === "DELETE") return json(res, { ok: true });
@@ -98,12 +115,16 @@ export async function startPortal(port: number, apiPort = port + 100): Promise<H
 
   return {
     /** Open the portal and wait until the account's data has rendered. */
-    async open(viewport) {
-      const page = await browser.newPage({ viewport, deviceScaleFactor: 2 });
+    async open(viewport, options) {
+      const at = options?.at;
+      const page = await browser.newPage({ viewport, deviceScaleFactor: 2, ...options?.context });
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(String(e)));
-      await page.goto(base, { waitUntil: "load" });
-      await page.waitForSelector(".watch", { timeout: 20_000 });
+      if (options?.prepare) await options.prepare(page);
+      await page.goto(at ? new URL(at.path, base).href : base, { waitUntil: "load" });
+      // Souhrn is the landing tab; its change tables render once the
+      // account's reports have loaded and trends are built.
+      await page.waitForSelector(at?.ready ?? ".sum-table", { timeout: 20_000 });
       (page as any).__errors = errors;
       return page;
     },

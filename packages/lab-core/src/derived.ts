@@ -157,6 +157,8 @@ export function buildDerived(trends: Map<string, Trend>): Map<string, DerivedTre
         refHigh: null,
         valueRaw: "",
         reportId,
+        // Computed, so no printed row to open; the anchor names it.
+        rawName: anchor.rawName,
         suspect: null,
         // Every input was already plotted, so nothing new is doubted here.
         unconfirmed: null,

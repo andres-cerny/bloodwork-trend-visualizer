@@ -28,6 +28,7 @@ import {
   extractPage,
   extractPageGemini,
   extractPageText,
+  type OnRow,
   type PageExtraction,
 } from "@bw/extraction";
 // A sibling module, not this one: workerd reads every named export of the
@@ -57,6 +58,19 @@ export interface Env extends BaseEnv {
    * deliberate: a config flip is reversible in a minute, a code change is not.
    */
   PHOTO_READERS?: string;
+  /**
+   * "cheap": the text path is read once, by the cheaper reader. Measured on
+   * the real corpus (docs/extraction-speed.md, 2026-09-02): on born-digital
+   * pages a single Haiku read fabricates nothing and the client's printed-text
+   * and candidate-row checks catch what a second reader used to. Scans keep
+   * both readers — there is no text layer to check against.
+   *
+   * Unset means both readers, which is what Moje krev deploys: the switch is
+   * kept for the day cost matters more than the second opinion. Whatever it
+   * says, `readersAttempted` reports how many were actually asked, so a
+   * single-read page never comes back looking cross-checked.
+   */
+  TEXT_READERS?: string;
 }
 
 async function handleSession(request: Request, env: Env): Promise<Response> {
@@ -106,23 +120,32 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  const { imageBase64, mediaType, imageFullBase64, imageFullMediaType, textLayer, rowsText } =
-    (await request.json().catch(() => ({}))) as {
-      imageBase64?: string;
-      mediaType?: string;
-      /**
-       * The same photograph, larger — the photo path sends two encodes of one
-       * shot because the readers see different amounts of it. Sonnet's tier
-       * caps at a 2576 px long edge; Gemini spends a fixed token budget per
-       * image part whatever the pixels are, so a bigger picture costs it
-       * nothing. A PDF page sends only `imageBase64` and every reader gets
-       * that, which is why the PDF path is untouched by this.
-       */
-      imageFullBase64?: string;
-      imageFullMediaType?: string;
-      textLayer?: string | null;
-      rowsText?: string | null;
-    };
+  const {
+    imageBase64,
+    mediaType,
+    imageFullBase64,
+    imageFullMediaType,
+    textLayer,
+    rowsText,
+    stream,
+  } = (await request.json().catch(() => ({}))) as {
+    imageBase64?: string;
+    mediaType?: string;
+    /**
+     * The same photograph, larger — the photo path sends two encodes of one
+     * shot because the readers see different amounts of it. Sonnet's tier
+     * caps at a 2576 px long edge; Gemini spends a fixed token budget per
+     * image part whatever the pixels are, so a bigger picture costs it
+     * nothing. A PDF page sends only `imageBase64` and every reader gets
+     * that, which is why the PDF path is untouched by this.
+     */
+    imageFullBase64?: string;
+    imageFullMediaType?: string;
+    textLayer?: string | null;
+    rowsText?: string | null;
+    /** Ask for rows as they are written (NDJSON) instead of one JSON at the end. */
+    stream?: boolean;
+  };
 
   // Digital PDFs take the text path: the characters come from the file, so
   // the client can verify every returned value against the printed page.
@@ -130,15 +153,28 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   const useText = typeof rowsText === "string" && rowsText.trim().length > 0;
   if (!useText && !imageBase64) return json({ error: "missing_page" }, 400);
 
+  // The text path never varies its pair (see ./readers); only an image asks
+  // which two readers are configured.
   const pair = useText
     ? { name: DEFAULT_PHOTO_READERS, readers: TEXT_READERS }
     : photoReaders(env);
-  const readers = env.SINGLE_MODEL === "1" ? pair.readers.slice(0, 1) : pair.readers;
+  // Two ways to ask for one reader, and they are not the same question.
+  // `TEXT_READERS=cheap` drops the *first* reader on the text path, leaving
+  // the cheaper one; `SINGLE_MODEL=1` keeps the primary everywhere. Either
+  // way `readers.length` is what `readersAttempted` reports.
+  const readers =
+    useText && env.TEXT_READERS === "cheap"
+      ? pair.readers.slice(1, 2)
+      : env.SINGLE_MODEL === "1"
+        ? pair.readers.slice(0, 1)
+        : pair.readers;
 
-  const read = (id: ReaderId): Promise<PageExtraction> => {
+  const read = (id: ReaderId, onRow?: OnRow): Promise<PageExtraction> => {
     const model = READER_MODEL[id];
-    if (useText) return extractPageText(env.ANTHROPIC_API_KEY, model, rowsText!);
+    if (useText) return extractPageText(env.ANTHROPIC_API_KEY, model, rowsText!, onRow);
     if (id === "gemini") {
+      // Google's reader does not stream its rows; the page still streams,
+      // it just carries the Anthropic reader's rows alone until Gemini lands.
       return extractPageGemini(
         env.GEMINI_API_KEY!,
         model,
@@ -153,13 +189,57 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
       imageBase64!,
       mediaType || "image/jpeg",
       textLayer ?? null,
+      onRow,
     );
   };
 
   // Both reads run concurrently — they are each other's completeness check, so
   // a page is only as slow as the slower model rather than their sum.
-  const results = await Promise.allSettled(readers.map(read));
+  if (stream !== true) {
+    const results = await Promise.allSettled(readers.map((id) => read(id)));
+    const { status, body } = await settle(results, env, used, useText, readers.length, pair.name);
+    return json(body, status);
+  }
 
+  // Streamed: one JSON object per line. Rows as each model writes them, then
+  // a final "done" line that is exactly the buffered answer — so a client
+  // may ignore every line but the last and be no worse off than before.
+  // The HTTP status is already 200 once the first row is out, so a failure
+  // after that is an "error" line rather than a status.
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+  const enc = new TextEncoder();
+  const line = (o: unknown) => writer.write(enc.encode(JSON.stringify(o) + "\n")).catch(() => {});
+  void (async () => {
+    try {
+      const results = await Promise.allSettled(
+        readers.map((id) =>
+          read(id, (row) => void line({ type: "row", model: READER_MODEL[id], row })),
+        ),
+      );
+      const { status, body } = await settle(results, env, used, useText, readers.length, pair.name);
+      await line(status === 200 ? { type: "done", ...body } : { type: "error", ...body });
+    } catch (e) {
+      await line({ type: "error", error: "extraction_failed", message: String(e) });
+    } finally {
+      await writer.close().catch(() => {});
+    }
+  })();
+  return new Response(readable, {
+    status: 200,
+    headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store" },
+  });
+}
+
+/** Price the reads that landed, book them, and shape the answer. */
+async function settle(
+  results: PromiseSettledResult<PageExtraction>[],
+  env: Env,
+  used: number,
+  useText: boolean,
+  readersAttempted: number,
+  readersName: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
   let spent = 0;
   const reads = [];
   for (const r of results) {
@@ -197,36 +277,40 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
     // from the patient's page. The portal logs whatever the extractor hands it
     // (docs/security-review-gemini.md, finding 6), so what is returned is a
     // stable code the client can act on and a sentence the reader can act on.
-    return json(
-      {
+    // On the streamed path this is the "error" line, so it is the same
+    // sentence whether or not the page was asked for as a stream.
+    return {
+      status: 502,
+      body: {
         error: "extraction_failed",
         message: "Stránku se nepodařilo přečíst. Zkuste ji prosím nahrát znovu.",
       },
-      502,
-    );
+    };
   }
 
-  return json({
-    reads,
-    mode: useText ? "text" : "vision",
-    /**
-     * How many readers were *asked*. The client hands it to `reconcile`, which
-     * cannot otherwise tell a page that was cross-checked from one whose second
-     * request failed — and a page nobody cross-checked must never come back
-     * looking confirmed.
-     */
-    readersAttempted: readers.length,
-    /** Which pair actually ran, not which one was configured. */
-    readers: pair.name,
-    pagesUsed: used,
-    costUsd: Math.round(spent * 10000) / 10000,
-    // Zero across a whole report means the tools+system prefix is under the
-    // ~1024-token cache minimum, not that something is broken.
-    cacheReadTokens: reads.reduce((s, r) => s + r.usage.cacheReadTokens, 0),
-    budget: await budgetState(env.BUDGET, "extract", budgetLimit(env)),
-  });
+  return {
+    status: 200,
+    body: {
+      reads,
+      mode: useText ? "text" : "vision",
+      /**
+       * How many readers were *asked*. The client hands it to `reconcile`,
+       * which cannot otherwise tell a page that was cross-checked from one
+       * whose second request failed — and a page nobody cross-checked must
+       * never come back looking confirmed.
+       */
+      readersAttempted,
+      /** Which pair actually ran, not which one was configured. */
+      readers: readersName,
+      pagesUsed: used,
+      costUsd: Math.round(spent * 10000) / 10000,
+      // Zero across a whole report means the tools+system prefix is under the
+      // ~1024-token cache minimum, not that something is broken.
+      cacheReadTokens: reads.reduce((s, r) => s + r.usage.cacheReadTokens, 0),
+      budget: await budgetState(env.BUDGET, "extract", budgetLimit(env)),
+    },
+  };
 }
-
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {

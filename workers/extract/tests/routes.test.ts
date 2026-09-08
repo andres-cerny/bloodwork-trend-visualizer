@@ -338,6 +338,62 @@ describe("extraction path selection", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("with TEXT_READERS=cheap reads text once with the cheap model and images still twice", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const env = makeEnv({ TEXT_READERS: "cheap" });
+    await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.model).toBe("claude-haiku-4-5");
+
+    calls = [];
+    await worker.fetch(post("/api/extract", { imageBase64: "AAAA", mediaType: "image/jpeg" }, s), env);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("with stream:true answers one JSON object per line — rows as written, then the whole answer", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    nextStream = {
+      text: "",
+      toolUse: {
+        name: "record_lab_results",
+        input: {
+          report_date: "2025-06-03",
+          report_date_raw: "3.6.2025",
+          lab_name: "Laboratoř Vzor",
+          patient_name: null,
+          patient_id: null,
+          measurements: [
+            { raw_analyte_name: "S_Glukóza", value_raw: "5,32", unit_raw: "mmol/l", ref_range_raw: "(4,11-5,60)", row_index: 3, confidence: "high" },
+            { raw_analyte_name: "S_Urea", value_raw: "6,1", unit_raw: "mmol/l", ref_range_raw: "(2,8-8,0)", row_index: 4, confidence: "high" },
+          ],
+        },
+      },
+    };
+    const res = await worker.fetch(post("/api/extract", { rowsText: "x | y", stream: true }, s), makeEnv({ SINGLE_MODEL: "1" }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("x-ndjson");
+    const lines = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+    expect(lines.map((l) => l.type)).toEqual(["row", "row", "done"]);
+    expect(lines[0]).toMatchObject({ model: "claude-sonnet-5", row: { raw_analyte_name: "S_Glukóza", value_raw: "5,32" } });
+    const done = lines[2];
+    expect(done.mode).toBe("text");
+    expect(done.reads).toHaveLength(1);
+    expect(done.reads[0].measurements).toHaveLength(2);
+    expect(typeof done.costUsd).toBe("number");
+    // The streamed call was a streaming call to Claude, and its tool asked
+    // for eager input streaming — that is what makes rows arrive early.
+    expect(calls[0].body.stream).toBe(true);
+    expect(calls[0].body.tools[0].eager_input_streaming).toBe(true);
+  });
+
+  it("without stream:true answers exactly as before — plain JSON, buffered", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    const res = await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), makeEnv({ SINGLE_MODEL: "1" }));
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(calls[0].body.stream).toBeUndefined();
+    expect(((await res.json()) as any).reads).toHaveLength(1);
+  });
+
   it("rejects a request carrying neither rows nor an image", async () => {
     const s = await mintSession(SECRET, 600, 12);
     const res = await worker.fetch(post("/api/extract", {}, s), makeEnv());

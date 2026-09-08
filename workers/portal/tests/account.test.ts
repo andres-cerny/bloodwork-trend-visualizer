@@ -12,10 +12,11 @@ const SECRET = "test-portal-secret";
 
 interface Tables {
   users: Array<{ id: string; email: string; created_at: string; settings: string | null }>;
-  invites: Array<{ code: string; used_by: string | null; used_at: string | null }>;
-  tokens: Array<{ token_hash: string; user_id: string }>;
+  invites: Array<{ code: string; used_by: string | null; used_at: string | null; expires_at: string | null; user_id: string | null }>;
+  failures: Array<{ email: string; at: number }>;
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string }>;
+  shares: Array<{ token_hash: string; user_id: string }>;
 }
 
 function fakeD1(t: Tables): D1Database {
@@ -23,6 +24,8 @@ function fakeD1(t: Tables): D1Database {
     switch (sql) {
       case SQL.userById:
         return { results: t.users.filter((u) => u.id === a[0]), changes: 0 };
+      case SQL.settingsForUser:
+        return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ settings: u.settings })), changes: 0 };
       case SQL.reportsForUser:
         return { results: t.reports.filter((r) => r.user_id === a[0]).map((r) => ({ id: r.id, payload: r.payload })), changes: 0 };
       case SQL.pageKeysForUser: {
@@ -40,14 +43,24 @@ function fakeD1(t: Tables): D1Database {
         t.reports = t.reports.filter((r) => r.user_id !== a[0]);
         return { results: [], changes: before - t.reports.length };
       }
-      case SQL.deleteTokensForUser: {
-        const before = t.tokens.length;
-        t.tokens = t.tokens.filter((k) => k.user_id !== a[0]);
-        return { results: [], changes: before - t.tokens.length };
+      case SQL.clearLoginFailures: {
+        const before = t.failures.length;
+        t.failures = t.failures.filter((f) => f.email !== a[0]);
+        return { results: [], changes: before - t.failures.length };
+      }
+      case SQL.deleteSharesForUser: {
+        const before = t.shares.length;
+        t.shares = t.shares.filter((s) => s.user_id !== a[0]);
+        return { results: [], changes: before - t.shares.length };
       }
       case SQL.unlinkInvites: {
         let n = 0;
-        for (const i of t.invites) if (i.used_by === a[0]) (i.used_by = null), n++;
+        for (const i of t.invites) {
+          if (i.used_by !== a[0] && i.user_id !== a[0]) continue;
+          if (i.used_by === a[0]) i.used_by = null;
+          if (i.user_id === a[0]) i.user_id = null;
+          n++;
+        }
         return { results: [], changes: n };
       }
       case SQL.deleteUser: {
@@ -114,10 +127,13 @@ beforeEach(() => {
   tables = {
     users: [{ ...A }, { ...B }],
     invites: [
-      { code: "code-a", used_by: "u-a", used_at: "2026-01-01" },
-      { code: "code-b", used_by: "u-b", used_at: "2026-01-01" },
+      { code: "code-a", used_by: "u-a", used_at: "2026-01-01", expires_at: null, user_id: null },
+      { code: "code-b", used_by: "u-b", used_at: "2026-01-01", expires_at: null, user_id: null },
+      // A set-password link minted for A and never used: it must open nothing
+      // once A is gone.
+      { code: "heslo-a", used_by: null, used_at: null, expires_at: "2099-01-01T00:00:00Z", user_id: "u-a" },
     ],
-    tokens: [{ token_hash: "ta", user_id: "u-a" }, { token_hash: "tb", user_id: "u-b" }],
+    failures: [{ email: "a@example.com", at: 1 }, { email: "b@example.com", at: 1 }],
     reports: [
       { id: "r-1", user_id: "u-a", report_date: "2026-03-04", lab_name: "Lab", payload: payload("r-1", "2026-03-04") },
       { id: "r-2", user_id: "u-a", report_date: "2026-05-04", lab_name: "Lab", payload: payload("r-2", "2026-05-04") },
@@ -128,6 +144,7 @@ beforeEach(() => {
       { report_id: "r-2", page_num: 1, kv_key: "u-a/r-2/page_1" },
       { report_id: "r-9", page_num: 1, kv_key: "u-b/r-9/page_1" },
     ],
+    shares: [{ token_hash: "ha", user_id: "u-a" }, { token_hash: "hb", user_id: "u-b" }],
   };
   pages = fakeKv(["u-a/r-1/page_1", "u-a/r-2/page_1", "u-b/r-9/page_1"]);
   env = {
@@ -145,10 +162,18 @@ describe("export", () => {
     const res = await call(A, "GET", "/api/export");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="moje-krev-\d{4}-\d{2}-\d{2}\.json"/);
-    const body = (await res.json()) as { email: string; reports: Array<{ id: string; patientName: unknown }> };
+    const body = (await res.json()) as { email: string; aiContext: unknown; reports: Array<{ id: string; patientName: unknown }> };
     expect(body.email).toBe("a@example.com");
     expect(body.reports.map((r) => r.id)).toEqual(["r-1", "r-2"]);
     expect(body.reports.every((r) => r.patientName === null)).toBe(true);
+    expect(body.aiContext).toBeNull();
+  });
+
+  it("carries the AI context when the person wrote one — the export is everything", async () => {
+    tables.users[0].settings = JSON.stringify({ learned: { glukoza: ["S_Glukóza"] }, aiContext: { sex: "m", ageBand: "30-34", note: "po závodě" } });
+    const body = (await (await call(A, "GET", "/api/export")).json()) as { aiContext: unknown; learned?: unknown };
+    expect(body.aiContext).toEqual({ sex: "m", ageBand: "30-34", note: "po závodě" });
+    expect(body.learned).toBeUndefined();
   });
 
   it("flattens to one printed row per CSV line, with a BOM for Excel", async () => {
@@ -159,9 +184,9 @@ describe("export", () => {
     const bytes = new Uint8Array(await res.arrayBuffer());
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     const lines = new TextDecoder().decode(bytes).trim().split("\r\n");
-    expect(lines[0]).toBe("datum;laborator;parametr;nazev;hodnota;jednotka;rozmezi;stav;report");
+    expect(lines[0]).toBe("datum;laborator;parametr;nazev;hodnota;jednotka;rozmezi;stav;overeno;report");
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toBe('"2026-03-04";"Lab";"S_Glukóza";"glukoza";"5,32";"mmol/l";"(4,11-5,60)";"normal";"r-1"');
+    expect(lines[1]).toBe('"2026-03-04";"Lab";"S_Glukóza";"glukoza";"5,32";"mmol/l";"(4,11-5,60)";"normal";"";"r-1"');
   });
 
   it("is each account's own", async () => {
@@ -179,7 +204,9 @@ describe("delete account", () => {
     expect(tables.users.map((u) => u.id)).toEqual(["u-b"]);
     expect(tables.reports.map((r) => r.id)).toEqual(["r-9"]);
     expect(tables.pages.map((p) => p.kv_key)).toEqual(["u-b/r-9/page_1"]);
-    expect(tables.tokens.map((t) => t.user_id)).toEqual(["u-b"]);
+    expect(tables.shares.map((s) => s.user_id)).toEqual(["u-b"]);
+    expect(tables.failures.map((f) => f.email)).toEqual(["b@example.com"]);
+    expect(tables.invites.find((i) => i.code === "heslo-a")!.user_id).toBeNull();
     expect([...pages._store.keys()]).toEqual(["u-b/r-9/page_1"]);
   });
 
@@ -199,10 +226,24 @@ describe("delete account", () => {
       new Request("https://portal/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ invite: "code-a", email: "new@example.com" }),
+        body: JSON.stringify({ code: "code-a", email: "new@example.com", password: "dlouhé heslo 1" }),
       }),
       env,
     );
     expect(res.status).toBe(403);
+  });
+
+  it("unbinds a set-password link minted for the account, so it opens nothing", async () => {
+    await call(A, "DELETE", "/api/account");
+    const res = await worker.fetch(
+      new Request("https://portal/api/auth/password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: "heslo-a", password: "dlouhé heslo 1" }),
+      }),
+      env,
+    );
+    expect(res.status).toBe(403);
+    expect(tables.invites.find((i) => i.code === "heslo-a")!.used_at).toBeNull();
   });
 });

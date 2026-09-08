@@ -6,27 +6,32 @@
  * route tests), so a query added here without a fake branch fails loudly in
  * tests rather than silently returning nothing.
  *
- * Writes that must be single-use under a race — burning an invite, spending a
- * login token — are conditional UPDATEs checked via meta.changes, never a
- * SELECT-then-UPDATE pair.
+ * Writes that must be single-use under a race — burning an invite — are
+ * conditional UPDATEs checked via meta.changes, never a SELECT-then-UPDATE
+ * pair.
  */
 export const SQL = {
-  inviteByCode: "SELECT code, used_by, used_at FROM invites WHERE code = ?1",
+  inviteByCode: "SELECT code, used_at, expires_at, user_id FROM invites WHERE code = ?1",
   // Spent means used_at is set. used_by is unlinked when an account is
   // deleted (the row it referenced is gone), and a code must not come back to
-  // life because of that.
-  burnInvite: "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_at IS NULL",
-  userByEmail: "SELECT id, email, created_at FROM users WHERE email = ?1",
-  userById: "SELECT id, email, created_at FROM users WHERE id = ?1",
-  insertUser: "INSERT INTO users (id, email, created_at) VALUES (?1, ?2, ?3)",
+  // life because of that. The expiry is checked here too, so a link that ran
+  // out between the page's check and the submit still spends nothing.
+  burnInvite:
+    "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_at IS NULL AND (expires_at IS NULL OR expires_at > ?3)",
+  userByEmail:
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters FROM users WHERE email = ?1",
+  userById: "SELECT id, email, created_at, password_hash, password_salt, password_iters FROM users WHERE id = ?1",
+  insertUser:
+    "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+  setPassword: "UPDATE users SET password_hash = ?2, password_salt = ?3, password_iters = ?4 WHERE id = ?1",
   deleteUser: "DELETE FROM users WHERE id = ?1",
-  insertLoginToken:
-    "INSERT INTO login_tokens (token_hash, user_id, created_at, expires_at) VALUES (?1, ?2, ?3, ?4)",
-  loginTokenByHash:
-    "SELECT token_hash, user_id, expires_at, used_at FROM login_tokens WHERE token_hash = ?1",
-  spendLoginToken: "UPDATE login_tokens SET used_at = ?2 WHERE token_hash = ?1 AND used_at IS NULL",
-  countRecentLoginTokens:
-    "SELECT COUNT(*) AS n FROM login_tokens WHERE user_id = ?1 AND created_at > ?2",
+
+  // Login failures per e-mail, whether or not the e-mail has an account:
+  // the lockout must not be the one place that says which addresses exist.
+  countLoginFailures: "SELECT COUNT(*) AS n FROM login_failures WHERE email = ?1 AND at > ?2",
+  insertLoginFailure: "INSERT INTO login_failures (email, at) VALUES (?1, ?2)",
+  pruneLoginFailures: "DELETE FROM login_failures WHERE at < ?1",
+  clearLoginFailures: "DELETE FROM login_failures WHERE email = ?1",
 
   // Reports: the payload column is the lossless LabReport the client built;
   // the worker stores and returns it and never reads a value out of it.
@@ -47,13 +52,27 @@ export const SQL = {
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
   saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
 
+  // Sdílet s AI: the snapshot is stored as sent and served as stored. The
+  // public read is by hash only — the row never says whose it is to the
+  // reader, and the worker never inspects the text.
+  insertShare:
+    "INSERT INTO ai_shares (token_hash, user_id, snapshot, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+  shareByHash: "SELECT snapshot, expires_at, revoked_at FROM ai_shares WHERE token_hash = ?1",
+  liveShareForUser:
+    "SELECT expires_at FROM ai_shares WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?2 ORDER BY created_at DESC LIMIT 1",
+  revokeSharesForUser: "UPDATE ai_shares SET revoked_at = ?2 WHERE user_id = ?1 AND revoked_at IS NULL",
+  // The live link's text replaced in place: the URL the person may already
+  // have pasted somewhere keeps working, now with the newer text.
+  updateLiveShare: "UPDATE ai_shares SET snapshot = ?2 WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?3",
+
   // Account deletion, in the order the foreign keys allow. Everything an
-  // account owns is reachable from these five; there is nothing else.
+  // account owns is reachable from these, plus the failure counter keyed by
+  // its e-mail; there is nothing else.
   pageKeysForUser: "SELECT p.kv_key FROM report_pages p JOIN reports r ON r.id = p.report_id WHERE r.user_id = ?1",
   deletePagesForUser: "DELETE FROM report_pages WHERE report_id IN (SELECT id FROM reports WHERE user_id = ?1)",
   deleteReportsForUser: "DELETE FROM reports WHERE user_id = ?1",
-  deleteTokensForUser: "DELETE FROM login_tokens WHERE user_id = ?1",
-  unlinkInvites: "UPDATE invites SET used_by = NULL WHERE used_by = ?1",
+  deleteSharesForUser: "DELETE FROM ai_shares WHERE user_id = ?1",
+  unlinkInvites: "UPDATE invites SET used_by = NULL, user_id = NULL WHERE used_by = ?1 OR user_id = ?1",
 } as const;
 
 export interface ReportRow {
@@ -72,11 +91,23 @@ export interface UserRow {
   id: string;
   email: string;
   created_at: string;
+  /** All three null for an account that has never set a password. */
+  password_hash: string | null;
+  password_salt: string | null;
+  password_iters: number | null;
 }
 
-export interface LoginTokenRow {
-  token_hash: string;
-  user_id: string;
+export interface InviteRow {
+  code: string;
+  used_at: string | null;
+  /** ISO 8601; null on codes minted before links expired. */
+  expires_at: string | null;
+  /** Set on a set-password link; null on a sign-up link. */
+  user_id: string | null;
+}
+
+export interface AiShareRow {
+  snapshot: string;
   expires_at: number;
-  used_at: number | null;
+  revoked_at: number | null;
 }

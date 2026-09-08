@@ -6,12 +6,20 @@ same deterministic layer: people log in, upload their Czech lab PDFs, verify
 the extraction, and see their trends again on every later visit. Friends and
 family first; built so growing doesn't mean rebuilding.
 
+Continued in [moje-krev-round-2.md](moje-krev-round-2.md) (2026-09-05): charts,
+redaction review, the AI share tab.
+
+| Later plan | Where |
+|---|---|
+| Password login — e-mail + password, invitation links that expire; replaces the magic link (2026-09-05) | [moje-krev-login.md](moje-krev-login.md) |
+
 ## What is being built
 
 **`apps/portal`** — a logged-in bloodwork trend visualizer. Same clinical core
 as `apps/bloodwork` (extract → verify → trend), but:
 
-- **Accounts.** Invite-only signup, email magic-link login, ~90-day sessions.
+- **Accounts.** Invite-only signup, e-mail + password login (was a magic
+  link until 2026-09-05), ~90-day sessions.
   One person per login; the account *is* the patient.
 - **Persistence.** Extracted results and redacted page images survive logout.
   Upload once, see the trend forever.
@@ -34,7 +42,7 @@ uploads and the public demo can never freeze each other's ledger.
 | Extraction budget | Second deployment `moje-krev-extract`, own KV ledger | The demo freezing the family (or the reverse) is the cross-freeze the per-capability split exists to prevent; isolation by deployment needs zero changes to the finished worker |
 | First user | Andres, via the product itself | Real PDFs are uploaded through the app on his own device once deployed — the seed IS the first honest test; real data never enters the repo or a cloud dev container |
 | Signup | Invite codes issued by Andres | No open registration — nobody random spends the Claude API budget |
-| Login | Email magic link (Resend free tier), ~90-day sessions | No passwords to store or reset for a medical-data app; same HMAC construction as `@bw/gate`, portal-local claims |
+| Login | ~~Email magic link (Resend free tier)~~ → e-mail + password since 2026-09-05 ([moje-krev-login.md](moje-krev-login.md)); ~90-day sessions | The link only ever reached one address without a mail domain; the session stays the same HMAC construction as `@bw/gate`, portal-local claims |
 | Identity at rest | **None.** Redact in the browser; the original PDF never leaves the device | Name, rodné číslo, address and birth date are painted out of the page images and stripped from the text layer *client-side*, before upload. The server holds health numbers keyed to an email, linked to no identity |
 | Consent-based storage of rodné číslo | Rejected | GDPR special-category data + national identifier on the weakest legal basis, for a field nothing needs — the login is the identity |
 | Original PDFs | Never stored, never uploaded | Verification uses redacted page images, exactly like the demo's verify tab; re-extraction later means re-uploading, an accepted cost |
@@ -101,9 +109,11 @@ the TS module serves the portal, so they are siblings, not mirrors.
 
 ```sql
 users        (id TEXT PK, email UNIQUE, created_at,
-              settings TEXT)                 -- registry learned synonyms, prefs
-invites      (code TEXT PK, note, created_at, used_by → users, used_at)
-login_tokens (token_hash TEXT PK, user_id → users, expires_at, used_at)
+              settings TEXT,                 -- registry learned synonyms, prefs
+              password_hash, password_salt, password_iters)  -- PBKDF2, per row
+invites      (code TEXT PK, note, created_at, used_by → users, used_at,
+              expires_at, user_id → users)   -- bound = set-password link
+login_failures (email, at)                   -- ten in 15 min locks the e-mail
 reports      (id TEXT PK, user_id → users, report_date, lab_name,
               payload TEXT, created_at)      -- full LabReport JSON, source of truth
 report_pages (report_id → reports, page_num, kv_key, width, height)
@@ -269,7 +279,7 @@ deploy) or stay on Andres's machine (self-deploy) — never into chat or git.
    D1:Edit, Workers KV Storage:Edit, Account Settings:Read. Store as
    `CLOUDFLARE_API_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`, from the dashboard's
    right rail) in the environment settings — or skip and run deploys locally.
-2. **Resend** — resend.com, free tier. An API key alone delivers only to the
+2. **Resend** — *no longer needed since 2026-09-05: login is by password and every link is minted by hand ([moje-krev-login.md](moje-krev-login.md)).* Kept for the record: resend.com, free tier. An API key alone delivers only to the
    account owner's address — enough for the first weeks. Verifying a real
    domain (DNS records Resend prints) lifts that for the family; the sender
    then changes from `onboarding@resend.dev` in one place (`MAIL_FROM`).
