@@ -1165,3 +1165,193 @@ over-specifies. The rule should be that a status is a value, and say nothing
 about the other columns, which are transcribed like any other. Recorded here
 rather than patched silently, because the fix changes a prompt that has just
 been measured and the measurement should be repeated after it.
+
+## Phase D — the sentences, one at a time (2026-09-08, free)
+
+Four wordings were tried on the vision prompt, each dumped fresh through
+`subagent_dump_images.bench.ts` so the readers saw the edited text rather than a
+paraphrase, each read by Sonnet-shaped subagents, each scored by
+`subagent_score_images.bench.ts` against the arm already on disk. **One was
+kept.** The three the plan proposed were dropped, and the reason is the same in
+all three cases and worth more than the sentences would have been.
+
+### The briefs were the bug, and removing them changed the question
+
+Every Claude arm scored before today was read by a subagent whose brief
+*described this repository's sheets* — the `Zkr.` abbreviation column, the slash
+prefixes, the Slovak headers. That is an advantage the deployed model does not
+have, and it made the Claude readers look better than the measurement was
+entitled to claim. Every read below was taken under a brief that says only:
+here is the system prompt, here is the tool schema, here is the image,
+transcribe from the image alone and open no other file in the repository.
+
+That is the reason the baseline moved and then would not move again.
+
+### D0-fix — a status is a value, and nothing more
+
+Measured on the 16 photo pages that print a status row, 588 truth rows.
+
+> ~~`Je-li místo hodnoty vytištěn stav …, je to také výsledek — vrať ho jako
+> hodnotu s prázdnou jednotkou i intervalem.`~~
+> `Je-li místo hodnoty vytištěn stav …, je ten stav hodnotou; řádek přepiš
+> jako každý jiný.`
+
+```
+arm                pages truth  rows match  miss extra valERR
+sonnet_vision_d0      16   588   588   588     0     0      0
+sonnet_d0fix          16   588   588   588     0     0      0
+opus_vision_d0        16   588   588   588     0     0      0
+opus_d0fix            16   588   588   588     0     0      0
+```
+
+The row columns cannot show this defect, because `valueErrors` compares
+`value_raw` and the defect is in the column beside it. The measurement that
+matters is the four pages where `S_Vitamin D celkový  neprovedeno  nmol/l`
+prints a status *and* a unit:
+
+| arm | status rows carrying a printed unit | unit transcribed exactly |
+|---|---|---|
+| `sonnet_vision_d0` | 4 | 4 |
+| `sonnet_d0fix` | 4 | 4 |
+| `opus_vision_d0` | 4 | **0** — unit dropped on all four |
+| `opus_d0fix` | 4 | **4** |
+
+**Kept.** Opus goes from losing a printed unit on every one of those pages to
+losing none, Sonnet is unchanged, and no other column moves on either reader.
+
+One correction to the note that prompted this. It says both readers discarded
+the printed unit; the persisted output says only Opus did — and `opus_vision`,
+read under the *pre-D0* prompt, dropped it too. So the old sentence did not
+create Opus's behaviour, it merely licensed it. The new sentence removes the
+licence, which is the whole of what a prompt can do here.
+
+### D1 — the prefix list. Dropped.
+
+> `(včetně předpony jako 'S_', 'S/', 'S-', 'S,P-', 'U-' nebo 'dU_')`
+> replacing `(včetně předpony jako 'S_' nebo 'B_')`
+
+### D3 — the abbreviation column. Dropped.
+
+> `Tiskne-li list zkratku i celý název ve dvou sloupcích, názvem analytu je
+> celý název.`
+
+### D4 — Slovak. Dropped.
+
+> `List může být i slovensky; přepisuj v jazyce, ve kterém je vytištěn.`
+
+All three were measured on the same 15 pages — eight synthetic fixtures
+(`slash_prefix`, `hyphen_comma_prefix`, `zkr_column`, `slovak_grouped`, plus
+`standard`, `two_column`, `urine_no_prefix`, `mixed_material` as the regression
+set) and seven public scans (`euc_p34`, `breclav_p121`, `breclav_p122`,
+`unilabs_sk_p2`, plus `stod_p1`, `stod_p2`, `breclav_hem_p80`) — 202 truth rows
+in scope. Each sentence was added to the D0-fixed prompt alone and then
+reverted, so none of them is measured on top of another.
+
+```
+                    ── public, 7 pages ──   ── synthetic, 8 pages ──
+arm                truth match miss extra   truth match miss extra   valERR
+sonnet_dA  (base)    152   152    0     0      50    50    0     0        0
+sonnet_dB  (+D1)     152   152    0     0      50    50    0     0        0
+sonnet_dC  (+D3)     152   152    0     0      50    50    0     0        0
+sonnet_dD  (+D4)     152   152    0     0      50    50    0     0        0
+```
+
+Every pair of those four arms confirms all 202 rows with **nothing flagged**:
+the four reads are identical cell for cell. The sentences changed no output at
+all.
+
+**Why they were dropped.** The rule is that an addition is adopted only if its
+target class improves. The target class was already perfect before any of them
+was written — with the briefs removed, which is what made the test worth
+running. Sonnet returned `S/Sodík`, `S,P-glukóza`, `U-amyláza` and `dU_Kreatinin`
+with their prefixes intact; on `zkr_column` and Břeclav p122 it put the full
+name in `raw_analyte_name` and the abbreviation in the snippet, unprompted; and
+it transcribed the Unilabs SK sheet in Slovak, `negatívne` and all. There is no
+headroom for a sentence to buy back.
+
+**What the evidence for D3 actually was.** The 14 rows lost to `URE urea` on
+Břeclav p122 are **Gemini's**, not a Claude reader's, and Gemini is a tier-2
+arm: re-reading 144 pages under a new prompt costs about $1.92 and needs
+approval before it runs. So the sentence's one piece of supporting evidence
+cannot be tested for free, and adding an untested sentence on the strength of
+another provider's failure is how the D0 wording went wrong in the first place.
+It stays available, written down here, for whoever proposes that paid run.
+
+The general finding is the one Phase C already recorded and this measures
+properly: **adaptability lives in lab-core, not in the prompt.** Three
+conventions that broke the parser outright never troubled the reader, even with
+nothing in its brief to warn it.
+
+### The full corpus under the final prompt — 133 photo pages, 3,585 truth rows
+
+`out/sonnet_vision_dF/`, Sonnet-shaped subagents, 17 batches of eight, the
+D0-fixed prompt and nothing else added.
+
+```
+variant             pages read truth  rows match  miss extra marker scope valERR
+sonnet_vision_dF     133  133  3585  3593  3585     0     8     16    92      0
+sonnet_vision        133  133  3585  3546  3542    43     4     16    92      0
+opus_vision          133  133  3585  3585  3577     8     8     16    92      0
+gemini38_ultra       133  133  3585  3593  3583     2    10     16    92      0
+gemini38_tiled       133  133  3585  3596  3585     0    11     16    92      0
+gemini38_high        133  132  3551  3564  3546     5    18     16    92      0
+haiku_vision         133  133  3585  3574  3360   225   214     16    92     40
+mistral_ocr          133  133  3585  3663  3477   108   186     16    92     72
+```
+
+**The extrapolation was pessimistic. Sonnet finishes on 0 misses, not 4.** It
+matches every one of the 3,585 truth rows on all 133 shots, in every condition
+including `angle`, `glare`, `dark`, `crop` and the two-page frame, with zero
+value errors. Opus, on the same corpus, misses 8 — the second
+`25-hydroxyvitamin D` line on the CASRI pages, whose analyte name is not
+reprinted on the continuation row. Sonnet under the new prompt returns it;
+Sonnet under the old one did not, and neither does Opus.
+
+Sonnet's 8 extras are all one row: `KO+diferenciál 5p.`, the AGILAB panel
+header printed with a bare `#` where a value would go, on the four shots each
+of `2022_10_17_krev` p1 and `2024_02_02` p1. The scorer drops such a row from
+*truth* (`isMeasurementRow`) and charges it to any reader that returns it. Both
+Gemini arms return it too — 10 and 11 times. It carries no number to be wrong
+about and `parseValue("#")` is null, so it reaches the app as a row with no
+value, never as a measurement on a chart.
+
+### The pairs, and the one column that needs adjudicating
+
+```
+pair                              pages confirmed flagged UNCAUGHT caught
+gemini38_ultra+sonnet_vision_dF     133      3589       8        6      0
+gemini38_ultra+opus_vision          133      3575      28        0      0
+gemini38_ultra+sonnet_vision        133      3540      59        0      0
+gemini38_tiled+sonnet_vision_dF     133      3592       5        7      0
+opus_vision+sonnet_vision_dF        133      3577      24        0      0
+opus_vision+sonnet_vision           133      3542      47        4      0
+```
+
+**All six "uncaught" rows on `gemini38_ultra+sonnet_vision_dF` are the same
+`KO+diferenciál 5p. ∅→#` marker**, and they are a scorer artefact, not a value
+error. `valueErrors` already exempts a bare-marker truth row from being charged
+to anyone; `pairStats` does not, so when both readers faithfully return the
+printed `#` the pair is recorded as having invented a row. The Gemini-only
+pairs show the same thing — `gemini38_tiled+gemini38_ultra` carries 7 of them
+and has for two days. Adjudicated to 0 genuine uncaught value errors, which is
+the same verdict every Claude+Gemini pair has had; if the column is to be
+trusted without adjudication, `pairStats` needs the exemption `valueErrors`
+already has.
+
+The four uncaught rows on `opus_vision+sonnet_vision` are *not* an artefact:
+both readers returned `76,7` on a row whose printed name they both dropped. The
+new prompt removes them — `opus_vision+sonnet_vision_dF` is clean.
+
+### Does the pair recommendation move? Yes.
+
+**The case for Opus on photographs is gone.** It was bought to recover rows
+Sonnet was dropping; Sonnet now drops none, and Opus drops eight that Sonnet
+returns. On flagged rows — the cost of human review — the Sonnet pair is four
+times cheaper to check: 8 flagged against 28.
+
+`gemini38_ultra+sonnet_vision` stands as the recommendation, and now stands on
+better ground than "Opus is not worth twice the price": it is the better pair on
+every column, adjudication included. Two caveats, both already in this document:
+Gemini's numbers are tier-2 reads taken under the *pre-D0* prompt, so the pair
+table mixes prompts and the Gemini half can only improve when it is re-read
+(≈ $1.92, needs approval); and a subagent is not the API.

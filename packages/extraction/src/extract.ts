@@ -52,8 +52,15 @@ export const SYSTEM_EXTRACT =
   // from a reading failure. Material is NOT mentioned here on purpose — urine
   // is excluded deterministically by lab-core, and the model's job stays
   // "transcribe what is printed".
+  //
+  // The first wording ("vrať ho jako hodnotu s prázdnou jednotkou i
+  // intervalem") over-specified: `S_Vitamin D celkový  neprovedeno  nmol/l`
+  // prints a status *and* a unit, and Opus dutifully threw the unit away.
+  // The rule is only that a status is a value; the other columns are
+  // transcribed like any other row's. See docs/lab-adaptability.md, "Phase D
+  // — the sentences, one at a time".
   "Je-li místo hodnoty vytištěn stav (např. 'málo materiálu', 'neprovedeno'), " +
-  "je to také výsledek — vrať ho jako hodnotu s prázdnou jednotkou i intervalem. " +
+  "je ten stav hodnotou; řádek přepiš jako každý jiný. " +
   "Řádky o převzetí vzorku (např. 'Krev srážlivá přijato'), pomocné řádky o " +
   "zpracování vzorku a údaje o pacientovi jako hmotnost nebo výška výsledky " +
   "nejsou; nevracej je. " +
@@ -81,7 +88,7 @@ export const SYSTEM_EXTRACT_TEXT =
   // The same two sentences as SYSTEM_EXTRACT, and for the same reason; see
   // the comment there.
   "Je-li místo hodnoty vytištěn stav (např. 'málo materiálu', 'neprovedeno'), " +
-  "je to také výsledek — vrať ho jako hodnotu s prázdnou jednotkou i intervalem. " +
+  "je ten stav hodnotou; řádek přepiš jako každý jiný. " +
   "Řádky o převzetí vzorku (např. 'Krev srážlivá přijato'), pomocné řádky o " +
   "zpracování vzorku a údaje o pacientovi jako hmotnost nebo výška výsledky " +
   "nejsou; nevracej je. " +

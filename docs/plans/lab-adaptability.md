@@ -540,6 +540,18 @@ deterministically, which a downloaded PDF cannot.
 
 [x] 2026-09-08 — F done; 4 154 handbook forms → 22 failures → 30 parity cases, fixture 105 → 135, both sides green, four faults reintroduced and watched failing
 
+[x] 2026-09-08 — D — four sentences tried, one kept. D0's wording fixed (a status
+    is a value, nothing said about the other columns): Opus stops discarding a
+    printed unit, Sonnet unchanged. **D1 (prefix list), D3 (abbreviation column)
+    and D4 (Slovak) all dropped** — with the subagent briefs stripped of every
+    hint about our sheets, Sonnet was already at 202 of 202 on the target pages
+    and the three sentences changed no output at all. D3's only evidence is
+    Gemini's, which is a paid re-read. Full corpus under the final prompt:
+    **Sonnet 3585/3585, 0 misses, 0 value errors on all 133 photo pages** against
+    Opus's 8 misses. The pair recommendation moves: `gemini38_ultra+sonnet` now
+    wins on every column and the case for Opus is gone. Tables in
+    docs/lab-adaptability.md.
+
 ## Open items
 
 - Confirm scanned PDF pages take the photo reader pair (assumed above).
