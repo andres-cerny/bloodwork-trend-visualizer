@@ -31,10 +31,18 @@
     // the second opinion — Ondřej's call was to keep two readers.
     "MAX_PAGES_PER_SESSION": "30",
     "SESSION_TTL_SECONDS": "1800",
-    // PHOTO_READERS is left at the code default (sonnet+haiku) and there is no
-    // GEMINI_API_KEY here: the demo's photo pair is evaluated on the demo's
-    // ledger first, and this deployment holds real family data.
-    "PHOTO_READERS": "sonnet+haiku"
+    // Sonnet 5 with Gemini 3.8 Flash on the image path, Ondřej's call on
+    // 2026-09-09 after the demo ran it. Measured over 133 simulated
+    // photographs and 3,585 rows: this pair confirms 3,583 with five rows
+    // flagged and none uncaught, where sonnet+haiku leaves 40 value errors
+    // for the other reader to catch and sends 494 rows to review.
+    //
+    // It sends page images to a second processor, so /soukromi says so — the
+    // sentence renders from this var through /api/processors rather than
+    // being written by hand, precisely so a change here cannot leave the
+    // promise behind. The text path is untouched: its characters come from
+    // the file, and one variable back to sonnet+haiku reverses this.
+    "PHOTO_READERS": "sonnet+gemini"
   },
 
   "observability": { "enabled": true }
