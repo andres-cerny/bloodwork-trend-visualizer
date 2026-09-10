@@ -427,7 +427,7 @@ the three client rules in `packages/lab-core/src/candidates.ts` and
 `apps/portal/src/lib/interpret.ts` — and then deliberately left unset, which
 is the next section.
 
-### Built the same day: parallel files and streamed rows (not deployed)
+### Built the same day: parallel files and streamed rows (deployed 2026-09-02)
 
 Ondřej chose to keep both readers. The wait was attacked from the other two
 sides instead, in `apps/portal`:
