@@ -1,0 +1,73 @@
+{
+  "slug": "bulovka_okbi",
+  "source": "fetched/renders/bulovka_okbi_vyslist.jpg",
+  "page": 1,
+  "language": "cs",
+  "lab": "OKBI Nemocnice Na Bulovce - KLINICKO-BIOCHEMICKÁ LAB., Budínova 2, 180 81 Praha 8",
+  "lis": "UNIS-STEINER (footer '© 1991-2013, rev. 13-06-13/LAB')",
+  "conventions": [
+    "a 642x545 JPEG screenshot, not a PDF: no text layer, JPEG ringing around every glyph; the Výkon codes are ~8 px tall",
+    "column order: Výkon | Název metody | Výsledek | Rozměr | (unlabelled '[*]' column) | Ref. meze",
+    "leading Výkon column with the five-digit VZP procedure code (81593, 81393, 81469, 81621, 81499) — stored in `vykon_code`",
+    "no material prefix on names; material is an italic group line 'Krev' above the rows, stored in `material`",
+    "PERIOD decimals in values and ranges: '4.00', '3.80-5.50'; integers stay bare ('140', '132-149')",
+    "ranges 'lo-hi' with a plain hyphen and no spaces",
+    "values printed in bold monospace and right-aligned on the decimal point; names, units and ranges in a proportional font",
+    "'[*]' in the unlabelled column on every row — meaning not printed (all five values are in range); stored verbatim in `flag_raw`",
+    "unit column is titled 'Rozměr' (not Jednotka); mmol/l and µmol/l",
+    "'Předběžné výsledky' banner between the patient block and the table; 'Uvolnil: . . . .' dotted signature line and 'Strana 1/1' footer",
+    "patient block: 'Ukázka Výsl Listu' (monospace, in the name slot), ID 090909099, DG Z000, Plátce 111, Žadatel 'Laboratoř klinické biochemie / MUDr. Břešťan Daniel / 08006471 / 801', Datum odběru 23.09.2013-15:11, Číslo vzorku 09/23 0391"
+  ],
+  "rows": [
+    {
+      "vykon_code": "81593",
+      "raw_analyte_name": "Sodík",
+      "value_raw": "140",
+      "unit_raw": "mmol/l",
+      "flag_raw": "[*]",
+      "ref_range_raw": "132-149",
+      "material": "Krev",
+      "section": ""
+    },
+    {
+      "vykon_code": "81393",
+      "raw_analyte_name": "Draslík",
+      "value_raw": "4.00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "[*]",
+      "ref_range_raw": "3.80-5.50",
+      "material": "Krev",
+      "section": ""
+    },
+    {
+      "vykon_code": "81469",
+      "raw_analyte_name": "Chloridy",
+      "value_raw": "100",
+      "unit_raw": "mmol/l",
+      "flag_raw": "[*]",
+      "ref_range_raw": "97-108",
+      "material": "Krev",
+      "section": ""
+    },
+    {
+      "vykon_code": "81621",
+      "raw_analyte_name": "Urea",
+      "value_raw": "4.50",
+      "unit_raw": "mmol/l",
+      "flag_raw": "[*]",
+      "ref_range_raw": "2.00-7.50",
+      "material": "Krev",
+      "section": ""
+    },
+    {
+      "vykon_code": "81499",
+      "raw_analyte_name": "Kreatinin",
+      "value_raw": "60",
+      "unit_raw": "µmol/l",
+      "flag_raw": "[*]",
+      "ref_range_raw": "35-110",
+      "material": "Krev",
+      "section": ""
+    }
+  ]
+}

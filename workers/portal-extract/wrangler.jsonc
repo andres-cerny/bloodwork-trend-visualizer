@@ -1,0 +1,53 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+
+  // A second deployment of workers/extract — CONFIG ONLY, zero code of its
+  // own. The demo and the portal must not share a ledger: a family's batch of
+  // uploads freezing the public demo (or the demo freezing the family) is the
+  // exact cross-freeze the per-capability split exists to prevent, and the
+  // cheapest isolation is the one the repo already trusts — by binding, not
+  // by a WHERE clause. Separate name, separate KV, separate secrets; the
+  // extract worker itself stays finished.
+  "name": "moje-krev-extract",
+  "main": "../extract/src/index.ts",
+  "compatibility_date": "2025-01-01",
+  // The extract code imports node:fs/node:path through the Anthropic SDK; the
+  // demo deployment sets this too, and without it the first request throws.
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+
+  // Created at first deploy: npx wrangler kv namespace create moje-krev-budget
+  "kv_namespaces": [{ "binding": "BUDGET", "id": "5ff6ac11f3164679b2a7d1082f770761" }],
+
+  "vars": {
+    // Sessions are minted server-side by moje-krev-portal (a logged-in user
+    // replaces the demo's Turnstile), so hostnames stay unset here on
+    // purpose: /api/session refuses everything, and only /api/extract with a
+    // portal-minted token works.
+    "BUDGET_USD_LIMIT": "15",
+    // TEXT_READERS is deliberately unset: both readers on every page. Haiku
+    // alone measured equal on the text path (docs/extraction-speed.md,
+    // 2026-09-02), and the switch is kept for the day cost matters more than
+    // the second opinion — Ondřej's call was to keep two readers.
+    "MAX_PAGES_PER_SESSION": "30",
+    "SESSION_TTL_SECONDS": "1800",
+    // Sonnet 5 with Gemini 3.8 Flash on the image path, Ondřej's call on
+    // 2026-09-09 after the demo ran it. Measured over 133 simulated
+    // photographs and 3,585 rows: this pair confirms 3,583 with five rows
+    // flagged and none uncaught, where sonnet+haiku leaves 40 value errors
+    // for the other reader to catch and sends 494 rows to review.
+    //
+    // It sends page images to a second processor, so /soukromi says so — the
+    // sentence renders from this var through /api/processors rather than
+    // being written by hand, precisely so a change here cannot leave the
+    // promise behind. The text path is untouched: its characters come from
+    // the file, and one variable back to sonnet+haiku reverses this.
+    "PHOTO_READERS": "sonnet+gemini"
+  },
+
+  "observability": { "enabled": true }
+
+  // Secrets: ANTHROPIC_API_KEY, SESSION_SECRET (the SAME string as
+  // moje-krev-portal's EXTRACT_SESSION_SECRET — that pairing is Phase 3),
+  // TURNSTILE_SECRET_KEY (any placeholder; the session route is unused).
+}

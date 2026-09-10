@@ -41,6 +41,17 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The two readers' request construction. Free and offline: the Gemini
+      // request is built without a client and the call goes through a stubbed
+      // fetch, so nothing here needs a key.
+      name: "extraction",
+      root: "./packages/extraction",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "gate",
       root: "./packages/gate",
       include: ["tests/**/*.test.ts"],
@@ -114,9 +125,37 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The portal client's pure helpers: how a page's reads become rows,
+      // which is where a highlight lands on the wrong printed row.
+      name: "portal-app",
+      root: "./apps/portal",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
+      name: "portal",
+      root: "./workers/portal",
+      include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
       name: "extract",
       root: "./workers/extract",
       include: ["tests/**/*.test.ts"],
+      environment: "node",
+    },
+  },
+  {
+    test: {
+      // Repo-wide, so it is rooted here rather than in any one package: it
+      // reads every wrangler.jsonc and imports the entry each one names.
+      name: "guards",
+      root: ".",
+      include: ["tests/guards/**/*.test.ts"],
       environment: "node",
     },
   },

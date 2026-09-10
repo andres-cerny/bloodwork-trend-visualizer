@@ -74,6 +74,6 @@ jobs:
           python3 -m scripts.make_demo_data
           python3 -m scripts.make_chat_demo
           cd ../..
-          git diff --exit-code -- apps/bloodwork/public/demo/reports.json apps/bloodwork/public/demo/registry.json
+          git diff --exit-code -- apps/bloodwork/public/demo/reports.json apps/bloodwork/public/demo/registry.json apps/portal/public/registry.json
           git diff --exit-code -- apps/chat/public/demo/sport/reports.json apps/chat/public/demo/orto/reports.json
           git diff --exit-code -- tools/pipeline/out/seed_sport.sql tools/pipeline/out/seed_orto.sql

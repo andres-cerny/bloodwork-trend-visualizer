@@ -13,6 +13,7 @@ import type { Box } from "../models";
 import { buildRows, type TextRow } from "./rows";
 
 export * from "./rows";
+export * from "./redactPage";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -28,6 +29,14 @@ export const DISPLAY_DPI = 110;
  * Cap the long edge before upload. A 220 DPI A4 page is ~1800×2570, which is
  * more than the model needs and enough to strain a phone's memory across a
  * long report.
+ *
+ * **This is the PDF path's number and it stays.** A photograph is a different
+ * problem — there is no vector page to re-render, so every pixel thrown away
+ * here is gone — and each reader can see a different amount of it:
+ * `SONNET_IMAGE_MAX_EDGE` (2576, its tier) and `GEMINI_IMAGE_MAX_EDGE` (none,
+ * because Gemini spends a fixed token budget per image part whatever the pixels
+ * are) both live in @bw/extraction, beside the readers they describe. Nothing
+ * on the photo path may reach in and change this constant.
  */
 const MAX_EDGE = 1800;
 

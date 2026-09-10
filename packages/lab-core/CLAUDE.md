@@ -8,14 +8,26 @@ which is what makes a misread decimal catchable rather than plausible.
 `workers/agent` imports this for its tools; `tests/bench/` and `tests/live/` use it
 in plain node. `pdf/pdf.ts` is browser-only and reachable **only** as
 `@bw/lab-core/pdf` — that subpath is what keeps `pdfjs-dist` and canvas out of
-workerd. `pdf/rows.ts` is in the root export because it is pure coordinate
-arithmetic.
+workerd. `photo.ts` is the same arrangement for `@bw/lab-core/photo`, the one
+encode both apps' cameras go through. `pdf/rows.ts` is in the root export
+because it is pure coordinate arithmetic.
 
 ## This code exists twice
 
 `normalize.ts` mirrors `tools/pipeline/src/normalize.py`. Both read
 `tools/pipeline/tests/parity_cases.json`, and CI runs both sides. A change to
-one that is not mirrored fails there rather than drifting silently.
+one that is not mirrored fails there rather than drifting silently. The
+material-prefix rule (`S_`, `S/`, `S-`, `S,P-`, `dU_`) lives there too: underscore
+is generic, slash and hyphen are allowlisted so `anti-TPO` keeps its `anti`, and
+`s,p` stays one code that `materialsCompatible` accepts against `s` or `p`.
+
+The automatic match respects material too. `Registry.match(name, pageMaterial)`
+refuses a canonical whose material — derived from its prefixed synonyms,
+`S_Glukóza` → `s`, and relearned on every accepted mapping — contradicts the
+row's (its prefix, else its `Materiál` cell or the heading above it, which
+`matchRow` reads). Unknown on either side is compatible. `reconcile` keys a
+name one read returned twice on its row index, so the two rows survive to be
+matched. Python's `match` has no page material and stays name-only.
 
 ## Four rules with teeth
 

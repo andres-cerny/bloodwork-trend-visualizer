@@ -11,9 +11,11 @@
  * including the value-plausibility check that compares the unknown's values
  * against the range already observed for the candidate.
  */
-import type { LabReport } from "./models";
+import type { LabReport, Measurement } from "./models";
 import { normKey, type Registry } from "./registry";
+import { materialPrefix, materialsCompatible } from "./normalize";
 import { prettyUnit } from "./czech";
+import { printedMaterial } from "./pdf/rows";
 
 export interface Occurrence {
   reportId: string;
@@ -48,6 +50,9 @@ export function rangesCompatible(a: Range, b: Range): boolean {
   return union <= 0 ? true : overlap / union >= 0.3;
 }
 
+/** Where a measurement's material was read from, closest to the row first. */
+export type MaterialSource = "prefix" | "column" | "heading";
+
 /** An analyte name we could not map, with everywhere it was seen. */
 export interface UnmappedAnalyte {
   rawName: string;
@@ -55,6 +60,31 @@ export interface UnmappedAnalyte {
   occurrences: Occurrence[];
   /** The reference interval printed beside it, when the lab printed one. */
   refRange: Range | null;
+  /**
+   * The material the page states: a prefix on the name, else the row's
+   * `Materiál` cell, else the heading over the block — the same lowercase
+   * codes `materialPrefix` returns. Null when the page says nothing, which is
+   * also what a scan and the demo reports yield (no rows to read).
+   */
+  material: string | null;
+  materialSource: MaterialSource | null;
+}
+
+/**
+ * The material of one measurement, prefix first.
+ *
+ * The name is the closest evidence and the only one that survives without
+ * the page: "U_Bílkovina" is urine whatever heading it sits under. When the
+ * name is bare, the page's rows (kept on the report's Page for the text path)
+ * are read at the measurement's own row — its `Materiál` cell, then the
+ * nearest heading above it.
+ */
+export function materialOf(m: Measurement, report: LabReport): { code: string; source: MaterialSource } | null {
+  const prefix = materialPrefix(m.rawAnalyteName);
+  if (prefix) return { code: prefix, source: "prefix" };
+  const rows = report.pages.find((p) => p.pageNum === m.sourcePage)?.rows;
+  if (!rows) return null;
+  return printedMaterial(rows, m.rowIndex);
 }
 
 /** What the existing data already holds under a canonical id. */
@@ -96,16 +126,6 @@ export interface Candidate {
   incomingRange: [number, number] | null;
 }
 
-/**
- * The material a Czech lab prints before the analyte name: S_ (sérum),
- * B_ (plná krev), P_ (plazma), U_ (moč). Mapping a urine result onto a serum
- * analyte is a different test, not a synonym, however similar the names look.
- */
-export function materialPrefix(rawName: string): string | null {
-  const m = /^([a-zA-Z]{1,4})_/.exec((rawName || "").trim());
-  return m ? m[1].toLowerCase() : null;
-}
-
 export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
   const seen = new Map<string, UnmappedAnalyte>();
   for (const r of reports) {
@@ -113,11 +133,27 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
       if (m.canonicalId !== null) continue;
       let e = seen.get(m.rawAnalyteName);
       if (!e) {
-        e = { rawName: m.rawAnalyteName, unitRaw: m.unitRaw, occurrences: [], refRange: null };
+        e = {
+          rawName: m.rawAnalyteName,
+          unitRaw: m.unitRaw,
+          occurrences: [],
+          refRange: null,
+          material: null,
+          materialSource: null,
+        };
         seen.set(m.rawAnalyteName, e);
       }
       if (e.refRange === null && m.refRangeLow !== null && m.refRangeHigh !== null) {
         e.refRange = { low: m.refRangeLow, high: m.refRangeHigh };
+      }
+      // Occurrences are grouped by name; the first one that states a material
+      // speaks for the group (a name the mapping UI acts on is one name).
+      if (e.material === null) {
+        const mat = materialOf(m, r);
+        if (mat) {
+          e.material = mat.code;
+          e.materialSource = mat.source;
+        }
       }
       e.occurrences.push({
         reportId: r.id,
@@ -157,8 +193,8 @@ export function observedStats(reports: LabReport[]): Map<string, Observed> {
       if (m.value !== null) e.values.push(m.value);
       if (m.unit) e.units.set(m.unit, (e.units.get(m.unit) ?? 0) + 1);
       if (r.reportDate) e.dates.add(r.reportDate);
-      const mat = materialPrefix(m.rawAnalyteName);
-      if (mat) e.materials.add(mat);
+      const mat = materialOf(m, r);
+      if (mat) e.materials.add(mat.code);
       if (m.refRangeLow !== null && m.refRangeHigh !== null) {
         e.ranges.push({ low: m.refRangeLow, high: m.refRangeHigh });
       }
@@ -288,10 +324,11 @@ export function suggestMappings(
     }
 
     // Material: a urine result is not a serum result, whatever the names do.
-    const incomingMaterial = materialPrefix(analyte.rawName);
+    // Read off the name, the Materiál column or the heading (findUnmapped).
+    const incomingMaterial = analyte.material;
     let materialMatch: boolean | null = null;
     if (incomingMaterial && observed && observed.materials.length > 0) {
-      materialMatch = observed.materials.includes(incomingMaterial);
+      materialMatch = observed.materials.some((m) => materialsCompatible(m, incomingMaterial));
       score += materialMatch ? 0.05 : -0.4;
     }
 
@@ -396,8 +433,19 @@ function czMappingNum(x: number | null | undefined): string {
 
 const MATERIAL_CS: Record<string, string> = {
   s: "sérum", b: "plná krev", p: "plazma", u: "moč", pk: "plazma", fw: "krev",
+  du: "sbíraná moč", l: "likvor", "s,p": "sérum/plazma",
 };
 export const materialCs = (m: string): string => MATERIAL_CS[m] ?? m.toUpperCase();
+
+const MATERIAL_SOURCE_CS: Record<MaterialSource, string> = {
+  prefix: "",
+  column: " (podle sloupce)",
+  heading: " (podle nadpisu)",
+};
+
+/** "moč", or "moč (podle nadpisu)" when the name itself does not say. */
+export const materialWithSource = (code: string, source: MaterialSource | null): string =>
+  materialCs(code) + (source ? MATERIAL_SOURCE_CS[source] : "");
 
 /**
  * The evidence for one candidate, strongest signal first.
@@ -459,24 +507,29 @@ export function signalsOf(c: Candidate, incoming: UnmappedAnalyte): Signal[] {
             : "neodpovídají",
   });
 
-  // Worth a line whenever the lab printed a material prefix — including when
-  // it cannot be compared. A urine result mapped onto a serum analyte is a
+  // Worth a line whenever the page states a material — including when it
+  // cannot be compared. A urine result mapped onto a serum analyte is a
   // different test however alike the names look, so leaving the row out when
   // the candidate has no history yet hid the one fact most likely to stop a
-  // wrong mapping: that this reading came from urine at all.
-  const incomingMaterial = materialPrefix(incoming.rawName);
+  // wrong mapping: that this reading came from urine at all. A material read
+  // off the page rather than the name says so, because the reader looking at
+  // "Glukóza" cannot see it in the name and needs to know where to look.
+  const incomingMaterial = incoming.material;
   if (incomingMaterial) {
     const mats = o?.materials.map(materialCs).join(", ") ?? "";
+    const mine = materialWithSource(incomingMaterial, incoming.materialSource);
     out.push({
       key: "material",
       label: "Materiál",
       state: c.materialMatch === null ? "unknown" : c.materialMatch ? "ok" : "bad",
       detail:
         c.materialMatch === null
-          ? `${materialCs(incomingMaterial)} — není s čím porovnat`
+          ? `${mine} — není s čím porovnat`
           : c.materialMatch
-            ? `obojí ${mats}`
-            : `${materialCs(incomingMaterial)} vs ${mats}`,
+            ? incoming.materialSource === "prefix"
+              ? `obojí ${mats}`
+              : `${mine}, obojí ${mats}`
+            : `${mine} vs ${mats}`,
     });
   }
 

@@ -126,6 +126,28 @@ ul.reportlist {
 .drop .drop-sub { display: block; font-size: 0.76rem; color: var(--ink-muted); margin-top: 3px; }
 .drop input[type="file"] { display: none; }
 
+/*
+ * The camera, phones only.
+ *
+ * Hidden by default and revealed by `(pointer: coarse)` rather than by a
+ * JavaScript device guess: `capture` does nothing on a desktop, and a media
+ * query is the one test that stays right when a tablet is rotated or a window
+ * is resized. `display: none` also keeps it out of the tab order, which a
+ * `visibility` or opacity rule would not.
+ */
+.shoot { display: none; }
+@media (pointer: coarse) {
+  .shoot {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin-top: 8px; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--surface-1); color: var(--ink-2);
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  }
+  .shoot:hover { background: var(--surface-3); color: var(--ink-1); }
+  .shoot input[type="file"] { display: none; }
+}
+
 /* A processing run, reported step by step rather than as a spinner. */
 .runlog {
   margin: 9px 0 0; padding: 9px 10px; border-radius: var(--radius-sm);

@@ -50,7 +50,7 @@ describe("dark theme", () => {
     const covered = new Set(systemDark.map((d) => d.split(":")[0]));
     // Geometry tokens (radii, rail width) are not colours and never change.
     const colourish = light.filter((n) =>
-      /(plane|surface|ink|grid|border|series|status|band|chip|shadow|csm)/.test(n),
+      /(plane|surface|ink|accent|grid|border|series|status|band|chip|shadow|csm)/.test(n),
     );
     expect(colourish.filter((n) => !covered.has(n))).toEqual([]);
   });

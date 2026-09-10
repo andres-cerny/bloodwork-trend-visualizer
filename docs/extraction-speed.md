@@ -421,7 +421,27 @@ pass stays because it costs nothing and the drift was real once.
 | measured output rate | 185 tok/s | 127 tok/s | — |
 
 So the text path drops from about 18 s to about 12 s per page and from 5.1
-to 1.4 cents per page, for no measured loss. Implemented as `TEXT_READERS=
-"cheap"` on `moje-krev-extract` (config only; the demo deployment is
-unchanged), with the three client rules in `packages/lab-core/src/candidates.ts`
-and `apps/portal/src/lib/interpret.ts`.
+to 1.4 cents per page, for no measured loss. Built as `TEXT_READERS="cheap"`
+on `moje-krev-extract` (config only; the demo deployment is unchanged), with
+the three client rules in `packages/lab-core/src/candidates.ts` and
+`apps/portal/src/lib/interpret.ts` — and then deliberately left unset, which
+is the next section.
+
+### Built the same day: parallel files and streamed rows (not deployed)
+
+Ondřej chose to keep both readers. The wait was attacked from the other two
+sides instead, in `apps/portal`:
+
+- **A confirmed file reads in the background** while the next one is
+  reviewed, and every file's pages share one limiter of 8
+  (`apps/portal/src/lib/inflight.ts`). A five-file backlog is one page-time
+  plus the reviews, not five page-times.
+- **Rows stream.** `stream: true` on `/api/extract` makes the extract
+  worker answer NDJSON: each row the moment a reader finishes writing it
+  (eager tool-input streaming, `packages/extraction/src/partial.ts` finds
+  the closed objects in the fragments), then a final line that is exactly
+  the buffered answer. The portal worker passes lines through and books the
+  cost from the last one; the upload screen shows the distinct-row count and
+  the last few rows as they land. Nothing provisional is stored — the final
+  message is parsed whole, as before. A worker without the switch still
+  answers JSON and the client reads it the old way, so deploy order is free.

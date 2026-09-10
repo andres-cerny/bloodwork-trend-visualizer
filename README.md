@@ -178,7 +178,8 @@ Extraction prices every call from the token usage the API reports; the pricing
 table lives in `packages/agent/core/src/pricing.ts` and mirrors the Python one.
 A full run over the sample corpus is roughly **$1**, and each processed report
 shows its own cost and elapsed time. Usage is billed to your Anthropic API key,
-separately from any Claude subscription.
+separately from any Claude subscription — and, where the image path is
+configured to cross-check with Gemini, to your Google API key as well.
 
 The deployed demos are bounded rather than trusted: a KV-backed ledger freezes
 each capability at its own ceiling. See [docs/deploy.md](docs/deploy.md).

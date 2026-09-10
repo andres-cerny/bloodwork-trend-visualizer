@@ -18,6 +18,35 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { clientFor, usageOf, type Usage } from "@bw/agent-core";
 
+import { createRowScanner } from "./partial";
+
+/** A row as the model wrote it, before the message is complete. */
+export type OnRow = (row: Record<string, unknown>) => void;
+
+/**
+ * One call, buffered or streamed.
+ *
+ * Without `onRow` this is the plain request the worker has always made. With
+ * it, the same request is streamed with eager tool-input streaming, every
+ * fragment of the tool input goes through the row scanner, and the final
+ * message — parsed whole, exactly as before — is what the caller gets back.
+ * Streaming changes when a row can be *shown*; it changes nothing about what
+ * is stored.
+ */
+async function call(apiKey: string, params: Anthropic.MessageCreateParamsNonStreaming, onRow?: OnRow): Promise<Anthropic.Message> {
+  const client = clientFor(apiKey);
+  if (!onRow) return client.messages.create(params);
+  const scanner = createRowScanner(onRow);
+  const stream = client.messages.stream({
+    ...params,
+    tools: (params.tools ?? []).map((t) => ("input_schema" in t ? { ...t, eager_input_streaming: true } : t)),
+  });
+  for await (const ev of stream) {
+    if (ev.type === "content_block_delta" && ev.delta.type === "input_json_delta") scanner.feed(ev.delta.partial_json);
+  }
+  return stream.finalMessage();
+}
+
 
 
 export const MODEL_PRIMARY = "claude-sonnet-5";
@@ -36,6 +65,21 @@ export const MODEL_PRIMARY = "claude-sonnet-5";
 export const MODEL_ESCALATION = "claude-haiku-4-5";
 
 
+/**
+ * Image resolution, per reader — the photo path only.
+ *
+ * `MAX_EDGE` in packages/lab-core/src/pdf/pdf.ts is 1800 and stays there: a
+ * 220 DPI A4 render is ~1800x2570 and the PDF path has no reason to send more.
+ * A photograph does. Sonnet 5's image tier tops out at a 2576 px long edge, so
+ * that is the most it can be shown; Gemini spends a fixed token budget per
+ * image part whatever the pixels are (`GEMINI_IMAGE_TOKENS` in gemini.ts), so
+ * it is shown the uncut original and nothing is thrown away for it.
+ *
+ * Two encodes of one photo, one per reader. Neither number touches the PDF
+ * path — see docs/plans/lab-adaptability.md, "Image resolution per reader".
+ */
+export const SONNET_IMAGE_MAX_EDGE = 2576;
+
 export const SYSTEM_EXTRACT =
   "Jsi přesný přepisovač českých laboratorních výsledků z obrázku. " +
   "Tvým jediným úkolem je VĚRNĚ PŘEPSAT to, co je vytištěno — nic nepočítej, " +
@@ -44,7 +88,43 @@ export const SYSTEM_EXTRACT =
   "neslučuj ani nerozděluj. U každého řádku uveď název analytu přesně jak je " +
   "vytištěn (včetně předpony jako 'S_' nebo 'B_'), hodnotu, jednotku a " +
   "referenční interval. Pokud je jednotka nebo interval ve zvláštním sloupci, " +
-  "přiřaď je ke správnému řádku. Confidence nastav 'low' u čehokoli, co je " +
+  "přiřaď je ke správnému řádku. " +
+  // D3, dropped on 2026-09-08 for changing nothing on Sonnet, and restored the
+  // same day when the fault turned out to be intermittent rather than absent.
+  // Twenty deployed `extractPageGemini` calls on Břeclav p122: **7 came back
+  // with `URE urea`** and thirteen with `urea`, all fourteen rows of the page
+  // folding or none. An intermittent fold is worse than a steady one — the
+  // reconciler turns the unlucky attempt into a whole page of review rows, so
+  // the review burden on an unchanged page swings between 0 and 14. With this
+  // sentence, 0 of 20. Sonnet is unchanged by it: 142 of 142 rows on the same
+  // three pages plus six with no abbreviation column, the two reads identical
+  // cell for cell.
+  //
+  // Only here. The text path never sees a page image, and its cells arrive
+  // already separated by the PDF's own coordinates — there is nothing to fold.
+  // See docs/lab-adaptability.md, "D3, reopened".
+  "Tiskne-li list zkratku i celý název ve dvou sloupcích, názvem analytu je " +
+  "celý název. " +
+  // D0 (docs/plans/lab-adaptability.md, Phase D). Three models independently
+  // dropped rows whose printed result is a status, from three different roles,
+  // because the prompt never said whether such a row is a result. It is: it
+  // explains an absent value, and without it a vanished TSH cannot be told
+  // from a reading failure. Material is NOT mentioned here on purpose — urine
+  // is excluded deterministically by lab-core, and the model's job stays
+  // "transcribe what is printed".
+  //
+  // The first wording ("vrať ho jako hodnotu s prázdnou jednotkou i
+  // intervalem") over-specified: `S_Vitamin D celkový  neprovedeno  nmol/l`
+  // prints a status *and* a unit, and Opus dutifully threw the unit away.
+  // The rule is only that a status is a value; the other columns are
+  // transcribed like any other row's. See docs/lab-adaptability.md, "Phase D
+  // — the sentences, one at a time".
+  "Je-li místo hodnoty vytištěn stav (např. 'málo materiálu', 'neprovedeno'), " +
+  "je ten stav hodnotou; řádek přepiš jako každý jiný. " +
+  "Řádky o převzetí vzorku (např. 'Krev srážlivá přijato'), pomocné řádky o " +
+  "zpracování vzorku a údaje o pacientovi jako hmotnost nebo výška výsledky " +
+  "nejsou; nevracej je. " +
+  "Confidence nastav 'low' u čehokoli, co je " +
   "špatně čitelné nebo nejednoznačné.";
 
 /**
@@ -65,6 +145,13 @@ export const SYSTEM_EXTRACT_TEXT =
   "(včetně desetinné čárky, '<', '>' a značek jako '!'). Nic nepočítej ani " +
   "nepřeváděj. Pokud některý sloupec na řádku chybí, vrať prázdný řetězec. " +
   "Hlavičky, patičky a informace o pacientovi mezi výsledky nezahrnuj. " +
+  // The same two sentences as SYSTEM_EXTRACT, and for the same reason; see
+  // the comment there.
+  "Je-li místo hodnoty vytištěn stav (např. 'málo materiálu', 'neprovedeno'), " +
+  "je ten stav hodnotou; řádek přepiš jako každý jiný. " +
+  "Řádky o převzetí vzorku (např. 'Krev srážlivá přijato'), pomocné řádky o " +
+  "zpracování vzorku a údaje o pacientovi jako hmotnost nebo výška výsledky " +
+  "nejsou; nevracej je. " +
   "Confidence nastav 'low', pokud si přiřazením sloupců nejsi jistý. " +
   // Without this the model copies the *input's* cell delimiter into the field:
   // an interval printed in "od"/"do" columns came back as "0,17 | 0,78", which
@@ -73,9 +160,15 @@ export const SYSTEM_EXTRACT_TEXT =
   "Pokud je referenční interval vytištěn ve dvou sloupcích (např. 'od' a " +
   "'do'), spoj obě čísla do jednoho pole ve tvaru '0,17 - 0,78'; nikdy " +
   "nepoužívej oddělovač '|' z vstupu. " +
-  "Každý řádek vstupu začíná pořadovým číslem a tabulátorem. U každého " +
-  "výsledku vrať v poli 'row_index' číslo řádku, ze kterého pochází; " +
-  "samotné číslo řádku neopisuj do žádného jiného pole.";
+  // Conditional on the field existing, because this prompt is also handed to
+  // schemas that have no `row_index`: the vision `TOOL` keeps `source_snippet`
+  // instead, and the Mistral annotation arm derives its schema from `TOOL`.
+  // Asking for a field the schema lacks caused no visible harm — no
+  // `row_index` came back and every row carried a snippet — but a prompt that
+  // does not match its own tool is a fault waiting to be believed.
+  "Každý řádek vstupu začíná pořadovým číslem a tabulátorem. Má-li nástroj " +
+  "pole 'row_index', vrať v něm u každého výsledku číslo řádku, ze kterého " +
+  "pochází; samotné číslo řádku neopisuj do žádného jiného pole.";
 
 export const TEXT_LAYER_HINT =
   "Nápověda — textová vrstva PDF (pořadí může být zpřeházené, " +
@@ -166,7 +259,15 @@ function toolInput(message: Anthropic.Message): Record<string, unknown> {
   return (block && "input" in block ? (block.input as Record<string, unknown>) : {}) ?? {};
 }
 
-function toExtraction(input: Record<string, any>, usage: Usage, model: string): PageExtraction {
+/**
+ * The one place a reader's raw tool input becomes a `PageExtraction`.
+ *
+ * Exported so the Gemini reader lands on exactly this shape rather than a
+ * parallel one: `reconcile()` unions reads from both providers, and the moment
+ * the two readers normalise a missing field differently, a disagreement flag
+ * starts meaning "different vendor" instead of "different number".
+ */
+export function toExtraction(input: Record<string, any>, usage: Usage, model: string): PageExtraction {
   return {
     report_date: input.report_date ?? null,
     report_date_raw: input.report_date_raw ?? null,
@@ -226,8 +327,9 @@ export async function extractPageText(
   apiKey: string,
   model: string,
   rowsText: string,
+  onRow?: OnRow,
 ): Promise<PageExtraction> {
-  const message = await clientFor(apiKey).messages.create({
+  const message = await call(apiKey, {
     model,
     max_tokens: 8000,
     // No `effort` here, deliberately. Lowering it measured a 0.7% latency gain
@@ -241,7 +343,7 @@ export async function extractPageText(
     messages: [
       { role: "user", content: `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}` },
     ],
-  });
+  }, onRow);
   return toExtraction(toolInput(message), usageOf(message.usage), model);
 }
 
@@ -252,6 +354,7 @@ export async function extractPage(
   imageBase64: string,
   mediaType: string,
   textLayer: string | null,
+  onRow?: OnRow,
 ): Promise<PageExtraction> {
   const content: unknown[] = [
     { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
@@ -261,13 +364,13 @@ export async function extractPage(
   }
   content.push({ type: "text", text: "Přepiš všechny měřené řádky z této stránky." });
 
-  const message = await clientFor(apiKey).messages.create({
+  const message = await call(apiKey, {
     model,
     max_tokens: 8000,
     system: cachedSystem(SYSTEM_EXTRACT),
     tools: [TOOL as unknown as Anthropic.Tool],
     tool_choice: { type: "tool", name: TOOL.name },
     messages: [{ role: "user", content: content as Anthropic.ContentBlockParam[] }],
-  });
+  }, onRow);
   return toExtraction(toolInput(message), usageOf(message.usage), model);
 }

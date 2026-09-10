@@ -1,0 +1,344 @@
+{
+  "slug": "stod_p4",
+  "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+  "page": 4,
+  "language": "cs",
+  "lab": "Stodská nemocnice, a.s., Oddělení klinické biochemie",
+  "lis": "Medicalc software s.r.o. (PDF producer bioPDF); form 'Výsledkový list', 2021",
+  "conventions": [
+    "underscore material prefix on names (S_, U_, B_, P_, fU_, X_, C_, Fe_, Pt_); one hyphen row 'S- Cholesterol non- HDL' (p1); a few rows prefix-free (Poměr FreePSA/PSA, Čas, Protrombinový test- Ratio, ABR arter.)",
+    "column order: Název vyšetření | Výsledek | Jednotka | Meze | Hodnocení",
+    "Hodnocení is a fixed-width Courier text histogram, NOT a letter: four bars at character columns 2, 6, 8, 12 and a '*' placed by where the value falls — '|*|' between the two inner bars means in range, left of / right of the outer bars means far outside. `flag_raw` keeps the 14-character field verbatim, leading and trailing spaces included; it is '' when the row has no range",
+    "out-of-range values are printed in bold (Arial Bold, dark grey #4C4C4C) with no H/L letter anywhere — `value_printed_bold`; every bold value has its '*' outside the inner bars and vice versa",
+    "ranges 'lo - hi' with spaced hyphen and decimal comma, centred with padding spaces in the text layer (`ref_range_raw` is trimmed); a negative bound prints as '-2,0 - 2,0'",
+    "rows without a range (fPSA, ionised Ca, urine volumes, punctate, patient weight/height...) leave Meze and Hodnocení empty",
+    "unit spelling is inconsistent within one sheet: µkat/l vs µkat/L, g/l vs g/L, mmol/l vs mmol/L, mg/L, ug/l vs ug/L vs µg/ml; caret exponents 10^12/l 10^9/l; '1' is the unit of ratios and fractions (hematocrit, INR, O2 saturation); '-' for pH; 'arb.j.' and 'počet/uL' in urine",
+    "two heading levels: bold underlined capitals (BIOCHEMIE, HEMATOLOGIE, IMUNOHEMATOLOGIE, POMOCNÉ) in `group`, bold-italic subgroups (Enzymy + pigmenty, Minerály, Krevní obraz, Koagulace...) in `section`",
+    "grey italic comment lines interleaved under a row, indented or right-shifted, are not rows; they are attached to the row above as `comment_raw`",
+    "the patient header (HOKUS POKUSJMÉNO, JUDr.; IČ 12 12 12 / 121; Věk 108; Přijato/Odběr 29.06.2021 08:34) repeats on every page above the column header; footer 'Strana N z 5'",
+    "PDF has a real text layer (bioPDF writer); get_text() emits the columns as separate blocks so words must be regrouped by baseline",
+    "toxicology continues from p3 (same qualitative form); U_THC is 'pozitivní'",
+    "S_Etanol has range '0,00 - 0,00' and a bold value with the star in the outer-right cell",
+    "'Podklady pro výpočty' rows are patient weight/height (Pt_ prefix, kg / cm), not analytes",
+    "HEMATOLOGIE group starts mid-page; names carry a trailing code after internal padding: 'B_Leukocyty př.  WBC' (two spaces), 'B_Hemoglobin     HGB' (five spaces), 'B_Hematokrit     HCT' — spaces kept verbatim",
+    "'P_ INR' has a space after the underscore; 'P_D-dimery .' ends with ' .'; 'Protrombinový test- Ratio' has no prefix"
+  ],
+  "rows": [
+    {
+      "raw_analyte_name": "U_Methadon",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 48 hodin po požití při hladině v moči vyšší než 300 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_Metamfetamin",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 5 dnů po požití při hladině v moči vyšší než 1000 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_THC",
+      "value_raw": "pozitivní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 10 dnů po požití při hladině v moči vyšší než 50 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_Tricyklická antidepres",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 10 dnů po požití při hladině v moči vyšší než 1000 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_Methylendioxymetamfetamin",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek při hladině v moči vyšší než 500 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_Opiáty",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek při hladině v moči vyšší než 300 ng/ml"
+    },
+    {
+      "raw_analyte_name": "S_Etanol",
+      "value_raw": "0,50",
+      "unit_raw": "g/l",
+      "flag_raw": "  |   | | * | ",
+      "ref_range_raw": "0,00 - 0,00",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "Pt_Hmotnost pacienta",
+      "value_raw": "50,0",
+      "unit_raw": "kg",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Podklady pro výpočty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Pt_Výška pacienta",
+      "value_raw": "150",
+      "unit_raw": "cm",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Podklady pro výpočty",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Erytrocyty př. RBC",
+      "value_raw": "3,90",
+      "unit_raw": "10^12/l",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "4,00 - 5,80",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Leukocyty př.  WBC",
+      "value_raw": "6,9",
+      "unit_raw": "10^9/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "4,0 - 10,0",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Trombocyty př. PLT",
+      "value_raw": "265",
+      "unit_raw": "10^9/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "150 - 400",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Trombocyty TROMBOEXACT",
+      "value_raw": "333",
+      "unit_raw": "10^9/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "150 - 400",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Hemoglobin     HGB",
+      "value_raw": "125",
+      "unit_raw": "g/l",
+      "flag_raw": "  | * | |   | ",
+      "ref_range_raw": "135 - 175",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Hematokrit     HCT",
+      "value_raw": "0,360",
+      "unit_raw": "1",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "0,400 - 0,500",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Stř.barev.kon.MCHC",
+      "value_raw": "333",
+      "unit_raw": "g/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "320 - 370",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Stř.obj.erytr. MCV",
+      "value_raw": "99,0",
+      "unit_raw": "fl",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "82,0 - 98,0",
+      "section": "Krevní obraz",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Neutrofily",
+      "value_raw": "80,0",
+      "unit_raw": "%",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "45,0 - 70,0",
+      "section": "Diferenciál strojový",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Lymfocyt",
+      "value_raw": "10,0",
+      "unit_raw": "%",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "20,0 - 45,0",
+      "section": "Diferenciál strojový",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Monocyt",
+      "value_raw": "3,0",
+      "unit_raw": "%",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "2,0 - 12,0",
+      "section": "Diferenciál strojový",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Eozinofily",
+      "value_raw": "5,5",
+      "unit_raw": "%",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "0,0 - 5,0",
+      "section": "Diferenciál strojový",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Bazofily",
+      "value_raw": "1,5",
+      "unit_raw": "%",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,0 - 2,0",
+      "section": "Diferenciál strojový",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_Protrombinový test",
+      "value_raw": "10,6",
+      "unit_raw": "s",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "10,0 - 15,0",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Protrombinový test- Ratio",
+      "value_raw": "1,0",
+      "unit_raw": "1",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,8 - 1,2",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_ INR",
+      "value_raw": "1,03",
+      "unit_raw": "1",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,90 - 1,10",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_Trombinový čas",
+      "value_raw": "20,0",
+      "unit_raw": "s",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "10,0 - 27,0",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_APTT",
+      "value_raw": "26,2",
+      "unit_raw": "s",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "21,2 - 33,0",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_APTT - index",
+      "value_raw": "1,02",
+      "unit_raw": "1",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,80 - 1,20",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_D-dimery .",
+      "value_raw": "0,50",
+      "unit_raw": "mg/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "0,00 - 0,50",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_Fibrinogen",
+      "value_raw": "3,03",
+      "unit_raw": "g/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "2,00 - 4,50",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_Antitrombin III",
+      "value_raw": "333,0",
+      "unit_raw": "mg/L",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "200,0 - 400,0",
+      "section": "Koagulace",
+      "group": "HEMATOLOGIE",
+      "value_printed_bold": false
+    }
+  ]
+}

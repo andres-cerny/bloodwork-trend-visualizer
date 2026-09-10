@@ -9,13 +9,16 @@ import {
   findUnmapped,
   isImplausible,
   materialPrefix,
+  materialsCompatible,
   observedStats,
   signalsOf,
   suggestMappings,
   verdictOf,
   makeMeasurement,
   type AnalyteDef,
+  type Box,
   type LabReport,
+  type TextRow,
   normalizeMeasurement,
   Registry,
 } from "@bw/lab-core";
@@ -156,7 +159,7 @@ describe("suggestMappings", () => {
   });
 
   it("returns nothing for a name that resembles no analyte", () => {
-    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [], refRange: null };
+    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [], refRange: null, material: null, materialSource: null };
     expect(suggestMappings(odd, registry, stats)).toEqual([]);
   });
 
@@ -242,6 +245,41 @@ describe("materialPrefix", () => {
   it("returns null when no material is printed", () => {
     expect(materialPrefix("Glukóza")).toBeNull();
     expect(materialPrefix("")).toBeNull();
+  });
+
+  // Guard seen failing: with a generic ^[a-z]{1,4}- rule, anti-TPO read as
+  // material "anti" and C-peptid as "c" (2026-09-06).
+  it("reads slash, hyphen and comma forms only for known material codes", () => {
+    expect(materialPrefix("S/Sodík")).toBe("s");
+    expect(materialPrefix("S-Na")).toBe("s");
+    expect(materialPrefix("S,P-glukóza")).toBe("s,p");
+    expect(materialPrefix("U-amyláza")).toBe("u");
+    expect(materialPrefix("dU_Kreatinin")).toBe("du");
+    expect(materialPrefix("anti-TPO")).toBeNull();
+    expect(materialPrefix("C-peptid")).toBeNull();
+    expect(materialPrefix("25-OH vitamin D")).toBeNull();
+    // "ABBR - full name" is how labs print abbreviations; not a material.
+    expect(materialPrefix("S - Na")).toBeNull();
+  });
+
+  // Guard seen failing: an exact-string comparison called S,P-glukóza a
+  // different material from S_Glukóza (2026-09-06).
+  it("s,p is compatible with serum and with plasma, not with urine", () => {
+    expect(materialsCompatible("s,p", "s")).toBe(true);
+    expect(materialsCompatible("p", "s,p")).toBe(true);
+    expect(materialsCompatible("s,p", "u")).toBe(false);
+    expect(materialsCompatible("s", "p")).toBe(false);
+
+    const reports = [
+      report("r1", "2024-01-01", [
+        m("S_Glukóza", "5,10", "mmol/l", "(4,11-5,60)", "glukoza"),
+        m("S,P-glukóza", "5,30", "mmol/l", "(4,11-5,60)", null),
+      ]),
+    ];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, new Registry([def("glukoza", "Glukóza", "mmol/l")]),
+      observedStats(reports), 5).find((x) => x.canonicalId === "glukoza");
+    expect(c?.materialMatch).toBe(true);
   });
 });
 
@@ -409,5 +447,128 @@ describe("the evidence the screen renders", () => {
     const sig = signalsOf(c, u).find((s) => s.key === "unit")!;
     expect(sig.state).toBe("bad");
     expect(sig.detail).toContain("g/l");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase B2 — material read off the page when the name carries no prefix.
+// ---------------------------------------------------------------------------
+
+/** A row from cells alone; the material rules never look at geometry. */
+const trow = (cells: string[], y = 0): TextRow => ({
+  cells,
+  cellBoxes: cells.map((c, i) => [50 + i * 100, y, 50 + i * 100 + c.length * 6, y + 10] as Box),
+  box: [50, y, 700, y + 10],
+});
+
+/** A measurement that remembers which printed row it came from. */
+const mAt = (name: string, value: string, unit: string, ref: string, cid: string | null, rowIndex: number) =>
+  normalizeMeasurement(
+    makeMeasurement({ rawAnalyteName: name, valueRaw: value, unitRaw: unit, refRangeRaw: ref, canonicalId: cid, rowIndex, sourcePage: 1 }),
+  );
+
+/** A one-page report that carries its reconstructed rows, as the upload path builds it. */
+const pageReport = (id: string, rows: TextRow[], ms: ReturnType<typeof m>[]): LabReport => ({
+  ...report(id, "2024-03-01", ms),
+  pages: [{ pageNum: 1, imageUrl: "", imageWidth: 600, imageHeight: 800, rows }],
+});
+
+// The mixed_material.pdf shape: the same name twice, only the heading differs.
+const MIXED_ROWS = [
+  trow(["Sérum"]),
+  trow(["Glukóza", "5,4", "mmol/l", "3,9 - 5,6"]),
+  trow(["Kreatinin", "84", "µmol/l", "62 - 106"]),
+  trow(["Moč"]),
+  trow(["Glukóza", "0,3", "mmol/l", "0 - 0,8"]),
+  trow(["Kreatinin", "9,8", "mmol/l", "3,5 - 25,0"]),
+];
+
+// Guard seen failing 2026-09-06: before findUnmapped read the page rows the
+// urine Glukóza had material null, materialMatch null, and the glukoza
+// candidate came back "recommended" with no material line at all.
+describe("material from the heading a row sits under", () => {
+  const glukoza = new Registry([def("glukoza", "Glukóza", "mmol/l", ["glukosa"])]);
+
+  it("attributes an unprefixed name to the heading above its row", () => {
+    const reports = [pageReport("r1", MIXED_ROWS, [
+      mAt("Glukóza", "5,4", "mmol/l", "3,9 - 5,6", "glukoza", 1),
+      mAt("Glukóza", "0,3", "mmol/l", "0 - 0,8", null, 4),
+    ])];
+    const [u] = findUnmapped(reports);
+    expect(u.rawName).toBe("Glukóza");
+    expect(u.material).toBe("u");
+    expect(u.materialSource).toBe("heading");
+  });
+
+  it("lets a printed prefix win over the heading", () => {
+    const rows = [trow(["Sérum"]), trow(["U_Bílkovina", "0,15", "g/l", "0 - 0,15"])];
+    const [u] = findUnmapped([pageReport("r1", rows, [mAt("U_Bílkovina", "0,15", "g/l", "0 - 0,15", null, 1)])]);
+    expect(u.material).toBe("u");
+    expect(u.materialSource).toBe("prefix");
+  });
+
+  it("reads a Materiál column before the heading, and says so", () => {
+    const rows = [
+      trow(["Základná hematológia - Krvný obraz"]),
+      trow(["Metabolity"]),
+      trow(["Glukóza", "5,10", "3,90–5,60", "mmol/l", "sérum"]),
+    ];
+    const [u] = findUnmapped([pageReport("r1", rows, [mAt("Glukóza", "5,10", "mmol/l", "3,90–5,60", null, 2)])]);
+    expect(u.material).toBe("s");
+    expect(u.materialSource).toBe("column");
+  });
+
+  it("has no material when the report carries no rows (a scan, or the demo data)", () => {
+    const [u] = findUnmapped([report("r1", "2024-03-01", [m("Glukóza", "0,3", "mmol/l", "0 - 0,8", null)])]);
+    expect(u.material).toBeNull();
+    expect(u.materialSource).toBeNull();
+  });
+
+  it("counts the heading material of a mapped row towards the candidate's materials", () => {
+    const reports = [pageReport("r1", MIXED_ROWS, [
+      mAt("Glukóza", "5,4", "mmol/l", "3,9 - 5,6", "glukoza", 1),
+      mAt("Glukóza", "0,3", "mmol/l", "0 - 0,8", null, 4),
+    ])];
+    expect(observedStats(reports).get("glukoza")!.materials).toEqual(["s"]);
+  });
+
+  it("does not offer the serum glukoza silently for the urine Glukóza", () => {
+    const reports = [pageReport("r1", MIXED_ROWS, [
+      mAt("Glukóza", "5,4", "mmol/l", "3,9 - 5,6", "glukoza", 1),
+      mAt("Glukóza", "0,3", "mmol/l", "0 - 0,8", null, 4),
+    ])];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, glukoza, observedStats(reports), 5).find((x) => x.canonicalId === "glukoza")!;
+    expect(c.materialMatch).toBe(false);
+    expect(verdictOf(c)).toBe("contradicted");
+    const sig = signalsOf(c, u).find((s) => s.key === "material")!;
+    expect(sig.state).toBe("bad");
+    // The reader must be able to tell this came from the heading, not the name.
+    expect(sig.detail).toContain("moč (podle nadpisu)");
+    expect(sig.detail).toContain("sérum");
+  });
+
+  it("agrees when the heading and the candidate's material match", () => {
+    const rows = [trow(["Sérum"]), trow(["S_Glukóza", "5,4", "mmol/l", "3,9 - 5,6"]), trow(["Glukosa", "5,3", "mmol/l", "3,9 - 5,6"])];
+    const reports = [pageReport("r1", rows, [
+      mAt("S_Glukóza", "5,4", "mmol/l", "3,9 - 5,6", "glukoza", 1),
+      mAt("Glukosa", "5,3", "mmol/l", "3,9 - 5,6", null, 2),
+    ])];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, glukoza, observedStats(reports), 5)[0];
+    expect(c.materialMatch).toBe(true);
+    const sig = signalsOf(c, u).find((s) => s.key === "material")!;
+    expect(sig.state).toBe("ok");
+    expect(sig.detail).toContain("podle nadpisu");
+  });
+
+  it("words a column-derived material as coming from the column", () => {
+    const rows = [trow(["Metabolity"]), trow(["Glukosa", "5,3", "3,90–5,60", "mmol/l", "moč"])];
+    const reports = [pageReport("r1", rows, [mAt("Glukosa", "5,3", "mmol/l", "3,90–5,60", null, 1)])];
+    const [u] = findUnmapped(reports);
+    const c = suggestMappings(u, glukoza, observedStats(reports), 5)[0];
+    const sig = signalsOf(c, u).find((s) => s.key === "material")!;
+    expect(sig.state).toBe("unknown");
+    expect(sig.detail).toContain("moč (podle sloupce)");
   });
 });

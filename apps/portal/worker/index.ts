@@ -1,0 +1,29 @@
+/**
+ * Moje krev's shell: static assets, and a door to the portal API worker.
+ *
+ * Same shape as the bloodwork shell — it holds no secrets and calls no API;
+ * the request is forwarded rather than rebuilt so the method, cookies and
+ * body stream pass through untouched, and the response returns unread.
+ *
+ * Two prefixes go through: /api/, the account's own data, and /ai/, the
+ * public share page an assistant fetches. Both are listed in wrangler.jsonc
+ * under run_worker_first, or the asset handler would answer them with
+ * index.html.
+ */
+const FORWARDED = ["/api/", "/ai/"];
+export interface Env {
+  ASSETS: Fetcher;
+  PORTAL: Fetcher;
+}
+
+export default {
+  fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    if (!FORWARDED.some((p) => url.pathname.startsWith(p))) return env.ASSETS.fetch(request);
+
+    const forwarded = new Request(request);
+    const ip = request.headers.get("cf-connecting-ip");
+    if (ip) forwarded.headers.set("cf-connecting-ip", ip);
+    return env.PORTAL.fetch(forwarded);
+  },
+} satisfies ExportedHandler<Env>;

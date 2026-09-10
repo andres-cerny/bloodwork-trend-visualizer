@@ -1,0 +1,4 @@
+# Copy to .dev.vars (git-ignored) for local development.
+# Any random string works locally; production gets a real one via
+#   npx wrangler secret put SESSION_SECRET
+SESSION_SECRET=local-dev-secret-change-me

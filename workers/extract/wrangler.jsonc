@@ -19,10 +19,22 @@
     // registers it for development, and a challenge solved there would
     // otherwise mint production sessions.
     "TURNSTILE_HOSTNAMES": "bloodwork-demo.andres-cerny.workers.dev",
-    "SINGLE_MODEL": "0"
+    "SINGLE_MODEL": "0",
+    // Which two readers transcribe a page IMAGE. The text path is unaffected
+    // and stays Sonnet + Haiku, because there the characters come from the
+    // file. Three values, and nothing else is accepted:
+    //   "sonnet+haiku"   today's behaviour, and the retreat
+    //   "sonnet+gemini"  the measured recommendation (needs GEMINI_API_KEY)
+    //   "gemini+sonnet"  the same pair, primary reversed
+    // An unknown value, or a Gemini pair with no key, falls back to
+    // "sonnet+haiku" rather than reading a page once in silence.
+    "PHOTO_READERS": "sonnet+gemini"
   },
 
   "observability": { "enabled": true }
 
-  // Secrets: ANTHROPIC_API_KEY, TURNSTILE_SECRET_KEY, SESSION_SECRET
+  // Secrets: ANTHROPIC_API_KEY, TURNSTILE_SECRET_KEY, SESSION_SECRET,
+  // and GEMINI_API_KEY once PHOTO_READERS names a Gemini pair. Extract only —
+  // the agent never gets Google's key:
+  //   npx wrangler secret put GEMINI_API_KEY -c workers/extract/wrangler.jsonc
 }

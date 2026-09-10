@@ -17,10 +17,10 @@ from typing import Optional
 
 from .config import REGISTRY_PATH
 from .models import AnalyteDef
+from .normalize import strip_material_prefix
 
-# Material prefixes used by Czech labs before the analyte name, e.g.
-# S_ (sérum), B_ (plná krev), P_ (plazma), U_ (moč), PK_, PE_, FW_, xxx_.
-_PREFIX = re.compile(r"^[a-z]{1,4}_")
+# The material-prefix rule (S_, S/, S-, S,P-, dU_ …) lives in normalize.py,
+# beside its TypeScript twin, so both registries strip the same names.
 _NONALNUM = re.compile(r"[^a-z0-9]+")
 
 
@@ -39,7 +39,7 @@ def norm_key(name: str) -> str:
     s = (name or "").strip().lower()
     s = re.sub(r"\s+#", " abs", s)       # standalone "#" (e.g. "Neutrofily #") = absolute count
     s = s.replace("#", " ")              # any other "#" is decoration (e.g. "#S_Cholesterol")
-    s = _PREFIX.sub("", s.strip())       # drop material prefix (S_, B_, …)
+    s = strip_material_prefix(s.strip())  # drop material prefix (S_, S-, S/, …)
     s = _strip_diacritics(s)
     s = _NONALNUM.sub(" ", s).strip()
     s = re.sub(r"\s+", " ", s)

@@ -198,15 +198,205 @@ export function isPrintedOnPage(value: string, rows: TextRow[]): boolean {
   return false;
 }
 
-/** Row bbox whose cells contain this analyte name — exact, no text search. */
+/**
+ * The row a `row_index` refers to, as a box — exact by construction, the
+ * way `rowTextAt` is. Prefer this to `rowBoxFor` wherever the model returned
+ * an index: a name search can only guess, and it guessed wrong on a page
+ * where two analytes share a first word.
+ */
+export function rowBoxAt(index: number | undefined, rows: TextRow[]): Box | null {
+  if (index === undefined || index < 0 || index >= rows.length) return null;
+  return rows[index].box;
+}
+
+/**
+ * Row bbox whose cells contain this analyte name — exact, no text search.
+ *
+ * Two passes, in this order. A row that contains the whole name wins; only
+ * when none does is a row considered because the name starts with its first
+ * cell — the fallback for a name pdf.js split across items. The fallback
+ * scores every such row by how much of the name its leading cells consume,
+ * in order: "S_Bilirubin konjugovaný" consumes 11 characters of the celkový
+ * row's first cell but 22 of the konjugovaný row's first two, so sharing a
+ * first word no longer hands the highlight to whichever row is printed
+ * first. Two rows consuming equally means the page cannot tell them apart,
+ * and then this returns null — no highlight beats a wrong one.
+ */
 export function rowBoxFor(rawName: string, rows: TextRow[]): Box | null {
   const needle = rawName.replace(/\s+/g, "").toLowerCase();
   if (!needle) return null;
+  const joined = (r: TextRow) => r.cells.join("").replace(/\s+/g, "").toLowerCase();
+  for (const r of rows) if (joined(r).includes(needle)) return r.box;
+  let best: { box: Box; consumed: number } | null = null;
+  let tied = false;
   for (const r of rows) {
-    const joined = r.cells.join("").replace(/\s+/g, "").toLowerCase();
-    if (joined.includes(needle) || needle.includes(r.cells[0]?.replace(/\s+/g, "").toLowerCase() ?? "\u0000")) {
-      return r.box;
+    const first = r.cells[0]?.replace(/\s+/g, "").toLowerCase() ?? "";
+    if (!first || !needle.startsWith(first)) continue;
+    let consumed = 0;
+    let acc = "";
+    for (const cell of r.cells) {
+      acc += cell.replace(/\s+/g, "").toLowerCase();
+      if (!needle.startsWith(acc)) break;
+      consumed = acc.length;
+    }
+    if (!best || consumed > best.consumed) {
+      best = { box: r.box, consumed };
+      tied = false;
+    } else if (consumed === best.consumed) {
+      tied = true;
     }
   }
+  return best && !tied ? best.box : null;
+}
+
+// ---------------------------------------------------------------------------
+// The material a page states for a row without printing it in the name.
+//
+// Three places a lab prints it, in the order mapping.ts trusts them: a prefix
+// on the name (`S_`, `U-`; normalize.ts), a `Materiál` column beside the row
+// (Unilabs SK: `sérum`, `krv EDTA`), or a heading over the block (`Moč
+// chemicky`, `Sérum`). The last two are read here, from cells alone, so the
+// rule is testable on constructed rows and root-exportable.
+// ---------------------------------------------------------------------------
+
+/** Lower-case, accents stripped, whitespace collapsed. */
+const foldText = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Block headings and the material they announce, Czech and Slovak. Folded
+ * form (no accents) on the left; the code on the right is the same lowercase
+ * code `materialPrefix` returns, so `materialsCompatible` can compare them.
+ *
+ * "Biochemie" → serum is an assumption, and a documented one: a biochemistry
+ * block on a Czech sheet is serum unless the row says otherwise (a plasma or
+ * urine block gets its own heading, which wins by sitting closer to the row).
+ */
+const HEADING_MATERIALS: ReadonlyArray<readonly [string, string]> = [
+  ["mocovy sediment", "u"],
+  ["moc chemicky", "u"],
+  ["moc", "u"],
+  ["moci", "u"],
+  ["serum", "s"],
+  ["plazma", "p"],
+  ["krevni obraz", "b"],
+  ["krvny obraz", "b"],
+  ["hematologie", "b"],
+  ["hematologia", "b"],
+  ["biochemie", "s"],
+  ["biochemia", "s"],
+];
+
+/** A `Materiál` column cell, whole, folded → code. */
+const MATERIAL_WORDS: Readonly<Record<string, string>> = {
+  serum: "s",
+  plazma: "p",
+  "krv edta": "b",
+  krv: "b",
+  krev: "b",
+  "plna krev": "b",
+  moc: "u",
+};
+
+const wordAt = (text: string, phrase: string): number => {
+  const re = new RegExp(`(?:^|[^a-z])${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z])`);
+  const m = re.exec(text);
+  return m ? m.index + (m[0].length - phrase.length) : -1;
+};
+
+/** The material a heading announces, or null when it names none. */
+function headingMaterial(cell: string): string | null {
+  const text = foldText(cell);
+  let best: { at: number; code: string } | null = null;
+  for (const [phrase, code] of HEADING_MATERIALS) {
+    const at = wordAt(text, phrase);
+    // Earliest mention wins: "Moč - biochemie" is a urine block.
+    if (at >= 0 && (best === null || at < best.at)) best = { at, code };
+  }
+  return best?.code ?? null;
+}
+
+/**
+ * Does a single-cell row read as a block heading?
+ *
+ * A heading starts with a capital, carries no digit and is short. That keeps
+ * out the three single-cell rows that are not headings and sit inside tables:
+ * a wrapped name's continuation ("séru", "(ALT)"), a material legend
+ * ("Označení vyšetřovaného materiálu: S=sérum, …", which names every material
+ * at once) and a lone value.
+ */
+const looksLikeHeading = (cell: string) =>
+  /^\p{Lu}/u.test(cell) && !/\d/.test(cell) && cell.length <= 40;
+
+/** The material a cell states when it is exactly a known material word. */
+export function materialWord(cell: string): string | null {
+  return MATERIAL_WORDS[foldText(cell)] ?? null;
+}
+
+/**
+ * The material a row's own `Materiál` cell states, or null.
+ *
+ * The row's **first** cell is skipped, because that column holds the analyte
+ * name and a name can be spelt exactly like a material. A urine dipstick
+ * prints `Krev | negat. | ery/µl` under a `Moč chemicky` heading: reading the
+ * name cell as a Materiál column called that row whole blood and let the
+ * registry offer it a blood analyte, which is the very confusion the material
+ * rules exist to stop. No sheet in the corpus puts the Materiál column first —
+ * it follows the name on every one of them.
+ */
+export function rowMaterial(row: TextRow): string | null {
+  const cells = row.cells.map((c) => c.trim()).filter(Boolean);
+  for (const c of cells.slice(1)) {
+    const code = materialWord(c);
+    if (code) return code;
+  }
   return null;
+}
+
+/**
+ * The material of the block a row sits in, read from the nearest heading
+ * above it.
+ *
+ * Walks upward from `index` to the first heading-like row — a single cell
+ * that looks like a heading, or any cell that is exactly a known heading —
+ * and stops there whether or not it names a material. Stopping matters: on a
+ * Slovak sheet "Glukóza" sits under "Metabolity", and reading on past it
+ * would hand the row the "Krvný obraz" block above. Null when no heading is
+ * found or the nearest one says nothing about material.
+ */
+export function sectionMaterial(rows: TextRow[], index: number): string | null {
+  if (index < 0 || index >= rows.length) return null;
+  for (let i = index; i >= 0; i--) {
+    const cells = rows[i].cells.map((c) => c.trim()).filter(Boolean);
+    if (cells.length === 0) continue;
+    // A cell that is exactly a known heading counts even beside other cells
+    // ("Močový sediment | negativní") — unless it is a bare material word,
+    // which beside other cells is a Materiál column value, not a heading.
+    const exact = cells.find(
+      (c) => !materialWord(c) && HEADING_MATERIALS.some(([phrase]) => foldText(c) === phrase),
+    );
+    if (exact) return headingMaterial(exact);
+    if (cells.length === 1 && looksLikeHeading(cells[0])) return headingMaterial(cells[0]);
+  }
+  return null;
+}
+
+/** Where a page-derived material came from, for the UI to say so. */
+export interface PrintedMaterial {
+  code: string;
+  source: "column" | "heading";
+}
+
+/** Column first, heading second — the row's own cell is closer than the block's. */
+export function printedMaterial(rows: TextRow[], index: number | undefined): PrintedMaterial | null {
+  if (index === undefined || index < 0 || index >= rows.length) return null;
+  const column = rowMaterial(rows[index]);
+  if (column) return { code: column, source: "column" };
+  const heading = sectionMaterial(rows, index);
+  return heading ? { code: heading, source: "heading" } : null;
 }

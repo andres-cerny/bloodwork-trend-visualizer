@@ -339,7 +339,9 @@ def main() -> None:
     # registry for the mapping tab to have plausible alternatives to rank.
     used = {m["canonicalId"] for r in reports for m in r["measurements"] if m["canonicalId"]}
     slim = [a.to_dict() for a in registry.analytes.values()][:109]
-    (OUT / "registry.json").write_text(
+    # The portal ships the same registry: one source, two apps, and CI's
+    # zero-diff check covers both copies.
+    registry_json = (
         json.dumps([{
             "canonicalId": a["canonical_id"],
             "displayNameCs": a["display_name_cs"],
@@ -347,7 +349,10 @@ def main() -> None:
             "canonicalUnit": a["canonical_unit"],
             "unitConversions": a["unit_conversions"],
             "referenceRange": REF_RANGES.get(a["canonical_id"]),
-        } for a in slim], ensure_ascii=False, indent=1), encoding="utf-8")
+        } for a in slim], ensure_ascii=False, indent=1))
+    for dest in (OUT / "registry.json", ROOT / "apps" / "portal" / "public" / "registry.json"):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(registry_json, encoding="utf-8")
 
     shutil.rmtree(tmp)
     unmapped = [m["rawAnalyteName"] for r in reports for m in r["measurements"]

@@ -1,0 +1,76 @@
+{
+  "slug": "stod_p5",
+  "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+  "page": 5,
+  "language": "cs",
+  "lab": "Stodská nemocnice, a.s., Oddělení klinické biochemie",
+  "lis": "Medicalc software s.r.o. (PDF producer bioPDF); form 'Výsledkový list', 2021",
+  "conventions": [
+    "underscore material prefix on names (S_, U_, B_, P_, fU_, X_, C_, Fe_, Pt_); one hyphen row 'S- Cholesterol non- HDL' (p1); a few rows prefix-free (Poměr FreePSA/PSA, Čas, Protrombinový test- Ratio, ABR arter.)",
+    "column order: Název vyšetření | Výsledek | Jednotka | Meze | Hodnocení",
+    "Hodnocení is a fixed-width Courier text histogram, NOT a letter: four bars at character columns 2, 6, 8, 12 and a '*' placed by where the value falls — '|*|' between the two inner bars means in range, left of / right of the outer bars means far outside. `flag_raw` keeps the 14-character field verbatim, leading and trailing spaces included; it is '' when the row has no range",
+    "out-of-range values are printed in bold (Arial Bold, dark grey #4C4C4C) with no H/L letter anywhere — `value_printed_bold`; every bold value has its '*' outside the inner bars and vice versa",
+    "ranges 'lo - hi' with spaced hyphen and decimal comma, centred with padding spaces in the text layer (`ref_range_raw` is trimmed); a negative bound prints as '-2,0 - 2,0'",
+    "rows without a range (fPSA, ionised Ca, urine volumes, punctate, patient weight/height...) leave Meze and Hodnocení empty",
+    "unit spelling is inconsistent within one sheet: µkat/l vs µkat/L, g/l vs g/L, mmol/l vs mmol/L, mg/L, ug/l vs ug/L vs µg/ml; caret exponents 10^12/l 10^9/l; '1' is the unit of ratios and fractions (hematocrit, INR, O2 saturation); '-' for pH; 'arb.j.' and 'počet/uL' in urine",
+    "two heading levels: bold underlined capitals (BIOCHEMIE, HEMATOLOGIE, IMUNOHEMATOLOGIE, POMOCNÉ) in `group`, bold-italic subgroups (Enzymy + pigmenty, Minerály, Krevní obraz, Koagulace...) in `section`",
+    "grey italic comment lines interleaved under a row, indented or right-shifted, are not rows; they are attached to the row above as `comment_raw`",
+    "the patient header (HOKUS POKUSJMÉNO, JUDr.; IČ 12 12 12 / 121; Věk 108; Přijato/Odběr 29.06.2021 08:34) repeats on every page above the column header; footer 'Strana N z 5'",
+    "PDF has a real text layer (bioPDF writer); get_text() emits the columns as separate blocks so words must be regrouped by baseline",
+    "NO numeric measured rows: IMUNOHEMATOLOGIE text results (Coombs tests 'negativní'/'pozitivní', 'A Rh(D) pozitivní') and two POMOCNÉ helper rows (S_Separace séra 1 = 1, P_Separace séra 2 = 1) with no unit, range or histogram",
+    "POZNÁMKY block with a STAV note ('Vzorek je slabě hemolytický, slabě ikterický, chyózní. Nelze validně vyšetřit všechny analyty.') — not a row",
+    "footer: 'Protokol nesmí být bez souhlasu laboratoře interpertován jinak než celý.' (sic), 'Kontroloval: MUDr. Radka Fuchsová - 01.07.2021 09:38', 'Uvolnil: MUDr. Radka Fuchsová', 'Číslo výtisku: 701/210629 - 4', 'Vytištěno: 01.07.21 13:24'"
+  ],
+  "rows": [
+    {
+      "raw_analyte_name": "B_Přímý antiglobulinový test (Coombs)",
+      "value_raw": "negativní",
+      "unit_raw": "",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Krevní skupiny",
+      "group": "IMUNOHEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Nepřímý antiglobulinový test (Coombs)",
+      "value_raw": "pozitivní",
+      "unit_raw": "",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Krevní skupiny",
+      "group": "IMUNOHEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Krevní skupina",
+      "value_raw": "A Rh(D) pozitivní",
+      "unit_raw": "",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Krevní skupiny",
+      "group": "IMUNOHEMATOLOGIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "S_Separace séra 1",
+      "value_raw": "1",
+      "unit_raw": "",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "POMOCNÉ",
+      "group": "POMOCNÉ",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "P_Separace séra 2",
+      "value_raw": "1",
+      "unit_raw": "",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "POMOCNÉ",
+      "group": "POMOCNÉ",
+      "value_printed_bold": false
+    }
+  ]
+}

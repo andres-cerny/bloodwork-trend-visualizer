@@ -1,0 +1,15 @@
+{
+  "_about": "Page-specific printed-name aliases. 20_10_6 p1 clips its analyte column, so the printed text is shorter than the name in the text-layer baseline these truth rows came from; a reader that transcribes what is visible is right, not wrong. Aliases are per page, never global — the other AGILAB pages print the same analytes in full, and a global alias would match those on a prefix and hide a real miss. Key: '<source_file>#<page>' (a two-page read joins two with '+'); value: truth name -> the printed spellings that mean it. The clipped glyph is read as I, l or 1 depending on the reader, so every rendering of the same clipped name is listed.",
+  "20_10_6.pdf#1": {
+    "Vazebná kapacita Fe": [
+      "Vazebná kapacita",
+      "Vazebná kapacita I",
+      "Vazebná kapacita l",
+      "Vazebná kapacita 1"
+    ],
+    "Saturace transf.-výp": [
+      "Saturace transf.-vý",
+      "Saturace transf.-výj"
+    ]
+  }
+}

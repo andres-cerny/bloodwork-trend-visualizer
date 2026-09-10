@@ -24,6 +24,7 @@ const pt = (
   refHigh: 0.78,
   valueRaw: String(value ?? ""),
   reportId: `r-${date}`,
+  rawName: "",
   suspect: null,
   unconfirmed: null,
   ...extra,

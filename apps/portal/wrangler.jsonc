@@ -1,0 +1,20 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "moje-krev",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-01-01",
+
+  // The dev domain for now: moje-krev.<account>.workers.dev. A real domain later
+  // changes this file and the Resend sender, nothing else.
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ai/*"]
+  },
+
+  "services": [{ "binding": "PORTAL", "service": "moje-krev-portal" }],
+
+  "observability": { "enabled": true }
+}

@@ -29,9 +29,16 @@ import { MODEL_PRICING } from "@bw/agent-core";
 import { type TextRow } from "@bw/lab-core";
 
 /** Extends the Worker's table; Haiku is only ever a benchmark arm today. */
-const PRICING: Record<string, [number, number]> = {
+export const PRICING: Record<string, [number, number]> = {
   ...MODEL_PRICING,
   "claude-haiku-4-5": [1.0, 5.0],
+  // Paid tier, USD per 1M tokens. Becomes [1.50, 7.50] on 2027-01-01 —
+  // docs/plans/lab-adaptability.md "Risks". Re-run C5's table then.
+  "gemini-3.8-flash": [0.75, 3.75],
+  // NOTE: `mistral-ocr-4-1` is deliberately absent. It is billed PER PAGE
+  // ($0.004), not per token, so `priceUsd` must never be called for it —
+  // mistral.ts computes its own cost from `usage_info.pages_processed`. A
+  // token pair added here would silently make it look token-priced.
 };
 
 export function priceUsd(model: string, u: Usage): number {
@@ -60,6 +67,14 @@ export interface Reader {
   model: string;
   effort?: Effort;
   thinking?: ThinkingMode;
+  /**
+   * Which API answers. Absent means Anthropic, so every existing arm is
+   * untouched. `mistral` is not an LLM call at all — it is the OCR layout
+   * parser, priced per page rather than per token (mistral.ts).
+   */
+  provider?: "anthropic" | "google" | "mistral";
+  /** Gemini only: how many tokens the image is worth to the model (gemini.ts). */
+  mediaResolution?: "high" | "ultra_high";
 }
 
 export interface Arm {
@@ -82,6 +97,67 @@ export interface Arm {
   supersededBy?: string;
 }
 
+/* -------------------------------------------------- the provider's own answer */
+
+/**
+ * A single field of a `RawAnswer` is truncated at this many characters.
+ *
+ * Generous on purpose: a dense A4 lab page comes back as a few kilobytes of
+ * markdown, so this is roughly an order of magnitude of headroom and in
+ * practice never fires. It exists so that one pathological page — a scan that
+ * OCRs into a wall of repeated glyphs — cannot put megabytes into
+ * `results/adapt/<arm>/<slug>.json` and make the directory unusable.
+ */
+export const RAW_FIELD_MAX = 100_000;
+
+/**
+ * Truncate one field and **say so in the file**: the marker is left inside the
+ * value, where anyone reading the JSON will see it, and the field's name is
+ * also listed in `RawAnswer.truncated` so a program can check without parsing
+ * prose. A silent truncation would make a stored answer look complete.
+ */
+export function truncateRawField(s: string, name: string, truncated: string[]): string {
+  if (s.length <= RAW_FIELD_MAX) return s;
+  truncated.push(name);
+  return s.slice(0, RAW_FIELD_MAX) + `\n…[truncated at ${RAW_FIELD_MAX} characters by RAW_FIELD_MAX]`;
+}
+
+/**
+ * What the provider actually said, beside what we made of it.
+ *
+ * `extraction` is our *mapping* of the answer. For an LLM arm those are nearly
+ * the same thing — the model returned our tool schema — but for the OCR arm
+ * the mapping is the whole accuracy of the arm (mistral.ts, "Mapping OCR
+ * output onto RawMeasurement"), and storing only the mapped rows means a
+ * mapping bug found later can only be re-judged through whatever those rows
+ * happened to carry. That is a real limit and it cost us: re-mapping from
+ * `source_snippet` alone can move a row from wrong to right but never from
+ * absent to present, and one page whose table was dropped entirely could not
+ * be judged at all.
+ *
+ * So the provider's own answer is stored next to ours. It is set **only** where
+ * there is a real one to store — Mistral OCR's page: its markdown, the tables
+ * it isolated, and the per-block confidences the derived `confidence` field
+ * rests on. For Anthropic and Gemini it is left `undefined` rather than filled
+ * with a re-serialisation of the tool input we already have; inventing a `raw`
+ * that is just `extraction` again would make the field a lie about what is
+ * recoverable.
+ */
+export interface RawAnswer {
+  /** Which API said it — the answer's shape is only meaningful per provider. */
+  provider: "mistral";
+  /** The page as the provider rendered it, tables replaced by placeholders. */
+  markdown?: string;
+  /** Each table the provider isolated, in its own markup, with its id. */
+  tables?: Array<{ id: string; content: string }>;
+  /** Per-block average content confidence, keyed to the table a block points at. */
+  blocks?: Array<{ tableId: string; confidence: number | null }>;
+  /** The page-level average, the fallback when a table has no block of its own. */
+  pageConfidence?: number | null;
+  /** Names of the fields cut by `RAW_FIELD_MAX`. Absent when nothing was cut. */
+  truncated?: string[];
+}
+
 export interface CallResult {
   ok: boolean;
   model: string;
@@ -92,7 +168,14 @@ export interface CallResult {
   /** Did the response actually contain a thinking block? Settles A2 by
    *  observation rather than by reading the docs. */
   thought: boolean;
+  /** Gemini only: prompt tokens the image cost — the plan's open item on $/page. */
+  imageTokens?: number;
   extraction: PageExtraction | null;
+  /**
+   * The provider's own answer, where there is one worth storing. See
+   * `RawAnswer` — deliberately unset for the arms that have nothing to add.
+   */
+  raw?: RawAnswer;
   error: string | null;
 }
 
@@ -174,6 +257,10 @@ export async function callReader(
   reader: Reader,
   rows: TextRow[],
 ): Promise<CallResult> {
+  if (reader.provider === "google") {
+    const { callGemini } = await import("./gemini");
+    return callGemini(apiKey, reader, { kind: "text", rows });
+  }
   const columnMode = arm.mode === "columnMap";
   // The column map is addressed by row number, so it always needs the indexed
   // rendering regardless of what `anchor` says.

@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.matching import (Registry, observed_stats, suggest_mappings)
+from src.matching import (Registry, norm_key, observed_stats, suggest_mappings)
 from src.models import AnalyteDef, LabReport, Measurement
 
 
@@ -30,6 +30,21 @@ def _registry() -> Registry:
 
 def _report_with(measurements) -> LabReport:
     return LabReport(id="r1", source_file="x.pdf", measurements=measurements)
+
+
+# --- name normalization -----------------------------------------------------
+# Guard seen failing: with a generic ^[a-z]{1,4}- rule, "anti-TPO" normalized
+# to "tpo" and resolved to the TPO analyte (2026-09-06).
+def test_norm_key_strips_material_codes_but_not_a_names_own_prefix():
+    assert norm_key("S/Sodík") == "sodik"
+    assert norm_key("S-Na") == "na"
+    assert norm_key("S,P-glukóza") == "glukoza"
+    assert norm_key("dU_Kreatinin") == "kreatinin"
+    assert norm_key("anti-TPO") == "anti tpo"
+    assert norm_key("C-peptid") == "c peptid"
+    assert norm_key("S - Na") == "s na"
+    r = Registry([AnalyteDef("tpo", "TPO", [], "kU/l", {})])
+    assert r.match("anti-TPO") is None
 
 
 # --- name similarity --------------------------------------------------------

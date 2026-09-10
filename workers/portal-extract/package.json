@@ -1,0 +1,14 @@
+{
+  "name": "@bw/worker-portal-extract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@bw/extraction": "*",
+    "@bw/gate": "*",
+    "@bw/agent-core": "*"
+  }
+}

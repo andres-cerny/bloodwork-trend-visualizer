@@ -1,0 +1,384 @@
+/**
+ * A single parameter over time, for a person reading their own results.
+ *
+ * The classic `Chart` was drawn for a clinician comparing a slope; this one
+ * answers the question a patient asks first — am I inside the range — and
+ * only then how it moved. So the reference limits are in the plot whenever
+ * they are within reach of the data, the space beyond them is tinted the
+ * status colour, and a point outside is red where it sits. The classic stays
+ * byte-for-byte for the demo; both read the same `Trend`, and "the model may
+ * name a chart, never fill one" is enforced upstream of either.
+ *
+ * The line is straight segments between draws. Nothing is known about the
+ * days between two draws, and a curve — even one that cannot overshoot —
+ * claims a shape for them; a straight segment claims only the two ends.
+ *
+ * Still: scale to the data. A ferritin falling 112 → 88 inside a 30–400
+ * band must not flatten into a line, so a limit far outside the data stays
+ * off the plot and is named in the caption instead.
+ *
+ * Colour is never the only channel: an out-of-range point is red *and* sits
+ * in the red-tinted zone, which says which way it is out; it carries no
+ * arrow, the zone already does. An unconfirmed one is hollow *and* named in
+ * the caption. Text takes ink tokens; only marks take
+ * signal. Two colours in the plot, not three: blue says "the line", red
+ * says "outside the range" — as a soft tint for the zone, solid for a point
+ * that is in it.
+ */
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { czDate, czExact, czMonthYear, czNum, numericPoints, prettyUnit, type Trend, type TrendPoint } from "@bw/lab-core";
+import { niceTicks } from "./Chart";
+
+const W = 640;
+const H = 250;
+const PAD = { top: 16, right: 16, bottom: 28, left: 44 };
+const MIN_TEXT_PX = 11;
+const SMALLEST_LABEL = 11;
+const MAX_TEXT_SCALE = 2.2;
+/** A limit further than this many data spans from the data stays off-plot. */
+const REACH = 3;
+
+const useMeasureEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+const isOut = (p: TrendPoint) => p.flag === "high" || p.flag === "low";
+
+export interface Domain {
+  yMin: number;
+  yMax: number;
+  bLow: number | null;
+  bHigh: number | null;
+  /** Limits that exist but were left off the plot, for the caption. */
+  offPlot: Array<{ label: string; value: number }>;
+}
+
+/**
+ * The y-domain: the data, plus each limit that is within reach of it, plus
+ * air. Exported so the sparkline draws by the same rule as the chart.
+ */
+export function trendDomain(pts: TrendPoint[], air = 0.12): Domain {
+  const values = pts.map((p) => p.value as number);
+  const lows = pts.map((p) => p.refLow).filter((v): v is number => v !== null);
+  const highs = pts.map((p) => p.refHigh).filter((v): v is number => v !== null);
+  const bLow = lows.length ? Math.max(...lows) : null;
+  const bHigh = highs.length ? Math.min(...highs) : null;
+
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const span = hi - lo || Math.abs(hi) * 0.1 || 1;
+
+  const offPlot: Domain["offPlot"] = [];
+  const included: number[] = [lo, hi];
+  const consider = (v: number | null, label: string) => {
+    if (v === null) return;
+    const distance = v > hi ? v - hi : v < lo ? lo - v : 0;
+    if (distance <= span * REACH) included.push(v);
+    else offPlot.push({ label, value: v });
+  };
+  consider(bHigh, "horní mez");
+  consider(bLow, "dolní mez");
+
+  const min = Math.min(...included);
+  const max = Math.max(...included);
+  const range = max - min || span;
+  let yMin = min - range * air;
+  const yMax = max + range * air;
+  const canBeNegative = values.some((v) => v < 0) || lows.some((v) => v < 0);
+  if (!canBeNegative && yMin < 0) yMin = 0;
+  return { yMin, yMax, bLow, bHigh, offPlot };
+}
+
+const fmt = (v: number) => String(Math.round(v * 10) / 10);
+
+/** Straight segments between the points, as an SVG path. */
+function linePath(points: Array<[number, number]>): string {
+  return points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${fmt(x)},${fmt(y)}`).join("");
+}
+
+/** Points spaced by date, not by index — time on the time axis. */
+function xScale(pts: TrendPoint[], left: number, width: number): (i: number) => number {
+  const times = pts.map((p) => Date.parse(p.date)).map((v) => (Number.isFinite(v) ? v : 0));
+  const t0 = Math.min(...times);
+  const t1 = Math.max(...times);
+  const span = t1 - t0;
+  return (i) => (pts.length === 1 || span <= 0 ? left + width / 2 : left + ((times[i] - t0) / span) * width);
+}
+
+export default function TrendChart({
+  trend,
+  onVerify,
+}: {
+  trend: Trend;
+  /** Opens the row behind a doubted point; the popover offers it as "Ověřit". */
+  onVerify?: (p: TrendPoint) => void;
+}) {
+  const clipId = useId();
+  const [hover, setHover] = useState<number | null>(null);
+  const figRef = useRef<HTMLElement>(null);
+  const [drawnW, setDrawnW] = useState<number | null>(null);
+
+  // Type keeps its size on the glass: the viewBox is 640 wide and a phone
+  // draws it at ~340, so every label is scaled back up by the same factor.
+  useMeasureEffect(() => {
+    const el = figRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const read = () => {
+      const w = el.getBoundingClientRect().width;
+      setDrawnW((prev) => (w > 0 && Math.abs((prev ?? -1) - w) > 0.5 ? w : prev));
+    };
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const scale = drawnW !== null && drawnW > 0 ? drawnW / W : 1;
+  const k = Math.min(MAX_TEXT_SCALE, Math.max(1, MIN_TEXT_PX / (SMALLEST_LABEL * scale)));
+
+  const pts = numericPoints(trend);
+  if (pts.length === 0) return <p className="muted">Žádné číselné hodnoty k zobrazení.</p>;
+  if (pts.length === 1) {
+    // One measurement is not a trend: a chart would invent an axis.
+    const p = pts[0];
+    return (
+      <p className="single-point">
+        <strong className={isOut(p) ? "out" : undefined}>
+          {czExact(p.value, p.valueRaw)}
+          {trend.unit ? ` ${prettyUnit(trend.unit)}` : ""}
+        </strong>{" "}
+        <span className="muted">— jediné měření ({czDate(p.date)}). Křivka od druhého odběru.</span>
+      </p>
+    );
+  }
+
+  const d = trendDomain(pts);
+  const ticks = niceTicks(d.yMin, d.yMax, 6);
+  const tickChars = Math.max(1, ...ticks.map((t) => czNum(t).length));
+  const padLeft = Math.max(PAD.left, Math.ceil(tickChars * 12 * k * 0.58) + 10);
+  const padBottom = Math.max(PAD.bottom, Math.ceil(12 * k * 1.4) + 6);
+  const innerW = W - padLeft - PAD.right;
+  const innerH = H - PAD.top - padBottom;
+  const x = xScale(pts, padLeft, innerW);
+  const y = (v: number) => PAD.top + innerH - ((v - d.yMin) / (d.yMax - d.yMin || 1)) * innerH;
+  const inView = (v: number | null): v is number => v !== null && v >= d.yMin && v <= d.yMax;
+
+  const xy: Array<[number, number]> = pts.map((p, i) => [x(i), y(p.value as number)]);
+  const line = linePath(xy);
+  const active = hover !== null ? pts[hover] : null;
+  const unit = prettyUnit(trend.unit);
+
+  // One hit surface for the whole plot instead of a circle per point: no dead
+  // zones between points, and the nearest point answers. Touch keeps the tap
+  // toggle; the move handler is mouse-only so a tap does not set-then-unset.
+  const nearest = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    for (let i = 1; i < pts.length; i++) if (Math.abs(x(i) - px) < Math.abs(x(best) - px)) best = i;
+    return best;
+  };
+
+  return (
+    <figure ref={figRef} className="tc" style={{ margin: 0 }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        role="img"
+        aria-label={`Vývoj ${trend.displayName}${unit ? ` v ${unit}` : ""}`}
+        style={{ display: "block", touchAction: "pan-y" }}
+        onPointerMove={(e) => { if (e.pointerType === "mouse") setHover(nearest(e)); }}
+        onPointerLeave={() => setHover(null)}
+        onClick={(e) => { const i = nearest(e); setHover((h) => (h === i ? null : i)); }}
+      >
+        <clipPath id={clipId}>
+          <rect x={padLeft} y={PAD.top} width={innerW} height={innerH} />
+        </clipPath>
+
+        {/* Beyond each limit, the soft status tint. Inside the range the
+            paper is left alone: the band is where nothing needs saying, and
+            "outside" is the one thing the zone has to say. */}
+        <g clipPath={`url(#${clipId})`}>
+          {inView(d.bHigh) && (
+            <rect x={padLeft} y={PAD.top} width={innerW} height={Math.max(0, y(d.bHigh) - PAD.top)} fill="var(--status-critical-soft)" />
+          )}
+          {inView(d.bLow) && (
+            <rect x={padLeft} y={y(d.bLow)} width={innerW} height={Math.max(0, PAD.top + innerH - y(d.bLow))} fill="var(--status-critical-soft)" />
+          )}
+        </g>
+
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={padLeft} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
+            <text x={padLeft - 7 * k} y={y(t) + 4 * k} textAnchor="end" fontSize={12 * k} fill="var(--ink-muted)">
+              {czNum(t)}
+            </text>
+          </g>
+        ))}
+
+        {/* The band edge is a line, not a label: the range is written once,
+            above the chart, and the tint says which side is outside. */}
+        {[d.bHigh, d.bLow].map((v, i) =>
+          inView(v) ? (
+            <line key={i} x1={padLeft} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--border-strong)" strokeWidth={1} strokeDasharray="4 3" />
+          ) : null,
+        )}
+
+        <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+
+        {pts.map((p, i) => {
+          const out = isOut(p);
+          const last = i === pts.length - 1;
+          const cx = x(i);
+          const cy = y(p.value as number);
+          return (
+            <g key={i}>
+              {last && (
+                <circle
+                  pointerEvents="none"
+                  cx={cx}
+                  cy={cy}
+                  r={11}
+                  fill={out ? "var(--status-critical-soft)" : "var(--series-1-soft)"}
+                />
+              )}
+              <circle
+                pointerEvents="none"
+                cx={cx}
+                cy={cy}
+                r={last || hover === i ? 6 : 4.5}
+                fill={p.unconfirmed ? "var(--surface-1)" : out ? "var(--status-critical)" : "var(--series-1)"}
+                stroke={p.unconfirmed ? (out ? "var(--status-critical)" : "var(--series-1)") : "var(--surface-1)"}
+                strokeWidth={2}
+                strokeDasharray={p.unconfirmed ? "3 2" : undefined}
+              />
+            </g>
+          );
+        })}
+
+        {hover !== null && active && (() => {
+          const lines = [
+            czDate(active.date),
+            `${czExact(active.value, active.valueRaw)}${unit ? ` ${unit}` : ""}`,
+            active.flag === "high" ? "nad rozmezím" : active.flag === "low" ? "pod rozmezím" : active.refLow !== null || active.refHigh !== null ? "v rozmezí" : "",
+          ].filter(Boolean);
+          if (active.unconfirmed) lines.push("nepotvrzeno");
+          // The way out of a doubted value, drawn as the last line and the one
+          // thing in the popover that takes the pointer.
+          const verify = !!active.unconfirmed && !!onVerify;
+          const w = Math.max(84 * k, ...lines.map((l, i) => l.length * (i === 1 ? 6.9 : 5.6) * k + 18 * k));
+          const h = (16 + (lines.length + (verify ? 1 : 0)) * 14) * k;
+          const px = x(hover);
+          const py = y(active.value as number);
+          const left = px + 14 + w > W - PAD.right ? px - 14 - w : px + 14;
+          const top = Math.min(Math.max(PAD.top, py - h / 2), H - padBottom - h);
+          const out = isOut(active);
+          return (
+            <g className="chart-tip" pointerEvents="none">
+              <line x1={px} x2={px} y1={PAD.top} y2={H - padBottom} stroke="var(--ink-muted)" strokeWidth={1} strokeDasharray="3 3" opacity={0.55} />
+              <rect x={left} y={top} width={w} height={h} rx={7} fill="var(--surface-1)" stroke="var(--border-strong)" strokeWidth={1} />
+              {lines.map((l, i) => (
+                <text key={i} x={left + 9 * k} y={top + (14 + i * 14) * k} fontSize={(i === 1 ? 12.5 : 10.5) * k} fontWeight={i === 1 ? 700 : 400} fill={i === 1 ? (out ? "var(--critical-ink)" : "var(--ink-1)") : "var(--ink-2)"}>
+                  {l}
+                </text>
+              ))}
+              {verify && (
+                <text
+                  role="button"
+                  tabIndex={0}
+                  className="chart-verify"
+                  pointerEvents="all"
+                  cursor="pointer"
+                  x={left + 9 * k}
+                  y={top + (14 + lines.length * 14) * k}
+                  fontSize={10.5 * k}
+                  fontWeight={600}
+                  textDecoration="underline"
+                  fill="var(--accent-ink)"
+                  onPointerMove={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onVerify!(active);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onVerify!(active);
+                    }
+                  }}
+                >
+                  Ověřit
+                </text>
+              )}
+            </g>
+          );
+        })()}
+
+        {(() => {
+          // The newest date always labels, and wins its space: earlier labels
+          // inside its gap are dropped. Exempting the last label from the gap
+          // check while keeping its neighbour drew the two on top of each
+          // other whenever the series ends in draws close together.
+          const MIN_GAP = 46 * k;
+          const lastI = pts.length - 1;
+          const shown: number[] = [];
+          for (let i = 0; i < lastI; i++) {
+            if (shown.length === 0 || x(i) - x(shown[shown.length - 1]) >= MIN_GAP) shown.push(i);
+          }
+          const labels = [...shown.filter((i) => x(lastI) - x(i) >= MIN_GAP), lastI];
+          return labels.map((i) => {
+            const half = czMonthYear(pts[i].date).length * 12 * k * 0.26;
+            const lx = Math.min(Math.max(x(i), half), W - half);
+            return (
+              <text key={i} x={lx} y={H - 7} textAnchor="middle" fontSize={12 * k} fill="var(--ink-muted)">
+                {czMonthYear(pts[i].date)}
+              </text>
+            );
+          });
+        })()}
+      </svg>
+
+      <figcaption className="muted" style={{ minHeight: "1.4em", marginTop: 4 }}>
+        {active
+          ? `${czDate(active.date)}: ${czExact(active.value, active.valueRaw)}${unit ? ` ${unit}` : ""}` +
+            (active.flag === "high" ? " — nad rozmezím" : active.flag === "low" ? " — pod rozmezím" : "") +
+            (active.unconfirmed ? " · nepotvrzeno" : "")
+          : d.bLow !== null || d.bHigh !== null
+            ? `Referenční rozmezí ${d.bLow !== null ? czNum(d.bLow) : ""}${d.bLow !== null && d.bHigh !== null ? "–" : ""}${d.bHigh !== null ? czNum(d.bHigh) : ""}${unit ? ` ${unit}` : ""}` +
+              (d.offPlot.length ? ` · ${d.offPlot.map((o) => `${o.label} ${czNum(o.value)} mimo výřez`).join(", ")}` : "")
+            : "Bez referenčního rozmezí."}
+      </figcaption>
+    </figure>
+  );
+}
+
+/**
+ * The same picture at thumbnail size: tinted zones, the line, the last point.
+ * No axes and no labels — the tile it sits in names the value; this only says
+ * where the line has been relative to the range.
+ */
+export function Sparkline({ trend, width = 120, height = 40 }: { trend: Trend; width?: number; height?: number }) {
+  const pts = numericPoints(trend);
+  if (pts.length === 0) return null;
+  const d = trendDomain(pts, 0.18);
+  const P = 4;
+  const x = xScale(pts, P, width - P * 2);
+  const y = (v: number) => P + (height - P * 2) - ((v - d.yMin) / (d.yMax - d.yMin || 1)) * (height - P * 2);
+  const inView = (v: number | null): v is number => v !== null && v >= d.yMin && v <= d.yMax;
+  const last = pts[pts.length - 1];
+  const xy: Array<[number, number]> = pts.map((p, i) => [x(i), y(p.value as number)]);
+  const line = linePath(xy);
+  return (
+    <svg className="spark" viewBox={`0 0 ${width} ${height}`} width={width} height={height} preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      {/* Tinted zones, no limit lines: at 30px tall two dashed red rules
+          were most of the picture, and the picture is the line. */}
+      {inView(d.bHigh) && <rect x={0} y={0} width={width} height={Math.max(0, y(d.bHigh))} fill="var(--status-critical-soft)" />}
+      {inView(d.bLow) && <rect x={0} y={y(d.bLow)} width={width} height={Math.max(0, height - y(d.bLow))} fill="var(--status-critical-soft)" />}
+      {pts.length > 1 && <path d={line} fill="none" stroke="var(--series-1)" strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />}
+      <circle
+        cx={x(pts.length - 1)}
+        cy={y(last.value as number)}
+        r={3.2}
+        fill={last.unconfirmed ? "var(--surface-1)" : isOut(last) ? "var(--status-critical)" : "var(--series-1)"}
+        stroke={last.unconfirmed ? (isOut(last) ? "var(--status-critical)" : "var(--series-1)") : "var(--surface-1)"}
+        strokeWidth={1.5}
+      />
+    </svg>
+  );
+}

@@ -10,6 +10,8 @@
 export type Flag = "normal" | "low" | "high" | "unknown";
 export type Confidence = "high" | "medium" | "low";
 
+import type { TextRow } from "./pdf/rows";
+
 /** Pixel bbox on the rendered page image: [x0, y0, x1, y1]. */
 export type Box = [number, number, number, number];
 
@@ -38,6 +40,13 @@ export interface Measurement {
   escalated: boolean;
   disagreement: string | null;
   corrected: boolean;
+  /**
+   * A human looked at the printed page and vouched for this exact value.
+   * `reviewOf` returns ok for a confirmed measurement, so every doubt channel
+   * (chips, worklist, hollow trend dots, the held-back banner) clears at once.
+   * Editing the value afterwards resets it — a new number is a new question.
+   */
+  confirmed?: boolean;
 
   /** Precomputed at build time (src/locate.py) or derived from pdf.js. */
   bbox: Box | null;
@@ -62,6 +71,13 @@ export interface Page {
   imageUrl: string;
   imageWidth: number;
   imageHeight: number;
+  /**
+   * Text path only: the page's reconstructed rows, kept so a measurement's
+   * `rowIndex` can still be read against its heading and its `Materiál`
+   * column after extraction (mapping.ts). Absent on a scan and on the demo
+   * reports, which are built outside the browser.
+   */
+  rows?: TextRow[];
 }
 
 export interface LabReport {
@@ -88,6 +104,14 @@ export interface AnalyteDef {
    * scripts/reference_ranges.json.
    */
   referenceRange?: [number, number] | null;
+  /**
+   * The material this analyte is measured in — `s`, `b`, `u`, or `s,p` when
+   * two are known — read off the prefixes of its synonyms (`S_Glukóza` → s).
+   * Set by the Registry, not authored: recomputed whenever a synonym is
+   * learned or withdrawn. Null when no synonym carries a known code, which
+   * `Registry.match` treats as compatible with anything.
+   */
+  material?: string | null;
 }
 
 /** A measurement with only the raw fields filled — what an extractor returns. */

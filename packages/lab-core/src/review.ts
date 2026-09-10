@@ -36,6 +36,13 @@ export function reviewOf(
   m: Measurement,
   curatedRange: (canonicalId: string | null) => { low: number; high: number } | null,
 ): Review {
+  // A human vouched for this exact value against the printed page. That
+  // answers every kind of doubt below at once — an implausibility check
+  // recomputed from the value would otherwise reopen the question on every
+  // render, which is why confirmation is a stored fact and not a same-value
+  // correction.
+  if (m.confirmed) return OK;
+
   const range =
     curatedRange(m.canonicalId) ??
     (m.refRangeLow !== null && m.refRangeHigh !== null

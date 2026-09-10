@@ -217,6 +217,31 @@ withheld-reading path in the browser, because the demo's misread is not at the
 last draw — say so in the test file rather than letting a green run imply
 coverage it does not have.
 
+## A Worker entry module exports its handler and nothing else
+
+workerd reads **every named export** of the module named by `main` as a service
+or a handler. So a helper left on that surface is not dead weight, it is a
+startup error:
+
+```
+service core:user:bloodwork-extract: Uncaught TypeError: Incorrect type for map
+entry 'DEFAULT_PHOTO_READERS': the provided value is not of type 'function or
+ExportedHandler'.
+```
+
+The trap is that nothing else notices. `wrangler deploy` accepts the module,
+production serves every route, and `/api/status` returns the new field — the
+entire cost lands on whoever next runs `wrangler dev`, as a failure that names
+a constant rather than the rule it broke. That is why `PHOTO_PAIRS` and its
+neighbours live in `workers/extract/src/readers.ts` and index.ts imports them.
+
+`export interface Env` is fine: type-only exports are erased before workerd
+sees the module. A Durable Object class is fine too, and is the reason the
+allowance is read from each config's `durable_objects` bindings rather than
+hard-coded. Pinned by `tests/guards/entry-exports.test.ts`, which finds every
+`wrangler.jsonc` in the repo, imports the entry each one names, and compares
+the export names against that set.
+
 ## Privacy — the one hard rule
 
 `data/`, `samples/*.pdf` and `web/public/demo/real/` are git-ignored because
@@ -241,12 +266,67 @@ Its check reads the PDF text layer. It cannot catch an identifier that exists
 only as pixels — a stamp, a signature, a handwritten note. **Look at
 `web/public/demo/pages/` before deploying.**
 
+The portal's AI share page (`/ai/<token>`, the Sdílet s AI tab) carries
+values, units, ranges and draw dates, and — only if the person filled it in —
+the context they wrote about themselves (sex, an age band, height, weight,
+activity, medicines, diagnoses, smoking, alcohol, a note); never a page
+image, never a report id, and never an identity the app adds — no e-mail,
+no name from a report, no file name. The four free-text fields are the
+person's own words, sent as typed, and capped. `packages/lab-core/tests/aiShare.test.ts`,
+`packages/lab-core/tests/aiContext.test.ts` and
+`workers/portal/tests/aiShare.test.ts` pin the absences. The page is HTML
+with the text in a `<pre>`, whatever the fetcher's `Accept` says, at an
+address with no extension — ChatGPT's browser refuses anything that looks
+like a markdown file, and refused it again when the page negotiated.
+
+### Two processors now, not one
+
+Patient data never leaves the machine **except to the model APIs in use**, and
+there are two of them. The text path sends printed rows to Anthropic. The image
+path sends the page image — header, name and rodné číslo included — to Anthropic
+and, when `PHOTO_READERS` names a Gemini pair, to Google as well; both on paid
+tiers, **which do not train on the request**. Not *store* — neither vendor
+publishes that, both retain inputs briefly for abuse monitoring, and the copy
+claimed it until 2026-09-08. Claim the commitment that exists.
+
+That pairing is not a preference: on 133 photographed pages the two Claude readers made 40 value
+errors between them and flagged 494 rows for a human, where Sonnet with Gemini
+made none and flagged 5 (docs/lab-adaptability.md). Two readers from one vendor
+make the same judgement calls and so confirm each other on them, which is why
+the pair is cross-vendor.
+
+The obligation this creates is that **every surface claiming where the data goes
+renders it from `/api/status`, never from memory** — `processorPhrase` in
+`packages/ui-kit/src/processors.ts`, used by `apps/bloodwork/src/App.tsx`,
+`apps/bloodwork/src/ui/UploadPanel.tsx` and `apps/portal/src/ui/Privacy.tsx`.
+It was a hand-written sentence in each until a review pointed out that
+`workers/portal-extract` is config over the same code, so two commands would
+have sent real family pages to a second vendor with nothing failing and nothing
+warning. README's cost note is prose and still says it by hand.
+
+**Not knowing must say more, never less.** While the status request is in
+flight, and whenever it fails, the copy names every processor: over-disclosure
+ages safely, and the other direction is a false statement to a patient about
+their own medical record. A third processor inherits both rules.
+
 ## A security review found one real defect
 
 The redaction guard above could not detect the case it existed for: redaction
 and verification both ran through the text layer, so on a scanned page nothing
 matched, nothing was painted over, and a page whose header carries the
 patient's name rendered straight through looking clean. Fixed as described.
+
+**A photograph enters by that same door, and by no other.** Moje krev takes
+phone photos as well as PDFs, and a photograph has no text layer at all — not
+lost in a scanner, never present. So `prepareFile` gives it precisely a scan's
+shape: no words, `canRedact` false, no hits, its page listed in `scanPages`.
+The review screen therefore says nothing was found *because nothing could be
+looked at* and hands the reader the pencil; there is no path on which a photo
+is reported clean, and none on which it is sent without that confirmation. One
+word differs: it is a *fotografie*, never a *sken*, because telling someone
+their own phone snapshot is a scan is a false statement on the single screen
+asking them to trust the app. Pinned by
+`apps/portal/tests/redactReview.test.ts` and `tests/e2e/upload-portal.e2e.ts`.
 
 Confirmed sound in the same review: HMAC session verification denies on every
 malformed path rather than falling through; no secret can reach the client

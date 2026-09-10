@@ -31,6 +31,12 @@
   --series-1-soft: rgba(42, 120, 214, 0.10);
   --accent: #2470cc;
   --accent-ink: #2264b2;
+  /* Type on an accent fill — a primary button's label. White in both
+     palettes, because both accents are dark enough for it (4.9:1 light,
+     4.6:1 dark) and no surface token is: --surface-1 is white in light and
+     near-black in dark, which is how the portal's door button sat at 3.8:1
+     for dark readers until the audit reached it. */
+  --on-accent: #ffffff;
   --status-critical: #d03b3b;
   --status-critical-soft: rgba(208, 59, 59, 0.10);
   --critical-ink: #b32828;
@@ -107,6 +113,7 @@
   --dk-series-1-soft: rgba(57, 135, 229, 0.16);
   --dk-accent: #1d74dd;
   --dk-accent-ink: #6ba6ec;
+  --dk-on-accent: #ffffff;
   --dk-status-critical: #e05555;
   --dk-status-critical-soft: rgba(224, 85, 85, 0.16);
   --dk-critical-ink: #ec8a8a;
@@ -142,6 +149,7 @@
     --series-1-soft: var(--dk-series-1-soft);
     --accent: var(--dk-accent);
     --accent-ink: var(--dk-accent-ink);
+    --on-accent: var(--dk-on-accent);
     --status-critical: var(--dk-status-critical);
     --status-critical-soft: var(--dk-status-critical-soft);
     --critical-ink: var(--dk-critical-ink);
@@ -176,6 +184,7 @@
     --series-1-soft: var(--dk-series-1-soft);
     --accent: var(--dk-accent);
     --accent-ink: var(--dk-accent-ink);
+    --on-accent: var(--dk-on-accent);
     --status-critical: var(--dk-status-critical);
     --status-critical-soft: var(--dk-status-critical-soft);
     --critical-ink: var(--dk-critical-ink);

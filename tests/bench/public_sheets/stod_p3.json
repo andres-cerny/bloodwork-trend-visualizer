@@ -1,0 +1,472 @@
+{
+  "slug": "stod_p3",
+  "source": "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf",
+  "page": 3,
+  "language": "cs",
+  "lab": "Stodská nemocnice, a.s., Oddělení klinické biochemie",
+  "lis": "Medicalc software s.r.o. (PDF producer bioPDF); form 'Výsledkový list', 2021",
+  "conventions": [
+    "underscore material prefix on names (S_, U_, B_, P_, fU_, X_, C_, Fe_, Pt_); one hyphen row 'S- Cholesterol non- HDL' (p1); a few rows prefix-free (Poměr FreePSA/PSA, Čas, Protrombinový test- Ratio, ABR arter.)",
+    "column order: Název vyšetření | Výsledek | Jednotka | Meze | Hodnocení",
+    "Hodnocení is a fixed-width Courier text histogram, NOT a letter: four bars at character columns 2, 6, 8, 12 and a '*' placed by where the value falls — '|*|' between the two inner bars means in range, left of / right of the outer bars means far outside. `flag_raw` keeps the 14-character field verbatim, leading and trailing spaces included; it is '' when the row has no range",
+    "out-of-range values are printed in bold (Arial Bold, dark grey #4C4C4C) with no H/L letter anywhere — `value_printed_bold`; every bold value has its '*' outside the inner bars and vice versa",
+    "ranges 'lo - hi' with spaced hyphen and decimal comma, centred with padding spaces in the text layer (`ref_range_raw` is trimmed); a negative bound prints as '-2,0 - 2,0'",
+    "rows without a range (fPSA, ionised Ca, urine volumes, punctate, patient weight/height...) leave Meze and Hodnocení empty",
+    "unit spelling is inconsistent within one sheet: µkat/l vs µkat/L, g/l vs g/L, mmol/l vs mmol/L, mg/L, ug/l vs ug/L vs µg/ml; caret exponents 10^12/l 10^9/l; '1' is the unit of ratios and fractions (hematocrit, INR, O2 saturation); '-' for pH; 'arb.j.' and 'počet/uL' in urine",
+    "two heading levels: bold underlined capitals (BIOCHEMIE, HEMATOLOGIE, IMUNOHEMATOLOGIE, POMOCNÉ) in `group`, bold-italic subgroups (Enzymy + pigmenty, Minerály, Krevní obraz, Koagulace...) in `section`",
+    "grey italic comment lines interleaved under a row, indented or right-shifted, are not rows; they are attached to the row above as `comment_raw`",
+    "the patient header (HOKUS POKUSJMÉNO, JUDr.; IČ 12 12 12 / 121; Věk 108; Přijato/Odběr 29.06.2021 08:34) repeats on every page above the column header; footer 'Strana N z 5'",
+    "PDF has a real text layer (bioPDF writer); get_text() emits the columns as separate blocks so words must be regrouped by baseline",
+    "two-column block 'Moč chemicky + sediment': left column name | value | unit (pH, Bílkovina, Glukóza, Ketolátky, Urobilinogen, Bilirubin, Krev), right column name | value | unit (Erytrocyty/Leukocyty/Epitelie/Bakterie v sedimentu moče) on the same baselines; no prefix, no range, no histogram; stored with `block_column` left/right, left column first",
+    "'ABR arter.' | 'arteriální' is a specimen-type text row inside the ABR subgroup — kept as a row with value_raw 'arteriální' and no unit",
+    "toxicology rows are qualitative: value_raw 'negativní', unit '-', no range; each has a two-line grey italic note ('pozitivní výsledek až 7 dnů po požití při hladině v moči vyšší než 300 ng/ml') joined into `comment_raw`",
+    "urine 'odpad' (daily output) rows in mmol/d, some without a range"
+  ],
+  "rows": [
+    {
+      "raw_analyte_name": "fU_Vápník-odpad",
+      "value_raw": "7,50",
+      "unit_raw": "mmol/d",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "2,50 - 7,50",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "fU_Hořčík-odpad",
+      "value_raw": "0,75",
+      "unit_raw": "mmol/d",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "4,00 - 5,00",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "fU_Fosfor-odpad",
+      "value_raw": "6,0",
+      "unit_raw": "mmol/d",
+      "flag_raw": "  |*  | |   | ",
+      "ref_range_raw": "13,0 - 42,0",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "fU_Bílk.celková-odpad",
+      "value_raw": "1,05",
+      "unit_raw": "g/d",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "fU_Kreatinin-odpad",
+      "value_raw": "8",
+      "unit_raw": "mmol/d",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "fU_Močová kys.-odpad",
+      "value_raw": "12,00",
+      "unit_raw": "mmol/d",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "fU_UREA",
+      "value_raw": "12",
+      "unit_raw": "mmol/d",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Fe_Fr.exkrece sodíku",
+      "value_raw": "0,17",
+      "unit_raw": "%",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "0,40 - 1,25",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "Fe_Fr.exkrece draslíku",
+      "value_raw": "6,47",
+      "unit_raw": "%",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "4,00 - 19,00",
+      "section": "Moč - odpady",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "X_glukóza",
+      "value_raw": "6,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Punktát",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "X_Celková bílkovina",
+      "value_raw": "36,0",
+      "unit_raw": "g/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Punktát",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "X_LD",
+      "value_raw": "0,90",
+      "unit_raw": "µkat/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Punktát",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "X_pH punktátu",
+      "value_raw": "7,2",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Punktát",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "pH",
+      "value_raw": "5,0",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "left",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Bílkovina",
+      "value_raw": "1",
+      "unit_raw": "arb.j.",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "left",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Glukóza",
+      "value_raw": "2",
+      "unit_raw": "arb.j.",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "left",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Ketolátky",
+      "value_raw": "0",
+      "unit_raw": "arb.j.",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "left",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Urobilinogen",
+      "value_raw": "0",
+      "unit_raw": "arb.j.",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "left",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Bilirubin",
+      "value_raw": "0",
+      "unit_raw": "arb.j.",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "left",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Krev",
+      "value_raw": "0",
+      "unit_raw": "arb.j.",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "left",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Erytrocyty v sedimentu moče",
+      "value_raw": "2",
+      "unit_raw": "počet/uL",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "right",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Leukocyty v sedimentu moče",
+      "value_raw": "30",
+      "unit_raw": "počet/uL",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "right",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Epitelie v sedimentu moče",
+      "value_raw": "5",
+      "unit_raw": "počet/uL",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "right",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "Bakterie v sedimentu moče",
+      "value_raw": "1",
+      "unit_raw": "arb.j.",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Moč chemicky + sediment",
+      "group": "BIOCHEMIE",
+      "block_column": "right",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "ABR arter.",
+      "value_raw": "arteriální",
+      "unit_raw": "",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Sodík",
+      "value_raw": "121,0",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "134,0 - 148,0",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Draslík",
+      "value_raw": "5,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   |*|   | ",
+      "ref_range_raw": "3,50 - 5,10",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Chloridy",
+      "value_raw": "89",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "95 - 112",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_iVápník",
+      "value_raw": "0,90",
+      "unit_raw": "mmol/l",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "1,15 - 1,30",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Glukóza ABR",
+      "value_raw": "6,00",
+      "unit_raw": "mmol/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_Laktát",
+      "value_raw": "2,50",
+      "unit_raw": "mmol/l",
+      "flag_raw": "  |   | |*  | ",
+      "ref_range_raw": "0,50 - 2,20",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Hemoglobin ABR",
+      "value_raw": "129",
+      "unit_raw": "g/l",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false
+    },
+    {
+      "raw_analyte_name": "B_pH",
+      "value_raw": "7,326",
+      "unit_raw": "-",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "7,350 - 7,450",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_PO2",
+      "value_raw": "7,90",
+      "unit_raw": "kPa",
+      "flag_raw": "  |*  | |   | ",
+      "ref_range_raw": "9,99 - 11,30",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_PCO2",
+      "value_raw": "2,80",
+      "unit_raw": "kPa",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "4,67 - 6,00",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_HCO3 aktuální",
+      "value_raw": "20,0",
+      "unit_raw": "mmol/L",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "22,0 - 26,0",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_Base excess aktuální",
+      "value_raw": "25,0",
+      "unit_raw": "mmol/L",
+      "flag_raw": "  |   | |   |*",
+      "ref_range_raw": "-2,0 - 2,0",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_O2 saturovaný",
+      "value_raw": "90,0",
+      "unit_raw": "1",
+      "flag_raw": "  |  *| |   | ",
+      "ref_range_raw": "96,0 - 97,0",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "B_anionGap",
+      "value_raw": "5,0",
+      "unit_raw": "mmol/l",
+      "flag_raw": " *|   | |   | ",
+      "ref_range_raw": "14,0 - 18,0",
+      "section": "ABR a krevní plyny",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": true
+    },
+    {
+      "raw_analyte_name": "U_Barbituráty kval.",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 7 dnů po požití při hladině v moči vyšší než 300 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_Amphetamin",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 24 hodin po požití při hladině v moči vyšší než 1000 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_Benzodiazepiny",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 7 dnů po požití při hladině v moči vyšší než 300 ng/ml"
+    },
+    {
+      "raw_analyte_name": "U_Kokain",
+      "value_raw": "negativní",
+      "unit_raw": "-",
+      "flag_raw": "",
+      "ref_range_raw": "",
+      "section": "Toxikologie",
+      "group": "BIOCHEMIE",
+      "value_printed_bold": false,
+      "comment_raw": "pozitivní výsledek až 48 hodin po požití při hladině v moči vyšší než 300 ng/ml"
+    }
+  ]
+}

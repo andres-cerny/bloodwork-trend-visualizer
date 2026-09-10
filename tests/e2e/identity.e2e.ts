@@ -56,7 +56,7 @@ const NOBODY: Who = { patient_name: null, patient_id: null };
  * the next upload belongs to between two files.
  */
 async function openApp(who: () => Who): Promise<Page> {
-  return app.open(DESKTOP, async (page) => {
+  return app.open(DESKTOP, { prepare: async (page) => {
     // Turnstile never loads in a test browser. Standing in for it here is
     // legitimate: what is under test is what happens *after* the gate, and the
     // gate itself is covered by packages/gate.
@@ -108,7 +108,7 @@ async function openApp(who: () => Who): Promise<Page> {
         }),
       });
     });
-  });
+  } });
 }
 
 /** Choose a PDF through the real file input, as clicking the drop zone does. */
@@ -277,7 +277,7 @@ describe("a file that dies partway through, before it could be identified", () =
     // forever, invisible, which is worse than the half-read file the app used
     // to show.
     let calls = 0;
-    const page = await app.open(DESKTOP, async (p) => {
+    const page = await app.open(DESKTOP, { prepare: async (p) => {
       await p.addInitScript(() => {
         (window as any).turnstile = {
           render: (_el: HTMLElement, opts: any) => opts.callback("e2e-token"),
@@ -334,7 +334,7 @@ describe("a file that dies partway through, before it could be identified", () =
           });
         }
       });
-    });
+    } });
 
     await upload(page, "half-read.pdf", PDF_2PAGE);
     await waitForDialog(page);

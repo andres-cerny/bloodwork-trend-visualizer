@@ -1,0 +1,201 @@
+{
+  "slug": "breclav_hem_p80",
+  "source": "fetched/nembv_hem_9c9c0.pdf",
+  "page": 80,
+  "language": "cs",
+  "lab": "Nemocnice Břeclav, příspěvková organizace, 1602 Oddělení laboratorní hematologie",
+  "lis": "TIS Brno (form Zadanka_1.xsl, Revision 1.30 2021/04/22)",
+  "conventions": [
+    "no material prefix on names; every row starts with '*' glued to the name ('*Leukocyty') = accredited test (footer: 'Vyšetření označená \"*\" jsou vyšetření v rozsahu akreditace'); the star is kept in `raw_analyte_name` AND `accredited` is true",
+    "column order: Vyšetření | Výsl. | Text. výsl. | Jedn. | (unlabelled flag) | Referenční hodnoty | Prim. mat. | Uvolnil — a ruled table with a line under every row",
+    "Text. výsl. column is empty on every row",
+    "flag cell between unit and range: '.' when in range, 'L' when low (Neutrofily %); no 'H' on this page",
+    "ranges in spaced parentheses '( 4,00 - 10,00 )', decimal comma; decimals vary per analyte: two (9,60), three (0,454; 4,000; 1,000)",
+    "units G/l and T/l (giga/tera per litre) instead of 10^9/l, 10^12/l; '-' for the hematocrit fraction; fl, pg, %, g/l",
+    "'%' also appears inside names of differential rows ('*Neutrofily %') and as their unit",
+    "Prim. mat. column: 'EDTA' for the blood count rows, '3,2%CIT' for fibrinogen — stored in `material`; footer legend 'EDTA - primární vzorek je nesrážlivá krev (EDTA), 3,2%CIT - ... (3,2% citrát)- vyšetřena plazma'",
+    "trailing Uvolnil cell 'student' on every row (`uvolnil_raw`); header 'Přijal: student', 'Datum a čas uvolnění: 08.07.2021 08:08'",
+    "no section headings; 'Poznámka laboratoře :' block under the table ('Typ výsledkového listu platný od 1.9.2021.' / 'Student Student 08.07.2021 08:08')",
+    "patient block: Jméno POKUSNÍK PAVEL, Číslo pojištěnce 220609/422, Oddělení NTS, Pojišťovna 401, Laboratorní č. 210708001, Diagnóza K30, Medikace heparin; title 'VÝSLEDKOVÝ PROTOKOL'",
+    "same lab group as breclav.pdf p121-122 (TIS Brno) but a different form: names start with '*' instead of '* ', a Prim. mat. column instead of Kontrola I.stupně, two/three decimals instead of four",
+    "embedded scan (2480x3506 JPEG placed on a handbook page with its own text header/footer; the sheet itself has no text layer); the handbook page is landscape so the sheet occupies its left ~60 %"
+  ],
+  "rows": [
+    {
+      "raw_analyte_name": "*Leukocyty",
+      "accredited": true,
+      "value_raw": "9,60",
+      "unit_raw": "G/l",
+      "flag_raw": ".",
+      "ref_range_raw": "( 4,00 - 10,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Erytrocyty",
+      "accredited": true,
+      "value_raw": "4,90",
+      "unit_raw": "T/l",
+      "flag_raw": ".",
+      "ref_range_raw": "( 4,00 - 5,80 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Hemoglobin",
+      "accredited": true,
+      "value_raw": "151,00",
+      "unit_raw": "g/l",
+      "flag_raw": ".",
+      "ref_range_raw": "( 135,00 - 175,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Hematokrit",
+      "accredited": true,
+      "value_raw": "0,454",
+      "unit_raw": "-",
+      "flag_raw": ".",
+      "ref_range_raw": "( 0,400 - 0,500 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Střední objem erytr",
+      "accredited": true,
+      "value_raw": "92,00",
+      "unit_raw": "fl",
+      "flag_raw": ".",
+      "ref_range_raw": "( 82,00 - 98,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Hemoglobin v ery",
+      "accredited": true,
+      "value_raw": "31,00",
+      "unit_raw": "pg",
+      "flag_raw": ".",
+      "ref_range_raw": "( 28,00 - 34,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Střed.konc.HGB v ER",
+      "accredited": true,
+      "value_raw": "332,00",
+      "unit_raw": "g/l",
+      "flag_raw": ".",
+      "ref_range_raw": "( 320,00 - 360,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*RDW",
+      "accredited": true,
+      "value_raw": "14,60",
+      "unit_raw": "%",
+      "flag_raw": ".",
+      "ref_range_raw": "( 10,00 - 15,20 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Trombocyty",
+      "accredited": true,
+      "value_raw": "196,00",
+      "unit_raw": "G/l",
+      "flag_raw": ".",
+      "ref_range_raw": "( 150,00 - 400,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Střední objem tromb",
+      "accredited": true,
+      "value_raw": "9,21",
+      "unit_raw": "fl",
+      "flag_raw": ".",
+      "ref_range_raw": "( 7,80 - 11,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Neutrofily %",
+      "accredited": true,
+      "value_raw": "40,00",
+      "unit_raw": "%",
+      "flag_raw": "L",
+      "ref_range_raw": "( 45,00 - 70,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Lymfocyty %",
+      "accredited": true,
+      "value_raw": "45,00",
+      "unit_raw": "%",
+      "flag_raw": ".",
+      "ref_range_raw": "( 20,00 - 45,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Monocyty %",
+      "accredited": true,
+      "value_raw": "10,00",
+      "unit_raw": "%",
+      "flag_raw": ".",
+      "ref_range_raw": "( 2,00 - 12,00 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Eosinofily %",
+      "accredited": true,
+      "value_raw": "4,000",
+      "unit_raw": "%",
+      "flag_raw": ".",
+      "ref_range_raw": "( 0,000 - 5,000 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Basofily %",
+      "accredited": true,
+      "value_raw": "1,000",
+      "unit_raw": "%",
+      "flag_raw": ".",
+      "ref_range_raw": "( 0,000 - 2,000 )",
+      "material": "EDTA",
+      "uvolnil_raw": "student",
+      "section": ""
+    },
+    {
+      "raw_analyte_name": "*Fibrinogen",
+      "accredited": true,
+      "value_raw": "2,40",
+      "unit_raw": "g/l",
+      "flag_raw": ".",
+      "ref_range_raw": "( 1,80 - 4,20 )",
+      "material": "3,2%CIT",
+      "uvolnil_raw": "student",
+      "section": ""
+    }
+  ]
+}
