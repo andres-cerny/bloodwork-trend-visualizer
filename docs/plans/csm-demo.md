@@ -13,7 +13,7 @@ the day we learn how the clinic actually stores data.
 - **Doctor app** — `apps/chat` evolved in place: the existing chat (citations,
   follow-ups, evidence rail) **plus** a structured patient card, a patient
   switcher, „náhled pacienta", and cohort questions.
-- **Patient app** — new `apps/portal`: the *same card*, scoped to one patient,
+- **Patient app** — new `apps/csm-portal`: the *same card*, scoped to one patient,
   read-only, no AI. A patient picker stands in for auth. One fake button.
 
 The product principle both apps obey, named once and enforced everywhere:
@@ -26,7 +26,7 @@ can see.
 
 | Decision | Choice | Why |
 |---|---|---|
-| Third app vs. extended bloodwork | Two surfaces: evolve `apps/chat` into the doctor app; new `apps/portal` for patients | One doctor UI, not two; bloodwork stays untouched as the extraction pitch |
+| Third app vs. extended bloodwork | Two surfaces: evolve `apps/chat` into the doctor app; new `apps/csm-portal` for patients | One doctor UI, not two; bloodwork stays untouched as the extraction pitch |
 | The shared card | One package, `@bw/patient-card` — pure rendering over API data, imported by both apps | "Doctor sees what the patient sees" true by construction, not discipline |
 | Ingestion | **Deferred.** Data reaches D1 via seed scripts; no PDF upload, no matching UI in either new app | Ondřej doesn't yet know how CSM stores data; whatever it is lands in the same D1 shape |
 | Tenant | New third tenant `/csm`, own D1 (`DB_CSM`); `/sport` and `/orto` survive unchanged | The CSM corpus follows CSM's real protocols; the generic sport tenant serves the earlier pitch |
@@ -53,7 +53,7 @@ can see.
 
 ## Invariants this plan must not break
 
-- **Apps render; they do not reason.** Neither `apps/chat` nor `apps/portal`
+- **Apps render; they do not reason.** Neither `apps/chat` nor `apps/csm-portal`
   imports lab-core or agent tools. Every number arrives from the worker; the
   card package receives typed API data and draws it. `check-bundle` gains a
   portal variant and both stay green.
@@ -174,7 +174,7 @@ test; `npm run dev:agent` serves a full card for a seeded ghost.
 
 ## Phase 4 — the patient app: tournament, polish loops, Ondřej picks
 
-`apps/portal` (Vite + shell worker `csm-portal`, binds `agent` only) and
+`apps/csm-portal` (Vite + shell worker `csm-portal`, binds `agent` only) and
 `@bw/patient-card`. Mobile-first: designed at 390px, desktop is the
 adaptation. PWA manifest so „add to home screen" works in the pitch.
 

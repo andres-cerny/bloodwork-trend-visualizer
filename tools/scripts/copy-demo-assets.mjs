@@ -17,7 +17,7 @@ import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const from = fileURLToPath(new URL("../../apps/chat/public/demo/csm", import.meta.url));
-const to = fileURLToPath(new URL("../../apps/portal/dist/demo/csm", import.meta.url));
+const to = fileURLToPath(new URL("../../apps/csm-portal/dist/demo/csm", import.meta.url));
 
 if (!existsSync(from)) {
   console.error(`! demo assets not found at ${from} — the portal will show page placeholders.`);

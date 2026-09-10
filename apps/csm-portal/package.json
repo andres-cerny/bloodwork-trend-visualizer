@@ -1,5 +1,5 @@
 {
-  "name": "@bw/app-portal",
+  "name": "@bw/app-csm-portal",
   "version": "0.0.0",
   "private": true,
   "type": "module",

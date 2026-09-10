@@ -11,7 +11,7 @@
  * seeding — and the guard below refuses the known real name outright.
  *
  *   node tools/ui-loop/portal-capture.mjs [--base http://127.0.0.1:8788]
- *       [--out apps/portal/src/fixtures/portal.json]
+ *       [--out apps/csm-portal/src/fixtures/portal.json]
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -21,7 +21,7 @@ const arg = (name, dflt) => {
   return i === -1 ? dflt : process.argv[i + 1];
 };
 const BASE = arg("base", "http://127.0.0.1:8788");
-const OUT = arg("out", "apps/portal/src/fixtures/portal.json");
+const OUT = arg("out", "apps/csm-portal/src/fixtures/portal.json");
 const TENANT = "csm";
 
 const sessionRes = await fetch(`${BASE}/api/session`, {

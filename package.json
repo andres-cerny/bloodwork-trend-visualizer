@@ -4,9 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "npm run dev:bloodwork",
-    "build": "npm run build:bloodwork && npm run build:chat && npm run build:portal",
+    "build": "npm run build:bloodwork && npm run build:chat && npm run build:csm-portal",
     "test": "vitest run",
-    "deploy": "npm run deploy:agent && npm run deploy:extract && npm run deploy:bloodwork && npm run deploy:chat && npm run deploy:portal",
+    "deploy": "npm run deploy:agent && npm run deploy:extract && npm run deploy:bloodwork && npm run deploy:chat && npm run deploy:csm-portal",
     "test:parity": "cd tools/pipeline && python3 tests/test_parity.py && cd ../.. && vitest run --project lab-core parity",
     "test:all": "npm run test:parity && vitest run && npm run test:hooks && npm run typecheck && npm run docs:check && npm run build && npm run check:bundle",
     "test:live": "vitest run --config tests/config/vitest.handoff.config.ts tests/live",
@@ -14,7 +14,7 @@
     "test:audit": "npm run build:bloodwork && vitest run --config tests/config/vitest.handoff.config.ts tests/e2e/audit.e2e.ts",
     "test:identity": "VITE_TURNSTILE_SITE_KEY=e2e-identity npm run build:bloodwork && vitest run --config tests/config/vitest.handoff.config.ts tests/e2e/identity.e2e.ts",
     "test:handoff": "npm run test:e2e && npm run test:live",
-    "check:bundle": "npm run check:bundle:bloodwork && npm run check:bundle:chat && npm run check:bundle:portal",
+    "check:bundle": "npm run check:bundle:bloodwork && npm run check:bundle:chat && npm run check:bundle:csm-portal",
     "bench:stage0": "vitest run --config tests/bench/vitest.config.ts tests/bench/stage0.bench.ts",
     "bench:latency": "vitest run --config tests/bench/vitest.config.ts tests/bench/latency.bench.ts",
     "bench:accuracy": "vitest run --config tests/bench/vitest.config.ts tests/bench/accuracy.bench.ts",
@@ -41,10 +41,10 @@
     "docs:check": "node tools/scripts/check-docs.mjs",
     "check:links": "node tools/scripts/check-learn-more.mjs",
     "prepare": "git config core.hooksPath .githooks || true",
-    "dev:portal": "npm -w apps/portal run dev",
-    "build:portal": "npm -w apps/portal run build",
-    "check:bundle:portal": "node tools/scripts/check-bundle.mjs apps/portal/dist",
-    "deploy:portal": "npm run build:portal && npm run check:bundle:portal && npm -w apps/portal run deploy"
+    "dev:csm-portal": "npm -w apps/csm-portal run dev",
+    "build:csm-portal": "npm -w apps/csm-portal run build",
+    "check:bundle:csm-portal": "node tools/scripts/check-bundle.mjs apps/csm-portal/dist",
+    "deploy:csm-portal": "npm run build:csm-portal && npm run check:bundle:csm-portal && npm -w apps/csm-portal run deploy"
   },
   "dependencies": {
     "@bw/agent-core": "*",

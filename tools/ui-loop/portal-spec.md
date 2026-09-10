@@ -6,7 +6,7 @@ A variant that ignores a MUST loses on disqualification, not taste.
 
 ## What every variant builds
 
-`apps/portal` — the CSM patient card, mobile-first at 390px, desktop the
+`apps/csm-portal` — the CSM patient card, mobile-first at 390px, desktop the
 adaptation. Fixed scope (no variant adds or drops a feature):
 
 - **Home = last visit**: newest visit's note (or its absence, honestly),
@@ -68,5 +68,5 @@ Palette via `localStorage["bloodwork-theme"]` (the kit's ThemeSwitch key) and
 
 Build until `npm run typecheck` and `npm run build:portal` pass. Do not
 screenshot; the orchestrator drives the one browser. Do not touch files
-outside `apps/portal/src` (data.ts's interface included — extend it only by
+outside `apps/csm-portal/src` (data.ts's interface included — extend it only by
 adding, never by changing a signature; index.html/manifest stay).

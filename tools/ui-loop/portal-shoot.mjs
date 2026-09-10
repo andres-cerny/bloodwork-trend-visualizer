@@ -19,7 +19,7 @@ const arg = (name, dflt) => {
 };
 const BASE = arg("base", "http://localhost:4173");
 const OUT = arg("out", "shots/x");
-const FIXTURE = arg("fixture", "apps/portal/src/fixtures/portal.json");
+const FIXTURE = arg("fixture", "apps/csm-portal/src/fixtures/portal.json");
 
 const fx = JSON.parse(readFileSync(FIXTURE, "utf-8"));
 const P = fx.patients[0].id; // the story-richest ghost is seeded first

@@ -287,7 +287,7 @@ in a real answer resolves (`tests/live/clinical.live.ts`).
 
 ## The CSM pitch's three rules
 
-The two-surface demo (apps/portal + the /csm tenant) added its own. Each has
+The two-surface demo (apps/csm-portal + the /csm tenant) added its own. Each has
 a test; the file that pins it is named.
 
 **The card and the tools may not disagree.** Both surfaces read the same
