@@ -27,7 +27,8 @@ interface Props {
   /** True while the shipped sample patient is among the loaded reports. */
   demoLoaded: boolean;
   canRestoreDemo: boolean;
-  onReport: (r: LabReport) => void;
+  /** `done` marks the last publish for that document — see UploadPanel. */
+  onReport: (r: LabReport, done: boolean) => void;
   onBudget: (b: Budget) => void;
   onUnlock: () => void;
   onRemove: (id: string) => void;

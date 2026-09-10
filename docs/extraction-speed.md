@@ -326,3 +326,102 @@ Two things the live test caught that no amount of benchmarking would have:
 
 Not recommended: chasing `effort`, `thinking`, or a different model tier for
 speed. The measurements say there is nothing there.
+
+## Subagent run, 2026-09-02 — Haiku alone on the text path
+
+A second benchmark, spent on subscription rather than API: every text-layer
+page of the 15 real reports (33 pages, 878 accepted rows) was read by spawned
+subagents given the worker's exact prompt and tool schema, and scored with
+the same three columns plus three new deterministic checks. Harness:
+`tests/bench/subagent_dump.bench.ts` (inputs and the candidate-row rule in
+`tests/bench/candidates.ts`), `tests/bench/subagent_score.bench.ts`. A
+subagent is a chat model with the prompt in its context, not a forced tool
+call, so treat the numbers as relative, not as production latency.
+
+| reader | matched / 878 | uncaught real misses | value errors | value fabrications |
+|---|---|---|---|---|
+| Haiku 4.5 alone | 841 | 1 | 0 | 0 |
+| Sonnet 5 alone | 852 | 0 | 0 | 0 |
+| both, reconciled (deployed) | 853 | 0 | 0 | 0 |
+| Haiku, analyte name dropped | 828 | 7 | 8 | 0 |
+
+Every remaining gap between the rows is one of three things, all found by
+adjudicating against the printed rows:
+
+- **Qualitative rows** — `málo materiálu`, `negat.`, `přijato`: 24 of Haiku's
+  37 misses, 13 of Sonnet's 26. Neither reader is consistent on them. A
+  deterministic rule (a name-like cell followed by a known non-numeric result)
+  finds every one of them from the text layer, so the reader need not.
+- **The accepted reports are wrong in 9 rows.** On the 2020-09 report the
+  fraction rows of the differential carry the absolute counts (5 rows); two
+  reports carry a vitamin D row in nmol/l the page never printed — a unit
+  conversion by the original Sonnet read; one row is split in two. Both new
+  reads got all of these right. The demo data needs those corrections.
+- **One typo**: Haiku wrote `S_Kyselina možná` for `S_Kyselina močová`. The
+  row index still points at the right row, so a client rule — a returned name
+  that is not printed on its row is replaced by the row's own name — closes it
+  for free.
+
+**Row indexes drift.** On one dense page Haiku numbered every row one too
+high (34 rows). The value is still printed on the neighbouring row, so a
+repair pass (look ±3 rows for the value with the same name) fixed all 34 and
+left none broken; it also makes the unclaimed-row check trustworthy.
+
+**Dropping the analyte name is a dead end.** Output shrinks by roughly a
+fifth by construction, but Haiku returned eight blank values on one page,
+lost two rows and mis-indexed five, and the client has to reconstruct the
+name from the row — section labels, `#` markers, a unit printed before the
+value and names like `S_IGF 1` all went wrong before the derivation was
+anchored on the returned value. Not worth it.
+
+**Vision path (four born-digital pages rasterised at 220 DPI, 140 rows):**
+Sonnet 5 and Opus 5 read 139 of 140 rows each with no value error; their
+only "fabrications" are normalised units (`10^9/l` for `10˄9/l`, µ for μ).
+Haiku 4.5 misread a platelet count (255 → 265), wrote `mmol/1` for `mmol/l`
+across a page, misspelled several names and prefixed the lab codes to others.
+**Haiku must not read alone on the image path.**
+
+**Image resolution, corrected:** Claude 4.7 and later (Sonnet 5, Opus 5)
+downscale to a 2576 px long edge and 4784 visual tokens; only Haiku 4.5 and
+older use the 1568 px tier. A browser-side downscale to 1568 px is free for
+Haiku and a resolution loss for Sonnet. Measure before changing the DPI.
+
+### What this changes in the recommendation
+
+- Text path: **Haiku 4.5 alone**, plus the qualitative-row rule, the row-index
+  repair and the name-on-row guard, matches the deployed two-reader result
+  with half the wait and about a quarter of the cost. The second read can
+  become an on-demand verify.
+- Image path: unchanged — two readers, and Haiku only ever as the second.
+- Fix the nine wrong rows in `data/reports` before they are used as a
+  baseline again.
+
+### Confirmed on the real API (2026-09-02, 1.67 USD)
+
+`tests/bench/haiku_confirm.bench.ts` sent all 33 text-layer pages through the
+deployed call (`extractPageText`, exact prompt and schema) with each reader,
+four pages in flight as the portal runs them. Scored with the same rules.
+
+| reader (real API) | matched / 878 | uncaught real misses | value errors | fabrications | index drift |
+|---|---|---|---|---|---|
+| Haiku 4.5 alone | 851 | 0 | 0 | 0 | 0 |
+| Sonnet 5 alone | 843 | 0 | 0 | 6 units (`10^9/l` for `10˄9/l`) | 0 |
+| both, reconciled | 851 | 0 | 0 | 6 units | 0 |
+
+Haiku alone equals the two-reader result row for row. Every miss on either
+side is a qualitative row the candidate rule surfaces. With a forced tool
+call the row-index drift seen in the subagent run did not occur; the repair
+pass stays because it costs nothing and the drift was real once.
+
+| per page | Haiku | Sonnet | both (page waits for the slower) |
+|---|---|---|---|
+| median | 12.0 s | 17.0 s | 17.7 s |
+| dense pages, ≥30 rows (n=19), mean | 14.7 s | 22.0 s | 22.0 s |
+| cost, 33 pages | 0.45 USD | 1.22 USD | 1.67 USD |
+| measured output rate | 185 tok/s | 127 tok/s | — |
+
+So the text path drops from about 18 s to about 12 s per page and from 5.1
+to 1.4 cents per page, for no measured loss. Implemented as `TEXT_READERS=
+"cheap"` on `moje-krev-extract` (config only; the demo deployment is
+unchanged), with the three client rules in `packages/lab-core/src/candidates.ts`
+and `apps/portal/src/lib/interpret.ts`.

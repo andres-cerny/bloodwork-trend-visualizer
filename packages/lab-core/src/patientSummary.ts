@@ -37,6 +37,7 @@
  * also how a Czech lab report actually reads.
  */
 import { count, czDate, prettyUnit } from "./czech";
+import { distinctIdentities } from "./identity";
 import type { LabReport } from "./models";
 import { ageOn, parseRodneCislo } from "./rodneCislo";
 import { czNum } from "./summary";
@@ -52,6 +53,14 @@ import {
 export interface PatientOverview {
   name: string | null;
   patientId: string | null;
+  /**
+   * How many distinct patients the loaded reports name.
+   *
+   * Normally 1. More than that means the reader answered "Přidat i tak" to the
+   * upload guard, and the card has to say so rather than let one name at the
+   * top imply the numbers below it are all that patient's.
+   */
+  identityCount: number;
   /** ISO, decoded from the rodné číslo. Null when it will not parse. */
   birthDate: string | null;
   /** Whole years at the most recent draw. Null without a usable birth date. */
@@ -306,7 +315,20 @@ export function patientOverview(
   const firstDraw = dates[0] ?? null;
   const lastDraw = dates[dates.length - 1] ?? null;
 
-  const patientId = reports.find((r) => r.patientId)?.patientId ?? null;
+  // Both fields off *one* report, not two independent lookups.
+  //
+  // They used to be found separately — the first report carrying a name, and
+  // the first carrying a rodné číslo. With two patients loaded, or with one
+  // report whose header transcribed only half, that pairs one person's name
+  // with another person's number and prints the result as a fact. The upload
+  // guard makes two loaded patients a deliberate act rather than an accident,
+  // which makes this reachable rather than theoretical.
+  //
+  // `identities` is in load order, so the first entry is the same report the
+  // rest of the card is anchored to.
+  const identities = distinctIdentities(reports);
+  const who = identities[0] ?? { name: null, id: null };
+  const patientId = who.id;
   const rc = parseRodneCislo(patientId);
   const birthDate = rc?.birthDate ?? null;
   // Age *at the most recent draw*, not today: the card is a description of
@@ -362,8 +384,9 @@ export function patientOverview(
   const followUpDays = firstDraw && lastDraw ? daysBetween(firstDraw, lastDraw) : 0;
 
   return {
-    name: reports.find((r) => r.patientName)?.patientName ?? null,
+    name: who.name,
     patientId,
+    identityCount: identities.length,
     birthDate,
     age,
     idChecksumOk: rc?.checksumOk ?? null,

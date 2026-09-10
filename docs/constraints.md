@@ -67,6 +67,33 @@ If you add a new kind of doubt, add it **there**, not at a call site. The bug
 this replaced was a misread flag reaching the chart while a model disagreement
 did not, so four readings the app had itself doubted were plotted silently.
 
+## An upload joins a patient only when it is known to be that patient
+
+`packages/lab-core/src/identity.ts` compares an uploaded report against every
+distinct identity on screen; `apps/bloodwork/src/lib/admission.ts` decides when
+that question can be asked. Trends merge every loaded report into one series,
+so a PDF admitted for the wrong person does not produce a chart with a bug in
+it — it produces a clinical claim about nobody.
+
+Three rules, and each one is load-bearing:
+
+- **Only a positive match is silent.** A mismatch and an identity that could
+  not be read both stop and ask. Treating "could not read it" as a pass would
+  disable the check on exactly the scans whose headers transcribe worst.
+- **The rodné číslo decides only when both sides have a usable one** — 9 or 10
+  digits. A number of any other length is unreadable, not different, or an OCR
+  slip dropping a digit would read as a different patient. It is deliberately
+  not routed through `parseRodneCislo`, which would additionally reject an
+  impossible birth date; here the digits are only ever compared, never believed.
+- **A mismatch asks at once, an unverifiable one waits for the last page.**
+  Pages land out of order and 24 files run at once, so the first publish of an
+  ordinary report routinely carries no header yet. Asking then would put a
+  dialog on screen when nothing is wrong, which is how a dialog stops being
+  read.
+
+`tests/e2e/identity.e2e.ts` is what proves any of this reaches the screen. The
+guard shipped once without it and the dialog was never seen by anybody.
+
 ## Signal colours draw, ink colours are for type
 
 `web/src/styles.css` carries two tokens for what looks like one colour:

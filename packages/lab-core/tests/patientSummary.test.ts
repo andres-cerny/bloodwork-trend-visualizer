@@ -100,6 +100,44 @@ describe("identity", () => {
     expect(o.age).toBeNull();
   });
 
+  it("takes the name and the rodné číslo off the same report", () => {
+    // The defect this pins: the two fields were found by independent lookups
+    // — the first report carrying a name, the first carrying a number — so a
+    // header that transcribed only half of one report borrowed the other half
+    // from a different patient and printed the pair as a fact.
+    const o = patientOverview(
+      [
+        report("2026-04-10", { patientName: "Petr Malý", patientId: null }),
+        report("2026-04-14", { patientName: "Jan Ukázka", patientId: "800101/0006" }),
+      ],
+      map(altClimb),
+    );
+    expect(o.name).toBe("Petr Malý");
+    expect(o.patientId).toBeNull();
+    // And nothing derived from a number that belongs to someone else.
+    expect(o.birthDate).toBeNull();
+    expect(o.age).toBeNull();
+  });
+
+  it("counts the patients loaded, so two can be said rather than inferred", () => {
+    const one = patientOverview([report("2026-04-14")], map(altClimb));
+    expect(one.identityCount).toBe(1);
+
+    const two = patientOverview(
+      [report("2026-04-10"), report("2026-04-14", { patientName: "Petr Malý", patientId: "750620/1234" })],
+      map(altClimb),
+    );
+    expect(two.identityCount).toBe(2);
+  });
+
+  it("counts nothing when no report names anybody", () => {
+    const o = patientOverview(
+      [report("2026-04-14", { patientName: null, patientId: null })],
+      map(altClimb),
+    );
+    expect(o.identityCount).toBe(0);
+  });
+
   it("reports a rodné číslo that fails its own check digit", () => {
     // Still decodes the date part — the digits are the digits — but says the
     // number does not agree with itself, which is how a misread reaches the

@@ -80,7 +80,12 @@ interface Props {
   registry: Registry;
   frozen: boolean;
   maxPages: number;
-  onReport: (report: LabReport) => void;
+  /**
+   * A report, republished on every page that lands. `done` marks the last
+   * call for that document — the identity guard needs it to tell "we have not
+   * read the header yet" from "there was no header to read".
+   */
+  onReport: (report: LabReport, done: boolean) => void;
   onBudget: (b: Budget) => void;
   onUnlock: () => void;
 }
@@ -207,7 +212,18 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
     };
 
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pageCount) }, worker));
-    if (fatal) throw fatal;
+    if (fatal) {
+      // Publish what landed before giving up, and mark it finished.
+      //
+      // The pages that did land were already published as partials, but a
+      // partial is provisional: the identity guard holds an upload it cannot
+      // yet identify on the grounds that the header may still be coming. If
+      // this throws without a final publish, that header never arrives and the
+      // rows sit in the waiting room forever, invisible — worse than the old
+      // behaviour, where a half-read file at least showed its half.
+      if (interpreted.some(Boolean)) publishReport(true);
+      throw fatal;
+    }
     failedPages.sort((a, b) => a - b);
 
     // Everything below turns landed pages into rows. It is unchanged in *what*
@@ -219,6 +235,8 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
       sawScan: boolean;
       reportDate: string | null;
       labName: string | null;
+      patientName: string | null;
+      patientId: string | null;
     }
 
     /** Interpret one landed page. Pure, and run exactly once per page. */
@@ -236,12 +254,19 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         sawScan: res?.mode === "vision",
         reportDate: null,
         labName: null,
+        patientName: null,
+        patientId: null,
       };
       if (!res) return out;
 
       for (const read of res.reads) {
         out.reportDate = out.reportDate ?? read.report_date ?? null;
         out.labName = out.labName ?? read.lab_name ?? null;
+        // Whose report this is. The extractor has always returned these two;
+        // the upload path used to drop them on the floor, which left the app
+        // unable to notice that a PDF belonged to somebody else.
+        out.patientName = out.patientName ?? read.patient_name ?? null;
+        out.patientId = out.patientId ?? read.patient_id ?? null;
       }
       for (const m of reconcile(res.reads)) {
         // Provenance: on the text path a transcribed value must literally
@@ -289,6 +314,8 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
       let sawScan = false;
       let reportDate: string | null = null;
       let labName: string | null = null;
+      let patientName: string | null = null;
+      let patientId: string | null = null;
 
       for (const r of interpreted) {
         if (!r) continue;
@@ -298,6 +325,12 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         sawScan = sawScan || r.sawScan;
         reportDate = reportDate ?? r.reportDate;
         labName = labName ?? r.labName;
+        // First page that printed one wins. `interpreted` is indexed by page,
+        // so this is the earliest page in the document that carried a header,
+        // whatever order the pages happened to land in — a continuation sheet
+        // repeating a truncated name cannot displace the title page.
+        patientName = patientName ?? r.patientName;
+        patientId = patientId ?? r.patientId;
       }
 
       // Notes describe a finished read — how many pages failed, how much needs
@@ -326,19 +359,23 @@ export default function UploadPanel({ registry, frozen, maxPages, onReport, onBu
         job.notes = notes;
       }
 
-      onReport({
-        // The job id, not a timestamp. `upload-${Date.now()}` collided when a
-        // queue finished two files inside the same millisecond, and two reports
-        // sharing an id break the rail's list and the verification picker.
-        id: `upload-${job.id}`,
-        sourceFile: job.file.name,
-        reportDate,
-        labName,
-        patientName: null,
-        patientId: null,
-        pages,
-        measurements,
-      });
+      onReport(
+        {
+          // The job id, not a timestamp. `upload-${Date.now()}` collided when
+          // a queue finished two files inside the same millisecond, and two
+          // reports sharing an id break the rail's list and the verification
+          // picker.
+          id: `upload-${job.id}`,
+          sourceFile: job.file.name,
+          reportDate,
+          labName,
+          patientName,
+          patientId,
+          pages,
+          measurements,
+        },
+        done,
+      );
     }
 
     // Everything has landed: publish once more, this time with the notes.

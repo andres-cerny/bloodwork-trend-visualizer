@@ -23,10 +23,24 @@ import {
   type Measurement,
   Registry,
   buildTrends,
+  count,
+  distinctIdentities,
   reviewOf,
   czDate,
 } from "@bw/lab-core";
+import {
+  type Admission,
+  EMPTY as NOTHING_LOADED,
+  answer as answerIdentity,
+  clearAll,
+  mapReports,
+  pending as pendingIdentity,
+  preload,
+  receive,
+  remove as removeReport,
+} from "./lib/admission";
 import ChatPanel from "./ui/ChatPanel";
+import IdentityGate from "./ui/IdentityGate";
 import MappingTab from "./ui/MappingTab";
 import PatientCard from "./ui/PatientCard";
 import Sidebar from "./ui/Sidebar";
@@ -134,7 +148,23 @@ function Panel({
 }
 
 export default function App() {
-  const [reports, setReports] = useState<LabReport[]>([]);
+  /**
+   * Everything loaded, plus anything still waiting to be identified.
+   *
+   * An upload is not a report the app has until it is known whose it is —
+   * `admission.ts` holds it in between. `reports` below is the loaded set and
+   * is what every screen reads, so nothing renders a document that has not
+   * passed the guard.
+   */
+  const [admission, setAdmission] = useState<Admission>(NOTHING_LOADED);
+  const reports = admission.admitted;
+  const identityQuestion = pendingIdentity(admission);
+
+  /** Rewrite the reports in place — a correction, or an accepted mapping. */
+  const editReports = useCallback(
+    (fn: (r: LabReport) => LabReport) => setAdmission((s) => mapReports(s, fn)),
+    [],
+  );
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [tab, setTab] = useState<TabId>("trends");
   const [budget, setBudget] = useState<Budget | null>(null);
@@ -179,7 +209,7 @@ export default function App() {
         ]);
         setRegistry(new Registry(defs));
         demoReports.current = rs;
-        setReports(rs);
+        setAdmission((s) => preload(s, rs));
       } catch {
         setLoadError("Ukázková data se nepodařilo načíst.");
       }
@@ -245,31 +275,30 @@ export default function App() {
     [reports, registry, registryVersion, curatedRange],
   );
 
-  const correct = useCallback((reportId: string, index: number, next: Measurement) => {
-    setReports((prev) =>
-      prev.map((r) =>
+  const correct = useCallback(
+    (reportId: string, index: number, next: Measurement) => {
+      editReports((r) =>
         r.id !== reportId
           ? r
           : { ...r, measurements: r.measurements.map((m, i) => (i === index ? next : m)) },
-      ),
-    );
-  }, []);
+      );
+    },
+    [editReports],
+  );
 
   const acceptMapping = useCallback(
     (rawName: string, canonicalId: string) => {
       if (!registry) return;
       registry.addSynonym(canonicalId, rawName);
-      setReports((prev) =>
-        prev.map((r) => ({
-          ...r,
-          measurements: r.measurements.map((m) =>
-            m.rawAnalyteName === rawName ? { ...m, canonicalId } : m,
-          ),
-        })),
-      );
+      editReports((r) => ({
+        ...r,
+        measurements: r.measurements.map((m) =>
+          m.rawAnalyteName === rawName ? { ...m, canonicalId } : m,
+        ),
+      }));
       setRegistryVersion((v) => v + 1);
     },
-    [registry],
+    [registry, editReports],
   );
 
   /**
@@ -283,17 +312,15 @@ export default function App() {
     (rawName: string, canonicalId: string) => {
       if (!registry) return;
       registry.removeSynonym(canonicalId, rawName);
-      setReports((prev) =>
-        prev.map((r) => ({
-          ...r,
-          measurements: r.measurements.map((m) =>
-            m.rawAnalyteName === rawName ? { ...m, canonicalId: null } : m,
-          ),
-        })),
-      );
+      editReports((r) => ({
+        ...r,
+        measurements: r.measurements.map((m) =>
+          m.rawAnalyteName === rawName ? { ...m, canonicalId: null } : m,
+        ),
+      }));
       setRegistryVersion((v) => v + 1);
     },
-    [registry],
+    [registry, editReports],
   );
 
   /** Open the verification tab on a specific transcribed row. */
@@ -335,8 +362,13 @@ export default function App() {
     [reports],
   );
   const frozen = budget?.frozen ?? false;
-  const patient = reports.find((r) => r.patientName)?.patientName;
-  const patientId = reports.find((r) => r.patientId)?.patientId;
+  // One report decides both fields. Looked up independently — the first
+  // report with a name, the first with a rodné číslo — two loaded patients
+  // could pair one's name with the other's number, and the bar is exactly what
+  // a chart screenshotted for the record carries.
+  const identities = useMemo(() => distinctIdentities(reports), [reports]);
+  const patient = identities[0]?.name ?? undefined;
+  const patientId = identities[0]?.id ?? undefined;
   const dateRange = useMemo(() => {
     const dates = reports.map((r) => r.reportDate).filter((d): d is string => !!d).sort();
     if (dates.length === 0) return null;
@@ -362,6 +394,29 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* Outside every panel and above the tab strip's stacking context. The
+          question is about which patient the app is showing, so it has to be
+          answerable whatever tab is open — and it must survive the upload
+          panel unmounting when the demo budget runs out mid-file. */}
+      {identityQuestion?.warning && (
+        <IdentityGate
+          // Keyed by report, so an answer given to one file cannot be
+          // delivered to whichever file takes its place in the queue.
+          key={identityQuestion.report.id}
+          fileName={identityQuestion.report.sourceFile}
+          warning={identityQuestion.warning}
+          onReplace={() => {
+            setAdmission((s) => answerIdentity(s, identityQuestion.report.id, "replace"));
+            // The old patient's rows are gone; a verification pane still
+            // pointing at one of them would be pointing at nothing.
+            setFocus(null);
+          }}
+          onAdd={() => setAdmission((s) => answerIdentity(s, identityQuestion.report.id, "add"))}
+          onDiscard={() =>
+            setAdmission((s) => answerIdentity(s, identityQuestion.report.id, "discard"))
+          }
+        />
+      )}
       <header className="topbar">
         <button
           className="drawer-toggle"
@@ -398,6 +453,15 @@ export default function App() {
                   <span className="pid">{patientId}</span>
                 </>
               )}
+              {/* Said, not left to be inferred. Two patients in one set is
+                  only reachable by answering "Přidat i tak" to the upload
+                  guard, and once there, a single name at the top of every tab
+                  would speak for numbers that are not that patient's. */}
+              {identities.length > 1 && (
+                <span className="pmulti">
+                  {count(identities.length, "pacient", "pacienti", "pacientů")} v jednom grafu
+                </span>
+              )}
               {dateRange && <span className="prange">{dateRange}</span>}
             </>
           ) : (
@@ -426,26 +490,19 @@ export default function App() {
           maxPages={maxPages}
           demoLoaded={demoLoaded}
           canRestoreDemo={demoReports.current.length > 0}
-          // Upsert, not append. A report is now published *while* it is being
-          // read — once per page that lands — so the same id arrives several
-          // times and each arrival must replace the last rather than stack up.
-          onReport={(r) =>
-            setReports((prev) => {
-              const at = prev.findIndex((p) => p.id === r.id);
-              if (at < 0) return [...prev, r];
-              const next = [...prev];
-              next[at] = r;
-              return next;
-            })
-          }
+          // Not a plain upsert any more. A report is published *while* it is
+          // being read, once per page that lands, and `receive` both replaces
+          // the previous partial and decides whether the document may join the
+          // loaded set at all — see lib/admission.ts.
+          onReport={(r, done) => setAdmission((s) => receive(s, r, done))}
           onBudget={setBudget}
           onUnlock={() => setUnlocked(true)}
-          onRemove={(id) => setReports((prev) => prev.filter((r) => r.id !== id))}
+          onRemove={(id) => setAdmission((s) => removeReport(s, id))}
           onClearAll={() => {
-            setReports([]);
+            setAdmission(clearAll);
             setFocus(null);
           }}
-          onRestoreDemo={() => setReports(demoReports.current)}
+          onRestoreDemo={() => setAdmission((s) => preload(s, demoReports.current))}
           // Opening a report is not the same as pointing at a row in it: no
           // row name, so verification switches document and waits.
           onPickReport={(id) => showSource(id, "")}
@@ -543,7 +600,10 @@ export default function App() {
                 pacientovi.
               </p>
               {demoReports.current.length > 0 && (
-                <button className="btn accent" onClick={() => setReports(demoReports.current)}>
+                <button
+                  className="btn accent"
+                  onClick={() => setAdmission((s) => preload(s, demoReports.current))}
+                >
                   Načíst ukázková data
                 </button>
               )}

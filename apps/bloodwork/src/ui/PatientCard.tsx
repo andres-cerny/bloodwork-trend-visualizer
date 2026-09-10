@@ -75,6 +75,18 @@ export default function PatientCard({ reports, trends }: Props) {
       <div className="pc-top">
         <div className="pc-who">
           <h2 id="pc-name">{o.name ?? "Neznámý pacient"}</h2>
+          {/* The name above is one of several, so it cannot be left to speak
+              for the prose underneath. This card is rendered on every tab and
+              at every width — the top bar drops its copy of this on a phone,
+              so this is the one that always survives. */}
+          {o.identityCount > 1 && (
+            <p className="pc-meta">
+              <span className="chip alert">
+                Načteno {count(o.identityCount, "pacient", "pacienti", "pacientů")} — hodnoty
+                níže nepatří jedné osobě
+              </span>
+            </p>
+          )}
           {meta.length > 0 && (
             <p className="pc-meta">
               {meta.map((m, i) => (

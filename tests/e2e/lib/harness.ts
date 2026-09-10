@@ -24,7 +24,16 @@ export const DESKTOP = { width: 1200, height: 900 };
 export const WIDE = { width: 1512, height: 950 };
 
 export interface Harness {
-  open(viewport: { width: number; height: number }): Promise<Page>;
+  /**
+   * `prepare` runs on the fresh page *before* it navigates, which is the only
+   * moment `page.route` and `addInitScript` can still affect the app's own
+   * first requests. Without it a stub for /api/session or /api/extract is
+   * installed after the app has already decided what it can do.
+   */
+  open(
+    viewport: { width: number; height: number },
+    prepare?: (page: Page) => Promise<void>,
+  ): Promise<Page>;
   stop(): Promise<void>;
 }
 
@@ -71,10 +80,11 @@ export async function startApp(port: number): Promise<Harness> {
      * navigation times out after 30s and the whole suite fails for a reason
      * that has nothing to do with the app.
      */
-    async open(viewport) {
+    async open(viewport, prepare) {
       const page = await browser.newPage({ viewport, deviceScaleFactor: 2 });
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(String(e)));
+      if (prepare) await prepare(page);
       await page.goto(base, { waitUntil: "load" });
       await page.waitForSelector(".patient-bar", { timeout: 15_000 });
       (page as any).__errors = errors;
