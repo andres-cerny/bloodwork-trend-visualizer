@@ -63,6 +63,17 @@ const json = (data: unknown, status = 200) =>
 
 const sessionTtlSeconds = (env: Env) => (parseInt(env.SESSION_TTL_DAYS ?? "90", 10) || 90) * 86400;
 const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "5") || 5;
+
+/**
+ * What this person may spend in a month.
+ *
+ * `budget_usd` on the account wins over the deployment-wide
+ * `PORTAL_USD_LIMIT`, so one person can be raised — or paused — without
+ * moving anyone else. `??` and not `||` on purpose: a stored 0 is a
+ * deliberate freeze and must not fall through to the default the way an
+ * empty env var does.
+ */
+const limitFor = (user: UserRow, env: Env) => user.budget_usd ?? usdLimit(env);
 const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "30", 10) || 30;
 
 /** One extract call covers one page and lives five minutes — long enough for
@@ -254,7 +265,7 @@ async function handleSetPassword(request: Request, env: Env): Promise<Response> 
  * frozen person is refused here before anything is sent.
  */
 async function handleExtract(request: Request, env: Env, user: UserRow): Promise<Response> {
-  const limit = usdLimit(env);
+  const limit = limitFor(user, env);
   const before = await userBudget(env.BUDGET, user.id, limit);
   if (before.frozen) {
     return json(
@@ -332,7 +343,7 @@ interface ExtractAnswer {
 
 /** Book the extractor's cost to the person and answer with their ledger. */
 async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer): Promise<Record<string, unknown>> {
-  const limit = usdLimit(env);
+  const limit = limitFor(user, env);
   if (status === 200 && typeof data.costUsd === "number") {
     await recordUserSpendUsd(env.BUDGET, user.id, monthOf(), data.costUsd);
   } else if (status !== 200) {
@@ -752,7 +763,7 @@ export default {
       case "GET /api/me":
         return json({ email: user.email, createdAt: user.created_at });
       case "GET /api/status":
-        return json({ budget: await userBudget(env.BUDGET, user.id, usdLimit(env)), maxPages: maxPages(env) });
+        return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env) });
       case "POST /api/extract":
         return handleExtract(request, env, user);
       case "GET /api/reports":

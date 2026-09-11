@@ -18,7 +18,13 @@ CREATE TABLE IF NOT EXISTS users (
   -- until a set-password link is used.
   password_hash  TEXT,
   password_salt  TEXT,
-  password_iters INTEGER
+  password_iters INTEGER,
+  -- This person's monthly extraction ceiling in USD. NULL means "whatever
+  -- PORTAL_USD_LIMIT says", which is the answer for almost everyone; a
+  -- number here overrides it for this account alone, so one person can be
+  -- raised without raising the family. 0 is a real value — it freezes the
+  -- account's uploads without touching anyone else's.
+  budget_usd     REAL
 );
 
 -- Every door into an account is a code the operator mints: unbound (user_id

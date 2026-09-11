@@ -19,12 +19,17 @@ export const SQL = {
   burnInvite:
     "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_at IS NULL AND (expires_at IS NULL OR expires_at > ?3)",
   userByEmail:
-    "SELECT id, email, created_at, password_hash, password_salt, password_iters FROM users WHERE email = ?1",
-  userById: "SELECT id, email, created_at, password_hash, password_salt, password_iters FROM users WHERE id = ?1",
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd FROM users WHERE email = ?1",
+  userById:
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd FROM users WHERE id = ?1",
   insertUser:
     "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
   setPassword: "UPDATE users SET password_hash = ?2, password_salt = ?3, password_iters = ?4 WHERE id = ?1",
   deleteUser: "DELETE FROM users WHERE id = ?1",
+  // The per-person ceiling, set by the operator against an e-mail — the id
+  // is not something they have to hand. NULL puts the account back on
+  // PORTAL_USD_LIMIT; tools/scripts/moje-krev-budget.mjs writes both.
+  setUserBudget: "UPDATE users SET budget_usd = ?2 WHERE email = ?1",
 
   // Login failures per e-mail, whether or not the e-mail has an account:
   // the lockout must not be the one place that says which addresses exist.
@@ -95,6 +100,11 @@ export interface UserRow {
   password_hash: string | null;
   password_salt: string | null;
   password_iters: number | null;
+  /**
+   * This account's monthly ceiling in USD, or null to follow
+   * PORTAL_USD_LIMIT. Zero is a value, not an absence — see `limitFor`.
+   */
+  budget_usd: number | null;
 }
 
 export interface InviteRow {

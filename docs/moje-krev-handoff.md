@@ -121,6 +121,31 @@ The app then lives at `https://moje-krev.<your-account>.workers.dev`. There
 is no mail: every link — sign-up or set-password — is one you mint and send
 yourself, and it lives 24 hours.
 
+## Raising one person's budget
+
+Everyone spends against `PORTAL_USD_LIMIT` (5 USD a month) until they are
+given a number of their own. That number lives on the account, so it is set
+after the person has registered, not on the link that invited them:
+
+```sh
+node tools/scripts/moje-krev-budget.mjs kdo@example.com 20 --apply
+node tools/scripts/moje-krev-budget.mjs kdo@example.com --default --apply  # back to the shared limit
+node tools/scripts/moje-krev-budget.mjs --show --apply                     # who is on what
+```
+
+Read wrangler's row count: `rows written: 0` means that e-mail has no
+account, not that the budget was already right. A budget of `0` is a real
+setting and not the same as `--default` — it pauses that account's uploads
+and leaves everyone else alone. Nothing is retroactive: the month's spend
+lives in KV and is untouched, so raising a frozen person lets their next
+upload through immediately.
+
+A database created before 2026-09-11 needs the column once:
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migrations/2026-09-11-budget.sql
+```
+
 **To let the cloud session deploy instead:** in claude.ai/code environment
 settings, allow `api.cloudflare.com` in the network policy and add
 `CLOUDFLARE_API_TOKEN` (custom token: Workers Scripts:Edit, D1:Edit,

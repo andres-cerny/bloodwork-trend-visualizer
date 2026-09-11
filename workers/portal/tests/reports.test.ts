@@ -19,7 +19,7 @@ const SECRET = "test-portal-secret";
 const EXTRACT_SECRET = "test-extract-secret";
 
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null }>;
+  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null }>;
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string; created_at: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string; width: number | null; height: number | null }>;
 }
@@ -418,5 +418,70 @@ describe("the extract refusal log", () => {
     expect(logged.join(" ")).not.toContain("Novák");
     expect(logged.join(" ")).not.toContain("Omlouvám");
     spy.mockRestore();
+  });
+});
+
+
+/**
+ * The per-person ceiling.
+ *
+ * `PORTAL_USD_LIMIT` is the deployment's answer for everyone who has no
+ * number of their own; `budget_usd` on the account overrides it so one
+ * person can be raised — or paused — without moving the family. The pair
+ * that matters is the last two: a raise must not leak into the next
+ * account, and 0 must not be read as "unset".
+ */
+describe("a person's own budget", () => {
+  const statusOf = async (user: { id: string }) =>
+    (await (await call(user, "GET", "/api/status")).json()) as {
+      budget: { budgetUsd: number; remainingUsd: number; frozen: boolean; spentUsd: number };
+    };
+
+  it("falls back to PORTAL_USD_LIMIT when the account has none", async () => {
+    expect((await statusOf(A)).budget.budgetUsd).toBe(5);
+  });
+
+  it("uses the account's own number when it has one", async () => {
+    tables.users[0].budget_usd = 20;
+    const { budget } = await statusOf(A);
+    expect(budget.budgetUsd).toBe(20);
+    expect(budget.remainingUsd).toBe(20);
+  });
+
+  it("raises only that person, not the one beside them", async () => {
+    tables.users[0].budget_usd = 20;
+    expect((await statusOf(A)).budget.budgetUsd).toBe(20);
+    expect((await statusOf(B)).budget.budgetUsd).toBe(5);
+  });
+
+  it("spends an extract against the raised ceiling", async () => {
+    tables.users[0].budget_usd = 20;
+    const res = await call(A, "POST", "/api/extract", { rowsText: "0\tS_Glukóza | 5,32" });
+    const data = (await res.json()) as { budget: { budgetUsd: number } };
+    expect(res.status).toBe(200);
+    expect(data.budget.budgetUsd).toBe(20);
+  });
+
+  it("lets a raise thaw someone the old ceiling had frozen", async () => {
+    await recordUserSpendUsd(env.BUDGET as KVNamespace, A.id, monthOf(), 6);
+    expect((await statusOf(A)).budget.frozen).toBe(true);
+    // The ledger is untouched; only the ceiling moves.
+    tables.users[0].budget_usd = 20;
+    const { budget } = await statusOf(A);
+    expect(budget.frozen).toBe(false);
+    expect(budget.spentUsd).toBeCloseTo(6, 5);
+    const res = await call(A, "POST", "/api/extract", { rowsText: "x" });
+    expect(res.status).toBe(200);
+  });
+
+  it("treats 0 as a freeze, not as an absent value", async () => {
+    // `??` and not `||`: with `||` a stored 0 would fall through to 5 and
+    // the pause would silently be a full budget.
+    tables.users[0].budget_usd = 0;
+    const { budget } = await statusOf(A);
+    expect(budget.budgetUsd).toBe(0);
+    expect(budget.frozen).toBe(true);
+    const res = await call(A, "POST", "/api/extract", { rowsText: "x" });
+    expect(res.status).toBe(402);
   });
 });
