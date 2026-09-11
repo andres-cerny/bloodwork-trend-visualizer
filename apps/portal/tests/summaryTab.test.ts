@@ -1,0 +1,129 @@
+/**
+ * What Souhrn puts on a phone, asserted where the layout auditor cannot.
+ *
+ * The auditor reads boxes: it catches a clipped word or a covered button and
+ * has never once cared what a sentence says. These are the strings the phone
+ * layout depends on — a row's two lines, the fold's count, the per-row link
+ * that stopped saying "Více" when the card's fold started — and the classes
+ * the width rules key on. Rendered markup, not state: `sum-range` and
+ * `sum-prev` exist at every width and `styles.css` decides which shows, so a
+ * test that read React state would prove nothing about what a reader sees.
+ */
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { type LabReport, type Measurement, buildTrends } from "@bw/lab-core";
+import SummaryTab from "../src/ui/SummaryTab";
+
+const LOW = 0.3;
+const HIGH = 1.2;
+/** name, older, newer — five that end above the range, three that stay in it. */
+const PARAMS: Array<[string, string, string]> = [
+  ["ALP", "1,00", "1,50"],
+  ["GGT", "1,30", "1,60"],
+  ["ALT", "1,40", "1,70"],
+  ["AST", "1,50", "1,80"],
+  ["Bilirubin", "1,60", "1,90"],
+  ["Urea", "0,50", "0,60"],
+  ["Kreatinin", "0,70", "0,80"],
+  ["Sodík", "0,90", "1,00"],
+];
+
+const m = (name: string, raw: string): Measurement => {
+  const value = Number(raw.replace(",", "."));
+  return {
+    rawAnalyteName: name,
+    canonicalId: name,
+    value,
+    valueRaw: raw,
+    unit: "µkat/l",
+    unitRaw: "µkat/l",
+    refRangeLow: LOW,
+    refRangeHigh: HIGH,
+    refRangeRaw: `${LOW}-${HIGH}`,
+    refRangeText: null,
+    flag: value > HIGH ? "high" : value < LOW ? "low" : "normal",
+    sourcePage: 1,
+    sourceSnippet: "",
+    confidence: "high",
+    extractedBy: "test",
+    escalated: false,
+    disagreement: null,
+    corrected: false,
+  } as unknown as Measurement;
+};
+
+const report = (id: string, date: string, which: 1 | 2): LabReport =>
+  ({
+    id,
+    reportDate: date,
+    labName: "Laboratoř",
+    sourceFile: `${id}.pdf`,
+    patientName: null,
+    patientId: null,
+    pages: [],
+    measurements: PARAMS.map(([name, older, newer]) => m(name, which === 1 ? older : newer)),
+  }) as unknown as LabReport;
+
+const draw = (reports: LabReport[]) => {
+  const trends = buildTrends(
+    reports,
+    (cid) => cid ?? "",
+    () => null,
+    () => null,
+  );
+  return renderToStaticMarkup(createElement(SummaryTab, { reports, trends }));
+};
+
+const reports = [report("r1", "2024-09-23", 1), report("r2", "2025-09-23", 2)];
+const html = draw(reports);
+
+describe("Souhrn on a phone", () => {
+  it("gives a group row a range clause and a previous-draw line", () => {
+    // The two spans styles.css shows below 820px and hides above it.
+    expect(html).toContain('class="muted sum-range"');
+    expect(html).toContain('class="muted sum-prev"');
+    expect(html).toContain("rozmezí (0,3–1,2)");
+    expect(html).toContain("předchozí měření");
+  });
+
+  it("keeps the desktop's clause in the markup beside them", () => {
+    // Both readings ship; the width picks one. Drop this and the phone
+    // layout silently becomes the only layout.
+    expect(html).toContain('class="muted sum-clause"');
+  });
+
+  it("prints the previous draw as the lab printed it, with its date", () => {
+    expect(html).toContain("předchozí měření 1,00 (23. 9. 2024)");
+  });
+
+  it("folds every list to two rows and counts what it holds back", () => {
+    // Five worsen and land out of range (3 behind the fold); three stay in
+    // range (1 behind it).
+    expect(html).toContain("Více (3)");
+    expect(html).toContain("Více (1)");
+    expect(html).toContain('class="sum-moves folded"');
+    expect(html).toContain('class="sum-table folded"');
+    // aria-expanded and a real target, or the fold is a button that lies.
+    expect(html).toMatch(/<button[^>]*class="btn linkish sum-fold"[^>]*aria-expanded="false"/);
+    expect(html).toContain('aria-controls="sum-table-out"');
+    expect(html).toContain('aria-controls="sum-moves-worse"');
+  });
+
+  it("does not say Více twice on one card", () => {
+    // The per-row link opens the chart; the card's fold opens the list. When
+    // both said "Více" they were the same word for two different things.
+    expect(html).toContain("graf →");
+    expect(html).not.toMatch(/>\s*Více\s*</);
+  });
+});
+
+describe("a list with no tail", () => {
+  it("shows no fold at all", () => {
+    const two = reports.map((r) => ({ ...r, measurements: r.measurements.slice(0, 2) })) as LabReport[];
+    const short = draw(two);
+    expect(short).toContain("sum-moves");
+    expect(short).not.toContain("sum-fold");
+    expect(short).not.toContain("folded");
+  });
+});

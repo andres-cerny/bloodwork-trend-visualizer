@@ -40,7 +40,20 @@ function judge(label: string, flaws: Flaw[]) {
   expect(flaws, report(label, flaws)).toEqual([]);
 }
 
-const tab = (page: Page, name: string) => page.getByRole("tab", { name, exact: true });
+/**
+ * Reach a tab the way a reader does at this width.
+ *
+ * A phone's strip carries three labels and a ⋯; the other three are one tap
+ * behind it. Clicking blind would time out at 360 and 390 and pass at 1200,
+ * which is the least useful failure a width sweep can produce — so the ⋯
+ * gets opened when the tab is not on the strip, and the audit proves that
+ * route works at every width it sweeps.
+ */
+const tab = async (page: Page, name: string) => {
+  const t = page.getByRole("tab", { name, exact: true });
+  if (!(await t.isVisible())) await page.locator(".tabs-toggle").click();
+  await t.click();
+};
 const IGNORE = ["iframe"];
 
 interface Screen {
@@ -73,7 +86,7 @@ const SCREENS: Screen[] = [
   {
     name: "trendy (picker open)",
     go: async (page) => {
-      await tab(page, "Trendy").click();
+      await tab(page, "Trendy");
       await page.getByRole("button", { name: /Přidat parametr/ }).click();
       await page.waitForTimeout(250);
     },
@@ -81,7 +94,7 @@ const SCREENS: Screen[] = [
   {
     name: "ověření (row selected)",
     go: async (page) => {
-      await tab(page, "Ověření").click();
+      await tab(page, "Ověření");
       await page.waitForTimeout(300);
       await page.locator("#tabpanel-verify tr.row-pick").nth(2).click();
       await page.waitForTimeout(600);
@@ -90,28 +103,28 @@ const SCREENS: Screen[] = [
   {
     name: "přiřazení",
     go: async (page) => {
-      await tab(page, "Přiřazení").click();
+      await tab(page, "Přiřazení");
       await page.waitForTimeout(400);
     },
   },
   {
     name: "reporty",
     go: async (page) => {
-      await tab(page, "Reporty").click();
+      await tab(page, "Reporty");
       await page.waitForTimeout(300);
     },
   },
   {
     name: "sdílet s AI (bez odkazu)",
     go: async (page) => {
-      await tab(page, "Sdílet s AI").click();
+      await tab(page, "Sdílet s AI");
       await page.waitForTimeout(300);
     },
   },
   {
     name: "sdílet s AI (odkaz, náhled otevřený)",
     go: async (page) => {
-      await tab(page, "Sdílet s AI").click();
+      await tab(page, "Sdílet s AI");
       await page.getByRole("button", { name: "Vytvořit odkaz pro AI" }).click();
       await page.waitForSelector(".ai-line", { timeout: 10_000 });
       await page.getByText("Co AI uvidí").click();
@@ -123,7 +136,7 @@ const SCREENS: Screen[] = [
     // summary line. The fake API acknowledges the PUT and keeps nothing.
     name: "sdílet s AI (kontext uložený)",
     go: async (page) => {
-      await tab(page, "Sdílet s AI").click();
+      await tab(page, "Sdílet s AI");
       await page.getByRole("button", { name: "Muž" }).click();
       await page.getByLabel("Věk").selectOption("30-34");
       await page.getByLabel("Zajímá mě").selectOption("both");
@@ -144,7 +157,7 @@ const SCREENS: Screen[] = [
     // extractor: the file is read in the browser, nothing is sent.
     name: "kontrola anonymizace",
     go: async (page) => {
-      await tab(page, "Reporty").click();
+      await tab(page, "Reporty");
       await page.locator('label.drop input[type="file"]').setInputFiles(FIXTURE);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.waitForTimeout(500);
@@ -155,7 +168,7 @@ const SCREENS: Screen[] = [
     // uncovered at every width — a thin box puts it above the ink.
     name: "kontrola anonymizace (pole vybrané)",
     go: async (page) => {
-      await tab(page, "Reporty").click();
+      await tab(page, "Reporty");
       await page.locator('label.drop input[type="file"]').setInputFiles(FIXTURE);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.waitForTimeout(500);

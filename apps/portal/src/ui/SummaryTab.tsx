@@ -16,14 +16,21 @@
  * different targets — the whole row used to be one click surface and sent
  * everyone to verification, including readers who wanted the graph.
  *
- * A group row carries both readings of the same facts and CSS picks one. On a
- * desktop it is the one clause it has always been — magnitude, change, date.
- * On a phone that clause wrapped to three lines per parameter and the card
- * became a wall, so there it is two: the value with its printed range, then
- * the draw before it. Nothing is only on the phone or only on the desktop —
- * the previous reading is the "od {date}" clause's other half.
+ * A group row carries two readings of the same record and the width picks
+ * one. A desktop gets the single clause it always had: the magnitude
+ * (lab-core's `watchList` sentence), the change, the date. A phone gets two
+ * short lines — the value with its printed range, then the draw before it —
+ * because one clause of that density is four wrapped lines on a 360px
+ * column, and four lines × seven parameters is a wall nobody reads. The
+ * phone keeps the numbers and drops the elaboration: the percentage past the
+ * limit and the signed delta are on the desktop only, and both are one tap
+ * away in Trendy, where the row's own name leads.
+ *
+ * Every list here folds to its first two rows on a phone, behind "Více".
+ * Four lists of everything measured is a scroll nobody finishes; the count
+ * beside each heading says how much is folded away.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   type Flag,
   type LabReport,
@@ -103,6 +110,26 @@ function factOf(r: SummaryRecord): string {
   }`;
 }
 
+/**
+ * The fold, on a phone only.
+ *
+ * Rendered at every width and hidden by CSS above 820px, so nothing here
+ * branches on a viewport width that React cannot see. The rows beyond the
+ * second are hidden the same way — they stay in the DOM, and in the
+ * accessibility tree, at every width where the fold is not shown.
+ */
+function Fold({ open, rest, onToggle, controls }: { open: boolean; rest: number; onToggle: () => void; controls: string }) {
+  if (rest < 1) return null;
+  return (
+    <button className="btn linkish sum-fold" aria-expanded={open} aria-controls={controls} onClick={onToggle}>
+      {open ? "Méně" : `Více (${rest})`}
+    </button>
+  );
+}
+
+/** Rows past the second are folded away on a phone — see `Fold`. */
+const foldClass = (open: boolean, total: number) => (!open && total > 2 ? " folded" : "");
+
 /** Token-coloured, not semaphore-coloured: the palette is green-free. */
 function GroupIcon({ kind }: { kind: "better" | "worse" }) {
   return kind === "worse" ? (
@@ -134,14 +161,16 @@ function Group({
   watchFacts: Map<string, string>;
   onOpenTrend?: Props["onOpenTrend"];
 }) {
+  const [open, setOpen] = useState(false);
   if (records.length === 0) return null;
+  const listId = `sum-moves-${kind}`;
   return (
     <div className={`sum-group ${kind}`}>
       <h3>
         <GroupIcon kind={kind} />
         {title} <span className="n">{records.length}</span>
       </h3>
-      <ul className="sum-moves">
+      <ul className={`sum-moves${foldClass(open, records.length)}`} id={listId}>
         {records.map((r) => {
           const ch = changeOf(r);
           const magnitude = watchFacts.get(r.canonicalId);
@@ -170,89 +199,96 @@ function Group({
           );
         })}
       </ul>
+      <Fold open={open} rest={records.length - 2} onToggle={() => setOpen((v) => !v)} controls={listId} />
     </div>
   );
 }
 
-function Table({ records, trends, onShowSource, onOpenTrend, caption }: { records: SummaryRecord[]; trends: Map<string, Trend>; onShowSource?: Props["onShowSource"]; onOpenTrend?: Props["onOpenTrend"]; caption: string }) {
+function Table({ records, trends, onShowSource, onOpenTrend, caption, id }: { records: SummaryRecord[]; trends: Map<string, Trend>; onShowSource?: Props["onShowSource"]; onOpenTrend?: Props["onOpenTrend"]; caption: string; id: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="scroll-x">
-      <table className="sum-table" aria-label={caption}>
-        <thead>
-          <tr>
-            <th>Parametr</th>
-            <th className="num">Hodnota</th>
-            <th className="num">Rozmezí</th>
-            <th className="num sum-wide">Změna od minule</th>
-            <th className="sum-wide">Průběh</th>
-            <th className="sum-wide" aria-label="Zdroj" />
-            {/* A phone shows name and value only; the rest is one tap away
-                in Trendy, where the same parameter opens. */}
-            <th className="sum-more" aria-label="Více" />
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((r) => {
-            const trend = trends.get(r.canonicalId);
-            const ch = changeOf(r);
-            return (
-              <tr key={r.canonicalId}>
-                <td>
-                  <button type="button" className="btn linkish sum-open sum-name" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
-                    {r.displayName}
-                  </button>
-                  <span className="muted sum-wide" style={{ display: "block" }}>
-                    {czDate(r.older.date)} → {czDate(r.newer.date)}
-                  </span>
-                </td>
-                <td className="num">
-                  <strong className={r.outOfRange ? "out" : undefined}>{czExact(r.newer.value, r.newer.valueRaw)}</strong>{" "}
-                  <span className="muted">{prettyUnit(trend?.unit)}</span>
-                  <span className="sum-wide" style={{ display: "block" }}>
-                    <FlagChip flag={r.newFlag} />
-                  </span>
-                </td>
-                <td className="muted num">{rangeOf(r)}</td>
-                <td className={`num change sum-wide ${ch.dir}`}>
-                  {ch.dir === "up" ? "↗ " : ch.dir === "down" ? "↘ " : ""}
-                  {ch.text}
-                  <span className="muted" style={{ display: "block", fontWeight: 400 }}>
-                    z {czNum(r.older.value)}
-                  </span>
-                </td>
-                <td className="sum-wide">
-                  {trend && (
-                    <button
-                      type="button"
-                      className="sparkbtn"
-                      aria-label={`Otevřít graf ${r.displayName}`}
-                      title="Otevřít graf"
-                      onClick={() => onOpenTrend?.(r.canonicalId)}
-                    >
-                      <Sparkline trend={trend} width={104} height={30} />
+    <>
+      <div className="scroll-x">
+        <table className={`sum-table${foldClass(open, records.length)}`} aria-label={caption} id={id}>
+          <thead>
+            <tr>
+              <th>Parametr</th>
+              <th className="num">Hodnota</th>
+              <th className="num">Rozmezí</th>
+              <th className="num sum-wide">Změna od minule</th>
+              <th className="sum-wide">Průběh</th>
+              <th className="sum-wide" aria-label="Zdroj" />
+              {/* A phone shows name and value only; the rest is one tap away
+                  in Trendy, where the same parameter opens. */}
+              <th className="sum-more" aria-label="Více" />
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((r) => {
+              const trend = trends.get(r.canonicalId);
+              const ch = changeOf(r);
+              return (
+                <tr key={r.canonicalId}>
+                  <td>
+                    <button type="button" className="btn linkish sum-open sum-name" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
+                      {r.displayName}
                     </button>
-                  )}
-                </td>
-                <td className="sum-wide">
-                  <button
-                    className="btn linkish sum-go"
-                    onClick={() => onShowSource?.(r.canonicalId)}
-                    title="Ukázat řádek na zdrojové stránce"
-                  >
-                    ověřit →
-                  </button>
-                </td>
-                <td className="sum-more">
-                  <button className="btn linkish sum-go" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
-                    Více
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                    <span className="muted sum-wide" style={{ display: "block" }}>
+                      {czDate(r.older.date)} → {czDate(r.newer.date)}
+                    </span>
+                  </td>
+                  <td className="num">
+                    <strong className={r.outOfRange ? "out" : undefined}>{czExact(r.newer.value, r.newer.valueRaw)}</strong>{" "}
+                    <span className="muted">{prettyUnit(trend?.unit)}</span>
+                    <span className="sum-wide" style={{ display: "block" }}>
+                      <FlagChip flag={r.newFlag} />
+                    </span>
+                  </td>
+                  <td className="muted num">{rangeOf(r)}</td>
+                  <td className={`num change sum-wide ${ch.dir}`}>
+                    {ch.dir === "up" ? "↗ " : ch.dir === "down" ? "↘ " : ""}
+                    {ch.text}
+                    <span className="muted" style={{ display: "block", fontWeight: 400 }}>
+                      z {czNum(r.older.value)}
+                    </span>
+                  </td>
+                  <td className="sum-wide">
+                    {trend && (
+                      <button
+                        type="button"
+                        className="sparkbtn"
+                        aria-label={`Otevřít graf ${r.displayName}`}
+                        title="Otevřít graf"
+                        onClick={() => onOpenTrend?.(r.canonicalId)}
+                      >
+                        <Sparkline trend={trend} width={104} height={30} />
+                      </button>
+                    )}
+                  </td>
+                  <td className="sum-wide">
+                    <button
+                      className="btn linkish sum-go"
+                      onClick={() => onShowSource?.(r.canonicalId)}
+                      title="Ukázat řádek na zdrojové stránce"
+                    >
+                      ověřit →
+                    </button>
+                  </td>
+                  <td className="sum-more">
+                    {/* "Více" is the card's fold now; this one opens the chart,
+                        so it says which — and matches "ověřit →" beside it. */}
+                    <button className="btn linkish sum-go" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
+                      graf →
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <Fold open={open} rest={records.length - 2} onToggle={() => setOpen((v) => !v)} controls={id} />
+    </>
   );
 }
 
@@ -324,7 +360,7 @@ export default function SummaryTab({ reports, trends, onShowSource, onOpenTrend,
                 </h2>
               </div>
             </div>
-            {out.length === 0 ? <p className="muted">Nic — všechny porovnatelné parametry jsou v rozmezí.</p> : <Table records={out} trends={trends} onShowSource={onShowSource} onOpenTrend={onOpenTrend} caption="Parametry mimo referenční rozmezí" />}
+            {out.length === 0 ? <p className="muted">Nic — všechny porovnatelné parametry jsou v rozmezí.</p> : <Table records={out} trends={trends} onShowSource={onShowSource} onOpenTrend={onOpenTrend} caption="Parametry mimo referenční rozmezí" id="sum-table-out" />}
           </section>
           <section className="card">
             <div className="card-head">
@@ -334,7 +370,7 @@ export default function SummaryTab({ reports, trends, onShowSource, onOpenTrend,
                 </h2>
               </div>
             </div>
-            {inRange.length === 0 ? <p className="muted">Nic.</p> : <Table records={inRange} trends={trends} onShowSource={onShowSource} onOpenTrend={onOpenTrend} caption="Parametry v referenčním rozmezí" />}
+            {inRange.length === 0 ? <p className="muted">Nic.</p> : <Table records={inRange} trends={trends} onShowSource={onShowSource} onOpenTrend={onOpenTrend} caption="Parametry v referenčním rozmezí" id="sum-table-in" />}
           </section>
         </>
       )}

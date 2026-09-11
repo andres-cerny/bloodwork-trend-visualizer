@@ -199,8 +199,10 @@ body {
 }
 .mk-topbar .brand { font-weight: 650; display: flex; align-items: center; gap: 7px; }
 .mk-who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mk-main { max-width: var(--read-max); margin: 0 auto; padding: 14px; }
-@media (min-width: 820px) { .mk-main { padding: 18px 22px; } }
+/* The bottom inset is the home indicator's, not a bar's: the strip is at the
+   top now, and without this the last card ends under the indicator on iOS. */
+.mk-main { max-width: var(--read-max); margin: 0 auto; padding: 14px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+@media (min-width: 820px) { .mk-main { padding: 18px 22px; padding-bottom: calc(18px + env(safe-area-inset-bottom)); } }
 .mk-main > .card { margin-bottom: 14px; }
 .mk-main .reportlist li { display: flex; align-items: center; gap: 8px; }
 .mk-main .reportlist .rl-main { flex: 1; min-width: 0; }
@@ -284,8 +286,8 @@ h2 .n, .sum-group h3 .n {
 .sum-moves .out, .num .out { color: var(--critical-ink); }
 /* A group row says the same thing two ways and the width picks one. Wide:
    one clause, magnitude and change and date. Narrow: the printed range on
-   the value's line, the draw before it on its own — the long clause wrapped
-   to three lines per parameter and turned the first card into a wall. */
+   the value's line, the draw before it on its own — that clause at 360px is
+   four wrapped lines of dense type, seven times over. */
 .sum-moves .sum-range, .sum-moves .sum-prev { display: none; }
 @media (max-width: 819.98px) {
   .sum-moves .sum-clause { display: none; }
@@ -293,9 +295,29 @@ h2 .n, .sum-group h3 .n {
      line rather than leaving "rozmezí" stranded above its numbers. */
   .sum-moves .sum-range { display: inline; white-space: nowrap; }
   .sum-moves .sum-prev { display: block; line-height: 1.5; }
-  /* Decoration, not content: a screen reader should not read "bullet". */
-  .sum-moves .sum-prev::before { content: "• "; color: var(--ink-muted); }
+  /* The second line's marker — the row itself has none (list-style: none
+     above). The "" after the slash is the alternative text: the marker is
+     drawn, not announced. */
+  .sum-moves .sum-prev::before { content: "• " / ""; color: var(--ink-muted); }
   .sum-moves { gap: 11px; }
+}
+
+/* The fold: on a phone every Souhrn list shows its first two rows and says
+   how many it is holding back. Four full lists is a scroll nobody finishes,
+   and the two rows are the ranked ones — `summarizeChanges` puts the
+   out-of-range and the biggest movers first, so the fold hides the tail, not
+   the point. Rendered at every width, shown at one. */
+.sum-fold { display: none; }
+@media (max-width: 819.98px) {
+  /* 44px, not the auditor's 24px floor: this is the control the whole fold
+     rests on, and it is pressed by the fingers the type size is sized for. */
+  .sum-fold {
+    display: inline-flex; align-items: center; min-height: 44px;
+    margin-top: 2px; padding: 8px 2px;
+    font-size: 0.92rem; font-weight: 600; text-decoration: none;
+  }
+  .sum-moves.folded > li:nth-child(n + 3) { display: none; }
+  .sum-table.folded tbody tr:nth-child(n + 3) { display: none; }
 }
 
 /* The way out of a doubted value in the Trendy table: always there, beside
@@ -372,23 +394,55 @@ h2 .n, .sum-group h3 .n {
   .ai-share .ai-unit { display: block; }
 }
 
-/* The tab strip sits at the top on a phone as it does on a desktop: sticky
-   under the top bar, so the tab you are on is beside the wordmark instead of
-   under your thumb. Six labels still have to share 360px, so they split the
-   width evenly and wrap rather than scroll out of reach. */
+/*
+ * The tab strip on a phone: sticky at the top like the desktop's (the base
+ * rule in legacy.css already places it), but three labels and a ⋯ rather
+ * than six labels.
+ *
+ * Six shared 360px at 0,7rem on a target under 30px tall. That is the size
+ * this app cannot use: it is read by people whose eyes are the reason they
+ * are reading lab results at all. Three labels take 0,92rem on a 46px
+ * target — above the 44px floor, and legible at arm's length — and the
+ * three that are gone are behind a ⋯ that is itself a 46px target.
+ */
 @media (max-width: 819.98px) {
-  .tabs-wrap { margin: 0 -14px 14px; padding: 9px 14px 8px; }
-  nav.tabs { gap: 2px; justify-content: space-between; }
+  /* The strip is a row: the tabs, then the ⋯ that opens the rest. `flex-start`
+     keeps ⋯ on the first line when the second one unfolds beneath it. */
+  .tabs-wrap { display: flex; align-items: flex-start; gap: 5px; }
+  nav.tabs { flex: 1 1 auto; flex-wrap: wrap; gap: 5px; overflow: visible; }
   nav.tabs button {
-    flex: 1 1 0; min-width: 0; padding: 8px 2px; border-radius: 8px;
-    font-size: 0.7rem; line-height: 1.15; white-space: normal; text-align: center;
+    flex: 1 1 0; min-width: 0; min-height: 46px; padding: 6px 4px; border-radius: 10px;
+    font-size: 0.92rem; line-height: 1.2; text-align: center;
+  }
+  /* Order is the phone's own: read the summary, read a curve, hand it over.
+     The DOM keeps the desktop's order — see Portal.tsx. */
+  nav.tabs button.tab-first { order: 1; }
+  nav.tabs button.tab-more { order: 3; }
+  /* A zero-height full-width item between the two orders. `flex-wrap` breaks
+     on width, not on `order`, so without this the ⋯ row's three buttons pack
+     onto the first line beside the other three and every label overlaps. */
+  nav.tabs::before { content: ""; flex: 0 0 100%; order: 2; height: 0; }
+  /* Folded away until ⋯ is pressed, and out of the tab order with it — the
+     break with them, or the strip keeps a blank second line. */
+  .tabs-wrap:not(.more-open) nav.tabs button.tab-more,
+  .tabs-wrap:not(.more-open) nav.tabs::before { display: none; }
+  .tabs-toggle {
+    flex: 0 0 auto; width: 46px; min-height: 46px; padding: 0;
+    border-radius: 10px; border: 1px solid transparent; background: transparent;
+    color: var(--ink-2); font: inherit; font-size: 1.35rem; line-height: 1;
+    cursor: pointer; transition: background 110ms ease, color 110ms ease;
+  }
+  .tabs-toggle:hover { background: var(--surface-3); color: var(--ink-1); }
+  /* Pressed, or holding the tab you are on: either way it wears the strip's
+     selected look, or a reader on Ověření sees nothing selected anywhere. */
+  .tabs-toggle[aria-expanded="true"], .tabs-toggle[data-holding="true"] {
+    background: var(--surface-1); color: var(--ink-1);
+    border-color: var(--border); box-shadow: var(--shadow-sm);
   }
 }
-/* Six tabs at 360px: measured, the strip needs this one rule and no more;
-   below 320px it would have to scroll, which is not supported. */
-@media (max-width: 374.98px) {
-  nav.tabs button { font-size: 0.66rem; padding: 8px 0; }
-}
+/* The ⋯ is the desktop's nothing: all six labels fit, so the disclosure has
+   nothing to disclose. */
+@media (min-width: 820px) { .tabs-toggle { display: none; } }
 
 /* On a phone the name is the brand and the e-mail is noise; on a desktop
    there is room for both. */

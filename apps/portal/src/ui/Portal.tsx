@@ -10,9 +10,15 @@
  * every change goes back to it, so the same trend is there on the next
  * device.
  *
- * The tab strip stays at the top on every width — on a phone it sticks under
- * the top bar, six labels sharing the width. Same buttons, same `hidden`
- * panels; CSS decides how wide they get.
+ * The tab strip stays at the top on every width. A desktop shows all six
+ * labels; a phone shows the three that carry the daily use and keeps the
+ * rest behind ⋯, because six labels sharing 360px meant 0,7rem type on a
+ * 2mm-tall target — unreadable to the eyes this app is for. Three labels and
+ * a ⋯ get a legible size and a real tap target, and the ⋯ row is one tap.
+ *
+ * Which three, and the order they sit in, is the phone's business alone:
+ * every tab is in the DOM in its desktop order, and mobile CSS reorders and
+ * hides. Same buttons, same `hidden` panels.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -37,9 +43,9 @@ import UploadFlow from "./UploadFlow";
 import VerifyTab from "./VerifyTab";
 
 type TabId = "trends" | "summary" | "verify" | "mapping" | "reports" | "share";
-// Six labels fit a 390px phone only if the last one cannot wrap: written
-// with non-breaking spaces, or the bold active label breaks into two lines
-// and the bar jumps in height exactly when this tab is chosen.
+// The label cannot wrap: written with non-breaking spaces, or the bold
+// active label breaks into two lines and the bar jumps in height exactly
+// when this tab is chosen.
 const TABS: Array<[TabId, string]> = [
   ["summary", "Souhrn"],
   ["trends", "Trendy"],
@@ -48,6 +54,14 @@ const TABS: Array<[TabId, string]> = [
   ["reports", "Reporty"],
   ["share", "Sdílet\u00a0s\u00a0AI"],
 ];
+/**
+ * The three a phone keeps in the strip, in the order it shows them — what
+ * the app is opened for: read the summary, read a curve, hand it to an AI.
+ * Ověření, Přiřazení and Reporty are the ones you go to on purpose, so they
+ * live behind ⋯ rather than costing every label two points of type size.
+ */
+const PHONE_TABS: TabId[] = ["summary", "trends", "share"];
+const onPhoneStrip = (id: TabId) => PHONE_TABS.includes(id);
 
 /** Mounted whether or not it is active; `hidden` keeps its state and takes it
  *  out of the accessibility tree — see apps/CLAUDE.md. */
@@ -85,6 +99,10 @@ export default function Portal({ email, onLogout }: Props) {
   const [openTrend, setOpenTrend] = useState<{ id: string; seq: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [accountPhrase, setAccountPhrase] = useState<string | null>(null);
+  // The ⋯ row, on a phone. Open it when one of the tabs behind it is chosen
+  // by any route — a keyboard arrow, or showSource sending the reader to
+  // Ověření — so the strip never hides the tab it is showing.
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -227,10 +245,18 @@ export default function Portal({ email, onLogout }: Props) {
     [registry, remap, learned, saveLearned],
   );
 
-  const showSource = useCallback((reportId: string, rawName: string) => {
-    setFocus({ reportId, rawName, seq: Date.now() });
-    setTab("verify");
+  const goTab = useCallback((id: TabId) => {
+    setTab(id);
+    setMoreOpen(!onPhoneStrip(id));
   }, []);
+
+  const showSource = useCallback(
+    (reportId: string, rawName: string) => {
+      setFocus({ reportId, rawName, seq: Date.now() });
+      goTab("verify");
+    },
+    [goTab],
+  );
 
   const showAnalyteSource = useCallback(
     (canonicalId: string) => {
@@ -243,11 +269,14 @@ export default function Portal({ email, onLogout }: Props) {
     [reports, showSource],
   );
 
-  const showTrend = useCallback((canonicalId: string) => {
-    setOpenTrend({ id: canonicalId, seq: Date.now() });
-    setTab("trends");
-    window.scrollTo({ top: 0 });
-  }, []);
+  const showTrend = useCallback(
+    (canonicalId: string) => {
+      setOpenTrend({ id: canonicalId, seq: Date.now() });
+      goTab("trends");
+      window.scrollTo({ top: 0 });
+    },
+    [goTab],
+  );
 
   async function remove(id: string) {
     setConfirmDelete(null);
@@ -371,7 +400,7 @@ export default function Portal({ email, onLogout }: Props) {
         {saveError && <div className="banner warn">{saveError}</div>}
 
         {hasData && (
-          <div className="tabs-wrap">
+          <div className={`tabs-wrap${moreOpen ? " more-open" : ""}`}>
             <nav
               className="tabs"
               role="tablist"
@@ -381,16 +410,42 @@ export default function Portal({ email, onLogout }: Props) {
                 e.preventDefault();
                 const i = TABS.findIndex(([id]) => id === tab);
                 const j = (i + step + TABS.length) % TABS.length;
-                setTab(TABS[j][0]);
-                (e.currentTarget.querySelectorAll("button")[j] as HTMLButtonElement | undefined)?.focus();
+                // After the paint, not during the handler: arrowing onto one
+                // of the ⋯ tabs opens that row, and a button still display:
+                // none this frame cannot take focus.
+                const nav = e.currentTarget;
+                goTab(TABS[j][0]);
+                requestAnimationFrame(() => (nav.querySelectorAll("button")[j] as HTMLButtonElement | undefined)?.focus());
               }}
             >
               {TABS.map(([id, label]) => (
-                <button key={id} role="tab" id={`tab-${id}`} aria-controls={`tabpanel-${id}`} aria-selected={tab === id} tabIndex={tab === id ? 0 : -1} onClick={() => setTab(id)}>
+                <button
+                  key={id}
+                  role="tab"
+                  id={`tab-${id}`}
+                  className={onPhoneStrip(id) ? "tab-first" : "tab-more"}
+                  aria-controls={`tabpanel-${id}`}
+                  aria-selected={tab === id}
+                  tabIndex={tab === id ? 0 : -1}
+                  onClick={() => goTab(id)}
+                >
                   {label}
                 </button>
               ))}
             </nav>
+            {/* Not a tab: a disclosure for the three that do not fit, and so
+                outside the tablist. It wears the selected look while one of
+                them is open, or the strip would show nothing selected. */}
+            <button
+              className="tabs-toggle"
+              aria-expanded={moreOpen}
+              aria-label={moreOpen ? "Skrýt další záložky" : "Další záložky"}
+              title={moreOpen ? "Skrýt další záložky" : "Další záložky"}
+              data-holding={!onPhoneStrip(tab)}
+              onClick={() => setMoreOpen((v) => !v)}
+            >
+              <span aria-hidden="true">⋯</span>
+            </button>
           </div>
         )}
 
@@ -409,7 +464,7 @@ export default function Portal({ email, onLogout }: Props) {
                 trends={trends}
                 onShowSource={showAnalyteSource}
                 onOpenTrend={showTrend}
-                onOpenVerify={() => setTab("verify")}
+                onOpenVerify={() => goTab("verify")}
               />
             </Panel>
             <Panel id="trends" active={tab}>

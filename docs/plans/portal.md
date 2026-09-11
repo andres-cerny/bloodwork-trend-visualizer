@@ -233,8 +233,11 @@ The charts are the centrepiece on both.
    separate later change.
 3. Layout: tab strip at the top on mobile (tried as a bottom bar, moved —
    the tab you are on belongs beside the wordmark, not under your thumb),
-   side rail on desktop; panels keep the `hidden`-attribute pattern. All copy
-   Czech, nominative, no verbs.
+   side rail on desktop; panels keep the `hidden`-attribute pattern. On a
+   phone the strip carries three labels and a ⋯ rather than six: six shared
+   360px at 0,7rem, and this app is read by the eyes that need lab results
+   read to them. Every Souhrn list folds to two rows behind "Více" for the
+   same reason. All copy Czech, nominative, no verbs.
 4. Extend the layout auditor to the portal's screens; five widths, both
    palettes, 4.5:1 on type — the audit is the phase gate, not a suggestion.
 
