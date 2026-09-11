@@ -320,6 +320,51 @@ h2 .n, .sum-group h3 .n {
   .sum-table.folded tbody tr:nth-child(n + 3) { display: none; }
 }
 
+/* Souhrn's opening card is three blocks on a phone ------------------------- */
+/*
+ * A desktop keeps the single card it always had: one head, both groups
+ * inside it. A phone gets the same facts as three blocks — a bare summary
+ * with no card chrome, then one card per direction — because at 360px the
+ * head, the two groups and the footnote in one box is a grey slab with four
+ * headings in it.
+ *
+ * Both heads are in the markup at every width and these rules pick one, the
+ * same way `sum-clause` and `sum-prev` pick a group row's reading. Nothing
+ * branches on a viewport width React cannot see.
+ */
+.sum-overview { display: none; }
+@media (max-width: 819.98px) {
+  .sum-overview { display: block; margin: 0 0 12px; }
+  .sum-overview h2 { margin: 0 0 7px; }
+  /* The desktop's head and the phone's summary say the same thing; only one
+     of them is ever on screen. */
+  .sum-lead > .card-head { display: none; }
+
+  /* The lead gives up its box so the two groups can each wear one. */
+  .sum-lead {
+    background: none; border: none; border-radius: 0;
+    padding: 0; box-shadow: none;
+  }
+  /* One card per direction — and the same chrome for the "nothing moved"
+     sentence that stands in for both of them. */
+  .sum-lead > .sum-groups > .sum-group,
+  .sum-lead > .prose {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .sum-groups { gap: 12px; }
+}
+
+/* The three facts under "Souhrn": label and value on one line each. `dl`
+   rather than paragraphs because that is what three label/value pairs are,
+   and the colon is written rather than generated — a reader copying the
+   block gets the colons with it. */
+.sum-facts { margin: 0; font-size: 0.9rem; line-height: 1.6; }
+.sum-facts > div { display: flex; gap: 6px; flex-wrap: wrap; }
+.sum-facts dt { color: var(--ink-2); }
+.sum-facts dd { margin: 0; font-weight: 600; }
+
 /* The way out of a doubted value in the Trendy table: always there, beside
    the value, on every kind of screen. */
 .verify-go { margin-left: 8px; padding: 0; font-size: 0.78rem; font-weight: 600; text-decoration: none; white-space: nowrap; }

@@ -29,6 +29,13 @@
  * Every list here folds to its first two rows on a phone, behind "Více".
  * Four lists of everything measured is a scroll nobody finishes; the count
  * beside each heading says how much is folded away.
+ *
+ * The opening card is one card on a desktop and three blocks on a phone: a
+ * bare summary — the draw date, the span, the count — then one card per
+ * direction. At 360px the head, both groups and the footnote share a single
+ * box with four headings in it, and nothing says where one answer ends and
+ * the next begins. Same markup at both widths; `styles.css` decides which
+ * head shows and where the card chrome sits.
  */
 import { useMemo, useState } from "react";
 import {
@@ -309,7 +316,27 @@ export default function SummaryTab({ reports, trends, onShowSource, onOpenTrend,
 
   return (
     <>
-      <section className="card">
+      <section className="card sum-lead">
+        {/* The phone's reading of the head, and the card's own above it.
+            Both ship at every width and styles.css picks one — the same way
+            `sum-clause` and `sum-prev` split a group row. */}
+        <div className="sum-overview">
+          <h2>Souhrn</h2>
+          <dl className="sum-facts">
+            <div>
+              <dt>Poslední měření:</dt>
+              <dd>{overview.lastDraw ? czDate(overview.lastDraw) : "—"}</dd>
+            </div>
+            <div>
+              <dt>Doba sledování:</dt>
+              <dd>{overview.followUp ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Počet odběrů:</dt>
+              <dd>{overview.draws > 0 ? overview.draws : "—"}</dd>
+            </div>
+          </dl>
+        </div>
         <div className="card-head">
           <div>
             <h2>Na co se podívat nejdřív</h2>

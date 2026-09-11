@@ -8,6 +8,12 @@
  * the width rules key on. Rendered markup, not state: `sum-range` and
  * `sum-prev` exist at every width and `styles.css` decides which shows, so a
  * test that read React state would prove nothing about what a reader sees.
+ *
+ * The opening card splits the same way: a phone gets "Souhrn" and three
+ * facts above one card per direction, a desktop keeps its single head. Both
+ * heads ship at every width, so what is asserted here is that neither was
+ * dropped and that the classes the width rules key on are still spelled the
+ * way `styles.css` spells them.
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -125,5 +131,45 @@ describe("a list with no tail", () => {
     expect(short).toContain("sum-moves");
     expect(short).not.toContain("sum-fold");
     expect(short).not.toContain("folded");
+  });
+});
+
+describe("the opening card, split on a phone", () => {
+  it("heads the phone's summary with Souhrn and three labelled facts", () => {
+    expect(html).toContain('<div class="sum-overview"><h2>Souhrn</h2>');
+    expect(html).toContain("<dt>Poslední měření:</dt><dd>23. 9. 2025</dd>");
+    expect(html).toContain("<dt>Doba sledování:</dt><dd>1 rok</dd>");
+    expect(html).toContain("<dt>Počet odběrů:</dt><dd>2</dd>");
+  });
+
+  it("keeps the desktop's head in the markup beside it", () => {
+    // Both heads ship; the width picks one. Drop this and the phone layout
+    // silently becomes the only layout — the same bargain `sum-clause` makes.
+    expect(html).toContain("Na co se podívat nejdřív");
+    expect(html).toContain('class="sub"');
+  });
+
+  it("marks the lead so the phone can strip its chrome and card the groups", () => {
+    // styles.css keys the whole split on this class: `.sum-lead` loses its
+    // box below 820px and `.sum-lead > .sum-groups > .sum-group` gains one.
+    expect(html).toContain('<section class="card sum-lead">');
+    expect(html).toContain('<div class="sum-group worse">');
+  });
+
+  it("cards the other direction too, when a value has come back", () => {
+    // Every parameter in the fixture above rises, so it has no better group
+    // at all. Read the same pair backwards and the values fall into range.
+    const falling = draw([report("r1", "2024-09-23", 2), report("r2", "2025-09-23", 1)]);
+    expect(falling).toContain('<section class="card sum-lead">');
+    expect(falling).toContain('<div class="sum-group better">');
+  });
+
+  it("says — for a fact one report cannot support", () => {
+    // A single draw has a date and a count but no span. The line stays, so
+    // the block is three facts at every state rather than a shifting list.
+    const one = draw([report("r1", "2024-09-23", 1)]);
+    expect(one).toContain("<dt>Poslední měření:</dt><dd>23. 9. 2024</dd>");
+    expect(one).toContain("<dt>Doba sledování:</dt><dd>—</dd>");
+    expect(one).toContain("<dt>Počet odběrů:</dt><dd>1</dd>");
   });
 });
