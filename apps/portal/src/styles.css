@@ -320,13 +320,12 @@ h2 .n, .sum-group h3 .n {
   .sum-table.folded tbody tr:nth-child(n + 3) { display: none; }
 }
 
-/* Souhrn's opening card is three blocks on a phone ------------------------- */
+/* Souhrn's opening card is three cards on a phone -------------------------- */
 /*
  * A desktop keeps the single card it always had: one head, both groups
- * inside it. A phone gets the same facts as three blocks — a bare summary
- * with no card chrome, then one card per direction — because at 360px the
- * head, the two groups and the footnote in one box is a grey slab with four
- * headings in it.
+ * inside it. A phone gets the same facts as three cards — Souhrn, then one
+ * per direction — because at 360px the head, the two groups and the footnote
+ * in one box is a grey slab with four headings in it.
  *
  * Both heads are in the markup at every width and these rules pick one, the
  * same way `sum-clause` and `sum-prev` pick a group row's reading. Nothing
@@ -338,21 +337,26 @@ h2 .n, .sum-group h3 .n {
   .sum-overview h2 { margin: 0 0 7px; }
   /* The desktop's head and the phone's summary say the same thing; only one
      of them is ever on screen. */
-  .sum-lead > .card-head { display: none; }
+  .sum-head > .card-head { display: none; }
 
-  /* The lead gives up its box so the two groups can each wear one. */
+  /* The lead gives up its box so the blocks inside it can each wear one. */
   .sum-lead {
     background: none; border: none; border-radius: 0;
     padding: 0; box-shadow: none;
   }
-  /* One card per direction — and the same chrome for the "nothing moved"
-     sentence that stands in for both of them. */
+  /* Souhrn, one card per direction — and the same chrome for the "nothing
+     moved" sentence that stands in for both groups. */
+  .sum-lead > .sum-head,
   .sum-lead > .sum-groups > .sum-group,
   .sum-lead > .prose {
     background: var(--surface-1); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 14px 16px;
     box-shadow: var(--shadow-sm);
   }
+  .sum-lead > .sum-head { margin-bottom: 12px; }
+  /* The withheld notice is the card's last line as often as the facts are;
+     whichever it is, its own bottom margin would pad the card from inside. */
+  .sum-head > :last-child { margin-bottom: 0; }
   .sum-groups { gap: 12px; }
 }
 

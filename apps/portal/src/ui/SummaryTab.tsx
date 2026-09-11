@@ -30,12 +30,13 @@
  * Four lists of everything measured is a scroll nobody finishes; the count
  * beside each heading says how much is folded away.
  *
- * The opening card is one card on a desktop and three blocks on a phone: a
- * bare summary — the draw date, the span, the count — then one card per
- * direction. At 360px the head, both groups and the footnote share a single
- * box with four headings in it, and nothing says where one answer ends and
- * the next begins. Same markup at both widths; `styles.css` decides which
- * head shows and where the card chrome sits.
+ * The opening card is one card on a desktop and three on a phone: a Souhrn
+ * card — the draw date, the span, the count, and the withheld notice that
+ * qualifies them — then one card per direction. At 360px the head, both
+ * groups and the footnote share a single box with four headings in it, and
+ * nothing says where one answer ends and the next begins. Same markup at
+ * both widths; `styles.css` decides which head shows and where the card
+ * chrome sits.
  */
 import { useMemo, useState } from "react";
 import {
@@ -317,48 +318,54 @@ export default function SummaryTab({ reports, trends, onShowSource, onOpenTrend,
   return (
     <>
       <section className="card sum-lead">
-        {/* The phone's reading of the head, and the card's own above it.
-            Both ship at every width and styles.css picks one — the same way
-            `sum-clause` and `sum-prev` split a group row. */}
-        <div className="sum-overview">
-          <h2>Souhrn</h2>
-          <dl className="sum-facts">
-            <div>
-              <dt>Poslední měření:</dt>
-              <dd>{overview.lastDraw ? czDate(overview.lastDraw) : "—"}</dd>
-            </div>
-            <div>
-              <dt>Doba sledování:</dt>
-              <dd>{overview.followUp ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Počet odběrů:</dt>
-              <dd>{overview.draws > 0 ? overview.draws : "—"}</dd>
-            </div>
-          </dl>
-        </div>
-        <div className="card-head">
-          <div>
-            <h2>Na co se podívat nejdřív</h2>
-            {overview.lastDraw && (
-              <p className="sub" style={{ marginBottom: 0 }}>
-                k odběru {czDate(overview.lastDraw)}
-                {overview.followUp && ` · sledování ${overview.followUp}`}
-                {overview.draws > 0 && ` · ${count(overview.draws, "odběr", "odběry", "odběrů")}`}
-              </p>
-            )}
+        {/* Head and withheld notice travel together. On a phone this wrapper
+            is the Souhrn card and the notice sits inside it, beside the facts
+            it qualifies; on a desktop it is layout-neutral — its children keep
+            their own margins and the lead card is the one it always was. */}
+        <div className="sum-head">
+          {/* The phone's reading of the head, and the card's own below it.
+              Both ship at every width and styles.css picks one — the same way
+              `sum-clause` and `sum-prev` split a group row. */}
+          <div className="sum-overview">
+            <h2>Souhrn</h2>
+            <dl className="sum-facts">
+              <div>
+                <dt>Poslední měření:</dt>
+                <dd>{overview.lastDraw ? czDate(overview.lastDraw) : "—"}</dd>
+              </div>
+              <div>
+                <dt>Doba sledování:</dt>
+                <dd>{overview.followUp ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Počet odběrů:</dt>
+                <dd>{overview.draws > 0 ? overview.draws : "—"}</dd>
+              </div>
+            </dl>
           </div>
+          <div className="card-head">
+            <div>
+              <h2>Na co se podívat nejdřív</h2>
+              {overview.lastDraw && (
+                <p className="sub" style={{ marginBottom: 0 }}>
+                  k odběru {czDate(overview.lastDraw)}
+                  {overview.followUp && ` · sledování ${overview.followUp}`}
+                  {overview.draws > 0 && ` · ${count(overview.draws, "odběr", "odběry", "odběrů")}`}
+                </p>
+              )}
+            </div>
+          </div>
+          {overview.withheldNow.length > 0 && (
+            <p className="held-back">
+              ⚠ {count(overview.withheldNow.length, "hodnota čeká", "hodnoty čekají", "hodnot čeká")}{" "}
+              na ověření: {overview.withheldNow.join(", ")} —{" "}
+              <button className="btn linkish" onClick={onOpenVerify}>
+                přejít na Ověření
+              </button>
+              .
+            </p>
+          )}
         </div>
-        {overview.withheldNow.length > 0 && (
-          <p className="held-back">
-            ⚠ {count(overview.withheldNow.length, "hodnota čeká", "hodnoty čekají", "hodnot čeká")} na
-            ověření: {overview.withheldNow.join(", ")} —{" "}
-            <button className="btn linkish" onClick={onOpenVerify}>
-              přejít na Ověření
-            </button>
-            .
-          </p>
-        )}
         {worse.length === 0 && better.length === 0 ? (
           <p className="prose">Žádný přesun vůči referenčnímu rozmezí od minulého odběru.</p>
         ) : (

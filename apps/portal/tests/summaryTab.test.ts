@@ -84,6 +84,23 @@ const draw = (reports: LabReport[]) => {
 const reports = [report("r1", "2024-09-23", 1), report("r2", "2025-09-23", 2)];
 const html = draw(reports);
 
+/**
+ * The same pair with one reading the app will not stand behind. `suspectFn`
+ * is the third argument Portal.tsx fills from `reviewOf`, and a value it
+ * withholds at the most recent draw is what raises the notice.
+ */
+const withheldHtml = renderToStaticMarkup(
+  createElement(SummaryTab, {
+    reports,
+    trends: buildTrends(
+      reports,
+      (cid) => cid ?? "",
+      (mm) => (mm.canonicalId === "ALP" ? "ověřit desetinnou čárku" : null),
+      () => null,
+    ),
+  }),
+);
+
 describe("Souhrn on a phone", () => {
   it("gives a group row a range clause and a previous-draw line", () => {
     // The two spans styles.css shows below 820px and hides above it.
@@ -147,6 +164,22 @@ describe("the opening card, split on a phone", () => {
     // silently becomes the only layout — the same bargain `sum-clause` makes.
     expect(html).toContain("Na co se podívat nejdřív");
     expect(html).toContain('class="sub"');
+  });
+
+  it("keeps the withheld notice inside the Souhrn card, not beside it", () => {
+    // On a phone `.sum-head` IS the Souhrn card. Outside it the notice would
+    // float bare on the plane between two cards, which is where it sat
+    // before the wrapper existed.
+    const head = withheldHtml.indexOf('class="sum-head"');
+    const note = withheldHtml.indexOf('class="held-back"');
+    expect(head).toBeGreaterThan(-1);
+    expect(note).toBeGreaterThan(head);
+    // The wrapper closes on the notice's heels — nothing else joined it.
+    expect(withheldHtml).toContain("přejít na Ověření</button>.</p></div>");
+  });
+
+  it("names the withheld parameter in the notice", () => {
+    expect(withheldHtml).toContain("1 hodnota čeká na ověření: ALP");
   });
 
   it("marks the lead so the phone can strip its chrome and card the groups", () => {
