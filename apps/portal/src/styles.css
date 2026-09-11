@@ -324,8 +324,8 @@ h2 .n, .sum-group h3 .n {
 /*
  * A desktop keeps the single card it always had: one head, both groups
  * inside it. A phone gets the same facts as three cards — Souhrn, then one
- * per direction — because at 360px the head, the two groups and the footnote
- * in one box is a grey slab with four headings in it.
+ * per direction — because at 360px the head and the two groups in one box is
+ * a grey slab with three headings in it.
  *
  * Both heads are in the markup at every width and these rules pick one, the
  * same way `sum-clause` and `sum-prev` pick a group row's reading. Nothing

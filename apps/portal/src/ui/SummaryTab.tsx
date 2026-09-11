@@ -32,11 +32,10 @@
  *
  * The opening card is one card on a desktop and three on a phone: a Souhrn
  * card — the draw date, the span, the count, and the withheld notice that
- * qualifies them — then one card per direction. At 360px the head, both
- * groups and the footnote share a single box with four headings in it, and
- * nothing says where one answer ends and the next begins. Same markup at
- * both widths; `styles.css` decides which head shows and where the card
- * chrome sits.
+ * qualifies them — then one card per direction. At 360px the head and both
+ * groups in a single box is three headings deep and nothing says where one
+ * answer ends and the next begins. Same markup at both widths;
+ * `styles.css` decides which head shows and where the card chrome sits.
  */
 import { useMemo, useState } from "react";
 import {
@@ -374,10 +373,6 @@ export default function SummaryTab({ reports, trends, onShowSource, onOpenTrend,
             <Group kind="better" title="Zlepšilo se" records={better} trends={trends} watchFacts={new Map()} onOpenTrend={onOpenTrend} />
           </div>
         )}
-        <p className="muted" style={{ marginTop: 10 }}>
-          Popis je sestaven z pravidel nad naměřenými čísly — bez modelu, tedy bez výkladu a bez diagnózy. Co
-          hodnoty znamenají, je otázka pro lékaře.
-        </p>
       </section>
 
       {records.length === 0 ? (
