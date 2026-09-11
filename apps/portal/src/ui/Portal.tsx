@@ -10,8 +10,9 @@
  * every change goes back to it, so the same trend is there on the next
  * device.
  *
- * On a phone the tab strip is a bottom bar; on a desktop it stays at the top.
- * Same buttons, same `hidden` panels — CSS decides where the strip sits.
+ * The tab strip stays at the top on every width — on a phone it sticks under
+ * the top bar, six labels sharing the width. Same buttons, same `hidden`
+ * panels; CSS decides how wide they get.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

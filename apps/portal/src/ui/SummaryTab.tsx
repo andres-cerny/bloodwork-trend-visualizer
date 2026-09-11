@@ -15,6 +15,13 @@
  * "ověřit →" opens the row on its source page. Two different questions, two
  * different targets — the whole row used to be one click surface and sent
  * everyone to verification, including readers who wanted the graph.
+ *
+ * A group row carries both readings of the same facts and CSS picks one. On a
+ * desktop it is the one clause it has always been — magnitude, change, date.
+ * On a phone that clause wrapped to three lines per parameter and the card
+ * became a wall, so there it is two: the value with its printed range, then
+ * the draw before it. Nothing is only on the phone or only on the desktop —
+ * the previous reading is the "od {date}" clause's other half.
  */
 import { useMemo } from "react";
 import {
@@ -138,6 +145,7 @@ function Group({
         {records.map((r) => {
           const ch = changeOf(r);
           const magnitude = watchFacts.get(r.canonicalId);
+          const rng = rangeOf(r);
           return (
             <li key={r.canonicalId}>
               <button
@@ -149,10 +157,14 @@ function Group({
               </button>{" "}
               <strong className={isOut(r.newer.flag) ? "out" : undefined}>
                 {czExact(r.newer.value, r.newer.valueRaw)} {prettyUnit(trends.get(r.canonicalId)?.unit)}
-              </strong>{" "}
-              <span className="muted">
+              </strong>
+              {rng !== "—" && <span className="muted sum-range"> — rozmezí ({rng})</span>}{" "}
+              <span className="muted sum-clause">
                 — {magnitude ?? factOf(r)} · {ch.dir === "up" ? "↗ " : ch.dir === "down" ? "↘ " : ""}
                 {ch.text} od {czDate(r.older.date)}
+              </span>
+              <span className="muted sum-prev">
+                předchozí měření {czExact(r.older.value, r.older.valueRaw)} ({czDate(r.older.date)})
               </span>
             </li>
           );

@@ -231,8 +231,10 @@ The charts are the centrepiece on both.
    fork — both apps inherit the improvement, and "the model may name a
    chart, never fill one" stays enforced once. Bloodwork app adoption is a
    separate later change.
-3. Layout: bottom tab bar on mobile, side rail on desktop; panels keep the
-   `hidden`-attribute pattern. All copy Czech, nominative, no verbs.
+3. Layout: tab strip at the top on mobile (tried as a bottom bar, moved —
+   the tab you are on belongs beside the wordmark, not under your thumb),
+   side rail on desktop; panels keep the `hidden`-attribute pattern. All copy
+   Czech, nominative, no verbs.
 4. Extend the layout auditor to the portal's screens; five widths, both
    palettes, 4.5:1 on type — the audit is the phase gate, not a suggestion.
 

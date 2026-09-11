@@ -282,6 +282,21 @@ h2 .n, .sum-group h3 .n {
 .sum-moves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; font-size: 0.9rem; }
 .sum-moves .btn.linkish, .sum-moves .sum-open { padding: 0; font-weight: 600; text-decoration: none; }
 .sum-moves .out, .num .out { color: var(--critical-ink); }
+/* A group row says the same thing two ways and the width picks one. Wide:
+   one clause, magnitude and change and date. Narrow: the printed range on
+   the value's line, the draw before it on its own — the long clause wrapped
+   to three lines per parameter and turned the first card into a wall. */
+.sum-moves .sum-range, .sum-moves .sum-prev { display: none; }
+@media (max-width: 819.98px) {
+  .sum-moves .sum-clause { display: none; }
+  /* One unit: a long parameter name pushes the whole clause to the next
+     line rather than leaving "rozmezí" stranded above its numbers. */
+  .sum-moves .sum-range { display: inline; white-space: nowrap; }
+  .sum-moves .sum-prev { display: block; line-height: 1.5; }
+  /* Decoration, not content: a screen reader should not read "bullet". */
+  .sum-moves .sum-prev::before { content: "• "; color: var(--ink-muted); }
+  .sum-moves { gap: 11px; }
+}
 
 /* The way out of a doubted value in the Trendy table: always there, beside
    the value, on every kind of screen. */
@@ -357,19 +372,17 @@ h2 .n, .sum-group h3 .n {
   .ai-share .ai-unit { display: block; }
 }
 
-/* The tab strip becomes a bottom bar on a phone ---------------------------- */
+/* The tab strip sits at the top on a phone as it does on a desktop: sticky
+   under the top bar, so the tab you are on is beside the wordmark instead of
+   under your thumb. Six labels still have to share 360px, so they split the
+   width evenly and wrap rather than scroll out of reach. */
 @media (max-width: 819.98px) {
-  .tabs-wrap {
-    position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 30;
-    margin: 0; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--border); border-bottom: none;
-  }
+  .tabs-wrap { margin: 0 -14px 14px; padding: 9px 14px 8px; }
   nav.tabs { gap: 2px; justify-content: space-between; }
   nav.tabs button {
     flex: 1 1 0; min-width: 0; padding: 8px 2px; border-radius: 8px;
     font-size: 0.7rem; line-height: 1.15; white-space: normal; text-align: center;
   }
-  .mk-main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
 /* Six tabs at 360px: measured, the strip needs this one rule and no more;
    below 320px it would have to scroll, which is not supported. */
