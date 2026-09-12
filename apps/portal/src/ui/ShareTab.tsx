@@ -1,5 +1,5 @@
 /**
- * Sdílet s AI: one sentence to copy into ChatGPT, Claude or any assistant
+ * AI konzultace: one sentence to copy into ChatGPT, Claude or any assistant
  * that can fetch a page, pointing at a private, temporary text page of the
  * person's own values.
  *
@@ -21,6 +21,13 @@
  * revoke); and nothing yet, while the worker is asked. Copy above the
  * button is for someone who has never heard the word "URL": click, copy,
  * paste into your assistant, ask.
+ *
+ * The tab is named for advice, so the first state — the only one where the
+ * person has not decided yet — says once that a doctor reads these best and
+ * the assistant is for arriving prepared. Once, and only there: the share
+ * header this tab builds tells the assistant "bez zbytečných výhrad" and
+ * "Nezakončuj každou odpověď stejným upozorněním", and a screen that repeats
+ * a disclaimer in all four states argues with its own prompt.
  */
 import { useEffect, useMemo, useState } from "react";
 import { type AiContext, type LabReport, type Trend, buildAiShare, count, isEmptyAiContext } from "@bw/lab-core";
@@ -194,7 +201,7 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
       <div className="card ai-share">
         <div className="card-head">
           <div>
-            <h2>Sdílet s AI</h2>
+            <h2>AI konzultace</h2>
           </div>
         </div>
         <p className="muted">Načítám…</p>
@@ -211,7 +218,7 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
         <div className="card ai-share">
           <div className="card-head">
             <div>
-              <h2>Sdílet s AI</h2>
+              <h2>AI konzultace</h2>
               <p className="sub" style={{ marginBottom: 0 }}>
                 Zkopírujte větu a vložte ji do ChatGPT, Claude nebo jiného asistenta. Výsledky si načte sám.
               </p>
@@ -302,7 +309,7 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
         <div className="card ai-share">
           <div className="card-head">
             <div>
-              <h2>Sdílet s AI</h2>
+              <h2>AI konzultace</h2>
               <p className="sub" style={{ marginBottom: 0 }}>
                 Odkaz pro AI už existuje — vytvořený v jiné záložce nebo na jiném zařízení, a věta s ním
                 zůstala tam. Tady můžete vytvořit nový (starý tím přestane platit) nebo ho zrušit.
@@ -333,11 +340,12 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
       <div className="card ai-share">
         <div className="card-head">
           <div>
-            <h2>Sdílet s AI</h2>
+            <h2>AI konzultace</h2>
             <p className="sub" style={{ marginBottom: 0 }}>
-              Váš AI asistent — ChatGPT, Claude nebo jiný — si výsledky přečte z dočasného odkazu, který tu
-              vytvoříte. Stačí kliknout, zkopírovat větu, vložit ji do svého asistenta a ptát se. Odchází jen
-              hodnoty, jednotky, referenční meze a data odběrů. Žádné PDF, žádné jméno.
+              Výsledky s vámi nejlépe probere lékař. AI vám pomůže se v číslech zorientovat a připravit si
+              na něj otázky. Váš asistent — ChatGPT, Claude nebo jiný — si je přečte z dočasného odkazu,
+              který tu vytvoříte. Stačí kliknout, zkopírovat větu, vložit ji do svého asistenta a ptát se.
+              Odchází jen hodnoty, jednotky, referenční meze a data odběrů. Žádné PDF, žádné jméno.
             </p>
           </div>
         </div>

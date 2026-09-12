@@ -1,6 +1,6 @@
 /**
  * What a person tells their AI assistant about themselves, once, on the
- * Sdílet s AI tab: sex, an age band, height, weight, what they do for
+ * AI konzultace tab: sex, an age band, height, weight, what they do for
  * exercise, what they take, what they have been diagnosed with, smoking,
  * alcohol, what they want the reading for, and a note. Stored on the
  * account (docs/plans/moje-krev-ai-context.md), rendered here into the

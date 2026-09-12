@@ -1,5 +1,5 @@
 /**
- * Doplnit kontext pro AI: the second card on the Sdílet s AI tab, under the
+ * Doplnit kontext pro AI: the second card on the AI konzultace tab, under the
  * link. What a person tells their assistant about themselves, once; saved
  * on the account and carried by every link after (docs/plans/moje-krev-ai-context.md).
  *

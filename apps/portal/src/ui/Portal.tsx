@@ -15,6 +15,8 @@
  * rest behind ⋯, because six labels sharing 360px meant 0,7rem type on a
  * 2mm-tall target — unreadable to the eyes this app is for. Three labels and
  * a ⋯ get a legible size and a real tap target, and the ⋯ row is one tap.
+ * Both rows are the same three columns wide, so moving a tab between them
+ * buys it no room — only the ⋯ tap it costs the reader.
  *
  * Which three, and the order they sit in, is the phone's business alone:
  * every tab is in the DOM in its desktop order, and mobile CSS reorders and
@@ -46,24 +48,28 @@ import UploadFlow from "./UploadFlow";
 import VerifyTab from "./VerifyTab";
 
 type TabId = "trends" | "summary" | "verify" | "mapping" | "reports" | "share";
-// The label cannot wrap: written with non-breaking spaces, or the bold
-// active label breaks into two lines and the bar jumps in height exactly
-// when this tab is chosen.
+// A label must not wrap *conditionally*: bolding the active one would break
+// it into two lines and the bar would jump in height exactly when that tab
+// is chosen. One-line labels are written with non-breaking spaces to hold
+// that. "AI konzultace" is 13 characters against a phone column of about
+// eleven, so it wraps at every weight instead of at some of them — stable,
+// and it keeps 0,92rem type rather than buying one line with a size this
+// app's readers cannot use.
 const TABS: Array<[TabId, string]> = [
   ["summary", "Souhrn"],
   ["trends", "Trendy"],
   ["verify", "Ověření"],
   ["mapping", "Přiřazení"],
   ["reports", "Reporty"],
-  ["share", "Sdílet\u00a0s\u00a0AI"],
+  ["share", "AI konzultace"],
 ];
 /**
- * The three a phone keeps in the strip, in the order it shows them — what
- * the app is opened for: read the summary, read a curve, hand it to an AI.
- * Ověření, Přiřazení and Reporty are the ones you go to on purpose, so they
- * live behind ⋯ rather than costing every label two points of type size.
+ * The three a phone keeps in the strip, in the order it shows them: read the
+ * summary, read a curve, get the PDFs in and out. Ověření, Přiřazení and AI
+ * konzultace are the ones you go to on purpose, so they live behind ⋯ rather
+ * than costing every label two points of type size.
  */
-const PHONE_TABS: TabId[] = ["summary", "trends", "share"];
+const PHONE_TABS: TabId[] = ["summary", "trends", "reports"];
 const onPhoneStrip = (id: TabId) => PHONE_TABS.includes(id);
 
 /** Mounted whether or not it is active; `hidden` keeps its state and takes it

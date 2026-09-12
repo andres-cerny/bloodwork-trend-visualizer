@@ -396,7 +396,7 @@ h2 .n, .sum-group h3 .n {
 .tc-stat .range { font-size: 0.8rem; color: var(--ink-muted); }
 .mk-foot { margin-top: 18px; }
 
-/* Sdílet s AI ------------------------------------------------------------- */
+/* AI konzultace ----------------------------------------------------------- */
 /* The one new element: the sentence to copy. The runlog's ground and size,
    a monospace face, a URL that may break anywhere, and one tap selects it
    whole. */
@@ -453,15 +453,29 @@ h2 .n, .sum-group h3 .n {
  * are reading lab results at all. Three labels take 0,92rem on a 46px
  * target — above the 44px floor, and legible at arm's length — and the
  * three that are gone are behind a ⋯ that is itself a 46px target.
+ *
+ * The side padding is 2px rather than the 4px the rest of the app uses: at
+ * 360px a column is 90px, and "konzultace" measures 79,4px at this size.
+ * Four pixels a side left 0,6px of slack — close enough to the edge that a
+ * different font build would break the word instead of the space. Two gives
+ * it 4,6px. The type size is what the padding is being spent on.
  */
 @media (max-width: 819.98px) {
   /* The strip is a row: the tabs, then the ⋯ that opens the rest. `flex-start`
      keeps ⋯ on the first line when the second one unfolds beneath it. */
   .tabs-wrap { display: flex; align-items: flex-start; gap: 5px; }
   nav.tabs { flex: 1 1 auto; flex-wrap: wrap; gap: 5px; overflow: visible; }
+  /* `white-space: normal` undoes the base rule's nowrap for this width only.
+     Every label but one is a single word that cannot break, so the wrap it
+     permits lands on "AI konzultace" alone — 13 characters against an 82px
+     content box, too wide at any weight, so it breaks after "AI" whether or
+     not it is the selected tab. That is the difference that matters: a label
+     which wraps only when bold changes the bar's height on selection, and a
+     label which always wraps does not. Buying the line back with a smaller
+     font is the trade this strip already refused above. */
   nav.tabs button {
-    flex: 1 1 0; min-width: 0; min-height: 46px; padding: 6px 4px; border-radius: 10px;
-    font-size: 0.92rem; line-height: 1.2; text-align: center;
+    flex: 1 1 0; min-width: 0; min-height: 46px; padding: 6px 2px; border-radius: 10px;
+    font-size: 0.92rem; line-height: 1.2; text-align: center; white-space: normal;
   }
   /* Order is the phone's own: read the summary, read a curve, hand it over.
      The DOM keeps the desktop's order — see Portal.tsx. */

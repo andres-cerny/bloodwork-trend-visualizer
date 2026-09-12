@@ -57,7 +57,7 @@ export const SQL = {
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
   saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
 
-  // Sdílet s AI: the snapshot is stored as sent and served as stored. The
+  // AI konzultace: the snapshot is stored as sent and served as stored. The
   // public read is by hash only — the row never says whose it is to the
   // reader, and the worker never inspects the text.
   insertShare:

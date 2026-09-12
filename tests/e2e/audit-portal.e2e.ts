@@ -130,16 +130,16 @@ const SCREENS: Screen[] = [
     },
   },
   {
-    name: "sdílet s AI (bez odkazu)",
+    name: "AI konzultace (bez odkazu)",
     go: async (page) => {
-      await tab(page, "Sdílet s AI");
+      await tab(page, "AI konzultace");
       await page.waitForTimeout(300);
     },
   },
   {
-    name: "sdílet s AI (odkaz, náhled otevřený)",
+    name: "AI konzultace (odkaz, náhled otevřený)",
     go: async (page) => {
-      await tab(page, "Sdílet s AI");
+      await tab(page, "AI konzultace");
       await page.getByRole("button", { name: "Vytvořit odkaz pro AI" }).click();
       await page.waitForSelector(".ai-line", { timeout: 10_000 });
       await page.getByText("Co AI uvidí").click();
@@ -149,9 +149,9 @@ const SCREENS: Screen[] = [
   {
     // The context card, saved: the form fills, Uložit collapses it to the
     // summary line. The fake API acknowledges the PUT and keeps nothing.
-    name: "sdílet s AI (kontext uložený)",
+    name: "AI konzultace (kontext uložený)",
     go: async (page) => {
-      await tab(page, "Sdílet s AI");
+      await tab(page, "AI konzultace");
       await page.getByRole("button", { name: "Muž" }).click();
       await page.getByLabel("Věk").selectOption("30-34");
       await page.getByLabel("Zajímá mě").selectOption("both");
