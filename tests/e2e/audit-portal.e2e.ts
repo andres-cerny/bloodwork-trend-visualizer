@@ -123,6 +123,18 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // The search beside "Přepsané řádky", open: on a desktop the table pane
+    // is its own scroll box, and the picker must hang over it, not inside it.
+    name: "ověření (hledání otevřené)",
+    go: async (page) => {
+      await tab(page, "Ověření");
+      await page.waitForTimeout(300);
+      await page.locator("#tabpanel-verify .sum-search-btn").click();
+      await page.waitForSelector(".picker input", { timeout: 5_000 });
+      await page.waitForTimeout(250);
+    },
+  },
+  {
     name: "přiřazení",
     go: async (page) => {
       await tab(page, "Přiřazení");

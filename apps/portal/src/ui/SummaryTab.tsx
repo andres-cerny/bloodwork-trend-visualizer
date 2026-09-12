@@ -57,7 +57,8 @@ import {
   watchList,
 } from "@bw/lab-core";
 import { Sparkline } from "@bw/ui-kit";
-import AnalytePicker, { type PickerOption } from "./AnalytePicker";
+import { type PickerOption } from "./AnalytePicker";
+import SearchParam from "./SearchParam";
 import FlagChip from "./Flag";
 
 interface Props {
@@ -290,48 +291,6 @@ function Table({ records, trends, onOpenTrend, caption, id }: { records: Summary
   );
 }
 
-/**
- * Find a parameter by name and open its chart — beside the heading of each
- * table, because a reader who knows what they came for should not have to
- * scan two tables for it. The list is every parameter with a numeric result,
- * not only the table's rows: the answer to "where is my kreatinin" is the
- * chart either way. A desktop shows a field-shaped button; a phone shows the
- * magnifier alone (styles: .sum-search). Both open the same picker Trendy
- * uses, which brings its own input and keyboard handling.
- */
-function SearchParam({ options, onOpenTrend, label }: { options: PickerOption[]; onOpenTrend?: Props["onOpenTrend"]; label: string }) {
-  const [open, setOpen] = useState(false);
-  if (options.length === 0 || !onOpenTrend) return null;
-  return (
-    <div className="sum-search">
-      <button
-        type="button"
-        className="btn sum-search-btn"
-        aria-expanded={open}
-        aria-label={label}
-        title={label}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-          <circle cx="6.8" cy="6.8" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.7" />
-          <path d="M10.3 10.3 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-        </svg>
-        <span className="sum-search-text">Hledat parametr…</span>
-      </button>
-      {open && (
-        <AnalytePicker
-          options={options}
-          onPick={(id) => {
-            setOpen(false);
-            onOpenTrend(id);
-          }}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
 /** Every parameter with a chart to open, out-of-range ones marked. */
 function searchOptions(trends: Map<string, Trend>): PickerOption[] {
   return [...trends.values()]
@@ -435,7 +394,7 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify 
                   Mimo rozmezí <span className="n">{out.length}</span>
                 </h2>
               </div>
-              <SearchParam options={options} onOpenTrend={onOpenTrend} label="Hledat parametr a otevřít graf" />
+              {onOpenTrend && <SearchParam options={options} onPick={onOpenTrend} label="Hledat parametr a otevřít graf" />}
             </div>
             {out.length === 0 ? <p className="muted">Nic — všechny porovnatelné parametry jsou v rozmezí.</p> : <Table records={out} trends={trends} onOpenTrend={onOpenTrend} caption="Parametry mimo referenční rozmezí" id="sum-table-out" />}
           </section>
@@ -446,7 +405,7 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify 
                   V rozmezí <span className="n">{inRange.length}</span>
                 </h2>
               </div>
-              <SearchParam options={options} onOpenTrend={onOpenTrend} label="Hledat parametr a otevřít graf" />
+              {onOpenTrend && <SearchParam options={options} onPick={onOpenTrend} label="Hledat parametr a otevřít graf" />}
             </div>
             {inRange.length === 0 ? <p className="muted">Nic.</p> : <Table records={inRange} trends={trends} onOpenTrend={onOpenTrend} caption="Parametry v referenčním rozmezí" id="sum-table-in" />}
           </section>

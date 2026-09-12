@@ -570,9 +570,10 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
   .sum-table td.num .unit-line { display: block; }
 }
 
-/* Find a parameter, open its chart ----------------------------------------- */
+/* Find a parameter ----------------------------------------------------------- */
 /*
- * Beside each table's heading. On a desktop the button is shaped like the
+ * Beside each table's heading, in Souhrn and in Ověření (SearchParam.tsx).
+ * On a desktop the button is shaped like the
  * search field it stands for — the magnifier and "Hledat parametr…" in the
  * placeholder's grey — and the picker it opens brings the real input. On a
  * phone it is the magnifier alone, 44px square, the way a search control
@@ -582,6 +583,10 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
  * so it cannot leave the screen.
  */
 .sum-search { position: relative; flex: 0 0 auto; }
+/* Ověření's table heading with the search beside it — the same row a
+   card-head is, for a heading that is not in one. */
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.pane-head h3 { margin: 0; }
 .sum-search-btn {
   display: inline-flex; align-items: center; gap: 8px;
   min-width: 220px; padding: 7px 11px; font-weight: 400; color: var(--ink-muted);

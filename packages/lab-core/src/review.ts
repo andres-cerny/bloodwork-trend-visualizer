@@ -65,7 +65,7 @@ export function reviewOf(
       // numbers are in play.
       level: "unconfirmed",
       chip: disagreementChip(m.disagreement),
-      reason: m.disagreement,
+      reason: disagreementReason(m.disagreement),
     };
   }
 
@@ -93,6 +93,22 @@ function disagreementChip(disagreement: string): string {
   if (!m) return "nepotvrzeno";
   const parts = m[1].split("/").map((s) => s.trim()).filter(Boolean);
   return parts.length === 2 ? `${parts[0]} vs ${parts[1]} — nepotvrzeno` : "nepotvrzeno";
+}
+
+/**
+ * The sentence beside the correction field. The stored disagreement is a
+ * fact ("dvě nezávislá čtení se liší: 7,4 / 7,3"); shown bare above an input
+ * it told the reader what the program had noticed and not what was wanted of
+ * them (Ondrej, 2026-09-12). So it opens with the ask, keeps the two readings
+ * — they are what to compare against the page — and names the two ways out.
+ */
+function disagreementReason(disagreement: string): string {
+  const m = /:\s*(.+)$/.exec(disagreement);
+  const readings = m ? m[1].trim() : null;
+  const cause = readings
+    ? `dvě čtení stránky se neshodla (${readings})`
+    : disagreement;
+  return `Opravte prosím nejistou hodnotu — ${cause}. Porovnejte ji s řádkem na zdrojové stránce a tlačítkem Potvrdit nebo Opravit řekněte, co je tam vytištěno.`;
 }
 
 /** Rows a reviewer must look at. Matches exactly what the table chips show. */
