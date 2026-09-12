@@ -327,7 +327,17 @@ nav.tabs button[aria-selected="true"] {
 
 /* Controls ----------------------------------------------------------------- */
 
-select, input[type="text"], input[type="search"], textarea {
+/* `input:not([type])` is in here because a bare <input> is the ordinary way
+   to write one in JSX, and without it such a field matched nothing: on a
+   phone whose system theme is dark it then rendered as the browser default —
+   a black box on a light page. Seen 2026-09-12 on the new-parameter form.
+   Checkboxes, radios and file inputs are deliberately left to the platform. */
+select,
+input:not([type]),
+input[type="text"],
+input[type="search"],
+input[type="number"],
+textarea {
   font: inherit; font-size: 0.9rem; padding: 8px 11px; border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--ink-1);
   min-width: 0;
@@ -752,6 +762,11 @@ ul.held-list li {
 .np-fields input { width: 100%; }
 .np-fields label.np-unit { flex: 0 1 110px; }
 .np-range { margin: 10px 0 0; font-size: 0.86rem; }
+.np-range .np-fields { margin-top: 2px; }
+/* Two short number fields, not two half-width ones: a range bound is three
+   characters and a 190px minimum would push the pair onto separate lines. */
+.np-range .np-fields label { flex: 0 1 104px; }
+.np-hint { margin: 6px 0 0; font-size: 0.82rem; }
 .np-label { color: var(--ink-2); }
 .np-clash { margin: 10px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .np-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }

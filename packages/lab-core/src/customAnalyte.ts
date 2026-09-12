@@ -24,13 +24,17 @@
  * shipped analyte with no factor declared for that unit.
  *
  * Its reference interval is the one the lab printed on the reader's own
- * report. That is never used to decide whether a result is abnormal — flags
- * come from the interval printed beside each individual measurement, in
- * normalize.ts, and nothing here reaches them. What it does is give
- * `review.ts` one consistent envelope for the misread-decimal check across
- * every report filed under the parameter, including a later one where the lab
- * printed no interval at all and the check would otherwise have nothing to
- * work against.
+ * report, or — where no lab printed one — the figure they typed. Neither is
+ * ever used to decide whether a result is abnormal: flags come from the
+ * interval printed beside each individual measurement, in normalize.ts, and
+ * nothing here reaches them. What the interval does is give `review.ts` one
+ * consistent envelope for the misread-decimal check across every report filed
+ * under the parameter, including a later one where the lab printed no interval
+ * at all and the check would otherwise have nothing to work against.
+ *
+ * A typed interval is the reader's own figure, carries `rangeOrigin:
+ * "manual"`, and is labelled that way wherever the app names a provenance. It
+ * is never shown as something a lab stated.
  */
 import type { AnalyteDef } from "./models";
 import { stripMaterialPrefix } from "./normalize";
@@ -46,8 +50,14 @@ export interface CustomAnalyte {
   canonicalId: string;
   displayNameCs: string;
   canonicalUnit: string;
-  /** The interval the lab printed, in `canonicalUnit`. Null when none was. */
+  /** The interval for this parameter, in `canonicalUnit`. Null when it has none. */
   referenceRange: [number, number] | null;
+  /**
+   * Where `referenceRange` came from: the report the parameter was founded
+   * on, or the reader, who is offered the field only when no lab printed one.
+   * Absent when there is no interval at all.
+   */
+  rangeOrigin?: "document" | "manual";
 }
 
 /** Founded ids carry a prefix so the stored blob and the CSV export say so. */
@@ -117,6 +127,8 @@ export function toAnalyteDef(c: CustomAnalyte): AnalyteDef {
     canonicalUnit: c.canonicalUnit,
     unitConversions: {},
     referenceRange: c.referenceRange,
-    rangeFromDocument: c.referenceRange !== null,
+    // A stored parameter from before the field existed carries a document
+    // interval — that was the only kind there was.
+    ...(c.referenceRange === null ? {} : { rangeOrigin: c.rangeOrigin ?? "document" }),
   };
 }

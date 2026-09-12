@@ -126,7 +126,7 @@ export interface Candidate {
   rangeMatch: boolean | null;
   candidateRange: Range | null;
   /** Where the candidate's interval came from, for the UI to explain itself. */
-  rangeSource: "curated" | "documents" | null;
+  rangeSource: "curated" | "documents" | "manual" | null;
   canonicalUnit: string;
   observed: Observed | null;
   /** Populated when valueOk is false, so the UI can show the two ranges. */
@@ -369,14 +369,16 @@ export function suggestMappings(
         materialMatch,
         rangeMatch,
         candidateRange,
-        // A parameter the reader founded carries an interval read off their
-        // own report, so it is "documents" however it is stored — saying
-        // "z tabulky" for it would claim a curated provenance the app has not
-        // got. See AnalyteDef.rangeFromDocument.
+        // A founded parameter names its own source: the report the reader
+        // founded it on, or the reader themselves. Saying "z tabulky" for
+        // either would claim a curated provenance the app has not got. See
+        // AnalyteDef.rangeOrigin.
         rangeSource: a.referenceRange
-          ? a.rangeFromDocument
+          ? a.rangeOrigin === "document"
             ? "documents"
-            : "curated"
+            : a.rangeOrigin === "manual"
+              ? "manual"
+              : "curated"
           : observed?.refRange
             ? "documents"
             : null,
@@ -508,7 +510,11 @@ export function signalsOf(c: Candidate, incoming: UnmappedAnalyte): Signal[] {
           ? "u tohoto parametru rozmezí neznáme"
           : "laboratoř rozmezí neuvedla"
         : `${czRange(incoming.refRange)} vs ${czRange(c.candidateRange)}` +
-          (c.rangeSource === "curated" ? " (z tabulky)" : " (z dokumentů)") +
+          (c.rangeSource === "curated"
+            ? " (z tabulky)"
+            : c.rangeSource === "manual"
+              ? " (zadané ručně)"
+              : " (z dokumentů)") +
           (c.rangeMatch ? "" : " — neodpovídá"),
   });
 

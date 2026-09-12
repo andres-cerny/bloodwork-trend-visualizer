@@ -45,6 +45,7 @@ import {
   defaultParameterName,
   findExistingParameter,
   normKey,
+  parseCzechNumber,
 } from "@bw/lab-core";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
 
@@ -215,6 +216,17 @@ function NewParameterForm({
 }) {
   const [name, setName] = useState(() => defaultParameterName(a.rawName));
   const [unit, setUnit] = useState(() => canonicalizeUnit(a.unitRaw) ?? a.unitRaw);
+  // Offered only where no lab printed an interval: with one printed, the
+  // document is the answer and typing over it would invite a figure nobody
+  // can source. Czech decimals, so parsed the way a printed range is.
+  const [low, setLow] = useState("");
+  const [high, setHigh] = useState("");
+  const typed = a.refRange === null && (low.trim() !== "" || high.trim() !== "");
+  const lowN = parseCzechNumber(low);
+  const highN = parseCzechNumber(high);
+  const typedRange: [number, number] | null =
+    typed && lowN !== null && highN !== null && lowN < highN ? [lowN, highN] : null;
+  const typedBad = typed && typedRange === null;
 
   const clash = useMemo(() => findExistingParameter(registry.analytes.values(), name), [registry, name]);
   // normKey is what the registry keys names on. A name it reduces to nothing
@@ -228,12 +240,16 @@ function NewParameterForm({
       className="new-param"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!named || clash) return;
+        if (!named || clash || typedBad) return;
+        const range: [number, number] | null = a.refRange
+          ? [a.refRange.low, a.refRange.high]
+          : typedRange;
         onCreate({
           canonicalId: customAnalyteId(name, (id) => registry.analytes.has(id)),
           displayNameCs: name.trim(),
           canonicalUnit: canonicalizeUnit(unit) ?? "",
-          referenceRange: a.refRange ? [a.refRange.low, a.refRange.high] : null,
+          referenceRange: range,
+          ...(range ? { rangeOrigin: a.refRange ? "document" : "manual" } : {}),
         });
       }}
     >
@@ -244,28 +260,59 @@ function NewParameterForm({
           <span>Název parametru</span>
           {/* eslint-disable-next-line jsx-a11y/no-autofocus -- the button that
               opens this form is the one action that leads here. */}
-          <input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         </label>
         <label className="np-unit">
           <span>Jednotka</span>
-          <input value={unit} onChange={(e) => setUnit(e.target.value)} />
+          <input type="text" value={unit} onChange={(e) => setUnit(e.target.value)} />
         </label>
       </div>
 
-      <p className="np-range">
-        <span className="np-label">Referenční rozmezí</span>{" "}
-        {a.refRange ? (
-          <>
-            <strong>
-              {czNum(a.refRange.low)}–{czNum(a.refRange.high)}
-              {prettyUnit(unit) && <> {prettyUnit(unit)}</>}
-            </strong>
-            {from && <span className="muted"> · z dokumentu {czDate(from)}</span>}
-          </>
-        ) : (
-          <span className="muted">laboratoř ho u tohoto parametru neuvedla</span>
-        )}
-      </p>
+      {a.refRange ? (
+        <p className="np-range">
+          <span className="np-label">Referenční rozmezí</span>{" "}
+          <strong>
+            {czNum(a.refRange.low)}–{czNum(a.refRange.high)}
+            {prettyUnit(unit) && <> {prettyUnit(unit)}</>}
+          </strong>
+          {from && <span className="muted"> · z dokumentu {czDate(from)}</span>}
+        </p>
+      ) : (
+        <div className="np-range">
+          <p className="np-label" style={{ margin: "0 0 3px" }}>
+            Referenční rozmezí <span className="muted">— laboratoř ho neuvedla</span>
+          </p>
+          <div className="np-fields">
+            <label>
+              <span>Od</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={low}
+                placeholder="např. 0,8"
+                onChange={(e) => setLow(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>Do</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={high}
+                placeholder="např. 1,2"
+                onChange={(e) => setHigh(e.target.value)}
+              />
+            </label>
+          </div>
+          <p className="muted np-hint">
+            {typedBad
+              ? "Zadejte obě čísla, od menšího k většímu — nebo obě nechte prázdná."
+              : typedRange
+                ? `Vaše vlastní rozmezí ${czNum(typedRange[0])}–${czNum(typedRange[1])}${prettyUnit(unit) ? " " + prettyUnit(unit) : ""}. Aplikace ho nikde nevydává za údaj laboratoře.`
+                : "Nepovinné. Můžete nechat prázdné a doplnit později."}
+          </p>
+        </div>
+      )}
 
       {clash ? (
         <p className="banner warn np-clash">
@@ -296,7 +343,7 @@ function NewParameterForm({
       )}
 
       <div className="np-actions">
-        <button type="submit" className="btn primary" disabled={!named || clash !== null}>
+        <button type="submit" className="btn primary" disabled={!named || clash !== null || typedBad}>
           Založit
         </button>
         <button type="button" className="btn" onClick={onCancel}>

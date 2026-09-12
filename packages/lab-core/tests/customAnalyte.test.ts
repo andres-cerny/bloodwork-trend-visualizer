@@ -25,6 +25,7 @@ import {
   makeMeasurement,
   normalizeMeasurement,
   observedStats,
+  signalsOf,
   suggestMappings,
   toAnalyteDef,
   type AnalyteDef,
@@ -191,7 +192,7 @@ describe("where a founded parameter's interval came from", () => {
   it("is reported as the documents, never as the curated table", () => {
     const d = toAnalyteDef(custom());
     expect(d.referenceRange).toEqual([13, 150]);
-    expect(d.rangeFromDocument).toBe(true);
+    expect(d.rangeOrigin).toBe("document");
 
     const reg = new Registry([d]);
     reg.addSynonym("custom_feritin", "S_Feritin");
@@ -219,7 +220,38 @@ describe("where a founded parameter's interval came from", () => {
   });
 
   it("is absent when the parameter carries no interval at all", () => {
-    expect(toAnalyteDef(custom({ referenceRange: null })).rangeFromDocument).toBe(false);
+    const d = toAnalyteDef(custom({ referenceRange: null }));
+    expect(d.referenceRange).toBeNull();
+    expect("rangeOrigin" in d).toBe(false);
+  });
+
+  it("says so when the reader typed it, rather than claiming a lab did", () => {
+    // Offered only where no lab printed an interval. It is the reader's own
+    // figure and the evidence line has to name it as one — "(z dokumentů)"
+    // would put it in a lab's mouth, "(z tabulky)" in a clinician's.
+    const typed = custom({ referenceRange: [0.8, 1.2], rangeOrigin: "manual" });
+    expect(toAnalyteDef(typed).rangeOrigin).toBe("manual");
+
+    const reg = new Registry([toAnalyteDef(typed)]);
+    reg.addSynonym("custom_feritin", "S_Ferritin");
+    const incoming = findUnmapped([
+      report("r2", "2026-06-01", [m("Ferritin", "1,0", "µg/l", "0,8-1,2")]),
+    ])[0];
+    const cand = suggestMappings(incoming, reg, observedStats([])).find(
+      (c) => c.canonicalId === "custom_feritin",
+    );
+    expect(cand?.rangeSource).toBe("manual");
+    expect(signalsOf(cand!, incoming).find((s) => s.key === "range")?.detail).toContain(
+      "zadané ručně",
+    );
+  });
+
+  it("reads a parameter stored before the field existed as a document interval", () => {
+    // rangeOrigin is optional in the stored shape: everything founded before
+    // the reader could type one carries an interval off their own report.
+    const { rangeOrigin, ...legacy } = custom();
+    expect(rangeOrigin).toBeUndefined();
+    expect(toAnalyteDef(legacy).rangeOrigin).toBe("document");
   });
 });
 

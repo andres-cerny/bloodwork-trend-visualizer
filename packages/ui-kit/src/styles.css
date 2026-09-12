@@ -10,6 +10,18 @@
  */
 
 :root {
+  /*
+   * Native controls follow the page, not the machine.
+   *
+   * Declared nowhere until 2026-09-12, which left every control the browser
+   * draws itself — checkboxes, radios, scrollbars, spinners, autofill — on
+   * the *system* preference while the page painted this palette. A phone set
+   * to dark showed the light app with black scrollbars and black-on-black
+   * form fields. It is set in all three theme blocks for the same reason the
+   * tokens are: the switch has to win over the system in both directions.
+   */
+  color-scheme: light;
+
   /* Surfaces: the plane is a shade deeper than the cards, so a card reads as
      a card without needing a heavy border. */
   --plane: #f2f1ed;
@@ -135,6 +147,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --plane: var(--dk-plane);
     --surface-1: var(--dk-surface-1);
     --surface-2: var(--dk-surface-2);
@@ -170,6 +183,7 @@
 
 /* Forced dark, whatever the system says. */
 :root[data-theme="dark"] {
+    color-scheme: dark;
     --plane: var(--dk-plane);
     --surface-1: var(--dk-surface-1);
     --surface-2: var(--dk-surface-2);

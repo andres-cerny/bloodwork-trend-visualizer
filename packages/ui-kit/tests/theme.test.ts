@@ -56,6 +56,23 @@ describe("dark theme", () => {
   });
 });
 
+describe("native controls", () => {
+  /**
+   * Checkboxes, radios, scrollbars, spinners and autofill are drawn by the
+   * browser, and without `color-scheme` they follow the machine rather than
+   * the page. Until 2026-09-12 it was declared nowhere, so a phone set to
+   * dark showed the light app with black scrollbars and black form fields.
+   * The declaration is not a token, so the identity test above cannot see it.
+   */
+  const schemeIn = (pattern: RegExp) => /color-scheme:\s*(light|dark)/.exec(block(pattern))?.[1];
+
+  it("follows the page in light, and in dark from either route", () => {
+    expect(schemeIn(/^:root \{/m)).toBe("light");
+    expect(schemeIn(/:root:not\(\[data-theme="light"\]\)/)).toBe("dark");
+    expect(schemeIn(/:root\[data-theme="dark"\]/)).toBe("dark");
+  });
+});
+
 describe("tenant layer", () => {
   const names = (s: string) => decls(s).map((d) => d.split(":")[0]);
 
