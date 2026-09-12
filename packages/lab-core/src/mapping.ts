@@ -11,7 +11,7 @@
  * including the value-plausibility check that compares the unknown's values
  * against the range already observed for the candidate.
  */
-import type { LabReport, Measurement } from "./models";
+import type { AnalyteDef, LabReport, Measurement } from "./models";
 import { normKey, type Registry } from "./registry";
 import { canonicalizeUnit, isBloodMaterial, materialPrefix, materialsCompatible } from "./normalize";
 import { prettyUnit } from "./czech";
@@ -60,6 +60,8 @@ export interface UnmappedAnalyte {
   occurrences: Occurrence[];
   /** The reference interval printed beside it, when the lab printed one. */
   refRange: Range | null;
+  /** The same interval as the lab printed it ("49,0 - 90,0", "< 1,12") — what a model is shown. */
+  refRangeRaw: string;
   /**
    * Which document `refRange` was read from. A screen that offers to found a
    * parameter on that interval has to be able to say where it came from, and
@@ -145,12 +147,14 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
           unitRaw: m.unitRaw,
           occurrences: [],
           refRange: null,
+          refRangeRaw: "",
           refRangeFrom: null,
           material: null,
           materialSource: null,
         };
         seen.set(m.rawAnalyteName, e);
       }
+      if (!e.refRangeRaw && m.refRangeRaw.trim()) e.refRangeRaw = m.refRangeRaw.trim();
       if (e.refRange === null && m.refRangeLow !== null && m.refRangeHigh !== null) {
         e.refRange = { low: m.refRangeLow, high: m.refRangeHigh };
         e.refRangeFrom = { reportId: r.id, date: r.reportDate };
@@ -310,8 +314,42 @@ export function suggestMappings(
   stats: Map<string, Observed>,
   topN = 3,
 ): Candidate[] {
+  const out: Candidate[] = [];
+  for (const a of registry.analytes.values()) {
+    const c = scoreCandidate(analyte, a, stats);
+    // Name similarity is a necessary condition, not just another contributor.
+    //
+    // Unit and interval agreement can otherwise outvote a completely unrelated
+    // name: homocysteine (5-15 µmol/l) and total bilirubin (3-21 µmol/l) share
+    // a unit and overlap substantially, which scored total bilirubin as a
+    // clean suggestion for homocysteine with no warning at all. Two clicks and
+    // one analyte's history becomes another's, looking entirely believable.
+    if (!c || c.nameSim < NAME_SIM_CUTOFF) continue;
+    // Select on name similarity, rank on the full score.
+    //
+    // Filtering on the final score would hide contradicted candidates
+    // entirely, and "no similar analyte found" is less useful to a clinician
+    // than "this one looks similar, and here is why it is wrong". They stay
+    // visible, ranked last and marked.
+    if (c.nameSim >= NAME_SIM_FLOOR || c.score >= 0.45) out.push(c);
+  }
+  out.sort((x, y) => y.score - x.score);
+  return out.slice(0, topN);
+}
+
+/**
+ * One analyte as a candidate for one unmapped name: the evidence, scored.
+ *
+ * `suggestMappings` runs this over the whole registry and keeps the names
+ * that look alike. It is exported on its own for the candidate a model
+ * named: "S_Na" and "sodik" share no bigram, so the suggester would never
+ * offer it, but the unit, interval, material and magnitude checks apply to
+ * it exactly as to any other — and it is those, not the model, that decide
+ * whether it can be applied without a click (`verdictOf`).
+ */
+export function scoreCandidate(analyte: UnmappedAnalyte, a: AnalyteDef, stats: Map<string, Observed>): Candidate | null {
   const key = normKey(analyte.rawName);
-  if (!key) return [];
+  if (!key) return null;
   const ru = unitKey(analyte.unitRaw);
   // Dimensionless folds to "" — the same "" as a cell the lab left empty. Only
   // the second means "nothing to compare": a printed "-" or "1" against g/l
@@ -321,10 +359,9 @@ export function suggestMappings(
   const values = analyte.occurrences.map((o) => o.value).filter((v): v is number => v !== null);
   const meanV = values.length ? values.reduce((s, v) => s + v, 0) / values.length : null;
 
-  const out: Candidate[] = [];
-  for (const a of registry.analytes.values()) {
+  {
     const keys = [a.canonicalId, a.displayNameCs, ...a.synonyms].map(normKey).filter(Boolean);
-    if (keys.length === 0) continue;
+    if (keys.length === 0) return null;
 
     const nameSim = Math.max(...keys.map((k) => similarity(key, k)));
     let score = nameSim;
@@ -388,24 +425,9 @@ export function suggestMappings(
       score += materialMatch ? 0.05 : -0.4;
     }
 
-    // Name similarity is a necessary condition, not just another contributor.
-    //
-    // Unit and interval agreement can otherwise outvote a completely unrelated
-    // name: homocysteine (5-15 µmol/l) and total bilirubin (3-21 µmol/l) share
-    // a unit and overlap substantially, which scored total bilirubin as a
-    // clean suggestion for homocysteine with no warning at all. Two clicks and
-    // one analyte's history becomes another's, looking entirely believable.
     const nameWeak = nameSim < NAME_SIM_FLOOR;
-    if (nameSim < NAME_SIM_CUTOFF) continue;
-
-    // Select on name similarity, rank on the full score.
-    //
-    // Filtering on the final score would hide contradicted candidates
-    // entirely, and "no similar analyte found" is less useful to a clinician
-    // than "this one looks similar, and here is why it is wrong". They stay
-    // visible, ranked last and marked.
-    if (nameSim >= 0.45 || score >= 0.45) {
-      out.push({
+    {
+      return {
         canonicalId: a.canonicalId,
         displayName: a.displayNameCs,
         score,
@@ -432,11 +454,9 @@ export function suggestMappings(
         canonicalUnit: a.canonicalUnit,
         observed,
         incomingRange: valueOk === false ? incomingRange : null,
-      });
+      };
     }
   }
-  out.sort((x, y) => y.score - x.score);
-  return out.slice(0, topN);
 }
 
 /**

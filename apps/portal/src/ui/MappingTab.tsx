@@ -29,6 +29,7 @@ import {
   materialPrefix,
   observedStats,
   signalsOf,
+  scoreCandidate,
   suggestMappings,
   trendable,
   verdictOf,
@@ -49,6 +50,7 @@ import {
   parseCzechNumber,
 } from "@bw/lab-core";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
+import { type MapSuggestion, isFatalApiError, suggestWithAi } from "../lib/api";
 
 interface Props {
   reports: LabReport[];
@@ -61,6 +63,8 @@ interface Props {
   onDeleteParameter: (canonicalId: string) => void;
   /** Jump to the verification tab focused on one occurrence. */
   onShowSource: (reportId: string, rawName: string) => void;
+  /** The account's monthly ledger is spent; the AI button says so instead of trying. */
+  frozen?: boolean;
 }
 
 const GLYPH: Record<Signal["state"], string> = { ok: "✔", bad: "✘", unknown: "–" };
@@ -205,17 +209,20 @@ function Occurrences({
 function NewParameterForm({
   a,
   registry,
+  proposed,
   onCreate,
   onMapInstead,
   onCancel,
 }: {
   a: UnmappedAnalyte;
   registry: Registry;
+  /** What the mapping model proposed, when it did — the form opens with it typed in. */
+  proposed?: { displayNameCs: string; unit: string } | null;
   onCreate: (c: CustomAnalyte) => void;
   onMapInstead: (canonicalId: string) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState(() => defaultParameterName(a.rawName));
+  const [name, setName] = useState(() => proposed?.displayNameCs || defaultParameterName(a.rawName));
   const [unit, setUnit] = useState(() => canonicalizeUnit(a.unitRaw) ?? a.unitRaw);
   // Offered only where no lab printed an interval: with one printed, the
   // document is the answer and typing over it would invite a figure nobody
@@ -360,6 +367,7 @@ function UnmappedCard({
   cands,
   registry,
   customAnalytes,
+  ai,
   onMap,
   onCreate,
   onShowSource,
@@ -369,6 +377,8 @@ function UnmappedCard({
   cands: Candidate[];
   registry: Registry;
   customAnalytes: CustomAnalyte[];
+  /** The mapping model's answer for this name, when it has been asked and the answer was not applied. */
+  ai?: { suggestion: MapSuggestion; candidate: Candidate | null };
   onMap: (rawName: string, canonicalId: string) => void;
   onCreate: (rawName: string, c: CustomAnalyte) => void;
   onShowSource: Props["onShowSource"];
@@ -453,6 +463,31 @@ function UnmappedCard({
         </p>
       )}
 
+      {ai && (
+        <div className="ai-block">
+          <p className="section-title">Návrh AI</p>
+          {ai.suggestion.decision === "catalog" && ai.candidate && (
+            <>
+              <p className="muted ai-reason">{ai.suggestion.reason}</p>
+              <CandidateBlock c={ai.candidate} incoming={a} featured={false} onAssign={() => onMap(a.rawName, ai.candidate!.canonicalId)} />
+            </>
+          )}
+          {ai.suggestion.decision === "new" && ai.suggestion.proposed && (
+            <p className="ai-reason">
+              Vyšetření, které aplikace ještě nezná: <strong>{ai.suggestion.proposed.displayNameCs}</strong>
+              {ai.suggestion.proposed.unit && <> ({prettyUnit(ai.suggestion.proposed.unit)})</>}.{" "}
+              <span className="muted">{ai.suggestion.reason}</span>{" "}
+              <button className="btn small" onClick={() => setFounding(true)}>
+                Založit s tímto názvem
+              </button>
+            </p>
+          )}
+          {ai.suggestion.decision === "unknown" && (
+            <p className="muted ai-reason">AI si není jistá. {ai.suggestion.reason}</p>
+          )}
+        </div>
+      )}
+
       <div className="map-actions">
         {rest.length > 0 && (
           <button className="btn" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
@@ -486,6 +521,7 @@ function UnmappedCard({
         <NewParameterForm
           a={a}
           registry={registry}
+          proposed={ai?.suggestion.decision === "new" ? ai.suggestion.proposed : null}
           onCreate={(c) => {
             setFounding(false);
             onCreate(a.rawName, c);
@@ -604,11 +640,18 @@ export default function MappingTab({
   onCreateParameter,
   onDeleteParameter,
   onShowSource,
+  frozen = false,
 }: Props) {
   const unmapped = useMemo(() => findUnmapped(reports).filter(trendable), [reports]);
   const stats = useMemo(() => observedStats(reports), [reports]);
   /** Names the reader chose to leave alone, kept out of the way but findable. */
   const [deferred, setDeferred] = useState<string[]>([]);
+  /** The model's answers that were not applied, by printed name. */
+  const [ai, setAi] = useState<Record<string, { suggestion: MapSuggestion; candidate: Candidate | null }>>({});
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  /** What the last run applied on its own, so each can be taken back. */
+  const [aiApplied, setAiApplied] = useState<Array<{ rawName: string; canonicalId: string }>>([]);
   /** The last acceptance, offered back for one click. */
   const [lastMap, setLastMap] = useState<{
     rawName: string;
@@ -637,6 +680,59 @@ export default function MappingTab({
     setLastMap(null);
   };
 
+  /**
+   * Every pending name to the mapping model, once. What it names is applied
+   * only when the deterministic evidence does not contradict it — unit,
+   * interval, material and magnitude are the same checks a hand-picked
+   * candidate faces, and `verdictOf` is the same word. Everything else is
+   * shown on the card with the model's reason and waits for a click. A "not
+   * blood" answer parks the name; "unknown" is said as such.
+   */
+  const askAi = async () => {
+    if (aiBusy || pending.length === 0) return;
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const names = pending.map((a) => ({ rawName: a.rawName, unit: a.unitRaw, refRange: a.refRangeRaw, material: a.material }));
+      const catalog = [...registry.analytes.values()].map((d) => ({ id: d.canonicalId, name: d.displayNameCs, unit: d.canonicalUnit }));
+      const answer = await suggestWithAi(names, catalog);
+      const byName = new Map(pending.map((a) => [a.rawName, a]));
+      const applied: Array<{ rawName: string; canonicalId: string }> = [];
+      const kept: typeof ai = {};
+      const parked: string[] = [];
+      for (const s of answer.suggestions) {
+        const a = byName.get(s.rawName);
+        if (!a) continue;
+        if (s.decision === "catalog" && s.canonicalId) {
+          const def = registry.get(s.canonicalId);
+          const candidate = def ? scoreCandidate(a, def, stats) : null;
+          if (candidate && verdictOf(candidate) !== "contradicted") {
+            onMap(a.rawName, candidate.canonicalId);
+            applied.push({ rawName: a.rawName, canonicalId: candidate.canonicalId });
+          } else {
+            kept[a.rawName] = { suggestion: s, candidate };
+          }
+        } else if (s.decision === "not_blood") {
+          parked.push(a.rawName);
+        } else {
+          kept[a.rawName] = { suggestion: s, candidate: null };
+        }
+      }
+      setAi(kept);
+      setAiApplied(applied);
+      if (parked.length) setDeferred((d) => [...d, ...parked.filter((n) => !d.includes(n))]);
+      setLastMap(null);
+    } catch (e) {
+      setAiError(
+        e instanceof Error && isFatalApiError(e)
+          ? e.message
+          : "Návrh se nepodařilo získat. Zkuste to prosím za chvíli znovu.",
+      );
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   return (
     <>
       <div className="card">
@@ -660,6 +756,45 @@ export default function MappingTab({
           )}
         </div>
 
+        {pending.length > 0 && (
+          <div className="ai-ask">
+            <button className="btn" onClick={askAi} disabled={aiBusy || frozen} aria-busy={aiBusy}>
+              {aiBusy ? "AI zařazuje názvy…" : "Nechat AI navrhnout přiřazení"}
+            </button>
+            <span className="muted">
+              {frozen
+                ? "Měsíční limit zpracování je vyčerpán."
+                : "AI vidí jen názvy, jednotky a rozmezí, nikdy hodnoty. Přiřadí sama jen to, čemu nic neodporuje; zbytek navrhne."}
+            </span>
+          </div>
+        )}
+        {aiError && <p className="banner error">{aiError}</p>}
+        {aiApplied.length > 0 && (
+          <div className="banner ai-applied">
+            <p>
+              AI přiřadila {count(aiApplied.length, "název", "názvy", "názvů")} — jednotka i rozmezí souhlasí. Zkontrolujte je v Trendech, nebo je zde vraťte:
+            </p>
+            <ul className="held-list">
+              {aiApplied.map((x) => (
+                <li key={x.rawName}>
+                  <span>
+                    {x.rawName} → <strong>{registry.displayName(x.canonicalId)}</strong>
+                  </span>
+                  <button
+                    className="btn small"
+                    onClick={() => {
+                      onUndoMap(x.rawName, x.canonicalId);
+                      setAiApplied((l) => l.filter((y) => y.rawName !== x.rawName));
+                    }}
+                  >
+                    Vrátit zpět
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {lastMap && (
           <p className="banner undo-banner">
             <span>
@@ -681,6 +816,7 @@ export default function MappingTab({
           cands={suggestMappings(a, registry, stats)}
           registry={registry}
           customAnalytes={customAnalytes}
+          ai={ai[a.rawName]}
           onMap={assign}
           onCreate={found}
           onShowSource={onShowSource}

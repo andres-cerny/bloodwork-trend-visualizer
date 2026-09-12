@@ -28,6 +28,10 @@ import {
   extractPage,
   extractPageGemini,
   extractPageText,
+  MODEL_MAP,
+  suggestCanonical,
+  type CatalogEntry,
+  type NameToMap,
   type OnRow,
   type PageExtraction,
 } from "@bw/extraction";
@@ -231,6 +235,62 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   });
 }
 
+/**
+ * Names the deterministic match left null, put to the mapping model with the
+ * catalog beside them (packages/extraction/src/map.ts). Reopened for this on
+ * purpose: the worker holds the model key, and a mapping call is a model
+ * call with no more reach than a page read — no database, no value; names,
+ * units and intervals only. One call spends one page of the session's
+ * allowance and is priced and booked exactly like a read.
+ */
+const MAX_MAP_NAMES = 200;
+const MAX_MAP_CATALOG = 600;
+const clip = (v: unknown, n: number): string => (typeof v === "string" ? v.slice(0, n) : "");
+
+async function handleMap(request: Request, env: Env): Promise<Response> {
+  const g = await guard(request, env, "extract");
+  if ("blocked" in g) return g.blocked;
+  const { ok, used } = await consumePage(env.BUDGET, g.claims.sid, g.claims.pages, sessionTtl(env));
+  if (!ok) return json({ error: "page_limit", message: "Limit ověření je vyčerpán. Načtěte stránku znovu." }, 429);
+
+  const body = (await request.json().catch(() => ({}))) as { names?: unknown; catalog?: unknown };
+  const names: NameToMap[] = (Array.isArray(body.names) ? body.names : [])
+    .slice(0, MAX_MAP_NAMES)
+    .map((n: Record<string, unknown>) => ({
+      rawName: clip(n.rawName, 200),
+      unit: clip(n.unit, 40),
+      refRange: clip(n.refRange, 60),
+      material: typeof n.material === "string" ? n.material.slice(0, 8) : null,
+    }))
+    .filter((n) => n.rawName.trim() !== "");
+  const catalog: CatalogEntry[] = (Array.isArray(body.catalog) ? body.catalog : [])
+    .slice(0, MAX_MAP_CATALOG)
+    .map((c: Record<string, unknown>) => ({ id: clip(c.id, 64), name: clip(c.name, 120), unit: clip(c.unit, 40) }))
+    .filter((c) => /^[a-z0-9_]+$/.test(c.id));
+  if (names.length === 0 || catalog.length === 0) return json({ error: "missing_names" }, 400);
+
+  try {
+    const r = await suggestCanonical(env.ANTHROPIC_API_KEY, MODEL_MAP, names, catalog);
+    const spent = priceUsd(r.model, r.usage.inputTokens, r.usage.outputTokens, r.usage.cacheReadTokens, r.usage.cacheWriteTokens);
+    if (spent > 0) await recordSpendUsd(env.BUDGET, "extract", spent);
+    return json({
+      suggestions: r.suggestions,
+      model: r.model,
+      pagesUsed: used,
+      costUsd: Math.round(spent * 10000) / 10000,
+      budget: await budgetState(env.BUDGET, "extract", budgetLimit(env)),
+    });
+  } catch (e) {
+    const billed = billedUsage(e);
+    if (billed) {
+      const spent = priceUsd(billed.model, billed.usage.inputTokens, billed.usage.outputTokens, billed.usage.cacheReadTokens, billed.usage.cacheWriteTokens);
+      if (spent > 0) await recordSpendUsd(env.BUDGET, "extract", spent);
+    }
+    console.warn(`map rejected: ${e instanceof Error ? `${e.name}: ${e.message}` : String(e)}`.slice(0, 300));
+    return json({ error: "map_failed", message: "Návrh přiřazení se nepodařilo získat. Zkuste to prosím znovu." }, 502);
+  }
+}
+
 /** Price the reads that landed, book them, and shape the answer. */
 async function settle(
   results: PromiseSettledResult<PageExtraction>[],
@@ -252,7 +312,7 @@ async function settle(
       // never returned (see the 502 below).
       console.warn(
         `reader ${readers[i] ?? i} rejected (${readersName}, ${useText ? "text" : "vision"}): ` +
-          (r.reason instanceof Error ? `${r.reason.name}: ${r.reason.message}` : String(r.reason)).slice(0, 300),
+          (r.reason instanceof Error ? `${r.reason.name}: ${r.reason.message}` : String(r.reason)).slice(0, 160),
       );
       // A call the provider billed whose body would not parse: the money is
       // gone whether or not the answer could be read, and only fulfilled reads
@@ -339,6 +399,9 @@ export default {
     }
     if (url.pathname === "/api/extract" && request.method === "POST") {
       return handleExtract(request, env);
+    }
+    if (url.pathname === "/api/map" && request.method === "POST") {
+      return handleMap(request, env);
     }
     return json({ error: "not_found" }, 404);
   },

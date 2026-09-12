@@ -166,6 +166,39 @@ export const teachSynonym = (rawName: string, canonicalId: string) =>
 export const forgetSynonym = (rawName: string) =>
   request<{ ok: true; removed: boolean }>("/api/synonyms", jsonInit("DELETE", { rawName }));
 
+/**
+ * The mapping fallback (packages/extraction/src/map.ts), on this account's
+ * ledger. The wire shapes are restated here rather than imported: the app
+ * must not depend on the extraction package, whose barrel carries the model
+ * SDK, and a type-only import would still make it a dependency.
+ */
+export interface NameToMap {
+  rawName: string;
+  unit: string;
+  refRange: string;
+  material: string | null;
+}
+export interface CatalogEntry {
+  id: string;
+  name: string;
+  unit: string;
+}
+export interface MapSuggestion {
+  rawName: string;
+  decision: "catalog" | "new" | "not_blood" | "unknown";
+  canonicalId: string | null;
+  proposed: { id: string; displayNameCs: string; unit: string } | null;
+  reason: string;
+  confidence: "high" | "medium" | "low";
+}
+export interface AiMapAnswer {
+  suggestions: MapSuggestion[];
+  costUsd?: number;
+  budget: Budget;
+}
+export const suggestWithAi = (names: NameToMap[], catalog: CatalogEntry[]) =>
+  request<AiMapAnswer>("/api/map", jsonInit("POST", { names, catalog }));
+
 export const getSettings = () => request<Settings>("/api/settings");
 export const putSettings = (s: Settings) => request<{ ok: true }>("/api/settings", jsonInit("PUT", s));
 

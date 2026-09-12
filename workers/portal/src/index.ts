@@ -752,6 +752,30 @@ async function revokeShare(env: Env, user: UserRow): Promise<Response> {
   return json({ ok: true });
 }
 
+/**
+ * The mapping fallback, on the account's own ledger: the same contract as a
+ * page — one single-use session, the extractor's cost booked to the person,
+ * a frozen person refused before anything is sent.
+ */
+async function handleMap(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const limit = limitFor(user, env);
+  const before = await userBudget(env.BUDGET, user.id, limit);
+  if (before.frozen) {
+    return json(
+      { error: "budget_exhausted", message: `Měsíční limit zpracování (${limit} USD) je vyčerpán. Obnoví se začátkem příštího měsíce.`, budget: before },
+      402,
+    );
+  }
+  const body = await request.text();
+  if (body.length > MAX_EXTRACT_BYTES) return json({ error: "too_large", message: "Požadavek je příliš velký." }, 413);
+  const session = await mintSession(env.EXTRACT_SESSION_SECRET, EXTRACT_SESSION_TTL, 1);
+  const res = await env.EXTRACT.fetch(
+    new Request("https://extract/api/map", { method: "POST", headers: { "content-type": "application/json", "x-demo-session": session }, body }),
+  );
+  const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
+  return json(await settle(env, user, res.status, data), res.status);
+}
+
 /* ----------------------------------------------------------------- router */
 
 const REPORT = /^\/api\/reports\/([^/]+)$/;
@@ -801,6 +825,8 @@ export default {
         return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env) });
       case "POST /api/extract":
         return handleExtract(request, env, user);
+      case "POST /api/map":
+        return handleMap(request, env, user);
       case "GET /api/reports":
         return listReports(env, user);
       case "GET /api/settings":

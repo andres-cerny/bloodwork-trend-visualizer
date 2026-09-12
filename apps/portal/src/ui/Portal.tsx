@@ -566,6 +566,7 @@ export default function Portal({ email, onLogout }: Props) {
                 onCreateParameter={createParameter}
                 onDeleteParameter={deleteParameter}
                 onShowSource={showSource}
+                frozen={frozen}
               />
             </Panel>
             <Panel id="share" active={tab}>

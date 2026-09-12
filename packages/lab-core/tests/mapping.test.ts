@@ -160,7 +160,7 @@ describe("suggestMappings", () => {
   });
 
   it("returns nothing for a name that resembles no analyte", () => {
-    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [], refRange: null, refRangeFrom: null, material: null, materialSource: null };
+    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [], refRange: null, refRangeRaw: "", refRangeFrom: null, material: null, materialSource: null };
     expect(suggestMappings(odd, registry, stats)).toEqual([]);
   });
 
