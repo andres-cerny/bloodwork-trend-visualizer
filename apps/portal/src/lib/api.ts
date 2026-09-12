@@ -2,7 +2,7 @@
  * Talking to the portal worker. Cookie-authenticated, so there is no token
  * to hold; the one thing worth knowing here is which errors end an upload.
  */
-import type { AiContext, LabReport } from "@bw/lab-core";
+import type { AiContext, CustomAnalyte, LabReport } from "@bw/lab-core";
 
 export interface Budget {
   spentUsd: number;
@@ -15,6 +15,12 @@ export interface Budget {
 export interface Settings {
   /** canonicalId → raw names the reader mapped to it, in acceptance order. */
   learned?: Record<string, string[]>;
+  /**
+   * Parameters the reader founded in the mapping screen. registry.json is
+   * curated and the same for every account, so a parameter of their own can
+   * only live here — see lab-core/customAnalyte.ts.
+   */
+  customAnalytes?: CustomAnalyte[];
   /** What the person told their AI assistant about themselves, once. */
   aiContext?: AiContext;
 }

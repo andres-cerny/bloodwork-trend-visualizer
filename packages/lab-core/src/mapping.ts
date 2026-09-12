@@ -61,6 +61,13 @@ export interface UnmappedAnalyte {
   /** The reference interval printed beside it, when the lab printed one. */
   refRange: Range | null;
   /**
+   * Which document `refRange` was read from. A screen that offers to found a
+   * parameter on that interval has to be able to say where it came from, and
+   * digging back through the raw measurements to find out is reasoning the
+   * apps are not supposed to do.
+   */
+  refRangeFrom: { reportId: string; date: string | null } | null;
+  /**
    * The material the page states: a prefix on the name, else the row's
    * `Materiál` cell, else the heading over the block — the same lowercase
    * codes `materialPrefix` returns. Null when the page says nothing, which is
@@ -138,6 +145,7 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
           unitRaw: m.unitRaw,
           occurrences: [],
           refRange: null,
+          refRangeFrom: null,
           material: null,
           materialSource: null,
         };
@@ -145,6 +153,7 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
       }
       if (e.refRange === null && m.refRangeLow !== null && m.refRangeHigh !== null) {
         e.refRange = { low: m.refRangeLow, high: m.refRangeHigh };
+        e.refRangeFrom = { reportId: r.id, date: r.reportDate };
       }
       // Occurrences are grouped by name; the first one that states a material
       // speaks for the group (a name the mapping UI acts on is one name).
@@ -360,7 +369,17 @@ export function suggestMappings(
         materialMatch,
         rangeMatch,
         candidateRange,
-        rangeSource: a.referenceRange ? "curated" : observed?.refRange ? "documents" : null,
+        // A parameter the reader founded carries an interval read off their
+        // own report, so it is "documents" however it is stored — saying
+        // "z tabulky" for it would claim a curated provenance the app has not
+        // got. See AnalyteDef.rangeFromDocument.
+        rangeSource: a.referenceRange
+          ? a.rangeFromDocument
+            ? "documents"
+            : "curated"
+          : observed?.refRange
+            ? "documents"
+            : null,
         canonicalUnit: a.canonicalUnit,
         observed,
         incomingRange: valueOk === false ? incomingRange : null,

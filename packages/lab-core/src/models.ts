@@ -105,6 +105,17 @@ export interface AnalyteDef {
    */
   referenceRange?: [number, number] | null;
   /**
+   * Set only on a parameter the reader founded in the mapping screen, where
+   * `referenceRange` above was read off their own report rather than curated.
+   *
+   * It changes nothing about how the interval is used — it is what the UI
+   * must say about where it came from. The mapping evidence line prints
+   * "(z tabulky)" for a curated interval and "(z dokumentů)" for one the labs
+   * printed, and a founded parameter carrying a curated-looking interval
+   * would make the screen claim a provenance the app does not have.
+   */
+  rangeFromDocument?: boolean;
+  /**
    * The material this analyte is measured in — `s`, `b`, `u`, or `s,p` when
    * two are known — read off the prefixes of its synonyms (`S_Glukóza` → s).
    * Set by the Registry, not authored: recomputed whenever a synonym is

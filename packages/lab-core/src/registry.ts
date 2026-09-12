@@ -75,6 +75,37 @@ export class Registry {
   }
 
   /**
+   * Drop an analyte the reader founded, with every index key it claimed.
+   *
+   * The counterpart of `addAnalyte` for a parameter created in the mapping
+   * screen and later deleted. Keys are handed back to any analyte that still
+   * claims them rather than simply cleared: the index is last-writer-wins, so
+   * a blind sweep could take a shipped entry's own name down with the founded
+   * one. The mapping screen refuses to found a parameter whose name collides
+   * with a known one, so nothing should be shadowed in practice — but a
+   * method that corrupts the index when pointed at any other entry is not one
+   * worth having.
+   */
+  removeAnalyte(canonicalId: string): boolean {
+    if (!this.analytes.delete(canonicalId)) return false;
+    for (const key of this.learned) {
+      if (key.startsWith(`${canonicalId}\\u0000`)) this.learned.delete(key);
+    }
+    for (const [k, id] of [...this.index]) {
+      if (id !== canonicalId) continue;
+      this.index.delete(k);
+      for (const a of this.analytes.values()) {
+        const named = [a.canonicalId.replace(/_/g, " "), a.displayNameCs, ...a.synonyms];
+        if (named.some((n) => normKey(n) === k)) {
+          this.index.set(k, a.canonicalId);
+          break;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
    * The canonical id a printed name resolves to, or null.
    *
    * Name first, then material: the index is keyed on the name with its

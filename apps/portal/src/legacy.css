@@ -732,6 +732,30 @@ ul.held-list li {
    recedes rather than competing visually with a plausible one. */
 .cand-card.implausible { border-style: dashed; background: var(--surface-2); }
 
+/* Founding a parameter ------------------------------------------------------
+ *
+ * Set into the card rather than floated over it like the picker: this is a
+ * decision about the name the card is already about, not a list to pick from
+ * and dismiss. The fields wrap to one column on a phone, and the unit column
+ * is narrow because a unit is never long — a 50/50 split would leave "µg/l"
+ * sharing a line with a name field half its useful width.
+ */
+.new-param {
+  margin-top: 12px; padding: 12px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.new-param > .section-title { margin: 0 0 8px; }
+.np-fields { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.np-fields label { display: grid; gap: 3px; flex: 1 1 190px; font-size: 0.82rem; }
+.np-fields label > span { color: var(--ink-2); }
+.np-fields input { width: 100%; }
+.np-fields label.np-unit { flex: 0 1 110px; }
+.np-range { margin: 10px 0 0; font-size: 0.86rem; }
+.np-label { color: var(--ink-2); }
+.np-clash { margin: 10px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.np-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
 /* Empty state -------------------------------------------------------------- */
 
 .empty {

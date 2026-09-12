@@ -207,7 +207,12 @@ identity fields.
 3. The verify screen reads stored images + payload — same bbox-crop pattern
    the demo's VerifyTab proved; corrections re-derive through lab-core in the
    client and persist as a payload update.
-4. Registry learned synonyms persist into `users.settings`.
+4. Registry learned synonyms persist into `users.settings`, alongside the
+   parameters the reader founded from a printed name the curated registry
+   does not hold (`customAnalytes`; `registry.json` is generated and shared,
+   so a parameter of their own can only live on the account). Both are
+   replayed into the Registry at load, founded parameters first — `addSynonym`
+   is a no-op for an id the registry does not yet hold.
 
 **Gate:** upload on phone → logout → login on laptop → same report, same
 verification view, same chips. Ledger freezes a user at the cap without

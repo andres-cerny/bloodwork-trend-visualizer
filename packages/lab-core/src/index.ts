@@ -32,6 +32,7 @@ export * from "./implausible";
 export * from "./review";
 export * from "./reconcile";
 export * from "./candidates";
+export * from "./customAnalyte";
 export * from "./correction";
 export * from "./chartSpec";
 export * from "./pdf/rows";

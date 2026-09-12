@@ -37,7 +37,11 @@ export default function Privacy() {
       <ul>
         <li>naměřené hodnoty, jednotky a referenční meze z vašich výsledků,</li>
         <li>začerněné obrázky stránek — kvůli ověření přepisu proti dokumentu,</li>
-        <li>přihlašovací e-mail, otisk hesla (heslo samo ne) a vaše ruční opravy a přiřazení názvů,</li>
+        <li>
+          přihlašovací e-mail, otisk hesla (heslo samo ne), vaše ruční opravy, přiřazení názvů a
+          parametry, které jste si sami založili — jejich název, jednotku a rozmezí z vašeho
+          dokumentu,
+        </li>
         <li>
           kontext pro AI, pokud jste ho vyplnili — pohlaví, věková skupina, výška, váha, pohyb, léky a
           doplňky, diagnózy, kouření, alkohol a vaše poznámka. Jméno k němu nepřidáváme; co napíšete

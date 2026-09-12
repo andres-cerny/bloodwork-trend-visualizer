@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type AiContext,
   type AnalyteDef,
+  type CustomAnalyte,
   type LabReport,
   type Measurement,
   Registry,
@@ -31,9 +32,11 @@ import {
   count,
   czDate,
   reviewOf,
+  toAnalyteDef,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
 import { type Budget, type Settings, deleteAccount, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
+import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
 import { mergeSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
 import ShareTab from "./ShareTab";
@@ -82,6 +85,8 @@ export default function Portal({ email, onLogout }: Props) {
   const [reports, setReports] = useState<LabReport[]>([]);
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [learned, setLearned] = useState<Record<string, string[]>>({});
+  /** Parameters the reader founded in Přiřazení, from the account. */
+  const [customAnalytes, setCustomAnalytes] = useState<CustomAnalyte[]>([]);
   // The whole settings blob, because PUT /api/settings replaces it: a save
   // of one field must carry the others (lib/settings.ts).
   const settingsRef = useRef<Settings>({});
@@ -115,10 +120,17 @@ export default function Portal({ email, onLogout }: Props) {
         ]);
         const reg = new Registry(defs);
         settingsRef.current = settings as Settings;
+        // Founded parameters before the learned names, not after: addSynonym
+        // is a no-op for an id the registry does not hold yet, so the other
+        // order would silently drop every printed name filed under one — the
+        // parameter would exist and its own trend would be empty.
+        const custom = settingsRef.current.customAnalytes ?? [];
+        for (const c of custom) reg.addAnalyte(toAnalyteDef(c));
         const l = settingsRef.current.learned ?? {};
         for (const [cid, names] of Object.entries(l)) for (const n of names) reg.addSynonym(cid, n);
         setRegistry(reg);
         setLearned(l);
+        setCustomAnalytes(custom);
         setAiContext(settingsRef.current.aiContext ?? null);
         setReports(rs);
         setBudget(status.budget);
@@ -243,6 +255,51 @@ export default function Portal({ email, onLogout }: Props) {
       saveLearned(next);
     },
     [registry, remap, learned, saveLearned],
+  );
+
+  /**
+   * Found a parameter on a printed name, and file that name under it.
+   *
+   * Both settings fields move together in one write: the parameter and the
+   * name filed under it are one decision, and a blob that carried only half
+   * of it would load as a parameter with an empty trend, or as a synonym for
+   * an id the registry does not hold.
+   */
+  const createParameter = useCallback(
+    (rawName: string, c: CustomAnalyte) => {
+      if (!registry) return;
+      registry.addAnalyte(toAnalyteDef(c));
+      registry.addSynonym(c.canonicalId, rawName);
+      remap(rawName, c.canonicalId);
+      const next = withNewParameter({ learned, customAnalytes }, c, rawName);
+      setLearned(next.learned);
+      setCustomAnalytes(next.customAnalytes);
+      saveSettings({ learned: next.learned, customAnalytes: next.customAnalytes }).catch(() =>
+        setSaveError("Nový parametr se nepodařilo uložit."),
+      );
+    },
+    [registry, remap, learned, customAnalytes, saveSettings],
+  );
+
+  /**
+   * Delete a founded parameter. Its printed names return to the unmapped list
+   * — the measured values are untouched, they are only unfiled.
+   */
+  const deleteParameter = useCallback(
+    (canonicalId: string) => {
+      if (!registry) return;
+      const names = namesUnder({ learned, customAnalytes }, canonicalId);
+      for (const n of names) registry.removeSynonym(canonicalId, n);
+      registry.removeAnalyte(canonicalId);
+      for (const n of names) remap(n, null);
+      const next = withoutParameter({ learned, customAnalytes }, canonicalId);
+      setLearned(next.learned);
+      setCustomAnalytes(next.customAnalytes);
+      saveSettings({ learned: next.learned, customAnalytes: next.customAnalytes }).catch(() =>
+        setSaveError("Parametr se nepodařilo smazat."),
+      );
+    },
+    [registry, remap, learned, customAnalytes, saveSettings],
   );
 
   const goTab = useCallback((id: TabId) => {
@@ -474,7 +531,16 @@ export default function Portal({ email, onLogout }: Props) {
               <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />
             </Panel>
             <Panel id="mapping" active={tab}>
-              <MappingTab reports={reports} registry={registry} onMap={acceptMapping} onUndoMap={undoMapping} onShowSource={showSource} />
+              <MappingTab
+                reports={reports}
+                registry={registry}
+                customAnalytes={customAnalytes}
+                onMap={acceptMapping}
+                onUndoMap={undoMapping}
+                onCreateParameter={createParameter}
+                onDeleteParameter={deleteParameter}
+                onShowSource={showSource}
+              />
             </Panel>
             <Panel id="share" active={tab}>
               <ShareTab reports={reports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />

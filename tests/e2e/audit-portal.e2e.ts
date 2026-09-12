@@ -108,6 +108,21 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    name: "přiřazení (nový parametr)",
+    go: async (page) => {
+      await tab(page, "Přiřazení");
+      await page.waitForTimeout(400);
+      // Both unmapped names at once, because the form says different things
+      // for each: S_Homocystein tot. carries a printed interval and a unit,
+      // U_Bílkovina neither. A sweep that opened only the first would never
+      // lay out the line that says the lab printed no interval.
+      const found = page.locator("#tabpanel-mapping").getByRole("button", { name: "Založit nový parametr" });
+      const n = await found.count();
+      for (let i = 0; i < n; i++) await found.nth(i).click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
     name: "reporty",
     go: async (page) => {
       await tab(page, "Reporty");
