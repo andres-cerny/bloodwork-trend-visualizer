@@ -12,6 +12,7 @@ import {
   materialsCompatible,
   observedStats,
   signalsOf,
+  rematchReport,
   suggestMappings,
   verdictOf,
   makeMeasurement,
@@ -591,5 +592,28 @@ describe("the unit a lab prints", () => {
     const cands = suggestMappings(u, reg, observedStats(reports), 5);
     expect(cands.find((c) => c.canonicalId === "index_aterogenity")?.unitMatch).toBe(true);
     expect(cands.find((c) => c.canonicalId === "albumin")?.unitMatch).toBe(false);
+  });
+});
+
+describe("rematchReport", () => {
+  // Guard for docs/plans/lab-mapping.md Phase 3: a catalog that grew after
+  // the upload has to reach the report, or a deployed synonym fixes nobody.
+  it("fills only the null rows a grown catalog now knows, and says nothing when none changed", () => {
+    const r = report("r1", "2024-01-01", [
+      m("S_Na", "140", "mmol/l", "134 - 148", null),
+      m("S_Foo", "1", "x", "", null),
+      m("S_K", "4,2", "mmol/l", "3,5 - 5,1", "by_hand"),
+    ]);
+    const reg = new Registry([def("sodik", "Sodík", "mmol/l", ["S_Na"]), def("draslik", "Draslík", "mmol/l", ["S_K"])]);
+    const next = rematchReport(r, reg)!;
+    expect(next.measurements.map((x) => x.canonicalId)).toEqual(["sodik", null, "by_hand"]);
+    expect(r.measurements[0].canonicalId, "the input is not mutated").toBeNull();
+    expect(rematchReport(next, reg)).toBeNull();
+  });
+
+  it("still refuses a urine row the name alone would map", () => {
+    const r = report("r1", "2024-01-01", [m("U_Glukóza", "0", "mmol/l", "", null)]);
+    const reg = new Registry([def("glukoza", "Glukóza", "mmol/l", ["S_Glukóza"])]);
+    expect(rematchReport(r, reg)).toBeNull();
   });
 });

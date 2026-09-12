@@ -153,6 +153,19 @@ export const putPage = (reportId: string, pageNum: number, blob: Blob, width: nu
 
 export const deleteReport = (id: string) => request<{ ok: true }>(`/api/reports/${id}`, { method: "DELETE" });
 
+/** A spelling one account filed under a shipped analyte, read by every account. */
+export interface TaughtSynonym {
+  rawName: string;
+  canonicalId: string;
+  /** Taught by this account — the only one that can withdraw it. */
+  mine: boolean;
+}
+export const listSynonyms = () => request<TaughtSynonym[]>("/api/synonyms");
+export const teachSynonym = (rawName: string, canonicalId: string) =>
+  request<{ ok: true }>("/api/synonyms", jsonInit("PUT", { rawName, canonicalId }));
+export const forgetSynonym = (rawName: string) =>
+  request<{ ok: true; removed: boolean }>("/api/synonyms", jsonInit("DELETE", { rawName }));
+
 export const getSettings = () => request<Settings>("/api/settings");
 export const putSettings = (s: Settings) => request<{ ok: true }>("/api/settings", jsonInit("PUT", s));
 

@@ -195,6 +195,29 @@ export function trendable(a: UnmappedAnalyte): boolean {
   return a.occurrences.some((o) => o.value !== null);
 }
 
+/**
+ * A report's unmapped rows, tried again against a registry that may have
+ * grown since the report was uploaded.
+ *
+ * `canonicalId` is computed once, at upload, and stored in the payload. A
+ * catalog that learns a lab's spelling a week later — a shipped synonym, a
+ * name another account taught — would otherwise never reach the reports
+ * already there. Only null rows are tried; a row the reader mapped or
+ * unmapped by hand keeps their decision. Returns the new report when any row
+ * changed, else null, so the caller knows whether there is anything to save.
+ */
+export function rematchReport(report: LabReport, registry: Registry): LabReport | null {
+  let changed = false;
+  const measurements = report.measurements.map((m) => {
+    if (m.canonicalId !== null) return m;
+    const id = registry.match(m.rawAnalyteName, materialOf(m, report)?.code ?? null);
+    if (id === null) return m;
+    changed = true;
+    return { ...m, canonicalId: id };
+  });
+  return changed ? { ...report, measurements } : null;
+}
+
 /** Per-canonical-id evidence from measurements that are already mapped. */
 export function observedStats(reports: LabReport[]): Map<string, Observed> {
   const acc = new Map<

@@ -111,7 +111,7 @@ export class Registry {
   removeAnalyte(canonicalId: string): boolean {
     if (!this.analytes.delete(canonicalId)) return false;
     for (const key of this.learned) {
-      if (key.startsWith(`${canonicalId}\\u0000`)) this.learned.delete(key);
+      if (key.startsWith(`${canonicalId}\u0000`)) this.learned.delete(key);
     }
     for (const [k, id] of [...this.index]) {
       if (id !== canonicalId) continue;
@@ -170,13 +170,22 @@ export class Registry {
     return this.analytes.get(canonicalId)?.displayNameCs ?? canonicalId;
   }
 
-  /** Teach the registry a new synonym (from a UI mapping acceptance). */
-  addSynonym(canonicalId: string, rawName: string): void {
+  /**
+   * Teach the registry a new synonym.
+   *
+   * From a UI mapping acceptance it is *learned*: this account's to withdraw
+   * (`removeSynonym`). A spelling taught by another account arrives with
+   * `learned: false` and behaves like the shipped table — it cannot be
+   * unlearned here, because it is not this reader's to unlearn, exactly as
+   * for a shipped name. A name already present is left as it is, so the
+   * order of teaching decides which of the two it is.
+   */
+  addSynonym(canonicalId: string, rawName: string, learned = true): void {
     const a = this.analytes.get(canonicalId);
     if (!a) return;
     if (!a.synonyms.includes(rawName)) {
       a.synonyms.push(rawName);
-      this.learned.add(`${canonicalId}\u0000${rawName}`);
+      if (learned) this.learned.add(`${canonicalId}\u0000${rawName}`);
     }
     // Accepting "P_Glukóza" onto a serum entry teaches it plasma too, so the
     // next report from that lab needs no click.

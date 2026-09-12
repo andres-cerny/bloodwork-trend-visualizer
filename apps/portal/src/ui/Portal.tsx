@@ -34,12 +34,13 @@ import {
   count,
   czDate,
   findUnmapped,
+  rematchReport,
   reviewOf,
   toAnalyteDef,
   trendable,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
-import { type Budget, type Settings, deleteAccount, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
+import { type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, listReports, listSynonyms, logout, putReport, putSettings, teachSynonym } from "../lib/api";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
 import { mergeSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
@@ -120,11 +121,14 @@ export default function Portal({ email, onLogout }: Props) {
   useEffect(() => {
     (async () => {
       try {
-        const [defs, rs, settings, status] = await Promise.all([
+        const [defs, rs, settings, status, taught] = await Promise.all([
           fetch("/registry.json").then((r) => r.json() as Promise<AnalyteDef[]>),
           listReports(),
           getSettings(),
           getStatus(),
+          // What other accounts taught is worth having; not having it is not
+          // worth a blank screen.
+          listSynonyms().catch(() => []),
         ]);
         const reg = new Registry(defs);
         settingsRef.current = settings as Settings;
@@ -136,11 +140,25 @@ export default function Portal({ email, onLogout }: Props) {
         for (const c of custom) reg.addAnalyte(toAnalyteDef(c));
         const l = settingsRef.current.learned ?? {};
         for (const [cid, names] of Object.entries(l)) for (const n of names) reg.addSynonym(cid, n);
+        // Then everyone's, as shipped names: this account's own come first so
+        // they stay its own to withdraw; another account's cannot be unlearned
+        // here, the same as a name from the shipped table.
+        for (const t of taught) reg.addSynonym(t.canonicalId, t.rawName, false);
         setRegistry(reg);
         setLearned(l);
         setCustomAnalytes(custom);
         setAiContext(settingsRef.current.aiContext ?? null);
-        setReports(rs);
+        // A catalog that grew since a report was uploaded reaches that
+        // report here: the stored canonicalId was computed at upload and
+        // would otherwise stay null forever. Only null rows are touched — a
+        // name the reader filed by hand keeps their choice — and a report
+        // that changed is written back.
+        const loaded = rs.map((r) => {
+          const matched = rematchReport(r, reg);
+          if (matched) putReport(matched).catch(() => undefined);
+          return matched ?? r;
+        });
+        setReports(loaded);
         setBudget(status.budget);
         setMaxPages(status.maxPages);
       } catch (e) {
@@ -241,14 +259,25 @@ export default function Portal({ email, onLogout }: Props) {
     [saveSettings],
   );
 
+  /** A shipped analyte, as opposed to one this account founded. */
+  const isShipped = useCallback(
+    (canonicalId: string) => !!registry?.get(canonicalId) && !customAnalytes.some((c) => c.canonicalId === canonicalId),
+    [registry, customAnalytes],
+  );
+
   const acceptMapping = useCallback(
     (rawName: string, canonicalId: string) => {
       if (!registry) return;
       registry.addSynonym(canonicalId, rawName);
       remap(rawName, canonicalId);
       saveLearned({ ...learned, [canonicalId]: [...(learned[canonicalId] ?? []).filter((n) => n !== rawName), rawName] });
+      // Filed under a shipped analyte, the spelling is taught to every
+      // account: the next person from this laboratory needs no click. A
+      // founded parameter exists in this account alone, so its names stay
+      // here. Best effort — the account's own mapping is already saved.
+      if (isShipped(canonicalId)) teachSynonym(rawName, canonicalId).catch(() => undefined);
     },
-    [registry, remap, learned, saveLearned],
+    [registry, remap, learned, saveLearned, isShipped],
   );
 
   const undoMapping = useCallback(
@@ -261,6 +290,8 @@ export default function Portal({ email, onLogout }: Props) {
       if (rest.length) next[canonicalId] = rest;
       else delete next[canonicalId];
       saveLearned(next);
+      // The worker withdraws it only if this account taught it.
+      forgetSynonym(rawName).catch(() => undefined);
     },
     [registry, remap, learned, saveLearned],
   );

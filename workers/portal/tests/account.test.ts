@@ -63,6 +63,8 @@ function fakeD1(t: Tables): D1Database {
         }
         return { results: [], changes: n };
       }
+      case SQL.unlinkSynonyms:
+        return { results: [], changes: 0 };
       case SQL.deleteUser: {
         const before = t.users.length;
         t.users = t.users.filter((u) => u.id !== a[0]);

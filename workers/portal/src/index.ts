@@ -26,7 +26,7 @@
  * response may say markdown. The old `.md` address redirects to the bare one.
  */
 import { mintSession } from "@bw/gate";
-import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type UserRow } from "./db";
+import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import {
@@ -250,6 +250,40 @@ async function handleSetPassword(request: Request, env: Env): Promise<Response> 
   await env.DB.prepare(SQL.setPassword).bind(user.id, record.hash, record.salt, record.iters).run();
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
   return loggedIn(env, user.id);
+}
+
+/* --------------------------------------------------------------- synonyms */
+
+// A canonical id is a shipped catalog key: lowercase, digits, underscores.
+// The worker holds no catalog, so this is the shape check; the client only
+// sends ids the registry it loaded actually holds.
+const CANONICAL_ID = /^[a-z0-9_]{1,64}$/;
+const MAX_RAW_NAME = 200;
+
+/** Every taught spelling, with whether this account is the one who taught it. */
+async function listSynonyms(env: Env, user: UserRow): Promise<Response> {
+  const { results } = await env.DB.prepare(SQL.allSynonyms).all<SynonymRow>();
+  return json(results.map((r) => ({ rawName: r.raw_name, canonicalId: r.canonical_id, mine: r.taught_by === user.id })));
+}
+
+async function teachSynonym(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const body = (await request.json().catch(() => null)) as { rawName?: unknown; canonicalId?: unknown } | null;
+  const rawName = typeof body?.rawName === "string" ? body.rawName.trim() : "";
+  const canonicalId = typeof body?.canonicalId === "string" ? body.canonicalId : "";
+  if (!rawName || rawName.length > MAX_RAW_NAME || !CANONICAL_ID.test(canonicalId)) {
+    return json({ error: "bad_request", message: "Neplatné přiřazení." }, 400);
+  }
+  await env.DB.prepare(SQL.upsertSynonym).bind(rawName, canonicalId, user.id, new Date().toISOString()).run();
+  return json({ ok: true });
+}
+
+/** Withdraw a spelling this account taught. Someone else's stays. */
+async function forgetSynonym(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const body = (await request.json().catch(() => null)) as { rawName?: unknown } | null;
+  const rawName = typeof body?.rawName === "string" ? body.rawName.trim() : "";
+  if (!rawName) return json({ error: "bad_request", message: "Neplatné přiřazení." }, 400);
+  const r = await env.DB.prepare(SQL.deleteSynonym).bind(rawName, user.id).run();
+  return json({ ok: true, removed: r.meta.changes > 0 });
 }
 
 /* ---------------------------------------------------------------- extract */
@@ -570,6 +604,7 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   await env.DB.prepare(SQL.deleteSharesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
+  await env.DB.prepare(SQL.unlinkSynonyms).bind(user.id).run();
   await env.DB.prepare(SQL.deleteUser).bind(user.id).run();
   return new Response(JSON.stringify({ ok: true, pagesDeleted: results.length }), {
     status: 200,
@@ -772,6 +807,12 @@ export default {
         return getSettings(env, user);
       case "PUT /api/settings":
         return putSettings(request, env, user);
+      case "GET /api/synonyms":
+        return listSynonyms(env, user);
+      case "PUT /api/synonyms":
+        return teachSynonym(request, env, user);
+      case "DELETE /api/synonyms":
+        return forgetSynonym(request, env, user);
       case "GET /api/export":
         return exportAccount(env, user, url.searchParams.get("format") ?? "json");
       case "DELETE /api/account":

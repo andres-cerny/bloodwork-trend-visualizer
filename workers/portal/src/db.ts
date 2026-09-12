@@ -57,6 +57,14 @@ export const SQL = {
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
   saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
 
+  // Synonyms taught by anyone, read by everyone. The last teacher of a name
+  // wins the row; a delete is the teacher's alone.
+  allSynonyms: "SELECT raw_name, canonical_id, taught_by FROM synonyms ORDER BY created_at",
+  upsertSynonym:
+    "INSERT INTO synonyms (raw_name, canonical_id, taught_by, created_at) VALUES (?1, ?2, ?3, ?4) " +
+    "ON CONFLICT(raw_name) DO UPDATE SET canonical_id = excluded.canonical_id, taught_by = excluded.taught_by, created_at = excluded.created_at",
+  deleteSynonym: "DELETE FROM synonyms WHERE raw_name = ?1 AND taught_by = ?2",
+
   // AI konzultace: the snapshot is stored as sent and served as stored. The
   // public read is by hash only — the row never says whose it is to the
   // reader, and the worker never inspects the text.
@@ -78,6 +86,9 @@ export const SQL = {
   deleteReportsForUser: "DELETE FROM reports WHERE user_id = ?1",
   deleteSharesForUser: "DELETE FROM ai_shares WHERE user_id = ?1",
   unlinkInvites: "UPDATE invites SET used_by = NULL, user_id = NULL WHERE used_by = ?1 OR user_id = ?1",
+  // The taught spellings outlive the teacher: the fact is the app's, the
+  // link to the account is what the deletion removes.
+  unlinkSynonyms: "UPDATE synonyms SET taught_by = NULL WHERE taught_by = ?1",
 } as const;
 
 export interface ReportRow {
@@ -120,4 +131,10 @@ export interface AiShareRow {
   snapshot: string;
   expires_at: number;
   revoked_at: number | null;
+}
+
+export interface SynonymRow {
+  raw_name: string;
+  canonical_id: string;
+  taught_by: string | null;
 }

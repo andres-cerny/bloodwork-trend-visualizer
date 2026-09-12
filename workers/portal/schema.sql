@@ -94,3 +94,15 @@ CREATE TABLE IF NOT EXISTS ai_shares (
 );
 
 CREATE INDEX IF NOT EXISTS ai_shares_by_user ON ai_shares (user_id, created_at);
+
+-- A printed name one person filed under a shipped analyte, for everyone: the
+-- next account from the same laboratory maps it with no click. Only names
+-- filed under an id the shipped catalog holds land here — a parameter a
+-- person founded exists in their settings alone. The teacher can withdraw
+-- it; when their account goes, the fact stays and the link is dropped.
+CREATE TABLE IF NOT EXISTS synonyms (
+  raw_name     TEXT PRIMARY KEY,
+  canonical_id TEXT NOT NULL,
+  taught_by    TEXT REFERENCES users(id),
+  created_at   TEXT NOT NULL
+);
