@@ -134,14 +134,26 @@ const SCREENS: Screen[] = [
     go: async (page) => {
       await tab(page, "Přiřazení");
       await page.waitForTimeout(400);
-      // Both unmapped names at once, because the form says different things
-      // for each: S_Homocystein tot. carries a printed interval and a unit,
-      // U_Bílkovina neither. A sweep that opened only the first would never
-      // lay out the line that says the lab printed no interval.
+      // One name waits: S_Homocystein tot., with a printed interval and a
+      // unit. U_Bílkovina used to be here too and laid out the line that says
+      // the lab printed no interval; it is urine, and since `trendable` the
+      // mapping tab no longer asks about it.
       const found = page.locator("#tabpanel-mapping").getByRole("button", { name: "Založit nový parametr" });
       const n = await found.count();
       for (let i = 0; i < n; i++) await found.nth(i).click();
       await page.waitForTimeout(300);
+    },
+  },
+  {
+    // The mapping model's turn: the fake API answers with a catalog id the
+    // evidence lets through, so this lays out the applied banner with its
+    // way back, and the heading that replaces "není co řešit".
+    name: "přiřazení (návrh AI)",
+    go: async (page) => {
+      await tab(page, "Přiřazení");
+      await page.waitForTimeout(400);
+      await page.locator("#tabpanel-mapping").getByRole("button", { name: "Nechat AI navrhnout přiřazení" }).click();
+      await page.waitForTimeout(600);
     },
   },
   {

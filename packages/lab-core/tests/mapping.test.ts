@@ -12,6 +12,9 @@ import {
   materialsCompatible,
   observedStats,
   signalsOf,
+  canApplyUnasked,
+  rematchReport,
+  scoreCandidate,
   suggestMappings,
   verdictOf,
   makeMeasurement,
@@ -159,7 +162,7 @@ describe("suggestMappings", () => {
   });
 
   it("returns nothing for a name that resembles no analyte", () => {
-    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [], refRange: null, refRangeFrom: null, material: null, materialSource: null };
+    const odd = { rawName: "Zzzz Qqqq", unitRaw: "", occurrences: [], refRange: null, refRangeRaw: "", refRangeFrom: null, material: null, materialSource: null };
     expect(suggestMappings(odd, registry, stats)).toEqual([]);
   });
 
@@ -570,5 +573,87 @@ describe("material from the heading a row sits under", () => {
     const sig = signalsOf(c, u).find((s) => s.key === "material")!;
     expect(sig.state).toBe("unknown");
     expect(sig.detail).toContain("moč (podle sloupce)");
+  });
+});
+
+describe("the unit a lab prints", () => {
+  // Guard seen failing 2026-09-12: BioLAB prints Greek mu (μmol/l, U+03BC)
+  // and every correct candidate was "contradicted" by "μmol/l vs µmol/l".
+  it("Greek mu is the catalog's micro sign, not a different unit", () => {
+    const reports = [report("r1", "2024-01-01", [m("S_Kreatinin (enzymat.)", "70", "\u03bcmol/l", "49,0 - 90,0", null)])];
+    const [u] = findUnmapped(reports);
+    const [c] = suggestMappings(u, new Registry([def("kreatinin", "Kreatinin", "\u00b5mol/l", ["S_Kreatinin"], [62, 110])]), observedStats(reports), 5);
+    expect(c.unitMatch).toBe(true);
+    expect(verdictOf(c)).toBe("recommended");
+  });
+
+  it("a printed dimensionless marker agrees with a dimensionless entry and contradicts g/l", () => {
+    const reports = [report("r1", "2024-01-01", [m("V_Aterogenní index (CHOL/HDL)", "3,1", "1", "0,00 - 5,00", null)])];
+    const [u] = findUnmapped(reports);
+    const reg = new Registry([def("index_aterogenity", "Index aterogenity", "", ["Index aterogenity"]), def("albumin", "Albumin", "g/l", ["Aterogenní albumin"])]);
+    const cands = suggestMappings(u, reg, observedStats(reports), 5);
+    expect(cands.find((c) => c.canonicalId === "index_aterogenity")?.unitMatch).toBe(true);
+    expect(cands.find((c) => c.canonicalId === "albumin")?.unitMatch).toBe(false);
+  });
+});
+
+describe("rematchReport", () => {
+  // Guard for docs/plans/lab-mapping.md Phase 3: a catalog that grew after
+  // the upload has to reach the report, or a deployed synonym fixes nobody.
+  it("fills only the null rows a grown catalog now knows, and says nothing when none changed", () => {
+    const r = report("r1", "2024-01-01", [
+      m("S_Na", "140", "mmol/l", "134 - 148", null),
+      m("S_Foo", "1", "x", "", null),
+      m("S_K", "4,2", "mmol/l", "3,5 - 5,1", "by_hand"),
+    ]);
+    const reg = new Registry([def("sodik", "Sodík", "mmol/l", ["S_Na"]), def("draslik", "Draslík", "mmol/l", ["S_K"])]);
+    const next = rematchReport(r, reg)!;
+    expect(next.measurements.map((x) => x.canonicalId)).toEqual(["sodik", null, "by_hand"]);
+    expect(r.measurements[0].canonicalId, "the input is not mutated").toBeNull();
+    expect(rematchReport(next, reg)).toBeNull();
+  });
+
+  it("still refuses a urine row the name alone would map", () => {
+    const r = report("r1", "2024-01-01", [m("U_Glukóza", "0", "mmol/l", "", null)]);
+    const reg = new Registry([def("glukoza", "Glukóza", "mmol/l", ["S_Glukóza"])]);
+    expect(rematchReport(r, reg)).toBeNull();
+  });
+});
+
+describe("a candidate the model named", () => {
+  // Guard seen failing 2026-09-12 (portal audit): "S_Na" → sodik has bigram
+  // similarity 0, so verdictOf called it contradicted and the mapping model's
+  // headline case was never applied — and on screen it wore "nedoporučujeme"
+  // for the one thing the model knows better than a bigram.
+  it("is judged on unit, interval, material and magnitude — not on name similarity", () => {
+    const reports = [report("r1", "2024-01-01", [m("S_Na", "140", "mmol/l", "134 - 148", null)])];
+    const [u] = findUnmapped(reports);
+    const sodik = def("sodik", "Sodík", "mmol/l", ["S_Sodík"], [137, 145]);
+    const c = scoreCandidate(u, sodik, observedStats(reports))!;
+    expect(c.nameWeak).toBe(true);
+    expect(verdictOf(c)).toBe("contradicted");
+    expect(verdictOf(c, { nameByModel: true })).toBe("recommended");
+    expect(canApplyUnasked(c)).toBe(true);
+    expect(signalsOf(c, u, { nameByModel: "Na je sodík." }).find((s) => s.key === "name")).toMatchObject({ state: "ok", detail: "podle AI Sodík — Na je sodík." });
+  });
+
+  it("is still refused when the unit disagrees, is unknown, or the interval contradicts", () => {
+    const reports = [report("r1", "2024-01-01", [
+      m("S_T4 celkový", "100", "nmol/l", "66,0 - 181,0", null),
+      m("S_Foo", "1", "", "", null),
+      m("S_Bar", "5", "µmol/l", "5 - 15", null),
+    ])];
+    const [t4, foo, bar] = findUnmapped(reports);
+    const stats = observedStats(reports);
+    const ft4 = scoreCandidate(t4, def("ft4", "T4 volný", "pmol/l", ["S_T4 volný"], [12, 22]), stats)!;
+    expect(ft4.unitMatch).toBe(false);
+    expect(canApplyUnasked(ft4)).toBe(false);
+    const unknownUnit = scoreCandidate(foo, def("x", "X", "g/l"), stats)!;
+    expect(unknownUnit.unitMatch).toBeNull();
+    expect(canApplyUnasked(unknownUnit)).toBe(false);
+    const uric = scoreCandidate(bar, def("kyselina_mocova", "Kyselina močová", "µmol/l", [], [202, 417]), stats)!;
+    expect(uric.unitMatch).toBe(true);
+    expect(uric.rangeMatch).toBe(false);
+    expect(canApplyUnasked(uric)).toBe(false);
   });
 });

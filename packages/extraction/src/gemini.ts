@@ -278,7 +278,13 @@ export class BilledReadError extends Error {
  * without knowing which reader produced it.
  */
 export function billedUsage(reason: unknown): { model: string; usage: Usage } | null {
-  return reason instanceof BilledReadError ? { model: reason.model, usage: reason.usage } : null;
+  // Duck-typed rather than instanceof: the mapping call's truncation error
+  // (map.ts) is billed the same way and lives in a module this one does not
+  // import.
+  const r = reason as { usage?: Usage; model?: string } | null;
+  return r && typeof r === "object" && r.usage && typeof r.model === "string" && typeof r.usage.inputTokens === "number"
+    ? { model: r.model, usage: r.usage }
+    : null;
 }
 
 /**

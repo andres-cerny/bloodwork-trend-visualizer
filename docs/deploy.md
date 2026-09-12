@@ -212,6 +212,15 @@ for i in $(seq 0 7); do
 done
 ```
 
+**The Turnstile check proves three things, not one:** solved, on a hostname
+this deployment serves, for this action. The widget registers localhost for
+development, and a token belongs to the widget rather than the page — so
+checking only `success` once let a locally-solved challenge mint production
+sessions. `TURNSTILE_HOSTNAMES` is per-deployment and must never list
+localhost in production; unset means refuse everything. `SESSION_SECRET` is
+per-Worker and does not migrate: it must be the same string in both `agent`
+and `extract`, or a session minted by one fails in the other.
+
 Two knobs worth knowing:
 
 - `SINGLE_MODEL: "1"` drops the Haiku cross-check and roughly halves upload

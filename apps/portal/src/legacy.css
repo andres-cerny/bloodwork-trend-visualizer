@@ -738,6 +738,25 @@ ul.held-list li {
   background: var(--surface-2); font-size: 0.86rem;
 }
 
+/* The mapping model's turn: the ask sits under the heading, what it applied
+   on its own is listed with a way back, and what it only proposed sits on
+   the card under its own title so it is never mistaken for the shipped
+   recommendation. */
+.ai-ask {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 12px 0 0; font-size: 0.84rem;
+}
+.ai-applied { margin: 12px 0 0; }
+.ai-applied p { margin: 0; }
+.banner.error { border-left-color: var(--status-critical); margin: 12px 0 0; }
+.ai-block {
+  margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.ai-block .section-title { margin-top: 0; }
+.ai-reason { margin: 0 0 8px; font-size: 0.86rem; }
+.ai-reason .btn { margin-left: 6px; vertical-align: baseline; }
+
 /* A candidate contradicted by name, unit, interval, material or magnitude
    recedes rather than competing visually with a plausible one. */
 .cand-card.implausible { border-style: dashed; background: var(--surface-2); }

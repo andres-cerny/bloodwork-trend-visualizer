@@ -28,6 +28,7 @@
     "bench:triage": "vitest run --config tests/bench/vitest.config.ts tests/bench/triage.bench.ts",
     "bench:docling": "vitest run --config tests/bench/vitest.config.ts tests/bench/docling_eval.bench.ts",
     "bench:adapt": "vitest run --config tests/bench/vitest.config.ts tests/bench/adapt.bench.ts",
+    "bench:mapping": "vitest run --config tests/bench/vitest.config.ts tests/bench/mapping.bench.ts",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck --workspaces --if-present",
     "test:hooks": "node .claude/hooks/hooks.test.mjs",
     "dev:agent": "npm -w workers/agent run dev -- --port 8788",

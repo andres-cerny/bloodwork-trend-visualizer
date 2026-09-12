@@ -36,6 +36,30 @@ describe("normKey", () => {
   });
 });
 
+describe("a trailing [ABBR] is a second key", () => {
+  // Guard seen failing 2026-09-12: BioLAB prints "B_Střed.obj.erytr. [MCV]"
+  // where the seed knows "B_Střední objem ery [MCV]" and bare "MCV"; the full
+  // key met nothing and the row stayed unmapped.
+  it("finds the bare abbreviation when the long form is unknown", () => {
+    const r = new Registry([def("mcv", "MCV", ["B_MCV", "MCV"])]);
+    expect(r.match("B_Střed.obj.erytr. [MCV]")).toBe("mcv");
+    expect(r.match("B-Tromb.křivka [PDW]")).toBeNull();
+  });
+
+  it("tries the full key first, so a bracket the catalog does not know loses nothing", () => {
+    const r = new Registry([def("trombokrit", "Trombokrit", ["B_Trombokrit"]), def("x", "X", ["B_Trombocyty hematokrit [PCT]"])]);
+    expect(r.match("B_Trombocyty hematokrit [PCT]")).toBe("x");
+    // The seed synonym's own bracket taught the bare code to "x" — the
+    // first claimant keeps it, a later entry does not silently take it over.
+    expect(r.match("Trombocyty [PCT]")).toBe("x");
+  });
+
+  it("a bracket mid-name is not an abbreviation", () => {
+    const r = new Registry([def("igg", "IgG", ["IgG"])]);
+    expect(r.match("Anti-HSV [IgG] test")).toBeNull();
+  });
+});
+
 describe("withdrawing a mapping", () => {
   it("stops the name resolving again", () => {
     const r = new Registry([def("glukoza", "Glukóza")]);

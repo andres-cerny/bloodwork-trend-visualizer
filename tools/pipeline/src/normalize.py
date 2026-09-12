@@ -192,7 +192,8 @@ def canonicalize_unit(unit_raw: Optional[str]) -> Optional[str]:
     if unit_raw is None:
         return None
     s = unit_raw.strip()
-    if s in {"", "-", "–", "—"}:
+    # "1" is the SI spelling of dimensionless, which "-" and "" already fold to.
+    if s in {"", "-", "–", "—", "1"}:
         return ""
     for bad, good in _MICRO_VARIANTS.items():
         s = s.replace(bad, good)
@@ -201,6 +202,10 @@ def canonicalize_unit(unit_raw: Optional[str]) -> Optional[str]:
     s = re.sub(r"\s*/\s*", "/", s)     # "µmol / 24 h" → "µmol/24 h"
     s = re.sub(r"(?i)/l\b", "/l", s)         # litre symbol case
     s = _EXPONENT.sub(r"10^\1", s)     # x 10⁹/l, 109/l, 10E9/l → 10^9/l
+    # The body-surface metre: ml/s/1,73m^2, ml/s/1,73 m2, ml/s/1,73m2 are one
+    # unit. After the count exponent, which is the one "^" that means more.
+    s = re.sub(r"m\^([23])\b", r"m\1", s)
+    s = re.sub(r"(\d)(m[23])\b", r"\1 \2", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 

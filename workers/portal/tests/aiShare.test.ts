@@ -81,6 +81,8 @@ function fakeD1(t: Tables): D1Database {
         t.users = t.users.filter((u) => u.id !== a[0]);
         return { results: [], changes: before - t.users.length };
       }
+      case SQL.unlinkSynonyms:
+        return { results: [], changes: 0 };
       default:
         throw new Error(`fakeD1: no branch for: ${sql}`);
     }

@@ -271,12 +271,27 @@ beforeEach(() => {
       return reply;
     }
 
+    // The mapping fallback answers with its own tool.
+    if (body?.tools?.[0]?.name === "file_names") {
+      return new Response(JSON.stringify(mapReply(nextMap)), { status: 200, headers: { "content-type": "application/json" } });
+    }
+
     return new Response(
       JSON.stringify(anthropicReply([["S_Glukóza", "5,32", "mmol/l", "(4,11-5,60)"]])),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   });
 });
+
+/** What the mapping model answers; set per test. */
+let nextMap: unknown[] = [];
+function mapReply(suggestions: unknown[]) {
+  return {
+    id: "msg_map", type: "message", role: "assistant", model: "claude-haiku-4-5", stop_reason: "tool_use", stop_sequence: null,
+    content: [{ type: "tool_use", id: "toolu_m", name: "file_names", input: { suggestions } }],
+    usage: { input_tokens: 3000, output_tokens: 500, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+  };
+}
 afterEach(() => vi.unstubAllGlobals());
 
 const post = (path: string, body: unknown, session?: string) =>
@@ -771,5 +786,54 @@ describe("a Gemini call that was billed and could not be read", () => {
     expect(JSON.stringify(body)).not.toContain("Novák");
     expect(JSON.stringify(body)).not.toContain("Omlouvám");
     expect(JSON.stringify(body)).not.toContain("800101");
+  });
+});
+
+describe("the mapping fallback", () => {
+  const names = [{ rawName: "S_Na", unit: "mmol/l", refRange: "134 - 148", material: "s" }];
+  const catalog = [{ id: "sodik", name: "Sodík", unit: "mmol/l" }];
+
+  it("needs a session, like a page", async () => {
+    const res = await worker.fetch(post("/api/map", { names, catalog }), makeEnv());
+    expect(res.status).toBe(401);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("spends a page, books the cost, and hands back only ids the catalog holds", async () => {
+    const env = makeEnv();
+    const s = await mintSession(SECRET, 600, 2);
+    nextMap = [
+      { raw_name: "S_Na", decision: "catalog", canonical_id: "sodik", new_id: null, new_name_cs: null, new_unit: null, reason: "Na je sodík.", confidence: "high" },
+      { raw_name: "S_Foo", decision: "catalog", canonical_id: "sodik", new_id: null, new_name_cs: null, new_unit: null, reason: "never asked", confidence: "high" },
+    ];
+    const res = await worker.fetch(post("/api/map", { names: [...names, { rawName: "S_Bar", unit: "", refRange: "", material: "s" }], catalog }, s), env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.suggestions).toEqual([
+      { rawName: "S_Na", decision: "catalog", canonicalId: "sodik", proposed: null, reason: "Na je sodík.", confidence: "high" },
+    ]);
+    expect(body.pagesUsed).toBe(1);
+    expect(body.costUsd).toBeGreaterThan(0);
+    expect(await totalSpentUsd(env.BUDGET, "extract")).toBeCloseTo(body.costUsd, 4);
+    // The model saw names, units and intervals — never a value.
+    expect(JSON.stringify(calls[0].body.messages)).toContain("134 - 148");
+  });
+
+  it("turns an invented id into unknown rather than a mapping", async () => {
+    const s = await mintSession(SECRET, 600, 2);
+    nextMap = [{ raw_name: "S_Na", decision: "catalog", canonical_id: "natrium", new_id: null, new_name_cs: null, new_unit: null, reason: "x", confidence: "high" }];
+    const res = await worker.fetch(post("/api/map", { names, catalog }, s), makeEnv());
+    const body = (await res.json()) as any;
+    expect(body.suggestions[0].decision).toBe("unknown");
+    expect(body.suggestions[0].canonicalId).toBeNull();
+  });
+
+  it("is refused once the ledger is frozen", async () => {
+    const env = makeEnv({ BUDGET_USD_LIMIT: "1" });
+    await recordSpendUsd(env.BUDGET, "extract", 1.5);
+    const s = await mintSession(SECRET, 600, 2);
+    const res = await worker.fetch(post("/api/map", { names, catalog }, s), env);
+    expect(res.status).toBe(402);
+    expect(calls).toHaveLength(0);
   });
 });

@@ -11,9 +11,9 @@
  * including the value-plausibility check that compares the unknown's values
  * against the range already observed for the candidate.
  */
-import type { LabReport, Measurement } from "./models";
+import type { AnalyteDef, LabReport, Measurement } from "./models";
 import { normKey, type Registry } from "./registry";
-import { materialPrefix, materialsCompatible } from "./normalize";
+import { canonicalizeUnit, isBloodMaterial, materialPrefix, materialsCompatible } from "./normalize";
 import { prettyUnit } from "./czech";
 import { printedMaterial } from "./pdf/rows";
 
@@ -60,6 +60,8 @@ export interface UnmappedAnalyte {
   occurrences: Occurrence[];
   /** The reference interval printed beside it, when the lab printed one. */
   refRange: Range | null;
+  /** The same interval as the lab printed it ("49,0 - 90,0", "< 1,12") — what a model is shown. */
+  refRangeRaw: string;
   /**
    * Which document `refRange` was read from. A screen that offers to found a
    * parameter on that interval has to be able to say where it came from, and
@@ -145,12 +147,14 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
           unitRaw: m.unitRaw,
           occurrences: [],
           refRange: null,
+          refRangeRaw: "",
           refRangeFrom: null,
           material: null,
           materialSource: null,
         };
         seen.set(m.rawAnalyteName, e);
       }
+      if (!e.refRangeRaw && m.refRangeRaw.trim()) e.refRangeRaw = m.refRangeRaw.trim();
       if (e.refRange === null && m.refRangeLow !== null && m.refRangeHigh !== null) {
         e.refRange = { low: m.refRangeLow, high: m.refRangeHigh };
         e.refRangeFrom = { reportId: r.id, date: r.reportDate };
@@ -177,6 +181,45 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
     e.occurrences.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
   }
   return [...seen.values()];
+}
+
+/**
+ * Could this name ever appear in a trend, if it were mapped?
+ *
+ * Two kinds cannot, and asking the reader to file them is noise with a cost:
+ * a urine row (`U_pH`, the strip and the sediment) is not a blood test — a
+ * real report from one lab carried 22 of them, padding a "78 names are not
+ * shown" banner — and a name that never carried a number (a stage grade, a
+ * "negativní" serology) has nothing to plot under any heading. A censored
+ * value ("<1,0") counts as no number, which is what the trend would say too.
+ * Neither is dropped: both stay in Ověření beside their document.
+ */
+export function trendable(a: UnmappedAnalyte): boolean {
+  if (a.material !== null && !isBloodMaterial(a.material)) return false;
+  return a.occurrences.some((o) => o.value !== null);
+}
+
+/**
+ * A report's unmapped rows, tried again against a registry that may have
+ * grown since the report was uploaded.
+ *
+ * `canonicalId` is computed once, at upload, and stored in the payload. A
+ * catalog that learns a lab's spelling a week later — a shipped synonym, a
+ * name another account taught — would otherwise never reach the reports
+ * already there. Only null rows are tried; a row the reader mapped or
+ * unmapped by hand keeps their decision. Returns the new report when any row
+ * changed, else null, so the caller knows whether there is anything to save.
+ */
+export function rematchReport(report: LabReport, registry: Registry): LabReport | null {
+  let changed = false;
+  const measurements = report.measurements.map((m) => {
+    if (m.canonicalId !== null) return m;
+    const id = registry.match(m.rawAnalyteName, materialOf(m, report)?.code ?? null);
+    if (id === null) return m;
+    changed = true;
+    return { ...m, canonicalId: id };
+  });
+  return changed ? { ...report, measurements } : null;
 }
 
 /** Per-canonical-id evidence from measurements that are already mapped. */
@@ -255,7 +298,10 @@ function similarity(a: string, b: string): number {
   return (2 * hits) / (a.length - 1 + b.length - 1);
 }
 
-const unitKey = (u: string | null | undefined) => (u ?? "").toLowerCase().replace(/\s+/g, "");
+// Canonicalised first, as the Python twin does: a lab that prints Greek mu
+// (μmol/l, U+03BC) must not be told its unit differs from the catalog's micro
+// sign (µmol/l, U+00B5). Seen failing 2026-09-12 on every BioLAB candidate.
+const unitKey = (u: string | null | undefined) => (canonicalizeUnit(u) ?? "").toLowerCase().replace(/\s+/g, "");
 
 /** Below this the names are too different to present as a clean suggestion. */
 const NAME_SIM_FLOOR = 0.45;
@@ -268,16 +314,54 @@ export function suggestMappings(
   stats: Map<string, Observed>,
   topN = 3,
 ): Candidate[] {
+  const out: Candidate[] = [];
+  for (const a of registry.analytes.values()) {
+    const c = scoreCandidate(analyte, a, stats);
+    // Name similarity is a necessary condition, not just another contributor.
+    //
+    // Unit and interval agreement can otherwise outvote a completely unrelated
+    // name: homocysteine (5-15 µmol/l) and total bilirubin (3-21 µmol/l) share
+    // a unit and overlap substantially, which scored total bilirubin as a
+    // clean suggestion for homocysteine with no warning at all. Two clicks and
+    // one analyte's history becomes another's, looking entirely believable.
+    if (!c || c.nameSim < NAME_SIM_CUTOFF) continue;
+    // Select on name similarity, rank on the full score.
+    //
+    // Filtering on the final score would hide contradicted candidates
+    // entirely, and "no similar analyte found" is less useful to a clinician
+    // than "this one looks similar, and here is why it is wrong". They stay
+    // visible, ranked last and marked.
+    if (c.nameSim >= NAME_SIM_FLOOR || c.score >= 0.45) out.push(c);
+  }
+  out.sort((x, y) => y.score - x.score);
+  return out.slice(0, topN);
+}
+
+/**
+ * One analyte as a candidate for one unmapped name: the evidence, scored.
+ *
+ * `suggestMappings` runs this over the whole registry and keeps the names
+ * that look alike. It is exported on its own for the candidate a model
+ * named: "S_Na" and "sodik" share no bigram, so the suggester would never
+ * offer it, but the unit, interval, material and magnitude checks apply to
+ * it exactly as to any other — and it is those, not the model, that decide
+ * whether it can be applied without a click (`verdictOf`).
+ */
+export function scoreCandidate(analyte: UnmappedAnalyte, a: AnalyteDef, stats: Map<string, Observed>): Candidate | null {
   const key = normKey(analyte.rawName);
-  if (!key) return [];
+  if (!key) return null;
   const ru = unitKey(analyte.unitRaw);
+  // Dimensionless folds to "" — the same "" as a cell the lab left empty. Only
+  // the second means "nothing to compare": a printed "-" or "1" against g/l
+  // is a mismatch the screen must say, and against a dimensionless catalog
+  // entry (hematocrit, an index) it is agreement.
+  const unitPrinted = (analyte.unitRaw ?? "").trim() !== "";
   const values = analyte.occurrences.map((o) => o.value).filter((v): v is number => v !== null);
   const meanV = values.length ? values.reduce((s, v) => s + v, 0) / values.length : null;
 
-  const out: Candidate[] = [];
-  for (const a of registry.analytes.values()) {
+  {
     const keys = [a.canonicalId, a.displayNameCs, ...a.synonyms].map(normKey).filter(Boolean);
-    if (keys.length === 0) continue;
+    if (keys.length === 0) return null;
 
     const nameSim = Math.max(...keys.map((k) => similarity(key, k)));
     let score = nameSim;
@@ -289,7 +373,7 @@ export function suggestMappings(
     const observed = stats.get(a.canonicalId) ?? null;
     const candUnit = unitKey(a.canonicalUnit) || unitKey(observed?.unit);
     let unitMatch: boolean | null = null;
-    if (ru && candUnit) {
+    if (unitPrinted && (candUnit || a.canonicalUnit === "")) {
       unitMatch =
         ru === candUnit || Object.keys(a.unitConversions).some((u) => unitKey(u) === ru);
       score += unitMatch ? 0.2 : -0.25;
@@ -341,24 +425,9 @@ export function suggestMappings(
       score += materialMatch ? 0.05 : -0.4;
     }
 
-    // Name similarity is a necessary condition, not just another contributor.
-    //
-    // Unit and interval agreement can otherwise outvote a completely unrelated
-    // name: homocysteine (5-15 µmol/l) and total bilirubin (3-21 µmol/l) share
-    // a unit and overlap substantially, which scored total bilirubin as a
-    // clean suggestion for homocysteine with no warning at all. Two clicks and
-    // one analyte's history becomes another's, looking entirely believable.
     const nameWeak = nameSim < NAME_SIM_FLOOR;
-    if (nameSim < NAME_SIM_CUTOFF) continue;
-
-    // Select on name similarity, rank on the full score.
-    //
-    // Filtering on the final score would hide contradicted candidates
-    // entirely, and "no similar analyte found" is less useful to a clinician
-    // than "this one looks similar, and here is why it is wrong". They stay
-    // visible, ranked last and marked.
-    if (nameSim >= 0.45 || score >= 0.45) {
-      out.push({
+    {
+      return {
         canonicalId: a.canonicalId,
         displayName: a.displayNameCs,
         score,
@@ -385,11 +454,9 @@ export function suggestMappings(
         canonicalUnit: a.canonicalUnit,
         observed,
         incomingRange: valueOk === false ? incomingRange : null,
-      });
+      };
     }
   }
-  out.sort((x, y) => y.score - x.score);
-  return out.slice(0, topN);
 }
 
 /**
@@ -418,10 +485,21 @@ export interface Signal {
   detail: string;
 }
 
+/**
+ * How the candidate was named. By the suggester, the printed name's
+ * similarity to the catalog's is evidence like any other, and a weak one
+ * contradicts. By a model, the name is the one thing it was asked *because*
+ * it knows — "S_Na" and "sodik" share no bigram — so similarity is not
+ * counted, and the unit, interval, material and magnitude decide alone.
+ */
+export interface VerdictOptions {
+  nameByModel?: boolean;
+}
+
 /** A candidate contradicted by name, unit, material, interval or magnitude. */
-export function isImplausible(c: Candidate): boolean {
+export function isImplausible(c: Candidate, opts: VerdictOptions = {}): boolean {
   return (
-    c.nameWeak ||
+    (c.nameWeak && !opts.nameByModel) ||
     c.unitMatch === false ||
     c.materialMatch === false ||
     c.valueOk === false ||
@@ -432,14 +510,28 @@ export function isImplausible(c: Candidate): boolean {
   );
 }
 
-export function verdictOf(c: Candidate): Verdict {
-  if (isImplausible(c)) return "contradicted";
+export function verdictOf(c: Candidate, opts: VerdictOptions = {}): Verdict {
+  if (isImplausible(c, opts)) return "contradicted";
   // Nothing contradicts it — but "nothing known" is not the same as "checked
   // and agrees", and offering the two under one word is how a guess gets
   // accepted as a finding.
   const corroborated =
     c.rangeMatch === true || c.unitMatch === true || c.valueOk === true || c.materialMatch === true;
   return corroborated ? "recommended" : "possible";
+}
+
+/**
+ * May a model-named candidate be filed without a click?
+ *
+ * Stricter than "not contradicted": the unit must be *known to agree* — a
+ * candidate whose unit could not be compared is a guess with a label — and
+ * nothing else may disagree. The interval may be unknown (many catalog
+ * entries carry none, and a first report has no history), but where it is
+ * known it must not contradict. The sentence the screen says about what
+ * was applied is derived from exactly this condition.
+ */
+export function canApplyUnasked(c: Candidate): boolean {
+  return c.unitMatch === true && !isImplausible(c, { nameByModel: true });
 }
 
 const czRange = (r: Range | null): string =>
@@ -475,17 +567,22 @@ export const materialWithSource = (code: string, source: MaterialSource | null):
  * first-ever report and carries the heaviest weight, so it is read before the
  * value comparison that needs history to mean anything.
  */
-export function signalsOf(c: Candidate, incoming: UnmappedAnalyte): Signal[] {
+export function signalsOf(c: Candidate, incoming: UnmappedAnalyte, opts: { nameByModel?: string } = {}): Signal[] {
   const o = c.observed;
   const out: Signal[] = [];
 
+  // A name the model matched is not "similar" and is not "different": it is
+  // the model's reading, and the line says so with the model's own reason.
   out.push({
     key: "name",
     label: "Název",
-    state: c.nameWeak ? "bad" : "ok",
-    detail: c.nameWeak
-      ? "jiný název — pravděpodobně jiné vyšetření"
-      : `podobá se názvu ${c.displayName}`,
+    state: opts.nameByModel !== undefined ? "ok" : c.nameWeak ? "bad" : "ok",
+    detail:
+      opts.nameByModel !== undefined
+        ? `podle AI ${c.displayName}${opts.nameByModel ? ` — ${opts.nameByModel}` : ""}`
+        : c.nameWeak
+          ? "jiný název — pravděpodobně jiné vyšetření"
+          : `podobá se názvu ${c.displayName}`,
   });
 
   out.push({

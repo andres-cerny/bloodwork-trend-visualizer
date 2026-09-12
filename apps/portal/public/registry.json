@@ -4,7 +4,9 @@
   "displayNameCs": "Glukóza",
   "synonyms": [
    "S_Glukóza",
-   "Glukóza"
+   "Glukóza",
+   "S_Glukóza-žilní sérum",
+   "P_Glukóza-žilní plazma"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -18,7 +20,9 @@
   "displayNameCs": "Urea",
   "synonyms": [
    "S_Urea",
-   "Urea"
+   "Urea",
+   "S_Močovina",
+   "Močovina"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -32,7 +36,8 @@
   "displayNameCs": "Kreatinin",
   "synonyms": [
    "S_Kreatinin",
-   "Kreatinin"
+   "Kreatinin",
+   "S_Kreatinin (enzymat.)"
   ],
   "canonicalUnit": "µmol/l",
   "unitConversions": {},
@@ -48,7 +53,9 @@
    "xxx_eGF (CKD-EPI)",
    "eGF (CKD-EPI)",
    "eGFR",
-   "odhad GF (CKD-EPI)"
+   "odhad GF (CKD-EPI)",
+   "Odhad glomerulární filtrace CKD-EPI",
+   "Odhad glomerulární filtrace (eGFR) - CKD-EPI"
   ],
   "canonicalUnit": "ml/s/1,73 m2",
   "unitConversions": {},
@@ -90,7 +97,8 @@
   "canonicalId": "bilirubin_konjugovany",
   "displayNameCs": "Bilirubin konjugovaný",
   "synonyms": [
-   "S_Bilirubin konjugovaný"
+   "S_Bilirubin konjugovaný",
+   "S_Bilirubin konjug."
   ],
   "canonicalUnit": "µmol/l",
   "unitConversions": {},
@@ -328,7 +336,8 @@
   "displayNameCs": "Sodík",
   "synonyms": [
    "S_Sodík",
-   "Sodík"
+   "Sodík",
+   "S_Na"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -342,7 +351,8 @@
   "displayNameCs": "Draslík",
   "synonyms": [
    "S_Draslík",
-   "Draslík"
+   "Draslík",
+   "S_K"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -356,7 +366,8 @@
   "displayNameCs": "Chloridy",
   "synonyms": [
    "S_Chloridy",
-   "Chloridy"
+   "Chloridy",
+   "S_Cl"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -371,7 +382,8 @@
   "synonyms": [
    "S_Ca celkový",
    "Vápník",
-   "Ca celkový"
+   "Ca celkový",
+   "S_Ca"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -385,7 +397,8 @@
   "displayNameCs": "Hořčík",
   "synonyms": [
    "S_Hořčík",
-   "Hořčík"
+   "Hořčík",
+   "S_Mg"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -411,7 +424,8 @@
    "S_P anorganický",
    "Fosfor",
    "P anorganický",
-   "Fosfor anorganický"
+   "Fosfor anorganický",
+   "S_P"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -424,7 +438,8 @@
   "canonicalId": "zinek",
   "displayNameCs": "Zinek",
   "synonyms": [
-   "S_Zinek"
+   "S_Zinek",
+   "S_Zn"
   ],
   "canonicalUnit": "µmol/l",
   "unitConversions": {},
@@ -436,7 +451,8 @@
   "synonyms": [
    "S_Cholesterol",
    "Cholesterol celkový",
-   "Cholesterol"
+   "Cholesterol",
+   "S_Cholesterol celk."
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -494,7 +510,8 @@
   "displayNameCs": "non-HDL cholesterol",
   "synonyms": [
    "S_Výpočet non-HDL",
-   "S_Non-HDL cholesterol-výp."
+   "S_Non-HDL cholesterol-výp.",
+   "V_Non-HDL cholesterol (CHOL-HDL)"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -505,7 +522,8 @@
   "displayNameCs": "Železo",
   "synonyms": [
    "S_Železo",
-   "Železo"
+   "Železo",
+   "S_Fe"
   ],
   "canonicalUnit": "µmol/l",
   "unitConversions": {},
@@ -544,10 +562,13 @@
    "S_Saturace Trf",
    "S_Sat.transferinu (Fe,Trf)",
    "Saturace transf.-výp",
-   "Saturace transferinu železem"
+   "Saturace transferinu železem",
+   "V_Transferin - saturace"
   ],
   "canonicalUnit": "%",
-  "unitConversions": {},
+  "unitConversions": {
+   "": 100.0
+  },
   "referenceRange": null
  },
  {
@@ -634,7 +655,8 @@
    "S_Vitamin D celkový",
    "#S_25-OH vitamin D celkový",
    "25-OH vitamin D",
-   "25-hydroxyvitamin D"
+   "25-hydroxyvitamin D",
+   "S_Vitamin D-25OH"
   ],
   "canonicalUnit": "nmol/l",
   "unitConversions": {},
@@ -1037,7 +1059,8 @@
   "displayNameCs": "Neutrofily",
   "synonyms": [
    "B_Neutrofily",
-   "Granulocyty"
+   "Granulocyty",
+   "B_Neutrofily - relativně"
   ],
   "canonicalUnit": "%",
   "unitConversions": {
@@ -1050,7 +1073,8 @@
   "displayNameCs": "Lymfocyty",
   "synonyms": [
    "B_Lymfocyty",
-   "Lymfocyty"
+   "Lymfocyty",
+   "B_Lymfocyty - relativně"
   ],
   "canonicalUnit": "%",
   "unitConversions": {
@@ -1063,7 +1087,8 @@
   "displayNameCs": "Monocyty",
   "synonyms": [
    "B_Monocyty",
-   "Monocyty"
+   "Monocyty",
+   "B_Monocyty - relativně"
   ],
   "canonicalUnit": "%",
   "unitConversions": {
@@ -1078,7 +1103,8 @@
    "B_Eosinofily",
    "B_Eozinofily",
    "B_Eozinofily.",
-   "Eozinofily"
+   "Eozinofily",
+   "B_Eozinofily - relativně"
   ],
   "canonicalUnit": "%",
   "unitConversions": {
@@ -1093,7 +1119,8 @@
    "B_Basofily",
    "B_Bazofily",
    "B_Bazofily.",
-   "Bazofily"
+   "Bazofily",
+   "B_Bazofily - relativně"
   ],
   "canonicalUnit": "%",
   "unitConversions": {
@@ -1107,7 +1134,8 @@
   "synonyms": [
    "B_Neutrofily #",
    "Gra granulocyty",
-   "Neutrofily-abs"
+   "Neutrofily-abs",
+   "B_Neutrofily - abs.počet"
   ],
   "canonicalUnit": "10^9/l",
   "unitConversions": {},
@@ -1119,7 +1147,8 @@
   "synonyms": [
    "B_Lymfocyty #",
    "Lym lymfocyty",
-   "Lymfocyty-abs"
+   "Lymfocyty-abs",
+   "B_Lymfocyty - abs.počet"
   ],
   "canonicalUnit": "10^9/l",
   "unitConversions": {},
@@ -1131,7 +1160,8 @@
   "synonyms": [
    "B_Monocyty #",
    "Mon monocyty",
-   "Monocyty-abs"
+   "Monocyty-abs",
+   "B_Monocyty - abs.počet"
   ],
   "canonicalUnit": "10^9/l",
   "unitConversions": {},
@@ -1142,7 +1172,8 @@
   "displayNameCs": "Eosinofily (absolutní)",
   "synonyms": [
    "B_Eosinofily #",
-   "Eozinofily-abs"
+   "Eozinofily-abs",
+   "B_Eozinofily - abs.počet"
   ],
   "canonicalUnit": "10^9/l",
   "unitConversions": {},
@@ -1153,7 +1184,8 @@
   "displayNameCs": "Basofily (absolutní)",
   "synonyms": [
    "B_Basofily #",
-   "Bazofily-abs"
+   "Bazofily-abs",
+   "B_Bazofily - abs.počet"
   ],
   "canonicalUnit": "10^9/l",
   "unitConversions": {},
@@ -1163,7 +1195,8 @@
   "canonicalId": "egfr_mdrd",
   "displayNameCs": "eGFR (MDRD)",
   "synonyms": [
-   "odhad GF (MDRD)"
+   "odhad GF (MDRD)",
+   "Odhad glomerulární filtrace MDRD"
   ],
   "canonicalUnit": "ml/s/1,73 m2",
   "unitConversions": {},
@@ -1173,7 +1206,8 @@
   "canonicalId": "iga",
   "displayNameCs": "IgA",
   "synonyms": [
-   "IgA"
+   "IgA",
+   "S_IgA celkové"
   ],
   "canonicalUnit": "g/l",
   "unitConversions": {},
@@ -1183,7 +1217,8 @@
   "canonicalId": "igg",
   "displayNameCs": "IgG",
   "synonyms": [
-   "IgG"
+   "IgG",
+   "S_IgG celkové"
   ],
   "canonicalUnit": "g/l",
   "unitConversions": {},
@@ -1193,7 +1228,8 @@
   "canonicalId": "igm",
   "displayNameCs": "IgM",
   "synonyms": [
-   "IgM"
+   "IgM",
+   "S_IgM celkové"
   ],
   "canonicalUnit": "g/l",
   "unitConversions": {},
@@ -1254,7 +1290,8 @@
   "displayNameCs": "Index aterogenity",
   "synonyms": [
    "Index aterogenity",
-   "Index aterogenity-výp."
+   "Index aterogenity-výp.",
+   "V_Aterogenní index (CHOL/HDL)"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -1274,7 +1311,8 @@
   "canonicalId": "vapnik_ionizovany",
   "displayNameCs": "Vápník ionizovaný",
   "synonyms": [
-   "S_Vápník ioniz.-výpočet"
+   "S_Vápník ioniz.-výpočet",
+   "V_Ca ionizované - výpočet"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -1284,7 +1322,8 @@
   "canonicalId": "vapnik_korigovany",
   "displayNameCs": "Vápník korigovaný",
   "synonyms": [
-   "S_Vápník korig.-výpočet"
+   "S_Vápník korig.-výpočet",
+   "V_Ca korigované - výpočet"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -1304,7 +1343,8 @@
   "canonicalId": "hemolyza_index",
   "displayNameCs": "Index hemolýzy",
   "synonyms": [
-   "Hemolýza-index"
+   "Hemolýza-index",
+   "Hemolýza"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -1314,7 +1354,8 @@
   "canonicalId": "ikterita_index",
   "displayNameCs": "Index ikterity",
   "synonyms": [
-   "Ikterita-index"
+   "Ikterita-index",
+   "Ikterita"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -1324,9 +1365,384 @@
   "canonicalId": "chyloza_index",
   "displayNameCs": "Index chylozity",
   "synonyms": [
-   "Chylóza-index"
+   "Chylóza-index",
+   "Chylozita"
   ],
   "canonicalUnit": "",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "apolipoprotein_a1",
+  "displayNameCs": "Apolipoprotein A-I",
+  "synonyms": [
+   "S_Apolipoprotein AI",
+   "Apolipoprotein A-I",
+   "Apo A-I"
+  ],
+  "canonicalUnit": "g/l",
+  "unitConversions": {},
+  "referenceRange": [
+   1.05,
+   2.1
+  ]
+ },
+ {
+  "canonicalId": "fib4",
+  "displayNameCs": "FIB-4 index",
+  "synonyms": [
+   "Fibrosis-4 (FIB-4) Index",
+   "FIB-4"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "lipaza",
+  "displayNameCs": "Lipáza",
+  "synonyms": [
+   "S_Lipáza",
+   "Lipáza"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {},
+  "referenceRange": [
+   0,
+   1.1
+  ]
+ },
+ {
+  "canonicalId": "amylaza_pankreaticka",
+  "displayNameCs": "Amyláza pankreatická",
+  "synonyms": [
+   "S_Amyláza pankreatická",
+   "Pankreatická amyláza"
+  ],
+  "canonicalUnit": "µkat/l",
+  "unitConversions": {},
+  "referenceRange": [
+   0,
+   0.9
+  ]
+ },
+ {
+  "canonicalId": "cystatin_c",
+  "displayNameCs": "Cystatin C",
+  "synonyms": [
+   "S_Cystatin C"
+  ],
+  "canonicalUnit": "mg/l",
+  "unitConversions": {},
+  "referenceRange": [
+   0.5,
+   1.0
+  ]
+ },
+ {
+  "canonicalId": "ca_125",
+  "displayNameCs": "CA 125",
+  "synonyms": [
+   "S_CA 125",
+   "CA 125",
+   "CA-125"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {
+   "kIU/l": 1.0
+  },
+  "referenceRange": [
+   0,
+   35
+  ]
+ },
+ {
+  "canonicalId": "ca_19_9",
+  "displayNameCs": "CA 19-9",
+  "synonyms": [
+   "S_CA 19-9",
+   "CA 19-9"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {
+   "kIU/l": 1.0
+  },
+  "referenceRange": [
+   0,
+   37
+  ]
+ },
+ {
+  "canonicalId": "ca_15_3",
+  "displayNameCs": "CA 15-3",
+  "synonyms": [
+   "S_CA 15-3",
+   "CA 15-3"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {
+   "kIU/l": 1.0
+  },
+  "referenceRange": [
+   0,
+   31
+  ]
+ },
+ {
+  "canonicalId": "ca_72_4",
+  "displayNameCs": "CA 72-4",
+  "synonyms": [
+   "S_CA 72-4",
+   "CA 72-4"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {
+   "kIU/l": 1.0
+  },
+  "referenceRange": [
+   0,
+   7
+  ]
+ },
+ {
+  "canonicalId": "cea",
+  "displayNameCs": "CEA",
+  "synonyms": [
+   "S_CEA",
+   "CEA"
+  ],
+  "canonicalUnit": "µg/l",
+  "unitConversions": {},
+  "referenceRange": [
+   0,
+   5
+  ]
+ },
+ {
+  "canonicalId": "t3_celkovy",
+  "displayNameCs": "T3 celkový",
+  "synonyms": [
+   "S_T3 celkový",
+   "T3 celkový"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {},
+  "referenceRange": [
+   1.2,
+   3.1
+  ]
+ },
+ {
+  "canonicalId": "t4_celkovy",
+  "displayNameCs": "T4 celkový",
+  "synonyms": [
+   "S_T4 celkový",
+   "T4 celkový"
+  ],
+  "canonicalUnit": "nmol/l",
+  "unitConversions": {},
+  "referenceRange": [
+   66,
+   181
+  ]
+ },
+ {
+  "canonicalId": "prolaktin",
+  "displayNameCs": "Prolaktin",
+  "synonyms": [
+   "S_Prolaktin",
+   "Prolaktin"
+  ],
+  "canonicalUnit": "mU/l",
+  "unitConversions": {},
+  "referenceRange": [
+   100,
+   500
+  ]
+ },
+ {
+  "canonicalId": "parathormon",
+  "displayNameCs": "Parathormon (PTH)",
+  "synonyms": [
+   "S_biointaktní 1-84 parathormon",
+   "S_Parathormon",
+   "PTH"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {},
+  "referenceRange": [
+   1.6,
+   6.9
+  ]
+ },
+ {
+  "canonicalId": "revmatoidni_faktor",
+  "displayNameCs": "Revmatoidní faktor",
+  "synonyms": [
+   "S_Revmatoidní faktor",
+   "Revmatoidní faktor"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {
+   "kIU/l": 1.0
+  },
+  "referenceRange": [
+   0,
+   20
+  ]
+ },
+ {
+  "canonicalId": "dao",
+  "displayNameCs": "Diaminooxidáza (DAO)",
+  "synonyms": [
+   "DAO (diaminooxidáza) ELISA",
+   "S_DAO",
+   "DAO"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_helicobacter_iga",
+  "displayNameCs": "Anti-Helicobacter pylori IgA",
+  "synonyms": [
+   "S_Anti-Helicobacter p. IgA (ELISA)"
+  ],
+  "canonicalUnit": "IP",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_helicobacter_igg",
+  "displayNameCs": "Anti-Helicobacter pylori IgG",
+  "synonyms": [
+   "S_Anti-Helicobacter p. IgG (ELISA)"
+  ],
+  "canonicalUnit": "RU/ml",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "ag_aspergillus",
+  "displayNameCs": "Aspergillus fumigatus antigen",
+  "synonyms": [
+   "S_Ag-A.fumigatus"
+  ],
+  "canonicalUnit": "IP",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_candida_igg",
+  "displayNameCs": "Anti-Candida albicans IgG",
+  "synonyms": [
+   "S_Anti-C.Albicans IgG"
+  ],
+  "canonicalUnit": "IP",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_tetanus_igg",
+  "displayNameCs": "Anti-tetanus toxoid IgG",
+  "synonyms": [
+   "S_Anti-Tetanus toxoid IgG (postvakcinační)"
+  ],
+  "canonicalUnit": "IU/ml",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_hav_igg",
+  "displayNameCs": "Anti-HAV IgG",
+  "synonyms": [
+   "S_Anti-HAV IgG"
+  ],
+  "canonicalUnit": "arb.j.",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_hbs",
+  "displayNameCs": "Anti-HBs",
+  "synonyms": [
+   "S_Anti HBs",
+   "Anti-HBs"
+  ],
+  "canonicalUnit": "U/l",
+  "unitConversions": {
+   "IU/l": 1.0
+  },
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_hsv_igg",
+  "displayNameCs": "Anti-HSV 1+2 IgG",
+  "synonyms": [
+   "S_Anti-HSV 1+2 IgG (CLIA)"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_hsv_igm",
+  "displayNameCs": "Anti-HSV 1+2 IgM",
+  "synonyms": [
+   "S_Anti-HSV 1+2 IgM (CLIA)"
+  ],
+  "canonicalUnit": "",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_borrelia_igg",
+  "displayNameCs": "Anti-Borrelia IgG",
+  "synonyms": [
+   "S_Anti Borrelia IgG"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_borrelia_igm",
+  "displayNameCs": "Anti-Borrelia IgM",
+  "synonyms": [
+   "S_Anti Borrelia IgM"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_ebv_ebna_igg",
+  "displayNameCs": "Anti-EBV EBNA IgG",
+  "synonyms": [
+   "S_Anti-EBV/EBNA IgG"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_ebv_vca_igg",
+  "displayNameCs": "Anti-EBV VCA IgG",
+  "synonyms": [
+   "S_Anti-EBV/VCA IgG"
+  ],
+  "canonicalUnit": "kU/l",
+  "unitConversions": {},
+  "referenceRange": null
+ },
+ {
+  "canonicalId": "anti_ebv_vca_igm",
+  "displayNameCs": "Anti-EBV VCA IgM",
+  "synonyms": [
+   "S_Anti-EBV/VCA IgM"
+  ],
+  "canonicalUnit": "IP",
   "unitConversions": {},
   "referenceRange": null
  }

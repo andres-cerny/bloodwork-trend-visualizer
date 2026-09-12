@@ -25,6 +25,7 @@ describe("reading schema.sql", () => {
       "login_failures",
       "report_pages",
       "reports",
+      "synonyms",
       "users",
     ]);
   });
@@ -128,7 +129,7 @@ describe("reading wrangler's reply", () => {
   it("refuses a reply it cannot match to its questions", () => {
     // Fewer sets than statements, or no array at all, is a schema that was
     // not read — never a pass.
-    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 6 result sets, got 5/);
+    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 7 result sets, got 6/);
     expect(() => columnsFromResultSets(tables, { error: "SQLITE_AUTH" })).toThrow(/got object/);
   });
 });

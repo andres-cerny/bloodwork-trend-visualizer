@@ -46,6 +46,18 @@ def norm_key(name: str) -> str:
     return s
 
 
+# The bracketed abbreviation some LIS print after their own long form:
+# "B_Střed.obj.erytr. [MCV]". Trailing only, and only a short code.
+_TRAILING_ABBREVIATION = re.compile(r"\[([a-z0-9]{2,6})\]\s*$", re.IGNORECASE)
+
+
+def abbreviation_key(name: str) -> Optional[str]:
+    """The second key a printed name is looked up under: its trailing
+    bracketed abbreviation ("mcv"), or None. The full key is tried first."""
+    m = _TRAILING_ABBREVIATION.search((name or "").strip())
+    return m.group(1).lower() if m else None
+
+
 class Registry:
     """Loaded analyte registry with a normalized synonym index."""
 
@@ -53,12 +65,22 @@ class Registry:
         self.analytes: dict[str, AnalyteDef] = {a.canonical_id: a for a in analytes}
         self._index: dict[str, str] = {}
         for a in analytes:
-            names = [a.canonical_id, a.display_name_cs, *a.synonyms]
-            for n in names:
-                self._index[norm_key(n)] = a.canonical_id
+            self._index_names(a)
+
+    def _index_names(self, a: AnalyteDef) -> None:
+        for n in [a.canonical_id, a.display_name_cs, *a.synonyms]:
+            self._index[norm_key(n)] = a.canonical_id
+            # A synonym that carries the bracket teaches the bare code too.
+            abbr = abbreviation_key(n)
+            if abbr and abbr not in self._index:
+                self._index[abbr] = a.canonical_id
 
     def match(self, raw_name: str) -> Optional[str]:
-        return self._index.get(norm_key(raw_name))
+        cid = self._index.get(norm_key(raw_name))
+        if cid is None:
+            abbr = abbreviation_key(raw_name)
+            cid = self._index.get(abbr) if abbr else None
+        return cid
 
     def get(self, canonical_id: str) -> Optional[AnalyteDef]:
         return self.analytes.get(canonical_id)
@@ -78,8 +100,7 @@ class Registry:
 
     def add_analyte(self, analyte: AnalyteDef) -> None:
         self.analytes[analyte.canonical_id] = analyte
-        for n in [analyte.canonical_id, analyte.display_name_cs, *analyte.synonyms]:
-            self._index[norm_key(n)] = analyte.canonical_id
+        self._index_names(analyte)
 
     def to_list(self) -> list[dict]:
         return [a.to_dict() for a in self.analytes.values()]

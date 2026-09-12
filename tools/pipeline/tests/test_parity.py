@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.matching import norm_key  # noqa: E402
+from src.matching import abbreviation_key, norm_key  # noqa: E402
 from src.normalize import (  # noqa: E402
     canonicalize_unit,
     compute_flag,
@@ -62,6 +62,9 @@ def main() -> int:
     # came back as "anti" and S,P-glukóza as null (2026-09-06).
     failures += _check("material_prefix", material_prefix, CASES["material_prefix"])
     failures += _check("norm_key", norm_key, CASES["norm_key"])
+    # Guard seen failing 2026-09-12: BioLAB's "B_Střed.obj.erytr. [MCV]" met
+    # no synonym until the bracket became a second key.
+    failures += _check("abbreviation_key", abbreviation_key, CASES["abbreviation_key"])
 
     total = sum(len(v) for k, v in CASES.items() if not k.startswith("_"))
     if failures:
