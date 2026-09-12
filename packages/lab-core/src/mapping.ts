@@ -13,7 +13,7 @@
  */
 import type { LabReport, Measurement } from "./models";
 import { normKey, type Registry } from "./registry";
-import { materialPrefix, materialsCompatible } from "./normalize";
+import { canonicalizeUnit, isBloodMaterial, materialPrefix, materialsCompatible } from "./normalize";
 import { prettyUnit } from "./czech";
 import { printedMaterial } from "./pdf/rows";
 
@@ -179,6 +179,22 @@ export function findUnmapped(reports: LabReport[]): UnmappedAnalyte[] {
   return [...seen.values()];
 }
 
+/**
+ * Could this name ever appear in a trend, if it were mapped?
+ *
+ * Two kinds cannot, and asking the reader to file them is noise with a cost:
+ * a urine row (`U_pH`, the strip and the sediment) is not a blood test — a
+ * real report from one lab carried 22 of them, padding a "78 names are not
+ * shown" banner — and a name that never carried a number (a stage grade, a
+ * "negativní" serology) has nothing to plot under any heading. A censored
+ * value ("<1,0") counts as no number, which is what the trend would say too.
+ * Neither is dropped: both stay in Ověření beside their document.
+ */
+export function trendable(a: UnmappedAnalyte): boolean {
+  if (a.material !== null && !isBloodMaterial(a.material)) return false;
+  return a.occurrences.some((o) => o.value !== null);
+}
+
 /** Per-canonical-id evidence from measurements that are already mapped. */
 export function observedStats(reports: LabReport[]): Map<string, Observed> {
   const acc = new Map<
@@ -255,7 +271,10 @@ function similarity(a: string, b: string): number {
   return (2 * hits) / (a.length - 1 + b.length - 1);
 }
 
-const unitKey = (u: string | null | undefined) => (u ?? "").toLowerCase().replace(/\s+/g, "");
+// Canonicalised first, as the Python twin does: a lab that prints Greek mu
+// (μmol/l, U+03BC) must not be told its unit differs from the catalog's micro
+// sign (µmol/l, U+00B5). Seen failing 2026-09-12 on every BioLAB candidate.
+const unitKey = (u: string | null | undefined) => (canonicalizeUnit(u) ?? "").toLowerCase().replace(/\s+/g, "");
 
 /** Below this the names are too different to present as a clean suggestion. */
 const NAME_SIM_FLOOR = 0.45;
@@ -271,6 +290,11 @@ export function suggestMappings(
   const key = normKey(analyte.rawName);
   if (!key) return [];
   const ru = unitKey(analyte.unitRaw);
+  // Dimensionless folds to "" — the same "" as a cell the lab left empty. Only
+  // the second means "nothing to compare": a printed "-" or "1" against g/l
+  // is a mismatch the screen must say, and against a dimensionless catalog
+  // entry (hematocrit, an index) it is agreement.
+  const unitPrinted = (analyte.unitRaw ?? "").trim() !== "";
   const values = analyte.occurrences.map((o) => o.value).filter((v): v is number => v !== null);
   const meanV = values.length ? values.reduce((s, v) => s + v, 0) / values.length : null;
 
@@ -289,7 +313,7 @@ export function suggestMappings(
     const observed = stats.get(a.canonicalId) ?? null;
     const candUnit = unitKey(a.canonicalUnit) || unitKey(observed?.unit);
     let unitMatch: boolean | null = null;
-    if (ru && candUnit) {
+    if (unitPrinted && (candUnit || a.canonicalUnit === "")) {
       unitMatch =
         ru === candUnit || Object.keys(a.unitConversions).some((u) => unitKey(u) === ru);
       score += unitMatch ? 0.2 : -0.25;

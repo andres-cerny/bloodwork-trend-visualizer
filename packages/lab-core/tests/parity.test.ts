@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  abbreviationKey,
   canonicalizeUnit,
   computeFlag,
   materialPrefix,
@@ -34,6 +35,7 @@ const CASES = JSON.parse(
   compute_flag: Array<[number | null, number | null, number | null, string]>;
   material_prefix: Array<[string, string | null]>;
   norm_key: Array<[string, string]>;
+  abbreviation_key: Array<[string, string | null]>;
 };
 
 describe("parity with src/normalize.py", () => {
@@ -93,6 +95,14 @@ describe("parity with src/normalize.py", () => {
     }
   });
 
+  // Guard seen failing 2026-09-12: BioLAB's "B_Střed.obj.erytr. [MCV]" met
+  // no synonym until the bracket became a second key.
+  it("abbreviationKey", () => {
+    for (const [input, expected] of CASES.abbreviation_key) {
+      expect(abbreviationKey(input), `abbreviationKey(${JSON.stringify(input)})`).toBe(expected);
+    }
+  });
+
   it("covers every case in the shared fixture", () => {
     const total =
       CASES.parse_czech_number.length +
@@ -101,9 +111,10 @@ describe("parity with src/normalize.py", () => {
       CASES.parse_range.length +
       CASES.compute_flag.length +
       CASES.material_prefix.length +
-      CASES.norm_key.length;
+      CASES.norm_key.length +
+      CASES.abbreviation_key.length;
     // Matches the count tests/test_parity.py reports, so neither side can
     // quietly stop reading part of the fixture.
-    expect(total).toBe(135);
+    expect(total).toBe(155);
   });
 });

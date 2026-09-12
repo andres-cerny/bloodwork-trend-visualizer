@@ -197,7 +197,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   // a page is only as slow as the slower model rather than their sum.
   if (stream !== true) {
     const results = await Promise.allSettled(readers.map((id) => read(id)));
-    const { status, body } = await settle(results, env, used, useText, readers.length, pair.name);
+    const { status, body } = await settle(results, env, used, useText, readers, pair.name);
     return json(body, status);
   }
 
@@ -217,7 +217,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
           read(id, (row) => void line({ type: "row", model: READER_MODEL[id], row })),
         ),
       );
-      const { status, body } = await settle(results, env, used, useText, readers.length, pair.name);
+      const { status, body } = await settle(results, env, used, useText, readers, pair.name);
       await line(status === 200 ? { type: "done", ...body } : { type: "error", ...body });
     } catch (e) {
       await line({ type: "error", error: "extraction_failed", message: String(e) });
@@ -237,13 +237,23 @@ async function settle(
   env: Env,
   used: number,
   useText: boolean,
-  readersAttempted: number,
+  readers: readonly ReaderId[],
   readersName: string,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
+  const readersAttempted = readers.length;
   let spent = 0;
   const reads = [];
-  for (const r of results) {
+  for (const [i, r] of results.entries()) {
     if (r.status !== "fulfilled") {
+      // Say which reader failed and why. Two uploads on 2026-09-12 came back
+      // with 67 rows "nepotvrzeno" because a second read was rejected here in
+      // silence, and the cause — rate limit, overload, a body that would not
+      // parse — was unknowable afterwards. The provider's message is logged,
+      // never returned (see the 502 below).
+      console.warn(
+        `reader ${readers[i] ?? i} rejected (${readersName}, ${useText ? "text" : "vision"}): ` +
+          (r.reason instanceof Error ? `${r.reason.name}: ${r.reason.message}` : String(r.reason)).slice(0, 300),
+      );
       // A call the provider billed whose body would not parse: the money is
       // gone whether or not the answer could be read, and only fulfilled reads
       // used to be priced (docs/security-review-gemini.md, finding 4).

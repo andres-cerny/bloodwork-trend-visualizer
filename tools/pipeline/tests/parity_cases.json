@@ -62,7 +62,15 @@
     ["x 1012/l", "10^12/l"],
     ["mmol/mol", "mmol/mol"],
     ["IU/ml", "IU/ml"],
-    ["mIU/l", "mIU/l"]
+    ["mIU/l", "mIU/l"],
+    ["ml/s/1,73m^2", "ml/s/1,73 m2"],
+    ["ml/s/1,73 m2", "ml/s/1,73 m2"],
+    ["ml/s/1,73m2", "ml/s/1,73 m2"],
+    ["kg/m^3", "kg/m3"],
+    ["m^2", "m2"],
+    ["1", ""],
+    ["μmol/l", "µmol/l"],
+    ["μg/l", "µg/l"]
   ],
   "_parse_range": "A printed reference range, in every notation the Czech and Slovak sheets and handbooks use. The cell often carries the unit with it (7,8 - 12,8 fl; < 50 ng/ml), so a trailing cell of at most three words is read as the unit and dropped. Two closed vocabularies say the numbers in front are NOT an interval: age bands (0 - 15 let), where the numbers are ages, and printed criteria (<1,0 negatívne), where they define a category. Anything else after the numbers only names a population (muži, nekuřáci) and the interval still stands.",
   "parse_range": [
@@ -150,6 +158,21 @@
     ["Glukóza", "glukoza"],
     ["S - Na", "s na"],
     ["B_Neutrofily #", "neutrofily abs"],
-    ["#S_Cholesterol", "cholesterol"]
+    ["#S_Cholesterol", "cholesterol"],
+    ["B_Střed.obj.erytr. [MCV]", "stred obj erytr mcv"],
+    ["B-Tromb.křivka [PDW]", "tromb krivka pdw"]
+  ],
+  "_abbreviation_key": "A trailing bracketed abbreviation is the second key a printed name is looked up under, after its full key: B_Střed.obj.erytr. [MCV] is tried as 'stred obj erytr mcv' and then as 'mcv', so every LIS that prints the bracket meets the bare MCV synonym whatever Czech long form it chose. Only a trailing [ABC] of 2-6 letters and digits counts; a bracket mid-name (Anti-HSV 1+2 IgG (CLIA) uses parentheses, not brackets) and a name without one yield null. norm_key itself stays one-to-one.",
+  "abbreviation_key": [
+    ["B_Střed.obj.erytr. [MCV]", "mcv"],
+    ["B_Barvivo erytr. [MCH]", "mch"],
+    ["B_Stř.barev.konc. [MCHC]", "mchc"],
+    ["B-Trombocyty hematokrit [PCT]", "pct"],
+    ["B_Leukocyty [WBC]", "wbc"],
+    ["B_RDW- CV", null],
+    ["S_Kreatinin (enzymat.)", null],
+    ["S_Glukóza", null],
+    ["[MCV]", "mcv"],
+    ["", null]
   ]
 }

@@ -173,6 +173,11 @@ export function materialsCompatible(a: string, b: string): boolean {
  * "plazma vs sérum" line still shows.
  */
 const BLOOD = new Set(["s", "p", "b", "pk", "pe", "sp", "fw", "k"]);
+
+/** Is this material code one of the blood compartments? Unknown is not. */
+export const isBloodMaterial = (code: string | null | undefined): boolean =>
+  !!code && code.split(",").some((c) => BLOOD.has(c));
+
 export function compartmentCompatible(a: string, b: string): boolean {
   if (materialsCompatible(a, b)) return true;
   const fam = (m: string) => m.split(",").map((x) => (BLOOD.has(x) ? "blood" : x));
@@ -195,13 +200,20 @@ export function stripMaterialPrefix(name: string): string {
 export function canonicalizeUnit(unitRaw: string | null | undefined): string | null {
   if (unitRaw === null || unitRaw === undefined) return null;
   let s = unitRaw.trim();
-  if (s === "" || s === "-" || s === "–" || s === "—") return "";
+  // "1" is the SI spelling of dimensionless, which "-" and "" already fold to:
+  // a hematocrit printed as 0,42 with unit 1 is the same 0,42 as one with "-".
+  if (s === "" || s === "-" || s === "–" || s === "—" || s === "1") return "";
   s = applyMicro(s);
   s = s.replace(MICRO_ASCII, "µ"); // ASCII fallback umol/l, ug/l → µmol/l, µg/l
   s = s.split("˄").join("^"); // modifier caret ˄ → ^
   s = s.replace(/\s*\/\s*/g, "/"); // "µmol / 24 h" → "µmol/24 h"
   s = s.replace(/\/l\b/gi, "/l"); // litre symbol case
   s = s.replace(EXPONENT, "10^$1"); // x 10⁹/l, 109/l, 10E9/l → 10^9/l
+  // The body-surface metre: ml/s/1,73m^2, ml/s/1,73 m2 and ml/s/1,73m2 are one
+  // unit, printed three ways. Only after the count exponent above, which is
+  // the one "^" that means something else.
+  s = s.replace(/m\^([23])\b/g, "m$1");
+  s = s.replace(/(\d)(m[23])\b/g, "$1 $2");
   s = s.replace(/\s+/g, " ").trim();
   return s;
 }

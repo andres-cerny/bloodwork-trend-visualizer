@@ -30,6 +30,23 @@ export function normKey(name: string): string {
   return s;
 }
 
+// The bracketed abbreviation some LIS print after their own long form:
+// "B_Střed.obj.erytr. [MCV]", "B-Trombocyty hematokrit [PCT]". Trailing only,
+// and only a short code — a bracket in the middle of a name is not one.
+const TRAILING_ABBREVIATION = /\[([a-z0-9]{2,6})\]\s*$/i;
+
+/**
+ * The second key a printed name is looked up under: its trailing bracketed
+ * abbreviation, or null when it has none. Every lab that prints the bracket
+ * meets the bare "MCV" synonym whatever Czech long form it chose, and the
+ * full key is still tried first, so a lab whose bracket says something the
+ * catalog does not know loses nothing.
+ */
+export function abbreviationKey(name: string): string | null {
+  const m = TRAILING_ABBREVIATION.exec((name || "").trim());
+  return m ? m[1].toLowerCase() : null;
+}
+
 /** A code the registry can reason about; any other prefix is no evidence. */
 const knownMaterial = (code: string | null | undefined): string | null =>
   code && MATERIAL_CODES.has(code) ? code : null;
@@ -71,6 +88,11 @@ export class Registry {
     for (const n of [a.displayNameCs, ...a.synonyms]) {
       const k = normKey(n);
       if (k) this.index.set(k, a.canonicalId);
+      // A synonym that carries the bracket teaches the bare code too, so
+      // "B_Leukocyty [WBC]" in the seed answers for a lab printing "[WBC]"
+      // after a long form the seed never saw.
+      const abbr = abbreviationKey(n);
+      if (abbr && !this.index.has(abbr)) this.index.set(abbr, a.canonicalId);
     }
   }
 
@@ -119,7 +141,8 @@ export class Registry {
    * either side is compatible, so a page that says nothing maps as before.
    */
   match(rawName: string, pageMaterial?: string | null): string | null {
-    const id = this.index.get(normKey(rawName));
+    const abbr = abbreviationKey(rawName);
+    const id = this.index.get(normKey(rawName)) ?? (abbr ? this.index.get(abbr) : undefined);
     if (!id) return null;
     const stated = knownMaterial(materialPrefix(rawName)) ?? knownMaterial(pageMaterial);
     const known = this.analytes.get(id)?.material;

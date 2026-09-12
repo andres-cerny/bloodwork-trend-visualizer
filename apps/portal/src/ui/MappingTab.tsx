@@ -30,6 +30,7 @@ import {
   observedStats,
   signalsOf,
   suggestMappings,
+  trendable,
   verdictOf,
   type Candidate,
   type Signal,
@@ -604,7 +605,7 @@ export default function MappingTab({
   onDeleteParameter,
   onShowSource,
 }: Props) {
-  const unmapped = useMemo(() => findUnmapped(reports), [reports]);
+  const unmapped = useMemo(() => findUnmapped(reports).filter(trendable), [reports]);
   const stats = useMemo(() => observedStats(reports), [reports]);
   /** Names the reader chose to leave alone, kept out of the way but findable. */
   const [deferred, setDeferred] = useState<string[]>([]);

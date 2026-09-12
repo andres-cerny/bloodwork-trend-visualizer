@@ -572,3 +572,24 @@ describe("material from the heading a row sits under", () => {
     expect(sig.detail).toContain("moč (podle sloupce)");
   });
 });
+
+describe("the unit a lab prints", () => {
+  // Guard seen failing 2026-09-12: BioLAB prints Greek mu (μmol/l, U+03BC)
+  // and every correct candidate was "contradicted" by "μmol/l vs µmol/l".
+  it("Greek mu is the catalog's micro sign, not a different unit", () => {
+    const reports = [report("r1", "2024-01-01", [m("S_Kreatinin (enzymat.)", "70", "\u03bcmol/l", "49,0 - 90,0", null)])];
+    const [u] = findUnmapped(reports);
+    const [c] = suggestMappings(u, new Registry([def("kreatinin", "Kreatinin", "\u00b5mol/l", ["S_Kreatinin"], [62, 110])]), observedStats(reports), 5);
+    expect(c.unitMatch).toBe(true);
+    expect(verdictOf(c)).toBe("recommended");
+  });
+
+  it("a printed dimensionless marker agrees with a dimensionless entry and contradicts g/l", () => {
+    const reports = [report("r1", "2024-01-01", [m("V_Aterogenní index (CHOL/HDL)", "3,1", "1", "0,00 - 5,00", null)])];
+    const [u] = findUnmapped(reports);
+    const reg = new Registry([def("index_aterogenity", "Index aterogenity", "", ["Index aterogenity"]), def("albumin", "Albumin", "g/l", ["Aterogenní albumin"])]);
+    const cands = suggestMappings(u, reg, observedStats(reports), 5);
+    expect(cands.find((c) => c.canonicalId === "index_aterogenity")?.unitMatch).toBe(true);
+    expect(cands.find((c) => c.canonicalId === "albumin")?.unitMatch).toBe(false);
+  });
+});

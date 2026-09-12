@@ -33,8 +33,10 @@ import {
   buildTrends,
   count,
   czDate,
+  findUnmapped,
   reviewOf,
   toAnalyteDef,
+  trendable,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
 import { type Budget, type Settings, deleteAccount, deleteReport, getSettings, getStatus, listReports, logout, putReport, putSettings } from "../lib/api";
@@ -341,10 +343,9 @@ export default function Portal({ email, onLogout }: Props) {
     }
   }
 
-  const unmappedNames = useMemo(
-    () => [...new Set(reports.flatMap((r) => r.measurements.filter((m) => m.canonicalId === null).map((m) => m.rawAnalyteName)))],
-    [reports],
-  );
+  // Only names a mapping could put into a trend: urine and never-numeric
+  // rows are left out of the banner and the mapping tab alike (`trendable`).
+  const unmappedNames = useMemo(() => findUnmapped(reports).filter(trendable).map((a) => a.rawName), [reports]);
   const hasData = reports.length > 0;
   const frozen = budget?.frozen ?? false;
   const sorted = useMemo(() => [...reports].sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? "")), [reports]);
