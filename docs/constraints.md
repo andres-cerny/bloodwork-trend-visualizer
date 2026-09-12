@@ -266,7 +266,7 @@ Its check reads the PDF text layer. It cannot catch an identifier that exists
 only as pixels — a stamp, a signature, a handwritten note. **Look at
 `web/public/demo/pages/` before deploying.**
 
-The portal's AI share page (`/ai/<token>`, the Sdílet s AI tab) carries
+The portal's AI share page (`/ai/<token>`, the AI konzultace tab) carries
 values, units, ranges and draw dates, and — only if the person filled it in —
 the context they wrote about themselves (sex, an age band, height, weight,
 activity, medicines, diagnoses, smoking, alcohol, a note); never a page

@@ -77,9 +77,9 @@ export default function Privacy() {
         zpracování má měsíční strop na osobu.
       </p>
 
-      <h2>Sdílet s AI — jen když chcete</h2>
+      <h2>AI konzultace — jen když chcete</h2>
       <p>
-        Na záložce Sdílet s AI si můžete vytvořit dočasný odkaz na stránku s prostým textem: vaše
+        Na záložce AI konzultace si můžete vytvořit dočasný odkaz na stránku s prostým textem: vaše
         hodnoty, jednotky, referenční meze a data odběrů, a pokud jste ho vyplnili, i kontext o vás —
         bez jména, bez e-mailu, bez obrázků stránek.
         Odkaz platí 24 hodin, kdykoli ho zrušíte, a nový nahrazuje starý. Je náhodný a nikde

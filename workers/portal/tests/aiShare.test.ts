@@ -1,5 +1,5 @@
 /**
- * Sdílet s AI: the link is a bearer key to health numbers, so the properties
+ * AI konzultace: the link is a bearer key to health numbers, so the properties
  * worth proving are the ones that bound it. Only the token's hash is stored;
  * the page answers for a live token and says one identical 404 for an
  * expired, revoked, unknown or malformed one; a new link kills the old;
