@@ -12,6 +12,8 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Flag from "./Flag";
+import SearchParam from "./SearchParam";
+import type { PickerOption } from "./AnalytePicker";
 import {
   type LabReport,
   type Measurement,
@@ -51,6 +53,19 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   const [draft, setDraft] = useState<string>("");
   const imgRef = useRef<HTMLImageElement>(null);
   const hlRef = useRef<HTMLDivElement>(null);
+  // A row picked from the search has to be seen in the table too, not only
+  // on the page: on a desktop the table is its own scroll box, and the row
+  // could be 600px below its fold. `rowJump` counts the searches, so the same
+  // row picked twice scrolls twice.
+  const rowRefs = useRef(new Map<number, HTMLTableRowElement>());
+  const [rowJump, setRowJump] = useState(0);
+  useEffect(() => {
+    if (rowJump === 0 || picked === null) return;
+    const id = requestAnimationFrame(() =>
+      rowRefs.current.get(picked)?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [rowJump, picked]);
   const [imgW, setImgW] = useState(0);
   // The image carried cursor:zoom-in and did nothing when clicked. Toggling to
   // native width (inside a scroll container) is what that cursor promises, and
@@ -152,6 +167,29 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
     setDraft(report.measurements[i].valueRaw);
   }
 
+  // The search beside "Přepsané řádky": every row of this report, by the
+  // lab's code and the readable name, the doubted ones marked — so a reader
+  // who knows which parameter they came to check does not scan 22 rows for
+  // it. A pick selects the row; if the filter was hiding it, the filter
+  // comes off, because a row the reader asked for must not stay hidden.
+  const searchOptions: PickerOption[] = report.measurements.map((m, i) => {
+    const r = review(m);
+    const name = m.canonicalId ? displayName(m.canonicalId) : m.rawAnalyteName;
+    return {
+      id: String(i),
+      label: name === m.rawAnalyteName ? name : `${name} · ${m.rawAnalyteName}`,
+      note: r.chip || undefined,
+      outOfRange: r.level !== "ok",
+    };
+  });
+  function pickSearched(id: string) {
+    const i = Number(id);
+    if (!report.measurements[i]) return;
+    if (onlyFlagged && !needsReview(review(report.measurements[i]))) setOnlyFlagged(false);
+    pick(i);
+    setRowJump((n) => n + 1);
+  }
+
   function save() {
     if (picked === null) return;
     const base = report.measurements[picked];
@@ -241,7 +279,10 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
 
       <div className={`grid2 verify${sel ? " source-first" : ""}`}>
         <div className="card table-pane">
-          <h3>Přepsané řádky</h3>
+          <div className="pane-head">
+            <h3>Přepsané řádky</h3>
+            <SearchParam options={searchOptions} onPick={pickSearched} label="Hledat parametr a vybrat řádek" />
+          </div>
           <div className="scroll-x">
             <table>
               <thead>
@@ -253,7 +294,16 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
               </thead>
               <tbody>
                 {rows.map(({ m, i }) => (
-                  <tr key={i} className="row-pick" aria-selected={picked === i} onClick={() => pick(i)}>
+                  <tr
+                    key={i}
+                    className="row-pick"
+                    aria-selected={picked === i}
+                    onClick={() => pick(i)}
+                    ref={(el) => {
+                      if (el) rowRefs.current.set(i, el);
+                      else rowRefs.current.delete(i);
+                    }}
+                  >
                     <td>
                       {m.rawAnalyteName}
                       {/* The lab's code is what to check against the page, but

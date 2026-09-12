@@ -47,6 +47,15 @@ export interface ReconcileOptions {
   expected?: number;
 }
 
+/**
+ * The number as the lab printed it, without the lab's own out-of-range
+ * marker. One reader copies the "!" beside 7,4 and the other does not, and
+ * "7,4 !" versus "7,4" is not two readings of the number — it is one reading
+ * and one transcription habit. Seen live 2026-09-12 as a doubted row a
+ * reader could not resolve, because both readings were right.
+ */
+const printedValue = (v: string): string => v.replace(/[!*]/g, "").trim();
+
 export function reconcile(reads: RawRead[], opts: ReconcileOptions = {}): Measurement[] {
   const byKey = new Map<
     string,
@@ -83,7 +92,7 @@ export function reconcile(reads: RawRead[], opts: ReconcileOptions = {}): Measur
       const existing = byKey.get(key);
       if (existing) {
         existing.models.add(read.model);
-        existing.values.add(raw.value_raw);
+        existing.values.add(printedValue(raw.value_raw));
       } else {
         byKey.set(key, {
           m: makeMeasurement({
@@ -99,7 +108,7 @@ export function reconcile(reads: RawRead[], opts: ReconcileOptions = {}): Measur
             extractedBy: read.model,
           }),
           models: new Set([read.model]),
-          values: new Set([raw.value_raw]),
+          values: new Set([printedValue(raw.value_raw)]),
         });
       }
     }

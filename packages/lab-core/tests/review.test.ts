@@ -47,6 +47,15 @@ describe("tiers", () => {
     expect(r.chip).toBe("0,61 vs 0,67 — nepotvrzeno");
   });
 
+  it("asks for the correction in the reason, and keeps the two readings", () => {
+    // Shown bare above the input, the stored fact said what the program had
+    // noticed and not what was wanted of the reader.
+    const r = reviewOf(m({ disagreement: "dvě nezávislá čtení se liší: 0,61 / 0,67" }), noRange);
+    expect(r.reason).toMatch(/^Opravte prosím nejistou hodnotu/);
+    expect(r.reason).toContain("0,61 / 0,67");
+    expect(r.reason).toContain("Potvrdit");
+  });
+
   it("marks a low-confidence transcription as unconfirmed", () => {
     expect(reviewOf(m({ confidence: "low" }), noRange).level).toBe("unconfirmed");
   });

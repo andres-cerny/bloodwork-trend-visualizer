@@ -109,7 +109,7 @@ describe("a page read by one reader when two were asked", () => {
     const [m] = reconcile([sonnet([row("S_Glukóza", "5,32")])], { expected: 2 });
     const review = reviewOf(m, noCuratedRange);
     expect(review.level).toBe("unconfirmed");
-    expect(review.reason).toBe(SECOND_READ_FAILED);
+    expect(review.reason).toContain(SECOND_READ_FAILED);
   });
 
   it("says nothing when both readers answered", () => {
@@ -159,6 +159,16 @@ describe("the two providers are indistinguishable to reconcile", () => {
     const [m] = reconcile([sonnet([row("S_Glukóza", "5,32")]), gemini([row("S_Glukóza", "5,82")])]);
     expect(m.disagreement).toBe("dvě nezávislá čtení se liší: 5,32 / 5,82");
     expect(m.disagreement).not.toMatch(/gemini|claude/i);
+  });
+
+  it("does not count the lab's own marker as a second reading", () => {
+    // One reader copies the "!" beside the number, the other leaves it out.
+    // Seen live 2026-09-12: "7,4 ! / 7,4", a doubt nobody could resolve
+    // because both readings were right.
+    const [m] = reconcile([sonnet([row("S_PIIINP", "7,4 !")]), gemini([row("S_PIIINP", "7,4")])]);
+    expect(m.disagreement).toBeNull();
+    const [n] = reconcile([sonnet([row("S_PIIINP", "7,4 *")]), gemini([row("S_PIIINP", "7,3")])]);
+    expect(n.disagreement).toBe("dvě nezávislá čtení se liší: 7,4 / 7,3");
   });
 
   it("flags a row only one vendor returned", () => {
