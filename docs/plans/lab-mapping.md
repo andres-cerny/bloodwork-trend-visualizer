@@ -119,6 +119,23 @@ Only for names the deterministic path left null, and only on a click.
 trends tabs, then deploy (`deploy:moje-krev`) and confirm the account's
 trends fill in.
 
+## Done 2026-09-12 — the numbers
+
+| step | bench on the BioLAB fixture (129 printed names) |
+|---|---|
+| baseline | 28 matched · 0 wrong · 77 unmatched · 24 left out |
+| Phase 1 (µ, `m^2`, `1`, `[ABBR]`) | 36 matched · 0 wrong · 69 unmatched |
+| Phase 2 (vocabulary + 30 new entries) | **105 matched · 0 wrong · 0 unmatched · 24 left out** |
+
+Phase 4, the mapping model, on the 93 names the *pre-Phase-2* catalog did
+not know: a subagent handed the prompt verbatim 92/93 right, 0 wrong (its
+one "unknown" was transferrin saturation printed as a fraction — right to
+hesitate); Haiku 4.5 through the API 92/93 right, 0 wrong, $0.07 for the
+run. Two things the API run taught that the subagent could not: 93 names
+in one call ran past `max_tokens` and decoded to nothing, and Haiku copied
+the whole evidence line as `raw_name` for a batch of thirty. Both are
+handled and tested (`packages/extraction/tests/map.test.ts`).
+
 ## Open, deliberately
 
 - `convertToCanonical` is declared and never called in the portal: a lab
