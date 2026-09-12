@@ -6,3 +6,8 @@ export function schemaDrift(
   declared: Map<string, string[]>,
   live: Map<string, string[]>,
 ): { missingTables: string[]; missingColumns: string[] };
+/** wrangler's one-result-set-per-PRAGMA reply, mapped onto table → columns. */
+export function columnsFromResultSets(
+  tables: string[],
+  sets: unknown,
+): Map<string, string[]>;
