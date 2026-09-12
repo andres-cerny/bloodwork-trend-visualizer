@@ -47,6 +47,7 @@ npm run dev:extract + dev:agent + dev:bloodwork    # one terminal each
 | The chat UI second pass | [docs/plans/chat-ui.md](docs/plans/chat-ui.md) |
 | The CSM pitch, planned | [docs/plans/csm-demo.md](docs/plans/csm-demo.md) |
 | Reading any lab's sheet, planned | [docs/plans/lab-adaptability.md](docs/plans/lab-adaptability.md) |
+| Mapping any lab's names, planned | [docs/plans/lab-mapping.md](docs/plans/lab-mapping.md) |
 | The portal, planned | [docs/plans/portal.md](docs/plans/portal.md) |
 | The portal going public, planned | [docs/plans/moje-krev-public.md](docs/plans/moje-krev-public.md) |
 | The AI context card, planned | [docs/plans/moje-krev-ai-context.md](docs/plans/moje-krev-ai-context.md) |
