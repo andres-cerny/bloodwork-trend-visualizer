@@ -93,18 +93,45 @@ export function schemaDrift(declared, live) {
 }
 
 /**
+ * Map wrangler's reply — one result set per `PRAGMA table_info` statement,
+ * in the order the statements were sent — onto table name → column names.
+ *
+ * A table the database has not got answers with an empty result set, and is
+ * left out of the map so `schemaDrift` reports it as a missing table. Any
+ * other shape (fewer sets than statements, no array at all) is thrown, not
+ * smoothed over: a reply that cannot be matched to its questions is a
+ * schema that was not read.
+ */
+export function columnsFromResultSets(tables, sets) {
+  if (!Array.isArray(sets) || sets.length !== tables.length) {
+    throw new Error(
+      `expected ${tables.length} result sets, got ${Array.isArray(sets) ? sets.length : typeof sets}`,
+    );
+  }
+  const out = new Map();
+  tables.forEach((t, i) => {
+    const cols = (sets[i]?.results ?? []).map((r) => r.name);
+    if (cols.length > 0) out.set(t, cols);
+  });
+  return out;
+}
+
+/**
  * The live shape of the declared tables, in one round trip.
  *
- * D1's SQL authorizer refuses `pragma_table_info()` as a table-valued
- * function — `JOIN pragma_table_info(m.name)` comes back `SQLITE_AUTH`
- * (code 7500), which reads at first like a token problem and is not one.
- * The statement form `PRAGMA table_info(t)` is allowed, so this sends one
- * per declared table in a single command; wrangler returns one result set
- * per statement, in order, and a table the database has not got returns an
- * empty one.
+ * Not one query over `sqlite_master`: the database also holds `_cf_KV`,
+ * Cloudflare's own table, which `NOT LIKE 'sqlite_%'` does not exclude, and
+ * D1 refuses `pragma_table_info` on it with `SQLITE_AUTH` (code 7500). One
+ * refused row fails the whole statement, so that query could never pass
+ * against a real D1 — whatever the token — and the failure printed beside
+ * the "needs D1 · Read" hint, which reads like a token problem and is not.
+ * Filtering it out in SQL is its own trap (`_` is a wildcard in LIKE, and
+ * ESCAPE travels badly through --command and a shell).
  *
- * Table names are interpolated, but only after `tablesFromSchema` has
- * matched them as identifiers (`[A-Za-z_]\w*`) out of our own schema.sql.
+ * So this never names a table schema.sql does not declare: one
+ * `PRAGMA table_info(t)` per declared table, in a single command. The names
+ * are interpolated, but only after `tablesFromSchema` has matched them as
+ * identifiers (`[A-Za-z_]\w*`) out of our own schema.sql.
  */
 function liveTables(tables) {
   const sql = tables.map((t) => `PRAGMA table_info(${t});`).join(" ");
@@ -116,16 +143,7 @@ function liveTables(tables) {
   // wrangler prints its banner before the JSON on some versions.
   const at = raw.indexOf("[");
   if (at < 0) throw new Error(`no JSON in wrangler output:\n${raw}`);
-  const sets = JSON.parse(raw.slice(at));
-  if (!Array.isArray(sets) || sets.length !== tables.length) {
-    throw new Error(`expected ${tables.length} result sets, got ${Array.isArray(sets) ? sets.length : typeof sets}:\n${raw}`);
-  }
-  const out = new Map();
-  tables.forEach((t, i) => {
-    const cols = (sets[i]?.results ?? []).map((r) => r.name);
-    if (cols.length > 0) out.set(t, cols);
-  });
-  return out;
+  return columnsFromResultSets(tables, JSON.parse(raw.slice(at)));
 }
 
 function main() {

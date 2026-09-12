@@ -11,7 +11,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { schemaDrift, tablesFromSchema } from "../../../tools/scripts/check-schema.mjs";
+import { columnsFromResultSets, schemaDrift, tablesFromSchema } from "../../../tools/scripts/check-schema.mjs";
 
 const SCHEMA = readFileSync(join(import.meta.dirname, "../schema.sql"), "utf-8");
 
@@ -88,5 +88,47 @@ describe("reporting drift", () => {
     // carrying it is untidy, not broken, and must not fail a deploy.
     const live = new Map([...declared, ["login_tokens", ["token_hash"]]]);
     expect(schemaDrift(declared, live)).toEqual({ missingTables: [], missingColumns: [] });
+  });
+
+  it("ignores Cloudflare's own _cf_KV, which every D1 database carries", () => {
+    // D1 refuses pragma_table_info on it (SQLITE_AUTH), so the checker must
+    // never ask about it — and if it somehow appears in the live map, it is
+    // noise, not drift.
+    const live = new Map([...declared, ["_cf_KV", ["key", "value"]]]);
+    expect(schemaDrift(declared, live)).toEqual({ missingTables: [], missingColumns: [] });
+  });
+});
+
+describe("reading wrangler's reply", () => {
+  const declared = tablesFromSchema(SCHEMA);
+  const tables = [...declared.keys()];
+  const sets = tables.map((t) => ({ results: declared.get(t)!.map((name) => ({ name })) }));
+
+  it("asks only about the tables schema.sql declares", () => {
+    // The 2026-09-12 checker queried sqlite_master and got _cf_KV back with
+    // the rest, which D1 would not describe; the whole statement failed and
+    // the check could never pass. Nothing here names a table we did not
+    // declare, so _cf_KV is never in the question.
+    expect(tables).not.toContain("_cf_KV");
+    expect(tables.every((t) => /^[A-Za-z_]\w*$/.test(t))).toBe(true);
+  });
+
+  it("maps one result set per statement back onto its table", () => {
+    expect(columnsFromResultSets(tables, sets)).toEqual(declared);
+  });
+
+  it("reads an empty result set as a table the database has not got", () => {
+    const i = tables.indexOf("login_failures");
+    const short = sets.map((s, k) => (k === i ? { results: [] } : s));
+    const live = columnsFromResultSets(tables, short);
+    expect(live.has("login_failures")).toBe(false);
+    expect(schemaDrift(declared, live).missingTables).toEqual(["login_failures"]);
+  });
+
+  it("refuses a reply it cannot match to its questions", () => {
+    // Fewer sets than statements, or no array at all, is a schema that was
+    // not read — never a pass.
+    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 6 result sets, got 5/);
+    expect(() => columnsFromResultSets(tables, { error: "SQLITE_AUTH" })).toThrow(/got object/);
   });
 });
