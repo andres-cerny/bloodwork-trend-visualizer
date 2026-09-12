@@ -20,7 +20,30 @@ that does not exist fails to deploy.** Capability workers first, shells second.
    `extract`. They are per-Worker and do not migrate.
    **`SESSION_SECRET` must be identical in both** — a session minted by the
    extractor is verified by the agent, and they only agree if the HMAC key does.
-4. `npm run test:all`.
+4. **Is the live schema ahead of nothing?** `npm run check:schema`. Deploying
+   a worker whose SQL names a column the database has not got 500s every
+   request that touches it — see below. A non-zero exit here is never
+   something to shrug past: "could not read the schema" is a failure, not a
+   pass.
+5. `npm run test:all`.
+
+## The one failure the tests cannot see
+
+On 2026-09-12 a portal deploy took login down for everyone. `db.ts` had grown
+`budget_usd` in the two statements that read an account; the migration adding
+that column had never been applied to the remote database; the commit carrying
+the query went out anyway. Every login threw `no such column` before the
+password was compared, which reaches the browser as a bare 500.
+
+`npm run test:all` was green the whole time, and always would be: the portal
+worker's tests fake D1 by dispatching on the exact SQL strings in `db.ts`, so a
+statement naming a column that exists in no database passes all of them. The
+gap is between the repo and one live database, and only that database can be
+asked. That is what `check:schema` does.
+
+**A migration is applied before the code that needs it is deployed, never
+after.** The two are one change in the wrong order, and the wrong order is an
+outage. `schema.sql` is the authority on the shape both must agree on.
 
 ## Deploy
 
