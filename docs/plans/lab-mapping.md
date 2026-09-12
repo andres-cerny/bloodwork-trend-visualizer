@@ -107,10 +107,16 @@ Only for names the deterministic path left null, and only on a click.
   with a one-line reason. Spend is priced and booked like a page.
 - The portal proxies it on the person's ledger (`POST /api/map`).
 - The mapping tab's "Nechat AI navrhnout" runs it for every pending name.
-  A suggestion that names a catalog id is **applied only if** the
-  deterministic evidence does not contradict it (`verdictOf` on that
-  candidate is not `contradicted`); otherwise it is shown as the lead with
-  the model's reason. A `NEW` proposal pre-fills the founding form.
+  A suggestion that names a catalog id is **applied only if** the unit is
+  known to agree and neither interval, material nor magnitude disagrees
+  (`canApplyUnasked`). Name similarity is *not* held against it — "S_Na" and
+  "sodik" share no bigram, and the name is the one thing the model was asked
+  because it knows (the portal audit caught the first version vetoing exactly
+  that). Otherwise it is shown on the card under "Návrh AI" with the model's
+  reason and waits for a click. A `NEW` proposal pre-fills the founding
+  form; "not blood" parks the name and the banner says so.
+- What the model applied is **this account's mapping only**, listed with a
+  way back. Teaching every account (Phase 3) takes a person's click.
 - Evaluated on the fixture first, through a subagent, against `truth.json`.
 
 ### Phase 5 — gate

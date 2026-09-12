@@ -60,6 +60,20 @@ function fakeApi(port: number): Promise<Server> {
         return json(res, {});
       case "GET /api/reports":
         return json(res, reports);
+      // Nobody has taught anything: the shipped catalog is what the sweep sees.
+      case "GET /api/synonyms":
+        return json(res, []);
+      // The mapping model, answering for the one blood name the demo leaves
+      // unmapped: a catalog id whose unit and interval agree, so the screen
+      // applies it and shows the applied banner.
+      case "POST /api/map":
+        return json(res, {
+          suggestions: [
+            { rawName: "S_Homocystein tot.", decision: "catalog", canonicalId: "homocystein", proposed: null, reason: "Zkratka tot. znamená celkový homocystein.", confidence: "high" },
+          ],
+          costUsd: 0.004,
+          budget: { spentUsd: 0.124, budgetUsd: 5, frozen: false, remainingUsd: 4.876, month: "2026-08" },
+        });
       case "POST /api/auth/logout":
         res.writeHead(204);
         return res.end();

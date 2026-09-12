@@ -266,16 +266,18 @@ export default function Portal({ email, onLogout }: Props) {
   );
 
   const acceptMapping = useCallback(
-    (rawName: string, canonicalId: string) => {
+    (rawName: string, canonicalId: string, opts: { byModel?: boolean } = {}) => {
       if (!registry) return;
       registry.addSynonym(canonicalId, rawName);
       remap(rawName, canonicalId);
       saveLearned({ ...learned, [canonicalId]: [...(learned[canonicalId] ?? []).filter((n) => n !== rawName), rawName] });
-      // Filed under a shipped analyte, the spelling is taught to every
-      // account: the next person from this laboratory needs no click. A
-      // founded parameter exists in this account alone, so its names stay
-      // here. Best effort — the account's own mapping is already saved.
-      if (isShipped(canonicalId)) teachSynonym(rawName, canonicalId).catch(() => undefined);
+      // Filed under a shipped analyte by a person, the spelling is taught to
+      // every account: the next one from this laboratory needs no click. What
+      // the mapping model filed stays this account's — nobody has looked at
+      // it yet, and a lesson for everyone takes a person. A founded parameter
+      // exists in this account alone, so its names stay here too. Best
+      // effort — the account's own mapping is already saved.
+      if (!opts.byModel && isShipped(canonicalId)) teachSynonym(rawName, canonicalId).catch(() => undefined);
     },
     [registry, remap, learned, saveLearned, isShipped],
   );
@@ -626,8 +628,9 @@ export default function Portal({ email, onLogout }: Props) {
 
         {registry && (
           <p className="muted mk-foot">
-            Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model pouze přepisuje, co je
-            vytištěno. Uloženy jsou jen hodnoty a začerněné stránky — bez jména, bez rodného čísla.
+            Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model přepisuje, co je
+            vytištěno; název přiřadí jen tam, kde jednotka a rozmezí souhlasí, a vy to vidíte.
+            Uloženy jsou jen hodnoty a začerněné stránky — bez jména, bez rodného čísla.
           </p>
         )}
       </main>

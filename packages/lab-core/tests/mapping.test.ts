@@ -12,7 +12,9 @@ import {
   materialsCompatible,
   observedStats,
   signalsOf,
+  canApplyUnasked,
   rematchReport,
+  scoreCandidate,
   suggestMappings,
   verdictOf,
   makeMeasurement,
@@ -615,5 +617,43 @@ describe("rematchReport", () => {
     const r = report("r1", "2024-01-01", [m("U_Glukóza", "0", "mmol/l", "", null)]);
     const reg = new Registry([def("glukoza", "Glukóza", "mmol/l", ["S_Glukóza"])]);
     expect(rematchReport(r, reg)).toBeNull();
+  });
+});
+
+describe("a candidate the model named", () => {
+  // Guard seen failing 2026-09-12 (portal audit): "S_Na" → sodik has bigram
+  // similarity 0, so verdictOf called it contradicted and the mapping model's
+  // headline case was never applied — and on screen it wore "nedoporučujeme"
+  // for the one thing the model knows better than a bigram.
+  it("is judged on unit, interval, material and magnitude — not on name similarity", () => {
+    const reports = [report("r1", "2024-01-01", [m("S_Na", "140", "mmol/l", "134 - 148", null)])];
+    const [u] = findUnmapped(reports);
+    const sodik = def("sodik", "Sodík", "mmol/l", ["S_Sodík"], [137, 145]);
+    const c = scoreCandidate(u, sodik, observedStats(reports))!;
+    expect(c.nameWeak).toBe(true);
+    expect(verdictOf(c)).toBe("contradicted");
+    expect(verdictOf(c, { nameByModel: true })).toBe("recommended");
+    expect(canApplyUnasked(c)).toBe(true);
+    expect(signalsOf(c, u, { nameByModel: "Na je sodík." }).find((s) => s.key === "name")).toMatchObject({ state: "ok", detail: "podle AI Sodík — Na je sodík." });
+  });
+
+  it("is still refused when the unit disagrees, is unknown, or the interval contradicts", () => {
+    const reports = [report("r1", "2024-01-01", [
+      m("S_T4 celkový", "100", "nmol/l", "66,0 - 181,0", null),
+      m("S_Foo", "1", "", "", null),
+      m("S_Bar", "5", "µmol/l", "5 - 15", null),
+    ])];
+    const [t4, foo, bar] = findUnmapped(reports);
+    const stats = observedStats(reports);
+    const ft4 = scoreCandidate(t4, def("ft4", "T4 volný", "pmol/l", ["S_T4 volný"], [12, 22]), stats)!;
+    expect(ft4.unitMatch).toBe(false);
+    expect(canApplyUnasked(ft4)).toBe(false);
+    const unknownUnit = scoreCandidate(foo, def("x", "X", "g/l"), stats)!;
+    expect(unknownUnit.unitMatch).toBeNull();
+    expect(canApplyUnasked(unknownUnit)).toBe(false);
+    const uric = scoreCandidate(bar, def("kyselina_mocova", "Kyselina močová", "µmol/l", [], [202, 417]), stats)!;
+    expect(uric.unitMatch).toBe(true);
+    expect(uric.rangeMatch).toBe(false);
+    expect(canApplyUnasked(uric)).toBe(false);
   });
 });

@@ -485,10 +485,21 @@ export interface Signal {
   detail: string;
 }
 
+/**
+ * How the candidate was named. By the suggester, the printed name's
+ * similarity to the catalog's is evidence like any other, and a weak one
+ * contradicts. By a model, the name is the one thing it was asked *because*
+ * it knows — "S_Na" and "sodik" share no bigram — so similarity is not
+ * counted, and the unit, interval, material and magnitude decide alone.
+ */
+export interface VerdictOptions {
+  nameByModel?: boolean;
+}
+
 /** A candidate contradicted by name, unit, material, interval or magnitude. */
-export function isImplausible(c: Candidate): boolean {
+export function isImplausible(c: Candidate, opts: VerdictOptions = {}): boolean {
   return (
-    c.nameWeak ||
+    (c.nameWeak && !opts.nameByModel) ||
     c.unitMatch === false ||
     c.materialMatch === false ||
     c.valueOk === false ||
@@ -499,14 +510,28 @@ export function isImplausible(c: Candidate): boolean {
   );
 }
 
-export function verdictOf(c: Candidate): Verdict {
-  if (isImplausible(c)) return "contradicted";
+export function verdictOf(c: Candidate, opts: VerdictOptions = {}): Verdict {
+  if (isImplausible(c, opts)) return "contradicted";
   // Nothing contradicts it — but "nothing known" is not the same as "checked
   // and agrees", and offering the two under one word is how a guess gets
   // accepted as a finding.
   const corroborated =
     c.rangeMatch === true || c.unitMatch === true || c.valueOk === true || c.materialMatch === true;
   return corroborated ? "recommended" : "possible";
+}
+
+/**
+ * May a model-named candidate be filed without a click?
+ *
+ * Stricter than "not contradicted": the unit must be *known to agree* — a
+ * candidate whose unit could not be compared is a guess with a label — and
+ * nothing else may disagree. The interval may be unknown (many catalog
+ * entries carry none, and a first report has no history), but where it is
+ * known it must not contradict. The sentence the screen says about what
+ * was applied is derived from exactly this condition.
+ */
+export function canApplyUnasked(c: Candidate): boolean {
+  return c.unitMatch === true && !isImplausible(c, { nameByModel: true });
 }
 
 const czRange = (r: Range | null): string =>
@@ -542,17 +567,22 @@ export const materialWithSource = (code: string, source: MaterialSource | null):
  * first-ever report and carries the heaviest weight, so it is read before the
  * value comparison that needs history to mean anything.
  */
-export function signalsOf(c: Candidate, incoming: UnmappedAnalyte): Signal[] {
+export function signalsOf(c: Candidate, incoming: UnmappedAnalyte, opts: { nameByModel?: string } = {}): Signal[] {
   const o = c.observed;
   const out: Signal[] = [];
 
+  // A name the model matched is not "similar" and is not "different": it is
+  // the model's reading, and the line says so with the model's own reason.
   out.push({
     key: "name",
     label: "Název",
-    state: c.nameWeak ? "bad" : "ok",
-    detail: c.nameWeak
-      ? "jiný název — pravděpodobně jiné vyšetření"
-      : `podobá se názvu ${c.displayName}`,
+    state: opts.nameByModel !== undefined ? "ok" : c.nameWeak ? "bad" : "ok",
+    detail:
+      opts.nameByModel !== undefined
+        ? `podle AI ${c.displayName}${opts.nameByModel ? ` — ${opts.nameByModel}` : ""}`
+        : c.nameWeak
+          ? "jiný název — pravděpodobně jiné vyšetření"
+          : `podobá se názvu ${c.displayName}`,
   });
 
   out.push({

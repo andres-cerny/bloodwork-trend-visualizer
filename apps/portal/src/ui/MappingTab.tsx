@@ -29,6 +29,7 @@ import {
   materialPrefix,
   observedStats,
   signalsOf,
+  canApplyUnasked,
   scoreCandidate,
   suggestMappings,
   trendable,
@@ -57,7 +58,12 @@ interface Props {
   registry: Registry;
   /** Parameters the reader founded here, newest last. */
   customAnalytes: CustomAnalyte[];
-  onMap: (rawName: string, canonicalId: string) => void;
+  /**
+   * `byModel`: the mapping model filed it and the evidence let it through —
+   * this account's mapping, not a lesson for every account; that takes a
+   * person's click.
+   */
+  onMap: (rawName: string, canonicalId: string, opts?: { byModel?: boolean }) => void;
   onUndoMap: (rawName: string, canonicalId: string) => void;
   onCreateParameter: (rawName: string, c: CustomAnalyte) => void;
   onDeleteParameter: (canonicalId: string) => void;
@@ -105,17 +111,20 @@ function CandidateBlock({
   c,
   incoming,
   featured,
+  nameByModel,
   onAssign,
 }: {
   c: Candidate;
   incoming: UnmappedAnalyte;
   /** The promoted recommendation, as opposed to one of the alternatives. */
   featured: boolean;
+  /** The model named this candidate, with this reason: name similarity is not held against it. */
+  nameByModel?: string;
   onAssign: () => void;
 }) {
-  const verdict = verdictOf(c);
+  const verdict = verdictOf(c, { nameByModel: nameByModel !== undefined });
   const bad = verdict === "contradicted";
-  const signals = useMemo(() => signalsOf(c, incoming), [c, incoming]);
+  const signals = useMemo(() => signalsOf(c, incoming, { nameByModel }), [c, incoming, nameByModel]);
 
   return (
     <div className={`cand-card${featured ? " featured" : ""}${bad ? " implausible" : ""}`}>
@@ -223,7 +232,9 @@ function NewParameterForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState(() => proposed?.displayNameCs || defaultParameterName(a.rawName));
-  const [unit, setUnit] = useState(() => canonicalizeUnit(a.unitRaw) ?? a.unitRaw);
+  // The printed unit is the document's word and stays; the proposal's fills
+  // in only where the lab printed none.
+  const [unit, setUnit] = useState(() => (canonicalizeUnit(a.unitRaw) ?? a.unitRaw) || proposed?.unit || "");
   // Offered only where no lab printed an interval: with one printed, the
   // document is the answer and typing over it would invite a figure nobody
   // can source. Czech decimals, so parsed the way a printed range is.
@@ -467,10 +478,16 @@ function UnmappedCard({
         <div className="ai-block">
           <p className="section-title">Návrh AI</p>
           {ai.suggestion.decision === "catalog" && ai.candidate && (
-            <>
-              <p className="muted ai-reason">{ai.suggestion.reason}</p>
-              <CandidateBlock c={ai.candidate} incoming={a} featured={false} onAssign={() => onMap(a.rawName, ai.candidate!.canonicalId)} />
-            </>
+            <CandidateBlock
+              c={ai.candidate}
+              incoming={a}
+              featured={false}
+              nameByModel={ai.suggestion.reason}
+              onAssign={() => onMap(a.rawName, ai.candidate!.canonicalId)}
+            />
+          )}
+          {ai.suggestion.decision === "catalog" && !ai.candidate && (
+            <p className="muted ai-reason">AI navrhla parametr, který tato aplikace už nezná. {ai.suggestion.reason}</p>
           )}
           {ai.suggestion.decision === "new" && ai.suggestion.proposed && (
             <p className="ai-reason">
@@ -652,6 +669,8 @@ export default function MappingTab({
   const [aiError, setAiError] = useState<string | null>(null);
   /** What the last run applied on its own, so each can be taken back. */
   const [aiApplied, setAiApplied] = useState<Array<{ rawName: string; canonicalId: string }>>([]);
+  /** What the last run called "not blood" and parked, so the parking is not silent. */
+  const [aiParked, setAiParked] = useState<string[]>([]);
   /** The last acceptance, offered back for one click. */
   const [lastMap, setLastMap] = useState<{
     rawName: string;
@@ -682,11 +701,12 @@ export default function MappingTab({
 
   /**
    * Every pending name to the mapping model, once. What it names is applied
-   * only when the deterministic evidence does not contradict it — unit,
-   * interval, material and magnitude are the same checks a hand-picked
-   * candidate faces, and `verdictOf` is the same word. Everything else is
-   * shown on the card with the model's reason and waits for a click. A "not
-   * blood" answer parks the name; "unknown" is said as such.
+   * only when the unit is known to agree and neither interval, material nor
+   * magnitude disagrees (`canApplyUnasked`) — the same checks a hand-picked
+   * candidate faces, minus name similarity, which is the model's to judge.
+   * Everything else is shown on the card with the model's reason and waits
+   * for a click. A "not blood" answer parks the name and says so; "unknown"
+   * is said as such.
    */
   const askAi = async () => {
     if (aiBusy || pending.length === 0) return;
@@ -706,8 +726,11 @@ export default function MappingTab({
         if (s.decision === "catalog" && s.canonicalId) {
           const def = registry.get(s.canonicalId);
           const candidate = def ? scoreCandidate(a, def, stats) : null;
-          if (candidate && verdictOf(candidate) !== "contradicted") {
-            onMap(a.rawName, candidate.canonicalId);
+          // The name is the model's; the unit must be known to agree and
+          // nothing else may disagree (canApplyUnasked). Filed for this
+          // account only — teaching every account takes a person's click.
+          if (candidate && canApplyUnasked(candidate)) {
+            onMap(a.rawName, candidate.canonicalId, { byModel: true });
             applied.push({ rawName: a.rawName, canonicalId: candidate.canonicalId });
           } else {
             kept[a.rawName] = { suggestion: s, candidate };
@@ -720,6 +743,7 @@ export default function MappingTab({
       }
       setAi(kept);
       setAiApplied(applied);
+      setAiParked(parked);
       if (parked.length) setDeferred((d) => [...d, ...parked.filter((n) => !d.includes(n))]);
       setLastMap(null);
     } catch (e) {
@@ -741,7 +765,9 @@ export default function MappingTab({
             <h2>Přiřazení názvů parametrů</h2>
             <p className="sub" style={{ marginBottom: 0 }}>
               {unmapped.length === 0
-                ? "Všechny názvy z dokumentů odpovídají známým parametrům — není co řešit."
+                ? aiApplied.length > 0
+                  ? "Všechny názvy jsou přiřazené. Ty, které přiřadila AI, jsou níže ke kontrole."
+                  : "Všechny názvy z dokumentů odpovídají známým parametrům — není co řešit."
                 : `Tyto názvy zatím neznáme, takže se neobjeví v trendech. U každého vidíte, ` +
                   `co pro navržený parametr mluví a co proti — jednotka, referenční rozmezí, ` +
                   `materiál a řád naměřených hodnot — abyste mohli posoudit, jestli jde ` +
@@ -769,10 +795,15 @@ export default function MappingTab({
           </div>
         )}
         {aiError && <p className="banner error">{aiError}</p>}
+        {aiParked.length > 0 && (
+          <p className="banner ai-applied">
+            AI označila jako jiný materiál než krev a ponechala bez přiřazení: {aiParked.join(", ")}.
+          </p>
+        )}
         {aiApplied.length > 0 && (
           <div className="banner ai-applied">
             <p>
-              AI přiřadila {count(aiApplied.length, "název", "názvy", "názvů")} — jednotka i rozmezí souhlasí. Zkontrolujte je v Trendech, nebo je zde vraťte:
+              AI přiřadila {count(aiApplied.length, "název", "názvy", "názvů")}: jednotka souhlasí a rozmezí, materiál ani naměřené hodnoty tomu neodporují. Platí jen pro tento účet. Zkontrolujte je v Trendech, nebo je zde vraťte:
             </p>
             <ul className="held-list">
               {aiApplied.map((x) => (
