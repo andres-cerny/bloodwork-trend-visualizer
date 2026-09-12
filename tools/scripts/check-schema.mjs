@@ -93,13 +93,21 @@ export function schemaDrift(declared, live) {
 }
 
 /**
- * The live shape, in one round trip. `pragma_table_info` is a table-valued
- * function, so every table's columns come back as rows of one query.
+ * The live shape of the declared tables, in one round trip.
+ *
+ * D1's SQL authorizer refuses `pragma_table_info()` as a table-valued
+ * function — `JOIN pragma_table_info(m.name)` comes back `SQLITE_AUTH`
+ * (code 7500), which reads at first like a token problem and is not one.
+ * The statement form `PRAGMA table_info(t)` is allowed, so this sends one
+ * per declared table in a single command; wrangler returns one result set
+ * per statement, in order, and a table the database has not got returns an
+ * empty one.
+ *
+ * Table names are interpolated, but only after `tablesFromSchema` has
+ * matched them as identifiers (`[A-Za-z_]\w*`) out of our own schema.sql.
  */
-function liveTables() {
-  const sql =
-    "SELECT m.name AS tbl, p.name AS col FROM sqlite_master m " +
-    "JOIN pragma_table_info(m.name) p WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%';";
+function liveTables(tables) {
+  const sql = tables.map((t) => `PRAGMA table_info(${t});`).join(" ");
   const raw = execFileSync(
     "npx",
     ["wrangler", "d1", "execute", DB, "--remote", "--json", `--command=${sql}`],
@@ -108,12 +116,15 @@ function liveTables() {
   // wrangler prints its banner before the JSON on some versions.
   const at = raw.indexOf("[");
   if (at < 0) throw new Error(`no JSON in wrangler output:\n${raw}`);
-  const results = JSON.parse(raw.slice(at))?.[0]?.results ?? [];
-  const out = new Map();
-  for (const { tbl, col } of results) {
-    if (!out.has(tbl)) out.set(tbl, []);
-    out.get(tbl).push(col);
+  const sets = JSON.parse(raw.slice(at));
+  if (!Array.isArray(sets) || sets.length !== tables.length) {
+    throw new Error(`expected ${tables.length} result sets, got ${Array.isArray(sets) ? sets.length : typeof sets}:\n${raw}`);
   }
+  const out = new Map();
+  tables.forEach((t, i) => {
+    const cols = (sets[i]?.results ?? []).map((r) => r.name);
+    if (cols.length > 0) out.set(t, cols);
+  });
   return out;
 }
 
@@ -126,7 +137,7 @@ function main() {
 
   let live;
   try {
-    live = liveTables();
+    live = liveTables([...declared.keys()]);
   } catch (e) {
     console.error(
       "✘ could not read the live schema of the D1 database " + DB + ".\n" +
