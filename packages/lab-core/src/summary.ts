@@ -43,10 +43,23 @@ export function czExact(value: number | null | undefined, raw?: string | null): 
   return String(value).replace(".", ",");
 }
 
-function rangeStr(low: number | null, high: number | null): string {
-  if (low !== null && high !== null) return `${czNum(low)}–${czNum(high)}`;
-  if (high !== null) return `< ${czNum(high)}`;
-  if (low !== null) return `> ${czNum(low)}`;
+/**
+ * A reference range as one string, the same on every screen.
+ *
+ * A lab that prints only an upper limit prints "< 4,14"; rendered as "–4,14"
+ * that reads as a negative number, and a reader asked which side of it they
+ * are on has to guess. Ondrej's call (2026-09-12): say "0–4,14" — the lower
+ * limit that was implied all along, written down. An upper limit missing is
+ * rarer and has no such implied number, so it keeps the lab's own "> 3,2".
+ * Every screen formats a range through here; the sites used to each carry
+ * their own template, and disagreed.
+ */
+export function czRange(low: number | null | undefined, high: number | null | undefined): string {
+  const l = low ?? null;
+  const h = high ?? null;
+  if (l !== null && h !== null) return `${czNum(l)}–${czNum(h)}`;
+  if (h !== null) return `0–${czNum(h)}`;
+  if (l !== null) return `> ${czNum(l)}`;
   return "—";
 }
 
@@ -122,7 +135,7 @@ export function summarizeTrend(trend: Trend): SummaryRecord | null {
 
   const transition = rangeTransition(older.flag, newer.flag);
   if (transition) {
-    const rng = rangeStr(newer.refLow, newer.refHigh);
+    const rng = czRange(newer.refLow, newer.refHigh);
     text += ` — ${transition}${rng !== "—" ? ` ${rng}` : ""}`;
   }
 

@@ -14,6 +14,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   czExact,
   czNum,
+  czRange,
   czDate,
   czMonthYear,
   prettyUnit,
@@ -198,11 +199,7 @@ export default function Chart({
             : ` — jediný číselný výsledek (${czDate(p.date)}); ` +
               `${censoredNote(censored.length)} ` +
               `pod mezí stanovitelnosti (${censored.map((q) => q.valueRaw).join(", ")})`}
-          {p.refLow !== null || p.refHigh !== null
-            ? `, referenční rozmezí ${p.refLow !== null ? czNum(p.refLow) : ""}–${
-                p.refHigh !== null ? czNum(p.refHigh) : ""
-              }`
-            : ""}
+          {p.refLow !== null || p.refHigh !== null ? `, referenční rozmezí ${czRange(p.refLow, p.refHigh)}` : ""}
           . Pro křivku je potřeba alespoň druhá číselná hodnota.
         </span>
       </p>
@@ -504,9 +501,7 @@ export default function Chart({
             (active.flag === "high" ? " — nad rozmezím" : active.flag === "low" ? " — pod rozmezím" : "") +
             (active.unconfirmed ? " · nepotvrzeno" : "")
           : band
-            ? `Referenční rozmezí ${band.bLow !== null ? czNum(band.bLow) : ""}${
-                band.bLow !== null && band.bHigh !== null ? "–" : ""
-              }${band.bHigh !== null ? czNum(band.bHigh) : ""}${trend.unit ? ` ${trend.unit}` : ""}`
+            ? `Referenční rozmezí ${czRange(band.bLow, band.bHigh)}${trend.unit ? ` ${trend.unit}` : ""}`
             : "Bez referenčního rozmezí."}
       </figcaption>
     </figure>

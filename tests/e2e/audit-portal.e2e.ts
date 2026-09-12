@@ -84,10 +84,32 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // The table under the chart: four columns, one "ověřit →" per reading,
+    // and it has to be the card's width on a phone — this is the screen the
+    // sideways scroll used to hide in.
+    name: "trendy (tabulka hodnot otevřená)",
+    go: async (page) => {
+      await page.locator(".sum-table .sum-name").first().click();
+      await page.waitForSelector(".tc svg", { timeout: 10_000 });
+      await page.locator(".tc-table summary").first().click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
     name: "trendy (picker open)",
     go: async (page) => {
       await tab(page, "Trendy");
-      await page.getByRole("button", { name: /Přidat parametr/ }).click();
+      await page.getByRole("button", { name: /Zobrazit parametr/ }).click();
+      await page.waitForTimeout(250);
+    },
+  },
+  {
+    // The magnifier beside "Mimo rozmezí", open: the picker hangs under the
+    // card's right edge and must stay on screen at 360.
+    name: "souhrn (hledání otevřené)",
+    go: async (page) => {
+      await page.locator(".sum-search-btn").first().click();
+      await page.waitForSelector(".picker input", { timeout: 5_000 });
       await page.waitForTimeout(250);
     },
   },

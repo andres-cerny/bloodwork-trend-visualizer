@@ -8,7 +8,7 @@
  * pastes their AI share link into (`buildAiShare`, aiShare.ts). They differ
  * only in how a point's status is spelled.
  */
-import { czNum } from "./summary";
+import { czNum, czRange } from "./summary";
 import { numericPoints, type Trend, type TrendPoint } from "./trends";
 import type { LabReport } from "./models";
 
@@ -28,10 +28,7 @@ export function contextTable(reports: LabReport[], trends: Map<string, Trend>, s
     const np = numericPoints(t);
     if (np.length === 0) continue;
     const last = np[np.length - 1];
-    const ref =
-      last.refLow !== null || last.refHigh !== null
-        ? `${last.refLow !== null ? czNum(last.refLow) : ""}–${last.refHigh !== null ? czNum(last.refHigh) : ""}`
-        : "neuvedeno";
+    const ref = last.refLow !== null || last.refHigh !== null ? czRange(last.refLow, last.refHigh) : "neuvedeno";
     const series = np
       .map((p) => {
         const s = status(p);
