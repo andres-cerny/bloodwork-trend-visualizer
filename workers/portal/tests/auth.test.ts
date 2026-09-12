@@ -395,7 +395,7 @@ describe("the invite script", () => {
     return url.searchParams.get("kod")!;
   };
 
-  it("prints sign-up links whose codes the worker accepts, for 24 hours", async () => {
+  it("prints sign-up links whose codes the worker accepts, for a week", async () => {
     const out = mintInvites({ n: 2, note: "máma, táta", origin: ORIGIN });
     applySql(out.sql);
     expect(out.links).toHaveLength(2);

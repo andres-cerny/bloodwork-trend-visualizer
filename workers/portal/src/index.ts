@@ -2,7 +2,7 @@
  * Moje krev's API worker: accounts, and the reports they own.
  *
  * Auth is deliberately small: e-mail and password, the session a signed
- * cookie. Sign-up is a link the operator sends — a code that lives 24 hours
+ * cookie. Sign-up is a link the operator sends — a code that lives a week
  * and spends once — and so is a forgotten password: the same kind of code,
  * bound to the account it resets. No route ever confirms whether an e-mail
  * is registered: a wrong password and an unknown address get one sentence,

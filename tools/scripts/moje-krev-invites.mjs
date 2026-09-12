@@ -7,7 +7,7 @@
  *   node tools/scripts/moje-krev-invites.mjs 1 "Ondřej" --email o@x.cz # set-password link
  *   ... --origin https://moje-krev.example                             # links under another host
  *
- * Every link lives 24 hours and spends once. A sign-up link opens a new
+ * Every link lives a week and spends once. A sign-up link opens a new
  * account (/registrace?kod=…); with --email the code is bound to that
  * account and only sets its password (/heslo?kod=…) — the forgotten-password
  * path, by hand, until there is a mail domain. A bound code is written with
@@ -29,7 +29,7 @@ const WORDS = [
 ];
 
 export const DEFAULT_ORIGIN = "https://moje-krev.andres-cerny.workers.dev";
-export const TTL_HOURS = 24;
+export const TTL_HOURS = 24 * 7;
 
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
 const code = () =>
@@ -76,7 +76,7 @@ function main(argv) {
   console.log(sql);
   console.log("");
   for (const link of links) console.log(link);
-  console.log(`\n(valid ${TTL_HOURS} h, until ${expires})`);
+  console.log(`\n(valid ${TTL_HOURS / 24} days, until ${expires})`);
 
   if (argv.includes("--apply")) {
     execFileSync(

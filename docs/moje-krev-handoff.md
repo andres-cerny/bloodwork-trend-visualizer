@@ -26,7 +26,7 @@ claude "Set up Moje krev end to end per docs/moje-krev-handoff.md: (1) npm insta
 
 ## What works today (end of Phase 5)
 
-Invite-only registration through a link that lives 24 hours, e-mail +
+Invite-only registration through a link that lives a week, e-mail +
 password login, 90-day sessions — and the whole upload path: a PDF opens in the browser, the identity on it (name, rodné
 číslo, birth date, address, and every repeat of them) is found and painted
 out, the reader confirms the boxes, and only the painted pages and the
@@ -119,7 +119,7 @@ node tools/scripts/moje-krev-invites.mjs 1 "Andres" --apply    # prints the link
 
 The app then lives at `https://moje-krev.<your-account>.workers.dev`. There
 is no mail: every link — sign-up or set-password — is one you mint and send
-yourself, and it lives 24 hours.
+yourself, and it lives a week.
 
 ## Raising one person's budget
 
