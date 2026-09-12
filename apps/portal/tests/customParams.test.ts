@@ -17,6 +17,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   Registry,
+  buildTrends,
   makeMeasurement,
   normalizeMeasurement,
   toAnalyteDef,
@@ -164,5 +165,82 @@ describe("the list of founded parameters", () => {
     // does: the names go back to unmapped, the values stay.
     expect(html).toContain("vrátí");
     expect(html).toContain("naměřené hodnoty zůstanou");
+  });
+});
+
+/* ------------------------------------------------- the report after next */
+
+/**
+ * The promise the form makes in so many words — "příští report ho už pozná
+ * sám" — and the one thing about founding a parameter that cannot be seen by
+ * looking at the screen it happens on.
+ *
+ * `interpretPage` gives every freshly extracted row its canonicalId through
+ * one callback, `(raw, mat) => registry.match(raw, mat)` (lib/upload.ts), so
+ * a registry rebuilt from the account that answers that call is the whole of
+ * automatic matching. These rebuild it exactly as Portal's load path does and
+ * ask it.
+ */
+const afterReload = (s: ParamSettings, defs: AnalyteDef[] = [glukoza]) => {
+  const reg = new Registry(defs);
+  // Founded parameters before the learned names — Portal.tsx says why.
+  for (const c of s.customAnalytes) reg.addAnalyte(toAnalyteDef(c));
+  for (const [cid, names] of Object.entries(s.learned)) {
+    for (const n of names) reg.addSynonym(cid, n);
+  }
+  return reg;
+};
+
+describe("a later report carrying a founded parameter's printed name", () => {
+  const founded = withNewParameter(empty, feritin, "S_Ferritin");
+
+  it("is matched on upload with no second visit to Přiřazení", () => {
+    expect(afterReload(founded).match("S_Ferritin")).toBe("custom_feritin");
+  });
+
+  it("is matched however that lab cases or accents it", () => {
+    const reg = afterReload(founded);
+    for (const printed of ["s_ferritin", "S_FERRITIN", "S_Ferritín", "S-Ferritin"]) {
+      expect(reg.match(printed)).toBe("custom_feritin");
+    }
+  });
+
+  it("lands in the founded parameter's own trend, under its own name", () => {
+    const reg = afterReload(founded);
+    // What interpretPage does to an arriving row, at the one point it decides.
+    const arriving = m("S_Ferritin", "61", "µg/l", "13-150", reg.match("S_Ferritin"));
+    const trends = buildTrends([report("r9", "2026-09-01", [arriving])], (cid) => reg.displayName(cid));
+    expect(trends.get("custom_feritin")?.displayName).toBe("Feritin");
+    expect(trends.get("custom_feritin")?.points).toHaveLength(1);
+  });
+
+  it("is still refused when the page says a different material", () => {
+    // The founding name carried S_, so the parameter is serum. A urine row of
+    // the same name is a different test and stays a decision.
+    const reg = afterReload(founded);
+    expect(reg.match("U_Ferritin")).toBeNull();
+    expect(reg.match("Ferritin", "u")).toBeNull();
+  });
+
+  it("needs one click for a spelling it has never seen — and then remembers it", () => {
+    const reg = afterReload(founded);
+    // Nothing can guess this from "S_Ferritin", and guessing is what the
+    // whole screen exists not to do.
+    expect(reg.match("Ferritin celkový")).toBeNull();
+
+    // Accepting it is the ordinary mapping path: the name joins the learned
+    // list under the founded id, which is why that path needed no new code.
+    const also: ParamSettings = {
+      ...founded,
+      learned: { custom_feritin: [...namesUnder(founded, "custom_feritin"), "Ferritin celkový"] },
+    };
+    const reg2 = afterReload(also);
+    expect(reg2.match("Ferritin celkový")).toBe("custom_feritin");
+    expect(reg2.match("S_Ferritin")).toBe("custom_feritin");
+  });
+
+  it("forgets it again when the parameter is deleted", () => {
+    const gone = withoutParameter(founded, "custom_feritin");
+    expect(afterReload(gone).match("S_Ferritin")).toBeNull();
   });
 });
