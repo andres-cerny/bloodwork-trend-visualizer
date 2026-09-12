@@ -58,7 +58,7 @@ export default function AnalytePicker({ options, onPick, onClose }: Props) {
   useEffect(() => setCursor(0), [query]);
 
   return (
-    <div className="picker" ref={boxRef} role="dialog" aria-label="Přidat parametr">
+    <div className="picker" ref={boxRef} role="dialog" aria-label="Zobrazit parametr">
       <input
         ref={inputRef}
         type="search"

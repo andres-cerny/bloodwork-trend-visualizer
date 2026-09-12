@@ -321,17 +321,6 @@ export default function Portal({ email, onLogout }: Props) {
     [goTab],
   );
 
-  const showAnalyteSource = useCallback(
-    (canonicalId: string) => {
-      const ordered = [...reports].sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? ""));
-      for (const r of ordered) {
-        const m = r.measurements.find((x) => x.canonicalId === canonicalId);
-        if (m) return showSource(r.id, m.rawAnalyteName);
-      }
-    },
-    [reports, showSource],
-  );
-
   const showTrend = useCallback(
     (canonicalId: string) => {
       setOpenTrend({ id: canonicalId, seq: Date.now() });
@@ -525,7 +514,6 @@ export default function Portal({ email, onLogout }: Props) {
               <SummaryTab
                 reports={reports}
                 trends={trends}
-                onShowSource={showAnalyteSource}
                 onOpenTrend={showTrend}
                 onOpenVerify={() => goTab("verify")}
               />

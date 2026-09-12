@@ -16,6 +16,7 @@ import Flag from "./Flag";
 import {
   czExact,
   czNum,
+  czRange,
   latestTwo,
   numericPoints,
   suspectPoints,
@@ -128,7 +129,7 @@ export default function TrendsTab({
               disabled={options.length === 0}
               onClick={() => setPicking((p) => !p)}
             >
-              ＋ Přidat parametr
+              Zobrazit parametr
             </button>
             {picking && (
               <AnalytePicker options={options} onPick={add} onClose={() => setPicking(false)} />
@@ -141,9 +142,9 @@ export default function TrendsTab({
         <div className="card empty-pick">
           <h2>Vyberte parametr</h2>
           <p className="sub">
-            Graf se vykreslí, až si nějaký parametr přidáte — tlačítkem{" "}
-            <strong>＋ Přidat parametr</strong> a psaním názvu. Přidat jich můžete
-            kolik chcete, zobrazí se pod sebou.
+            Graf se vykreslí, až si nějaký parametr vyberete — tlačítkem{" "}
+            <strong>Zobrazit parametr</strong> a psaním názvu. Zobrazit jich můžete
+            kolik chcete, vykreslí se pod sebou.
           </p>
           {suggested.length > 0 && (
             <>
@@ -203,48 +204,60 @@ export default function TrendsTab({
 
               <StatLine trend={t} />
               <TrendChart trend={t} onVerify={onVerify && ((p) => onVerify(p.reportId, p.rawName))} />
-              <details style={{ marginTop: 8 }}>
+              <details className="tc-table" style={{ marginTop: 8 }}>
                 <summary className="muted" style={{ cursor: "pointer" }}>
                   Tabulka hodnot
                 </summary>
-                <div className="scroll-x">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Datum</th>
-                        <th style={{ textAlign: "right" }}>Hodnota</th>
-                        <th>Rozmezí</th>
-                        <th>Stav</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {t.points.map((p, i) => (
+                {/* Four columns and no scroll box: on a phone the table is as
+                    wide as the card and the dash in the range may wrap. The
+                    fourth column is the way to the printed row — every
+                    reading has one, not only the doubted ones. A value outside
+                    its range is red, the way Souhrn's table says it, so the
+                    state needs no column of its own; the link's label says
+                    it in words for a reader who cannot see the red. */}
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Datum</th>
+                      <th className="num">Hodnota</th>
+                      <th className="num">Rozmezí</th>
+                      <th className="tc-verify">Ověření</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {t.points.map((p, i) => {
+                      const out = p.flag === "high" || p.flag === "low";
+                      return (
                         <tr key={i}>
-                          <td>{czDate(p.date)}</td>
+                          <td className="tc-date">{czDate(p.date)}</td>
                           {/* As printed — this table is checkable against the
                               source, so it must not round. */}
-                          <td className="num">{czExact(p.value, p.valueRaw)}</td>
-                          <td className="muted">
-                            {p.refLow !== null || p.refHigh !== null
-                              ? `${p.refLow !== null ? czNum(p.refLow) : ""}–${p.refHigh !== null ? czNum(p.refHigh) : ""}`
-                              : "—"}
+                          <td className="num">
+                            <strong className={out ? "out" : undefined}>{czExact(p.value, p.valueRaw)}</strong>
                           </td>
-                          <td>
-                            <Flag flag={p.flag} />
-                            {/* A doubted row says so in the chip above; this is
-                                the way to settle it. Always visible on a phone,
-                                on approach on a desktop (styles: .verify-go). */}
-                            {onVerify && (p.unconfirmed !== null || p.suspect !== null) && (
-                              <button type="button" className="btn linkish verify-go" onClick={() => onVerify(p.reportId, p.rawName)} title="Otevřít v Ověření">
-                                Ověřit
+                          <td className="muted num tc-range">
+                            {p.refLow !== null || p.refHigh !== null ? czRange(p.refLow, p.refHigh) : "—"}
+                          </td>
+                          <td className="tc-verify">
+                            {onVerify && (
+                              <button
+                                type="button"
+                                className="btn linkish verify-go"
+                                onClick={() => onVerify(p.reportId, p.rawName)}
+                                title="Ukázat řádek na zdrojové stránce"
+                                aria-label={`Ověřit ${t.displayName} z ${czDate(p.date)}${
+                                  out ? (p.flag === "high" ? " (nad rozmezím)" : " (pod rozmezím)") : ""
+                                } na zdrojové stránce`}
+                              >
+                                ověřit →
                               </button>
                             )}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </details>
             </div>
           ))}
@@ -261,10 +274,7 @@ function StatLine({ trend }: { trend: Trend }) {
   const out = newer.flag === "high" || newer.flag === "low";
   const delta = older ? (newer.value as number) - (older.value as number) : null;
   const pct = older && older.value ? Math.round((Math.abs(delta as number) / Math.abs(older.value)) * 100) : null;
-  const range =
-    newer.refLow !== null || newer.refHigh !== null
-      ? `rozmezí ${newer.refLow !== null ? czNum(newer.refLow) : ""}–${newer.refHigh !== null ? czNum(newer.refHigh) : ""}`
-      : null;
+  const range = newer.refLow !== null || newer.refHigh !== null ? `rozmezí ${czRange(newer.refLow, newer.refHigh)}` : null;
   return (
     <div className="tc-stat">
       <span className={`big${out ? " out" : ""}`}>

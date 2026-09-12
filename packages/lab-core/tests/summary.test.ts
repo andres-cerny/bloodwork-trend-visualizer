@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   czExact,
   czNum,
+  czRange,
   summarizeChanges,
   summarizeTrend,
   type Trend,
@@ -148,5 +149,26 @@ describe("czExact", () => {
   it("falls back to the number when nothing was printed", () => {
     expect(czExact(5.32, "")).toBe("5,32");
     expect(czExact(null, "")).toBe("—");
+  });
+});
+
+/**
+ * A range with only one printed limit. "–4,14" read as a negative number;
+ * the implied lower limit is written down instead (Ondrej, 2026-09-12). An
+ * upper limit missing keeps the lab's own "> 3,2" — nothing is implied there.
+ */
+describe("czRange", () => {
+  it("writes both limits with a dash", () => {
+    expect(czRange(3.8, 5.8)).toBe("3,8–5,8");
+  });
+  it("writes the implied zero when only the upper limit is printed", () => {
+    expect(czRange(null, 4.14)).toBe("0–4,14");
+  });
+  it("keeps the lab's form when only the lower limit is printed", () => {
+    expect(czRange(3.2, null)).toBe("> 3,2");
+  });
+  it("is a dash when there is no range at all", () => {
+    expect(czRange(null, null)).toBe("—");
+    expect(czRange(undefined, undefined)).toBe("—");
   });
 });
