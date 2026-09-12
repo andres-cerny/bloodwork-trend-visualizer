@@ -44,6 +44,20 @@
     "albumin": [35, 52],
     "celkova_bilkovina": [64, 83],
     "homocystein": [5, 15],
-    "egfr": [1.5, 2.5]
+    "egfr": [1.5, 2.5],
+    "cystatin_c": [0.5, 1.0],
+    "prolaktin": [100, 500],
+    "t3_celkovy": [1.2, 3.1],
+    "t4_celkovy": [66, 181],
+    "cea": [0, 5],
+    "ca_125": [0, 35],
+    "ca_19_9": [0, 37],
+    "ca_15_3": [0, 31],
+    "ca_72_4": [0, 7],
+    "lipaza": [0, 1.1],
+    "amylaza_pankreaticka": [0, 0.9],
+    "apolipoprotein_a1": [1.05, 2.1],
+    "parathormon": [1.6, 6.9],
+    "revmatoidni_faktor": [0, 20]
   }
 }

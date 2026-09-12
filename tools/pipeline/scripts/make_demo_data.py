@@ -335,10 +335,11 @@ def main() -> None:
     (OUT / "reports.json").write_text(
         json.dumps(reports, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    # Ship only the analytes the demo actually references, plus enough of the
-    # registry for the mapping tab to have plausible alternatives to rank.
+    # The whole registry: the mapping tab ranks every entry, and a cap here
+    # once silently cut the catalog at 109 — the entries a fifth lab needed
+    # were seeded and never shipped.
     used = {m["canonicalId"] for r in reports for m in r["measurements"] if m["canonicalId"]}
-    slim = [a.to_dict() for a in registry.analytes.values()][:109]
+    slim = [a.to_dict() for a in registry.analytes.values()]
     # The portal ships the same registry: one source, two apps, and CI's
     # zero-diff check covers both copies.
     registry_json = (

@@ -1,5 +1,6 @@
 """Seed data/registry.json from the analytes actually seen in the samples
-(SPADIA/medivis 2023 & 2025, CASRI Praha 2019). Cross-lab synonyms are grouped
+(SPADIA/medivis 2023 & 2025, CASRI Praha 2019, then PREVEDIG, AGILAB and
+BioLAB). Cross-lab synonyms are grouped
 under one canonical id so the same analyte lines up across reports.
 
 Run from tools/pipeline: python3 -m scripts.seed_registry
@@ -171,6 +172,60 @@ EXTRA_SYNONYMS: dict[str, list[str]] = {
     "non_hdl": ["S_Non-HDL cholesterol-výp."],
 }
 
+# The fifth lab: BioLAB (Praha 7), from a Moje krev account whose owner
+# consented to her sheets teaching the app (docs/plans/lab-mapping.md,
+# 2026-09-12). Chemical symbols for the ions, "celk."/"konjug." truncations,
+# "- relativně"/"- abs.počet" differential suffixes, "V_" computed rows, and
+# glucose qualified by its material. The bracketed [MCV]/[PDW]/[PCT] forms are
+# not listed: a trailing bracket is a second lookup key (matching.py,
+# registry.ts) and needs no synonym.
+BIOLAB_SYNONYMS: dict[str, list[str]] = {
+    "urea": ["S_Močovina", "Močovina"],
+    "kreatinin": ["S_Kreatinin (enzymat.)"],
+    "egfr": ["Odhad glomerulární filtrace CKD-EPI",
+             "Odhad glomerulární filtrace (eGFR) - CKD-EPI"],
+    "egfr_mdrd": ["Odhad glomerulární filtrace MDRD"],
+    "ikterita_index": ["Ikterita"],
+    "hemolyza_index": ["Hemolýza"],
+    "chyloza_index": ["Chylozita"],
+    "cholesterol": ["S_Cholesterol celk."],
+    "index_aterogenity": ["V_Aterogenní index (CHOL/HDL)"],
+    "non_hdl": ["V_Non-HDL cholesterol (CHOL-HDL)"],
+    "glukoza": ["S_Glukóza-žilní sérum", "P_Glukóza-žilní plazma"],
+    "bilirubin_konjugovany": ["S_Bilirubin konjug."],
+    "sodik": ["S_Na"],
+    "draslik": ["S_K"],
+    "chloridy": ["S_Cl"],
+    "vapnik": ["S_Ca"],
+    "fosfor": ["S_P"],
+    "horcik": ["S_Mg"],
+    "zinek": ["S_Zn"],
+    "zelezo": ["S_Fe"],
+    "vapnik_korigovany": ["V_Ca korigované - výpočet"],
+    "vapnik_ionizovany": ["V_Ca ionizované - výpočet"],
+    "saturace_trf": ["V_Transferin - saturace"],
+    "igg": ["S_IgG celkové"],
+    "iga": ["S_IgA celkové"],
+    "igm": ["S_IgM celkové"],
+    "vitamin_d": ["S_Vitamin D-25OH"],
+    "neutrofily": ["B_Neutrofily - relativně"],
+    "lymfocyty": ["B_Lymfocyty - relativně"],
+    "monocyty": ["B_Monocyty - relativně"],
+    "eosinofily": ["B_Eozinofily - relativně"],
+    "basofily": ["B_Bazofily - relativně"],
+    "neutrofily_abs": ["B_Neutrofily - abs.počet"],
+    "lymfocyty_abs": ["B_Lymfocyty - abs.počet"],
+    "monocyty_abs": ["B_Monocyty - abs.počet"],
+    "eosinofily_abs": ["B_Eozinofily - abs.počet"],
+    "basofily_abs": ["B_Bazofily - abs.počet"],
+}
+
+# BioLAB prints transferrin saturation as a fraction (0,20 - 0,48, unit "1");
+# the canonical is percent, as the other labs print it.
+EXTRA_CONVERSIONS: dict[str, dict[str, float]] = {
+    "saturace_trf": FRAC_TO_PCT,
+}
+
 # Genuinely new analytes present only in the other labs' panels.
 NEW_ANALYTES: list[tuple] = [
     ("egfr_mdrd", "eGFR (MDRD)", ["odhad GF (MDRD)"], "ml/s/1,73 m2", {}),
@@ -190,20 +245,54 @@ NEW_ANALYTES: list[tuple] = [
     ("hemolyza_index", "Index hemolýzy", ["Hemolýza-index"], "", {}),
     ("ikterita_index", "Index ikterity", ["Ikterita-index"], "", {}),
     ("chyloza_index", "Index chylozity", ["Chylóza-index"], "", {}),
+    # --- tests the catalog lacked until the fifth lab (BioLAB, 2026-09-12) ---
+    ("apolipoprotein_a1", "Apolipoprotein A-I", ["S_Apolipoprotein AI", "Apolipoprotein A-I", "Apo A-I"], "g/l", {}),
+    ("fib4", "FIB-4 index", ["Fibrosis-4 (FIB-4) Index", "FIB-4"], "", {}),
+    ("lipaza", "Lipáza", ["S_Lipáza", "Lipáza"], "µkat/l", {}),
+    ("amylaza_pankreaticka", "Amyláza pankreatická", ["S_Amyláza pankreatická", "Pankreatická amyláza"], "µkat/l", {}),
+    ("cystatin_c", "Cystatin C", ["S_Cystatin C"], "mg/l", {}),
+    # kIU/l and kU/l are one unit; the "I" is the lab's spelling choice.
+    ("ca_125", "CA 125", ["S_CA 125", "CA 125", "CA-125"], "kU/l", {"kIU/l": 1.0}),
+    ("ca_19_9", "CA 19-9", ["S_CA 19-9", "CA 19-9"], "kU/l", {"kIU/l": 1.0}),
+    ("ca_15_3", "CA 15-3", ["S_CA 15-3", "CA 15-3"], "kU/l", {"kIU/l": 1.0}),
+    ("ca_72_4", "CA 72-4", ["S_CA 72-4", "CA 72-4"], "kU/l", {"kIU/l": 1.0}),
+    ("cea", "CEA", ["S_CEA", "CEA"], "µg/l", {}),
+    ("t3_celkovy", "T3 celkový", ["S_T3 celkový", "T3 celkový"], "nmol/l", {}),
+    ("t4_celkovy", "T4 celkový", ["S_T4 celkový", "T4 celkový"], "nmol/l", {}),
+    ("prolaktin", "Prolaktin", ["S_Prolaktin", "Prolaktin"], "mU/l", {}),
+    ("parathormon", "Parathormon (PTH)", ["S_biointaktní 1-84 parathormon", "S_Parathormon", "PTH"], "pmol/l", {}),
+    ("revmatoidni_faktor", "Revmatoidní faktor", ["S_Revmatoidní faktor", "Revmatoidní faktor"], "kU/l", {"kIU/l": 1.0}),
+    ("dao", "Diaminooxidáza (DAO)", ["DAO (diaminooxidáza) ELISA", "S_DAO", "DAO"], "kU/l", {}),
+    # Serology. An index (IP), a ratio or a titre — each trends under its own
+    # heading and the printed interval, exactly like any other row.
+    ("anti_helicobacter_iga", "Anti-Helicobacter pylori IgA", ["S_Anti-Helicobacter p. IgA (ELISA)"], "IP", {}),
+    ("anti_helicobacter_igg", "Anti-Helicobacter pylori IgG", ["S_Anti-Helicobacter p. IgG (ELISA)"], "RU/ml", {}),
+    ("ag_aspergillus", "Aspergillus fumigatus antigen", ["S_Ag-A.fumigatus"], "IP", {}),
+    ("anti_candida_igg", "Anti-Candida albicans IgG", ["S_Anti-C.Albicans IgG"], "IP", {}),
+    ("anti_tetanus_igg", "Anti-tetanus toxoid IgG", ["S_Anti-Tetanus toxoid IgG (postvakcinační)"], "IU/ml", {}),
+    ("anti_hav_igg", "Anti-HAV IgG", ["S_Anti-HAV IgG"], "arb.j.", {}),
+    ("anti_hbs", "Anti-HBs", ["S_Anti HBs", "Anti-HBs"], "U/l", {"IU/l": 1.0}),
+    ("anti_hsv_igg", "Anti-HSV 1+2 IgG", ["S_Anti-HSV 1+2 IgG (CLIA)"], "", {}),
+    ("anti_hsv_igm", "Anti-HSV 1+2 IgM", ["S_Anti-HSV 1+2 IgM (CLIA)"], "", {}),
+    ("anti_borrelia_igg", "Anti-Borrelia IgG", ["S_Anti Borrelia IgG"], "kU/l", {}),
+    ("anti_borrelia_igm", "Anti-Borrelia IgM", ["S_Anti Borrelia IgM"], "kU/l", {}),
+    ("anti_ebv_ebna_igg", "Anti-EBV EBNA IgG", ["S_Anti-EBV/EBNA IgG"], "kU/l", {}),
+    ("anti_ebv_vca_igg", "Anti-EBV VCA IgG", ["S_Anti-EBV/VCA IgG"], "kU/l", {}),
+    ("anti_ebv_vca_igm", "Anti-EBV VCA IgM", ["S_Anti-EBV/VCA IgM"], "IP", {}),
 ]
 
 
 def build() -> list[dict]:
     out = []
     for cid, disp, syns, unit, conv in ANALYTES + NEW_ANALYTES:
-        extra = EXTRA_SYNONYMS.get(cid, [])
+        extra = EXTRA_SYNONYMS.get(cid, []) + BIOLAB_SYNONYMS.get(cid, [])
         merged = list(dict.fromkeys([*syns, *extra]))  # de-dupe, keep order
         out.append({
             "canonical_id": cid,
             "display_name_cs": disp,
             "synonyms": merged,
             "canonical_unit": unit,
-            "unit_conversions": conv,
+            "unit_conversions": {**conv, **EXTRA_CONVERSIONS.get(cid, {})},
         })
     return out
 
