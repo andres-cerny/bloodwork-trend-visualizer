@@ -7,6 +7,11 @@ with e-mail and password, each account gets a fixed allowance of
 **5 reports of at most 4 pages**, and a report can be a **photo** as well as
 a PDF. Nothing is rebuilt; every phase extends what is deployed.
 
+Who else is on this ground, as of 2026-09-13 — the state's EZKarta now draws
+the trend chart for ten parameters, and Macromo already reads any lab's PDF:
+[the Czech market, scanned](../czech-market.md). It does not change a decision
+below; it changes what the landing page should claim.
+
 ## The decision this plan records
 
 **Web app first. No store apps now.** The question was web versus a native
