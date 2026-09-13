@@ -105,7 +105,9 @@ export default function Portal({ email, onLogout }: Props) {
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [tab, setTab] = useState<TabId>("summary");
   const [budget, setBudget] = useState<Budget | null>(null);
-  const [maxPages, setMaxPages] = useState(30);
+  // The wrangler default, so the upload screen never promises more pages
+  // than the worker accepts in the moment before /api/status answers.
+  const [maxPages, setMaxPages] = useState(6);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);

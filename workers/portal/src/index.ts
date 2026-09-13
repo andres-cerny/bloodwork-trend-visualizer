@@ -74,7 +74,7 @@ const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "5") || 5;
  * empty env var does.
  */
 const limitFor = (user: UserRow, env: Env) => user.budget_usd ?? usdLimit(env);
-const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "30", 10) || 30;
+const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "6", 10) || 6;
 
 /** One extract call covers one page and lives five minutes — long enough for
  *  the slowest model round-trip, short enough that a leaked token is worth
