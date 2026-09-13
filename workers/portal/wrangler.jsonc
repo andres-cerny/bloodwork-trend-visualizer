@@ -40,7 +40,13 @@
     // a cent per page, so this is a blast-radius cap, not a quota anyone
     // should meet.
     "PORTAL_USD_LIMIT": "5",
-    "MAX_PAGES_PER_REPORT": "30"
+    // Real Czech reports are one to three pages — the speed bench read 33
+    // pages out of 30 files. Six leaves room for a long one and stops a
+    // hundred-page PDF from spending a month's ledger in a single upload;
+    // beyond it `prepareFile` truncates and the upload log says so
+    // ("Zpracováno prvních … zůstalo nepřečteno"), so nothing is dropped
+    // silently. Raise it the day a real report needs it.
+    "MAX_PAGES_PER_REPORT": "6"
   },
 
   "observability": { "enabled": true }
