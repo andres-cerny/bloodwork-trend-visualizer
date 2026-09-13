@@ -6,6 +6,13 @@ clinic that produced Ondřej's own record. The demo's decisive moment: the
 clinic recognizes *their own patient's* seven years of data, turned into a
 product they could sell to every athlete they treat.
 
+Before the first pitch, read
+[the clinical agent's market](../clinical-agent-market.md) (2026-09-13): what
+OpenAI shipped and why none of it is available here, who already sells this in
+Czech hospitals, the line between an information tool and a medical device —
+which the product principle below already draws — and what the VZP
+reimbursement pilot does and does not cover.
+
 **What ships:** two new surfaces over the existing agent worker and a new CSM
 tenant. `apps/bloodwork` is frozen — it stays as the PDF-extraction proof for
 the day we learn how the clinic actually stores data.
