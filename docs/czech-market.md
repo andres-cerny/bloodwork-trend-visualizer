@@ -286,6 +286,56 @@ Time-box the whole thing against 2031: EHDS makes lab data portable across the
 EU, and the "my numbers are stuck in a PDF" problem this product solves gets
 much smaller. What survives is trust, verification and explanation.
 
+**The EHDS clock, in detail.** Regulation (EU) 2025/327, in force 2025-03-26,
+has two pillars: *primary* use — a right to immediate, free, machine-readable
+access to your own records and to have them passed to a recipient of your
+choice — and *secondary* use for research. General applicability **2027-03-26**;
+patient summary and ePrescription **March 2029**; **lab results, imaging and
+discharge reports March 2031**. Czech milestones sit inside it: mandatory
+eŽádanky from July 2027, mandatory electronic documentation from 2029.
+
+The threat is obvious and the opportunity is not: the same regulation that
+dissolves the PDF problem also creates, for the first time, a lawful route by
+which a small app can receive structured data without a contract with every
+lab. Whether a third-party app counts as an eligible recipient is for the
+implementing acts due by March 2027 — worth watching, not assuming. The right
+posture is therefore not "finish before it lands" but **be the thing that is
+ready when the door opens**: `packages/lab-core` is the deterministic layer and
+PDF extraction is only one source feeding it, so an eZdraví import is a new
+source, not a rewrite.
+
+## 10. Money — asked, analysed, deferred
+
+Asked 2026-09-13: should the free allowance be 3–5 reports with paid bundles
+after (5 for 100 Kč, 20 for 250 Kč)?
+
+The unit economics are not the problem. At `moje-krev-extract`'s two-reader
+text path (5.1 ¢/page, `docs/extraction-speed.md`) a typical three-page report
+costs ~15 ¢ ≈ 3.4 Kč, and five reports ≈ 0.77 $ ≈ 17 Kč — already under the
+"less than a dollar a person" bar. The real bound is the fuse:
+`BUDGET_USD_LIMIT: 15` on the extract deployment is a ceiling of ~330 Kč a
+month, and `PORTAL_USD_LIMIT: 5` per person per month sits under it. Budget
+~0.8 $ per invited person in their first month, or the global fuse trips and
+freezes extraction for everyone.
+
+Against that, payments cost more than they collect: ~7 % on a 100 Kč
+transaction is the cheap part, and trader status, invoicing, EU digital-content
+withdrawal rules, T&Cs and refunds are the expensive part — for perhaps
+1 000–3 000 Kč a year at friends-and-family scale. Worse, a paywall at report
+six is exactly where a curious doctor stops, and the doctor is the actual goal
+([the clinical agent's market](clinical-agent-market.md)).
+
+**What shipped:** `MAX_PAGES_PER_REPORT` 30 → 6, because at thirty a single
+upload could spend most of a person's monthly ledger. Real Czech reports are
+one to three pages; beyond the cap `prepareFile` truncates and the upload log
+says so.
+
+**Deferred, not decided against:** lowering `PORTAL_USD_LIMIT` to ~1.5, and
+keeping invites rather than open sign-up as the growth fuse. If a paid bundle
+is ever built, price **pages, not reports** — at a 4–6 page cap the proposed
+prices clear cost several times over, at the old 30-page cap "20 reports for
+250 Kč" could cost 660 Kč.
+
 ## Sources
 
 Nothing on this list could be fetched directly — the container's network
