@@ -111,13 +111,82 @@ textu". Plus trends across tests, stored health documents, wearables, and an
 AI health overview.
 
 **Pricing**: Essential 1 500 Kč/yr · Premium 5 500 Kč/yr · Ultra 10 000 Kč/yr.
-That is the Czech willingness-to-pay anchor for exactly this product.
+Read those as the shop window, not the till — see §4b.
 
 What is *not* visible from outside, and is where a comparison would have to be
 won: whether the read is verifiable (can the user see the number against the
 page it came from?), what happens to identity on the uploaded PDF, and how
 well it handles a decade-old Czech scan rather than a clean born-digital
 report.
+
+## 4b. How Macromo is actually doing — the price tag is not the business
+
+Asked because 1 500–10 000 Kč/yr looks steep for a Czech consumer app. It is,
+and the company's own numbers say the market agreed.
+
+**The company.** Founded December 2021 (Macromo s.r.o., IČO 14031493, Prague)
+by **Eva Kuttichová** (CEO), **Petr Štěpánek** and **Michal Pohludka**, out of
+Štěpánek's Wilson's-disease research. It began selling home DNA tests and only
+later added blood, microbiome and the app. Lab partners: SYNLAB, Eurofins,
+SPADIA.
+
+**Funding: one disclosed round, and it was a control sale.** In April 2025
+Tomáš Čupr's **TCF Capital** took a **majority of the voting rights in
+exchange for financing** — CzechCrunch put the round at **20 million Kč**.
+That is a modest cheque for a company then 3.5 years old, and majority control
+went with it; it reads as a strategic rescue-and-absorb, not a growth round.
+No later round is public. Registered capital is 10 853 Kč split into numbered
+investor shares (a long tail of small holders); Kuttichová's own deposit is
+listed at 1 503 Kč. Tracxn still shows "has not raised any funding" — the
+third-party databases are wrong here, so don't quote them.
+
+**Users — small, and openly so.**
+
+| When | Users | Source |
+|---|---|---|
+| April 2025 (TCF deal) | "over 5 000 users" across 9 countries | Silicon Canals / ain.ua |
+| 2026 | **≈ 15 000**, target **30 000** by end of 2026 | TCF Capital's own portfolio story |
+
+Fifteen thousand users in four and a half years, across nine countries, with a
+funded team. EZKarta has **34 000 users a day**. Of the paying side, the only
+public figure is **"more than 1 500 people" taking Macromo blood tests in the
+first two months** of the test launch (reported 24 January 2026). Review
+counts match that order of magnitude: Trustpilot 4.3 from **81** reviews, the
+company's own site 4.7 from **35**.
+
+**Revenue: not public.** Filings exist in the Sbírka listin, but no figures
+surfaced in anything indexed, and this container cannot reach or.justice.cz.
+Treat any revenue claim about Macromo as unknown rather than small.
+
+**What the pricing actually is.** The memberships are the anchor; the funnel
+is the pharmacy. On 15 October 2025 **Pilulka** — also Čupr-controlled, also
+pivoting to longevity — launched **Pilulka PRO at 99 Kč/month**: two blood
+tests a year, 20 % off Daily supplements, 50 % off the Macromo DNA Premium
+test. Macromo's tests sit on pilulka.cz as ordinary e-shop items. The chain
+that TCF describes runs data → AI recommendation → a supplement from Pilulka.
+
+So the honest reading: **the app is customer acquisition for diagnostics and
+supplement retail.** The 10 000 Kč tier exists to make 5 500 look reasonable
+and to serve the few who want the full panel; the volume play is 99 Kč a month
+attached to a pharmacy with a large existing base. Since March 2026 the
+company has been repositioning again — "from one-off testing to a digital
+prevention partner", an AI health plan and wider panels.
+
+**What that means here.** Nobody in Czechia has yet shown that people will pay
+for *the tracking app by itself*. The one funded competitor needed a
+pharmacy's customer base and a 99 Kč price to move volume, and its moat is
+distribution — Pilulka, TCF, 120+ collection points — not the PDF reader. Two
+consequences for Moje krev:
+
+1. **Don't price against Macromo's tiers.** They are not evidence of Czech
+   willingness to pay for tracking; they are a bundle price for testing. If
+   Moje krev ever charges, the comparable is 99 Kč/month **with something
+   physical attached**, and the plan's free-with-a-hard-quota shape is the
+   better answer while demand is unmeasured.
+2. **The competitor to fear is the channel, not the feature.** Their reader is
+   matched; their distribution is not. That argues for keeping Moje krev's
+   differentiators where a pharmacy cannot follow — redaction before upload,
+   a verifiable read — rather than racing them on biomarker counts.
 
 ## 5. Test bundles with a dashboard attached
 
@@ -201,10 +270,11 @@ from the scan:
    parameters from connected providers, about once a month; this reads any
    report you have, including the ones on paper" — is a better opener than any
    feature list.
-3. **Treat Macromo, not the state, as the competitor.** They have the same
-   loop and a real price. The differentiators to build against them are the
-   ones in §7 that they show no sign of: redaction before upload, and verify
-   against the page. Both are already built.
+3. **Treat Macromo, not the state, as the competitor — but the right half of
+   it.** They have the same loop; what they also have is a pharmacy channel
+   (§4b), which is the part that is hard to answer. The differentiators to
+   build against them are the ones in §7 they show no sign of: redaction
+   before upload, and verify against the page. Both are already built.
 4. **The AI context card is the right next bet, and it is the regulatory
    edge.** EZKarta will not interpret — by policy, permanently. That leaves
    interpretation to Macromo, Kantesti and 495 Kč from uLékaře.cz. Keep
@@ -232,6 +302,11 @@ pricing and accuracy claims are the vendors' own.
 | [Google Play — EZKarta](https://play.google.com/store/apps/details?id=cz.nakit.eocko.wallet) | read 2026-09-13 | 2.4 rating, 8 785 ratings |
 | [ozp.cz — VITAKARTA lab results](https://www.ozp.cz/pro-klienty/laboratorni-vysledky) · [Spadia](https://www.spadia.cz/en/verejnost/clanky/2023/laboratorni-vysledky-v-aplikaci-vitakarta-od-ozp/) · [Synlab](https://www.synlab.cz/pro-verejnost/ozp-laboratorni-vysledky-v-aplikaci) | 2023–2026 | Which labs feed VITAKARTA, 52 % of clients, insured care only |
 | [macromo.com](https://macromo.com/) · [mobile app / pricing](https://macromo.com/mobile-app) · [help: uploading past results](https://macromo.gorgias.help/en-US/jak-si-do-aplikace-macromo-mohu-nahrat-p%C5%99edchozi-v%C3%BDsledky-krevnich-test%C5%AF-3434004) · [App Store CZ](https://apps.apple.com/cz/app/macromo/id1629905556?l=cs) | read 2026-09-13 | Any-provider import, trends, tiers at 1 500 / 5 500 / 10 000 Kč |
+| [CzechCrunch — Čupr invests in Macromo](https://cc.cz/tomas-cupr-slape-do-longevity-investuje-do-ceskeho-startupu-ktery-hlida-zdravi/) · [e15](https://www.e15.cz/byznys/obchod-a-sluzby/cupr-zacal-budovat-novou-longevity-divizi-jeho-tcf-capital-ziskala-majoritu-v-nadejnem-startupu-1423825) · [Silicon Canals](https://siliconcanals.com/tcf-capital-acquires-majority-stake-macromo/) | 2025-04 | 20 M Kč, majority of voting rights, founders, 5 000+ users in 9 countries |
+| [TCF Capital — Macromo portfolio story](https://www.tcfcap.com/stories/macromo-a-novinky-v-app) | 2026 | ≈ 15 000 users, target to double by end of 2026 |
+| [ceske-novinky.cz — Macromo 56 biomarkers](https://www.ceske-novinky.cz/2026/01/24/co-vasemu-telu-chybi-macromo-prinasi-personalizovana-doporuceni-zalozena-na-krevnich-testech-nove-generace/) · [CzechCrunch](https://cc.cz/firmy-tomase-cupra-dovezou-nakup-ale-i-upozorni-jak-jist-a-zit-ted-k-tomu-maji-detailni-krevni-test/) | 2026-01 | 1 500+ people tested in the first two months |
+| [CzechCrunch — Pilulka PRO at 99 Kč/month](https://cc.cz/pilulka-spousti-longevity-predplatne-za-99-korun-mesicne-zmeri-a-doporuci-co-telo-potrebujee/) · [pilulka.cz/vase-pilulka-pro](https://www.pilulka.cz/vase-pilulka-pro) | 2025-10-15 | The real entry price and the supplement funnel |
+| [kurzy.cz — Macromo s.r.o., IČO 14031493](https://rejstrik-firem.kurzy.cz/14031493/macromo-sro/) · [Trustpilot](https://www.trustpilot.com/review/macromo.com) | read 2026-09-13 | Incorporation date, registered capital, 81 reviews at 4.3 |
 | [labin.cz — Moje kApka](https://labin.cz/aplikace-moje-kapka/) · [mojekapka.cz](https://www.mojekapka.cz/) | 2025–2026 | Booking, consent-gated results, values over time |
 | [cz.unilabs.online](https://cz.unilabs.online/) | read 2026-09-13 | 143 collection points, 495 Kč interpretation via uLékaře.cz |
 | [blooberry.health](https://www.blooberry.health/testy/) | read 2026-09-13 | 53/77 markers, 3 990 Kč, per-biomarker charts, doctor summary |
