@@ -113,7 +113,7 @@ Then the table. No email, no name, no report id, no PDF.
   a reload offers to make a fresh one.
 - `GET /api/ai-share`: `{ expiresAt }` or `null`.
 - `DELETE /api/ai-share`: sets `revoked_at`.
-- `GET /ai/<token>.md`, **above** `requireUser` in the router: strict token
+- `GET /ai/<token>.md`, **above** `requireSession` in the router: strict token
   regex, then lookup by hash; expired, revoked, unknown and malformed all
   answer the same 404. Headers: `text/markdown; charset=utf-8`,
   `cache-control: no-store`, `x-robots-tag: noindex`.

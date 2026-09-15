@@ -49,6 +49,7 @@ uploads and the public demo can never freeze each other's ledger.
 | Scans (no text layer) | Accepted, redacted by hand (revised 2026-08-31; was "refused in MVP") | Auto-redaction reads the text layer, so on a scan it finds nothing and says so; the reader draws the boxes, confirms the file, and the painted image goes to the vision path. Andres's call after the first real upload — some people only have scans |
 | MVP scope | Upload → verify → trends. Nothing else | Chat agent, export, doctor share-links are all post-MVP |
 | Profiles | One person per login | Family members get their own invite code |
+| Public demo (2026-09-15) | „Zobrazit demo pacienta" on the door opens one named account (`DEMO_EMAIL`, a secret) to anyone, with no password | Showing real trends beats describing them, and a synthetic patient does not make the case. The account is Andres's own, knowingly: he chose a session that writes through — upload, correct, map, share — with deletion of a report or the account refused, so a stranger can try everything and undo nothing. Unset, the routes 404 and the link is not drawn |
 | Language | Czech only | The existing hard rule; the audience; the PDFs |
 
 ## Invariants this plan must not break

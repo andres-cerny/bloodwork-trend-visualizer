@@ -2,3 +2,8 @@
 # Any random string works locally; production gets a real one via
 #   npx wrangler secret put SESSION_SECRET
 SESSION_SECRET=local-dev-secret-change-me
+
+# Optional: the account the public "Zobrazit demo pacienta" link opens.
+# Leave it out and the link is not shown. Locally this is whatever address
+# you registered with; in production it is a wrangler secret, never a var.
+# DEMO_EMAIL=ja@example.com

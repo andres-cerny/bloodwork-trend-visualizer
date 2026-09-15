@@ -121,6 +121,47 @@ The app then lives at `https://moje-krev.<your-account>.workers.dev`. There
 is no mail: every link — sign-up or set-password — is one you mint and send
 yourself, and it lives a week.
 
+## The public demo patient
+
+The front page can carry a second way in — **„Zobrazit demo pacienta"**, a
+link that logs anyone who clicks it into one named account, with no password
+and nothing to type. It is off unless a deployment names the account:
+
+```sh
+cd workers/portal
+npx wrangler secret put DEMO_EMAIL      # the e-mail of the account to open
+npm run deploy:portal-api               # from the repo root
+```
+
+A secret rather than a var, so no address is committed. Unset — the default,
+and the state of a fresh clone — the link is not drawn and both of its routes
+answer 404, so an ordinary deployment looks exactly as it did before this
+existed. To take the demo down again, `npx wrangler secret delete DEMO_EMAIL`
+and deploy; every demo cookie already minted stops mattering within a day.
+
+**What a visitor gets is a real login to that real account.** They see the
+trends, the summary, the stored pages, the mapping; they can upload, correct
+a misread value, teach a name and mint an AI share link. Two things they
+cannot do: delete a report, and delete the account. That is a claim in the
+cookie the link mints, not a property of the account — the same account's
+own e-mail-and-password login deletes as it always did.
+
+So choose the account deliberately:
+
+- **It is shared.** Anything a stranger uploads lands in it and every later
+  visitor sees it. The door and the upload card both say so in Czech, but
+  the account will still collect other people's reports.
+- **It spends your money.** Uploads run on that account's monthly ceiling —
+  `PORTAL_USD_LIMIT`, or the account's own `budget_usd` if it has one. Set
+  it deliberately before publishing the link: `moje-krev-budget.mjs` below.
+  A budget of `0` leaves the demo readable and stops its uploads outright.
+- **Its e-mail stays private.** `/api/me` withholds the address from a demo
+  session and the top bar reads „Demo pacient"; the account's own login
+  still shows it.
+
+The session it mints lasts one day, not ninety — a stranger's browser, often
+a borrowed one, should forget.
+
 ## Raising one person's budget
 
 Everyone spends against `PORTAL_USD_LIMIT` (5 USD a month) until they are

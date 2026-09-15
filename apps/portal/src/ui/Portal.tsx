@@ -86,11 +86,18 @@ function Panel({ id, active, children }: { id: TabId; active: TabId; children: R
 }
 
 interface Props {
-  email: string;
+  /** Null in the demo — see ui/Door.tsx. */
+  email: string | null;
+  /**
+   * Entered through the public demo link. Everything on these screens works
+   * the same; the two deletions are the exception, and they are not shown
+   * rather than shown and refused — the worker refuses them either way.
+   */
+  demo: boolean;
   onLogout: () => void;
 }
 
-export default function Portal({ email, onLogout }: Props) {
+export default function Portal({ email, demo, onLogout }: Props) {
   const [reports, setReports] = useState<LabReport[]>([]);
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [learned, setLearned] = useState<Record<string, string[]>>({});
@@ -396,6 +403,15 @@ export default function Portal({ email, onLogout }: Props) {
           </p>
         </div>
       </div>
+      {/* The demo account is open to anyone with the link, so a report
+          uploaded into it is readable by anyone with the link. Said here,
+          where the file is chosen, and not only on the door. */}
+      {demo && (
+        <p className="banner warn">
+          <strong>Jste v demu.</strong> Tenhle účet vidí každý, kdo má odkaz — co sem nahrajete,
+          uvidí i ostatní. Vlastní výsledky si nahrajte až do vlastního účtu.
+        </p>
+      )}
       <UploadFlow
         registry={registry}
         maxPages={maxPages}
@@ -437,7 +453,7 @@ export default function Portal({ email, onLogout }: Props) {
                   {r.labName ?? r.sourceFile} · {count(r.measurements.length, "hodnota", "hodnoty", "hodnot")}
                 </span>
               </button>
-              {confirmDelete === r.id ? (
+              {demo ? null : confirmDelete === r.id ? (
                 <span style={{ display: "inline-flex", gap: 6 }}>
                   <button className="btn danger small" onClick={() => void remove(r.id)}>
                     Smazat
@@ -470,7 +486,7 @@ export default function Portal({ email, onLogout }: Props) {
           <span className="mark" aria-hidden="true">🩸</span>
           <span className="name">Moje krev</span>
         </div>
-        <span className="mk-who muted">{email}</span>
+        <span className="mk-who muted">{email ?? "Demo pacient"}</span>
         <ThemeSwitch />
         <button
           className="btn small"
@@ -596,7 +612,11 @@ export default function Portal({ email, onLogout }: Props) {
                     Stáhnout tabulku (CSV)
                   </a>
                 </div>
-                {accountPhrase === null ? (
+                {demo ? (
+                  <p className="sub" style={{ margin: 0 }}>
+                    Jste v demu. Prohlížet, nahrávat i opravovat můžete — mazat ne.
+                  </p>
+                ) : accountPhrase === null ? (
                   <button className="btn danger small" onClick={() => setAccountPhrase("")}>
                     Smazat účet i se vším uloženým
                   </button>

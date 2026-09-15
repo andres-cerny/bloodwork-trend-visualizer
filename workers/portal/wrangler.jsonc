@@ -52,7 +52,12 @@
   "observability": { "enabled": true }
 
   // Secrets: SESSION_SECRET (cookie signing; portal-specific, NOT shared with
-  // the demo workers), EXTRACT_SESSION_SECRET (paired with moje-krev-extract).
+  // the demo workers), EXTRACT_SESSION_SECRET (paired with moje-krev-extract),
+  // and optionally DEMO_EMAIL — the account the front page's
+  // "Zobrazit demo pacienta" link opens to anyone. A secret and not a var so
+  // an address stays out of git; unset (the default) and the link is not
+  // shown and its two routes answer 404. docs/moje-krev-handoff.md says what
+  // a visitor can then do, and what they cannot.
   // RESEND_API_KEY and MAIL_FROM may still be set from the magic-link days;
   // nothing reads them.
 }

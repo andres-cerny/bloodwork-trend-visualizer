@@ -170,6 +170,29 @@ body {
   cursor: default;
 }
 
+/* The public demo patient: its own zone under the login, because it is a
+   second way in and not a footnote to the first. The link wears the card's
+   accent ink at the form's weight; the line under it says what is behind it
+   before anyone clicks. */
+.door .door-demo {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.3rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--grid);
+}
+
+/* The padding is the tap target, not the look: the words sit where they
+   would anyway and the thumb gets a third more of them than the auditor's
+   24px floor. `align-self` keeps the box the width of its text, so the
+   hint beside it stays clickable-free. */
+.door .door-demo .btn.linkish {
+  align-self: flex-start;
+  padding: 0.6rem 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 .door .door-foot {
   margin-top: 0.3rem;
   padding-top: 0.9rem;

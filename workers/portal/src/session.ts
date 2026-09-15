@@ -1,5 +1,6 @@
 /**
- * The login cookie: an HMAC-signed {uid, exp}, verified statelessly.
+ * The login cookie: an HMAC-signed {uid, exp} — plus {demo} on a session the
+ * public demo link opened — verified statelessly.
  *
  * Deliberately not @bw/gate's mintSession. That token is a Turnstile page
  * allowance — its claims are {pages, sid}, its TTL is minutes, and widening it
@@ -7,7 +8,7 @@
  * accept. Same construction, different claims, different secret.
  *
  * Stateless costs one thing: a cookie cannot be revoked server-side. The
- * balancing check is in requireUser — the uid is looked up on every request,
+ * balancing check is in requireSession — the uid is looked up on every request,
  * so a deleted account's cookies die with the row.
  */
 
@@ -35,10 +36,17 @@ export interface CookieClaims {
   uid: string;
   /** Expiry, epoch seconds. */
   exp: number;
+  /**
+   * Set only on a session the public demo link opened. The account is the
+   * same row either way — this claim is what lets the worker tell a stranger
+   * looking around from the person whose account it is, and refuse the
+   * deletions only the owner should reach.
+   */
+  demo?: true;
 }
 
-export async function mintCookieToken(secret: string, uid: string, ttlSeconds: number): Promise<string> {
-  const claims: CookieClaims = { uid, exp: Math.floor(Date.now() / 1000) + ttlSeconds };
+export async function mintCookieToken(secret: string, uid: string, ttlSeconds: number, demo = false): Promise<string> {
+  const claims: CookieClaims = { uid, exp: Math.floor(Date.now() / 1000) + ttlSeconds, ...(demo ? { demo: true as const } : {}) };
   const payload = b64urlEncode(enc.encode(JSON.stringify(claims)));
   const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret), enc.encode(payload));
   return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
@@ -59,6 +67,9 @@ export async function verifyCookieToken(secret: string, token: string | null): P
   try {
     const claims = JSON.parse(new TextDecoder().decode(b64urlDecode(payload))) as CookieClaims;
     if (typeof claims.uid !== "string" || typeof claims.exp !== "number") return null;
+    // Anything but the two shapes this file mints is a cookie nobody here
+    // signed the way they meant to: a falsy `demo` must not read as absent.
+    if (claims.demo !== undefined && claims.demo !== true) return null;
     if (claims.exp < Math.floor(Date.now() / 1000)) return null;
     return claims;
   } catch {

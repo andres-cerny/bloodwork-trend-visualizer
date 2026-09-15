@@ -8,8 +8,12 @@ import { useState } from "react";
 import { ApiError } from "../lib/api";
 
 export interface Me {
-  email: string;
+  /** Null in the demo: the address is the owner's login, and no screen
+   *  needs it to show their numbers. */
+  email: string | null;
   createdAt: string;
+  /** True when the public "Zobrazit demo pacienta" link opened this session. */
+  demo: boolean;
 }
 
 /** The only thing that says who is logged in: the cookie, read by the worker. */
