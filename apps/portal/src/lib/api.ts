@@ -62,6 +62,17 @@ export const login = (email: string, password: string) =>
 export const setPassword = (code: string, password: string) =>
   request<{ ok: true }>("/api/auth/password", jsonInit("POST", { code, password }));
 
+/**
+ * The public demo patient — a real account this deployment opens to anyone.
+ *
+ * `demoOffered` is a question, not a login: a deployment that names no demo
+ * account answers 404, and the door then shows no link rather than one that
+ * leads nowhere. `enterDemo` mints the session; the caller reads /api/me
+ * after it, exactly like the three password doors.
+ */
+export const demoOffered = () => request<{ available: true }>("/api/auth/demo").then(() => true, () => false);
+export const enterDemo = () => request<{ ok: true }>("/api/auth/demo", jsonInit("POST", {}));
+
 export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
 
 /** A row as the reader wrote it, before its page is finished. Provisional. */

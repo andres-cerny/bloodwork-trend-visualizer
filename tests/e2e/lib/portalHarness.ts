@@ -53,7 +53,9 @@ function fakeApi(port: number): Promise<Server> {
     }
     switch (`${req.method} ${url.pathname}`) {
       case "GET /api/me":
-        return json(res, { email: "audit@example.com", createdAt: "2026-01-01T00:00:00Z" });
+        // A password login, not the public demo link: the sweep is of the
+        // screens a family member sees, deletions and address included.
+        return json(res, { email: "audit@example.com", createdAt: "2026-01-01T00:00:00Z", demo: false });
       case "GET /api/status":
         return json(res, { budget: { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" }, maxPages: 30 });
       case "GET /api/settings":

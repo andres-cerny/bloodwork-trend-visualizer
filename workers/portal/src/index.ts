@@ -16,6 +16,14 @@
  * fields, to make sure they are empty: identity is redacted in the browser,
  * and a client that forgot is corrected here rather than trusted.
  *
+ * One door is public on a deployment that sets DEMO_EMAIL: POST
+ * /api/auth/demo opens the named account for anybody who asks, so a stranger
+ * can see real trends without an invitation. It is a real session on a real
+ * account and everything writes through — uploads, corrections, mappings,
+ * share links — with one line drawn: a demo session may not delete a report
+ * or the account. That line is a claim in the cookie, not a second kind of
+ * account, so the owner's own login is unaffected by any of it.
+ *
  * One page is public: /ai/<token>, the text a person's own AI assistant
  * fetches when they paste their share link. It sits above the login gate,
  * answers by the token's hash alone, and says the same 404 for a token that
@@ -51,6 +59,14 @@ export interface Env {
   /** Paired with moje-krev-extract's SESSION_SECRET; mints its page sessions. */
   EXTRACT_SESSION_SECRET: string;
   SESSION_TTL_DAYS?: string;
+  /**
+   * The account the public "Zobrazit demo pacienta" link opens, by e-mail.
+   * Unset — the default, and every deployment but Andres's — and the two
+   * demo routes do not exist at all: the door asks, is told no, and shows
+   * no link. Set as a secret rather than a var so an address stays out of
+   * the repository.
+   */
+  DEMO_EMAIL?: string;
   PORTAL_USD_LIMIT?: string;
   MAX_PAGES_PER_REPORT?: string;
 }
@@ -92,6 +108,10 @@ const MAX_EXTRACT_BYTES = 6 * 1024 * 1024;
  *  that helps. The ceiling bounds the hash's CPU, nothing else. */
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 256;
+/** A demo session is a stranger's browser, not a family login: long enough
+ *  that a look around survives a closed tab, short enough that a borrowed or
+ *  public computer forgets. Days, like SESSION_TTL_DAYS. */
+const DEMO_SESSION_TTL_DAYS = 1;
 /** Ten wrong tries on one e-mail in fifteen minutes, and that e-mail waits
  *  fifteen minutes — whether or not it has an account. */
 const LOCKOUT_FAILURES = 10;
@@ -109,18 +129,37 @@ const REPORT_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const now = () => Math.floor(Date.now() / 1000);
 const nowIso = () => new Date().toISOString();
 
+/** Who is asking, and by which door they came in. */
+interface Session {
+  user: UserRow;
+  /** True when this cookie was minted by the public demo link. */
+  demo: boolean;
+}
+
 /**
  * The uid is re-read from the database on every authed request, not trusted
  * from the cookie alone: it is what makes account deletion effective — a
  * signed cookie for a deleted row is a 401, not a ghost login.
  */
-async function requireUser(request: Request, env: Env): Promise<UserRow | null> {
+async function requireSession(request: Request, env: Env): Promise<Session | null> {
   const claims = await verifyCookieToken(env.SESSION_SECRET, readCookie(request));
   if (!claims) return null;
-  return await env.DB.prepare(SQL.userById).bind(claims.uid).first<UserRow>();
+  const user = await env.DB.prepare(SQL.userById).bind(claims.uid).first<UserRow>();
+  return user ? { user, demo: claims.demo === true } : null;
 }
 
 const unauthorized = () => json({ error: "unauthorized", message: "Přihlaste se prosím." }, 401);
+
+/**
+ * The one thing the demo link may not reach.
+ *
+ * A stranger looking around may add and correct — that is what makes it a
+ * demo of this app rather than a screenshot — but nothing they click may
+ * take a report, or the account, away for good. It is the owner's real
+ * bloodwork behind that link; deletion is the only move they could not undo.
+ */
+const demoMayNotDelete = () =>
+  json({ error: "demo_readonly", message: "V demu nelze mazat. Ostatní změny se ukládají." }, 403);
 
 /* ------------------------------------------------------------------- auth */
 
@@ -131,10 +170,11 @@ const inviteDead = (status = 403) =>
 /** Wrong password and unknown e-mail: one sentence, one status. */
 const badLogin = () => json({ error: "invalid_login", message: "E-mail nebo heslo nesouhlasí." }, 401);
 
-/** A 200 with the session cookie set — the end of register, login and reset. */
-async function loggedIn(env: Env, uid: string): Promise<Response> {
-  const ttl = sessionTtlSeconds(env);
-  const cookie = await mintCookieToken(env.SESSION_SECRET, uid, ttl);
+/** A 200 with the session cookie set — the end of register, login, reset,
+ *  and of the demo link, whose session is shorter and carries the claim. */
+async function loggedIn(env: Env, uid: string, demo = false): Promise<Response> {
+  const ttl = demo ? DEMO_SESSION_TTL_DAYS * 86400 : sessionTtlSeconds(env);
+  const cookie = await mintCookieToken(env.SESSION_SECRET, uid, ttl, demo);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { "content-type": "application/json; charset=utf-8", "set-cookie": setCookieHeader(cookie, ttl) },
@@ -230,6 +270,43 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   }
   await env.DB.prepare(SQL.clearLoginFailures).bind(normEmail).run();
   return loggedIn(env, user.id);
+}
+
+/* ------------------------------------------------------------------- demo */
+
+/**
+ * The account behind "Zobrazit demo pacienta", or null if there is none.
+ *
+ * Null covers both ways a deployment can decline: DEMO_EMAIL unset, and
+ * DEMO_EMAIL naming an address with no account — a typo, or an account since
+ * deleted. Both have to read the same to the door, or a link would show that
+ * leads nowhere.
+ */
+async function demoAccount(env: Env): Promise<UserRow | null> {
+  const email = env.DEMO_EMAIL?.trim().toLowerCase();
+  if (!email) return null;
+  return await env.DB.prepare(SQL.userByEmail).bind(email).first<UserRow>();
+}
+
+/** No demo here. Not a refusal — the route genuinely does not exist. */
+const noDemo = () => json({ error: "not_found" }, 404);
+
+/**
+ * Enter the demo: a session on the named account, for anyone who asks.
+ *
+ * No password, no code, no failure counting — the point of the link is that
+ * there is nothing to hold. The one check is the content type, and it is the
+ * whole CSRF guard: this is the only unauthenticated route that mints a
+ * session, a cross-site form can send urlencoded, multipart or text/plain
+ * and nothing else, and a cross-site fetch that sets this header is
+ * preflighted into a refusal. Without it, any page on the web could swap a
+ * family member's session for the demo's under them.
+ */
+async function handleDemoLogin(request: Request, env: Env): Promise<Response> {
+  if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return noDemo();
+  const user = await demoAccount(env);
+  if (!user) return noDemo();
+  return loggedIn(env, user.id, true);
 }
 
 /** A set-password link: the code names the account, the password replaces
@@ -551,7 +628,8 @@ async function putSettings(request: Request, env: Env, user: UserRow): Promise<R
  * Their data is theirs — and a reader of the export can also see for
  * themselves that no name and no number is in it.
  */
-async function exportAccount(env: Env, user: UserRow, format: string): Promise<Response> {
+async function exportAccount(env: Env, session: Session, format: string): Promise<Response> {
+  const { user } = session;
   const { results } = await env.DB.prepare(SQL.reportsForUser).bind(user.id).all<ReportRow>();
   const reports = results.map((r) => JSON.parse(r.payload) as Record<string, any>);
   // The AI context is the person's own words about themselves; what they
@@ -578,7 +656,10 @@ async function exportAccount(env: Env, user: UserRow, format: string): Promise<R
       },
     });
   }
-  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), email: user.email, aiContext, reports }, null, 1), {
+  // The one identifying string in the file is the login it belongs to, so a
+  // demo visitor's copy carries none: the same withholding as /api/me, at
+  // the other place an address could walk out.
+  return new Response(JSON.stringify({ exportedAt: new Date().toISOString(), email: session.demo ? null : user.email, aiContext, reports }, null, 1), {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "content-disposition": `attachment; filename="moje-krev-${stamp}.json"`,
@@ -593,8 +674,8 @@ async function exportAccount(env: Env, user: UserRow, format: string): Promise<R
  * account stays spent — a code must not come back to life because the
  * account it paid for is gone — and a set-password link bound to it is
  * unbound, so it opens nothing. Immediate and complete; the cookie the
- * request came with is a 401 from the next request on, because requireUser
- * re-reads the row.
+ * request came with is a 401 from the next request on, because
+ * requireSession re-reads the row.
  */
 async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   const { results } = await env.DB.prepare(SQL.pageKeysForUser).bind(user.id).all<{ kv_key: string }>();
@@ -802,6 +883,14 @@ export default {
         return handleSetPassword(request, env);
       case "POST /api/auth/logout":
         return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
+      // The public demo patient, on a deployment that names one. The GET is
+      // how the door decides whether to show the link at all; both answer
+      // 404 where there is no demo, so an ordinary deployment looks exactly
+      // as it did before this existed.
+      case "GET /api/auth/demo":
+        return (await demoAccount(env)) ? json({ available: true }) : noDemo();
+      case "POST /api/auth/demo":
+        return handleDemoLogin(request, env);
       // Public because the page that needs it is: /soukromi is reachable
       // logged out, and its processor sentence has to come from the
       // deployment rather than from whoever last edited the copy
@@ -815,12 +904,16 @@ export default {
     if (invite && request.method === "GET") return inviteKind(env, invite[1]);
 
     // Everything below is the account's own data.
-    const user = await requireUser(request, env);
-    if (!user) return unauthorized();
+    const session = await requireSession(request, env);
+    if (!session) return unauthorized();
+    const { user } = session;
 
     switch (route) {
       case "GET /api/me":
-        return json({ email: user.email, createdAt: user.created_at });
+        // A demo visitor is told they are in the demo and not whose account
+        // it is: the address is the owner's login, and nothing on the
+        // screens needs it. Their own login still reads it back.
+        return json({ email: session.demo ? null : user.email, createdAt: user.created_at, demo: session.demo });
       case "GET /api/status":
         return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env) });
       case "POST /api/extract":
@@ -840,9 +933,9 @@ export default {
       case "DELETE /api/synonyms":
         return forgetSynonym(request, env, user);
       case "GET /api/export":
-        return exportAccount(env, user, url.searchParams.get("format") ?? "json");
+        return exportAccount(env, session, url.searchParams.get("format") ?? "json");
       case "DELETE /api/account":
-        return deleteAccount(env, user);
+        return session.demo ? demoMayNotDelete() : deleteAccount(env, user);
       case "POST /api/ai-share":
         return createShare(request, env, user);
       case "GET /api/ai-share":
@@ -864,7 +957,7 @@ export default {
     const report = REPORT.exec(url.pathname);
     if (report && REPORT_ID.test(report[1])) {
       if (request.method === "PUT") return putReport(request, env, user, report[1]);
-      if (request.method === "DELETE") return deleteReport(env, user, report[1]);
+      if (request.method === "DELETE") return session.demo ? demoMayNotDelete() : deleteReport(env, user, report[1]);
     }
     return json({ error: "not_found" }, 404);
   },

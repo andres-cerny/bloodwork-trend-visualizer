@@ -13,7 +13,7 @@ import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
 import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./ui/Door";
-import { login } from "./lib/api";
+import { demoOffered, enterDemo, login } from "./lib/api";
 
 export default function App() {
   // Set once a link has opened the account: from then on this is the portal,
@@ -50,7 +50,7 @@ function Home({ initial }: { initial: Me | null }) {
     case "login":
       return <Login onDone={(me) => setScreen({ kind: "home", me })} />;
     case "home":
-      return <Portal email={screen.me.email} onLogout={() => setScreen({ kind: "login" })} />;
+      return <Portal email={screen.me.email} demo={screen.me.demo} onLogout={() => setScreen({ kind: "login" })} />;
   }
 }
 
@@ -60,13 +60,21 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
   const pw = useShownPassword();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Whether this deployment opens a demo patient to anyone. Asked rather
+  // than assumed: a link that leads nowhere is worse than no link, and most
+  // deployments name no demo account at all.
+  const [demo, setDemo] = useState(false);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    void demoOffered().then(setDemo);
+  }, []);
+
+  /** One call, then the same question the three password doors ask. */
+  async function enter(open: () => Promise<unknown>) {
     setBusy(true);
     setError(null);
     try {
-      await login(email, password);
+      await open();
       const me = await fetchMe();
       if (me) onDone(me);
       else setError("Přihlášení se nezdařilo. Zkuste to prosím znovu.");
@@ -75,6 +83,11 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    await enter(() => login(email, password));
   }
 
   return (
@@ -102,6 +115,17 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
         </button>
       </form>
       <p className="sub">Zapomenuté heslo? Napište mi a pošlu vám odkaz.</p>
+      {demo && (
+        <div className="door-demo">
+          <button type="button" className="btn linkish" disabled={busy} onClick={() => void enter(enterDemo)}>
+            Zobrazit demo pacienta
+          </button>
+          <span className="hint">
+            Skutečné výsledky bez jména, bez přihlášení. Účet je společný — co do něj nahrajete,
+            uvidí i ostatní.
+          </span>
+        </div>
+      )}
       <p className="door-foot sub">
         <a href="/soukromi">Co ukládáme, a co ne</a>
       </p>
