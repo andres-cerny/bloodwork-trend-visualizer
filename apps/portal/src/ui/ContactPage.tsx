@@ -104,9 +104,12 @@ function ContactForm({ me }: { me: Me | null }) {
           </span>
         </label>
         <label>
-          Report (nepovinné)
+          Datum odběru (nepovinné)
           <input type="text" value={reportId} onChange={(e) => setReportId(e.target.value)} maxLength={64} autoComplete="off" />
-          <span className="hint">Datum odběru, např. 2026-03-04, pokud se zpráva týká jednoho z vašich reportů.</span>
+          {/* Labelled by what a person knows — the report list names a
+              report by its date — and the id from a report row's link is
+              accepted too; the worker resolves either. */}
+          <span className="hint">Např. 2026-03-04, pokud se zpráva týká jednoho z vašich reportů. Id reportu z odkazu u reportu stačí také.</span>
         </label>
         <TurnstileBox gate={gate} />
         {error && <p className="notice">{error}</p>}
