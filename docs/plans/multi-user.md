@@ -176,6 +176,35 @@ when the D1 export failed. Fake Telegram in tests. Fuses sized to the
 price: `BUDGET_USD_LIMIT` 30 USD a month global (a free account can cost
 at most 5 × 6 × 5 ¢ = 1,50 USD), alert at 80 %.
 
+- *Done 2026-09-19.* `POST /api/helpdesk` →
+  [workers/portal/src/helpdesk.ts](../../workers/portal/src/helpdesk.ts)
+  (session's address or a typed one, Turnstile when `TURNSTILE_SECRET_KEY`
+  is set, 4 000 chars, 5/hour per address and per IP, `messages` table);
+  [telegram.ts](../../workers/portal/src/telegram.ts) is one `notify` over
+  `sendMessage`; [watch.ts](../../workers/portal/src/watch.ts) runs from
+  the cron (`*/15 * * * *`) — the shell end to end, the extractor's
+  `/api/status` for reachability and spend, 80 % and 100 % once a month,
+  up/down state in the BUDGET KV under `ops_` keys, a recovery line; the
+  page is [ContactPage.tsx](../../apps/portal/src/ui/ContactPage.tsx) at
+  `/napiste-nam`; the script `tools/scripts/moje-krev-helpdesk.mjs`. Grown
+  the same evening on Ondřej's ask:
+  [triage.ts](../../workers/portal/src/triage.ts) — GLM 5.3 Flash through
+  the `AI` binding reads the message beside the account's last refusals
+  ([events.ts](../../workers/portal/src/events.ts), every 4xx/5xx and every
+  refused upload, hashed to the account, pruned after 30 days) and posts a
+  second line prefixed „Odhad (GLM): "; skipped without the binding. The
+  D1 export cannot be watched from a Worker — the handoff has the cron for
+  Ondřej's machine. Migration `2026-09-19-helpdesk.sql`. Tests:
+  `helpdesk.test.ts` (stored with/without session, Turnstile required /
+  verified / refused, 429, the 4 000 cap, Telegram called with the chat and
+  the d1 hint and not without secrets, the triage asked with events and
+  posted second, skipped without `AI`, events on 402/413/429 and on both
+  upload paths, no address in events, schema ↔ migration), `watch.test.ts`
+  (down once, recovery once, unreachable, 80 % once a month, 100 % once,
+  silent under 80 %, silent without the bot, prune, the `scheduled`
+  export), `schemaDrift.test.ts` widened to nine tables; the contact page
+  swept at five widths in `test:audit:portal` (two screens).
+
 ## Goal 9 — the words a stranger reads first
 
 **Done when** `/` logged-out is a landing page (what this is, what is
