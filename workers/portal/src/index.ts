@@ -92,6 +92,17 @@ const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "5") || 5;
 const limitFor = (user: UserRow, env: Env) => user.budget_usd ?? usdLimit(env);
 const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "6", 10) || 6;
 
+/**
+ * A ceiling in Czech copy: "2,50", not "2.5". The same rule as lab-core's
+ * czUsd, restated because this worker deliberately bundles no lab-core.
+ */
+const czUsd = (n: number) =>
+  n.toLocaleString("cs-CZ", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
+
+/** The refusal a frozen person gets, on every route that would spend. */
+const frozenMessage = (limit: number) =>
+  `Měsíční limit zpracování (${czUsd(limit)} USD) je vyčerpán. Obnoví se začátkem příštího měsíce.`;
+
 /** One extract call covers one page and lives five minutes — long enough for
  *  the slowest model round-trip, short enough that a leaked token is worth
  *  nothing by the time anyone reads it. */
@@ -382,7 +393,7 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
     return json(
       {
         error: "budget_exhausted",
-        message: `Měsíční limit zpracování (${limit} USD) je vyčerpán. Obnoví se začátkem příštího měsíce.`,
+        message: frozenMessage(limit),
         budget: before,
       },
       402,
@@ -843,7 +854,7 @@ async function handleMap(request: Request, env: Env, user: UserRow): Promise<Res
   const before = await userBudget(env.BUDGET, user.id, limit);
   if (before.frozen) {
     return json(
-      { error: "budget_exhausted", message: `Měsíční limit zpracování (${limit} USD) je vyčerpán. Obnoví se začátkem příštího měsíce.`, budget: before },
+      { error: "budget_exhausted", message: frozenMessage(limit), budget: before },
       402,
     );
   }

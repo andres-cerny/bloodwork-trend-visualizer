@@ -257,6 +257,21 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // The ✕ on a stored report opens a "Smazat / Zrušit" pair in its row.
+    // The list is a scroll box, so a row that outgrows it does not fail the
+    // overflow invariant — it scrolls sideways, clips Zrušit and pushes the
+    // next row's ✕ out of reach, which is what happened at 360 and 414 on
+    // 2026-09-19. Measured here directly, because a scroll box hides it.
+    name: "reporty (mazání reportu potvrzované)",
+    go: async (page) => {
+      await tab(page, "Reporty");
+      await page.locator(".reportlist .rl-x").first().click();
+      await page.getByRole("button", { name: "Zrušit", exact: true }).waitFor();
+      const sideways = await page.locator("ul.reportlist").evaluate((ul) => ul.scrollWidth - ul.clientWidth);
+      if (sideways > 0) throw new Error(`the report list scrolls sideways by ${sideways}px with a row's delete confirmation open`);
+    },
+  },
+  {
     name: "AI konzultace (bez odkazu)",
     go: async (page) => {
       await tab(page, "AI konzultace");

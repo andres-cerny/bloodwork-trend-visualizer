@@ -73,11 +73,35 @@ with e-mail and password; a forgotten password is a second link, minted with
 in `workers/portal/.wrangler/`, so you stay registered across restarts. (It is keyed by the `database_id` in
 wrangler.jsonc — change that and you start from an empty local database.)
 
-Locally, everything up to the extractor works: the redaction review, the
-painted pages, storage in the local D1 and KV. The extract call itself needs
-`moje-krev-extract`, which the local worker cannot reach (`EXTRACT` shows
-"not connected"), so a local upload ends with „žádnou stranu se nepodařilo
-přečíst". Real extraction is tested against the deployed stack.
+With `dev:portal-api` alone, everything up to the extractor works: the
+redaction review, the painted pages, storage in the local D1 and KV. The
+extract call itself needs `moje-krev-extract`, which that one process cannot
+reach (`EXTRACT` shows "not connected"), so an upload ends with „žádnou
+stranu se nepodařilo přečíst".
+
+**The whole loop locally, extractor included** — one wrangler process runs
+both workers, and the service binding resolves between them:
+
+```sh
+# workers/portal-extract/.dev.vars (git-ignored): ANTHROPIC_API_KEY and
+# GEMINI_API_KEY, plus SESSION_SECRET=local-dev-secret-change-me and
+# TURNSTILE_SECRET_KEY=unused. The portal's .dev.vars adds
+# EXTRACT_SESSION_SECRET=local-dev-secret-change-me — the same string.
+npx wrangler dev -c workers/portal/wrangler.jsonc -c workers/portal-extract/wrangler.jsonc \
+  --port 8789 --persist-to workers/portal/.wrangler/state
+npm run dev:portal        # second terminal, as before
+```
+
+The first `-c` is the one the port serves. `--persist-to` points both at the
+D1 that `wrangler d1 execute --local` wrote from `workers/portal`, so the
+invites and accounts you minted are the ones the API sees. The binding table
+prints `env.EXTRACT … [not connected]` before the second worker is up; a
+`GET /api/processors` answering `{"photoReaders":"sonnet+gemini"}` is the
+proof it is wired, because that route asks the extractor. Every page then
+spends real money (about 2,5 ¢ on the text path), booked on the account's
+own ledger exactly as in production. `DEMO_EMAIL=…` in the portal's
+`.dev.vars` turns on the demo link locally; wrangler needs a restart to read
+it.
 
 Tests and checks, same as CI: `npm test` (the portal suite is
 `npx vitest run --project portal`) · `npm run typecheck` · `npm run docs:check`.

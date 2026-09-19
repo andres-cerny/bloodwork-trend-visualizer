@@ -462,6 +462,25 @@ describe("a person's own budget", () => {
     expect(data.budget.budgetUsd).toBe(20);
   });
 
+  it("refuses a frozen person in Czech, with a decimal comma", async () => {
+    // A ceiling of 2.5 is legal (moje-krev-budget.mjs takes any number), and
+    // a template literal would print it as "2.5 USD" under a screen that
+    // writes every other number with a comma.
+    tables.users[0].budget_usd = 2.5;
+    await recordUserSpendUsd(env.BUDGET as KVNamespace, A.id, monthOf(), 3);
+    for (const [path, body] of [
+      ["/api/extract", { rowsText: "x" }],
+      ["/api/map", { names: [], catalog: [] }],
+    ] as const) {
+      const res = await call(A, "POST", path, body);
+      const data = (await res.json()) as { error: string; message: string };
+      expect(res.status).toBe(402);
+      expect(data.error).toBe("budget_exhausted");
+      expect(data.message).toContain("(2,50 USD)");
+      expect(data.message).not.toMatch(/\d\.\d/);
+    }
+  });
+
   it("lets a raise thaw someone the old ceiling had frozen", async () => {
     await recordUserSpendUsd(env.BUDGET as KVNamespace, A.id, monthOf(), 6);
     expect((await statusOf(A)).budget.frozen).toBe(true);

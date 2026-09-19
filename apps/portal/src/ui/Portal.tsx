@@ -34,6 +34,7 @@ import {
   buildTrends,
   count,
   czDate,
+  czUsd,
   findUnmapped,
   observedStats,
   rematchReport,
@@ -632,7 +633,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
       )}
       {budget && (
         <p className="muted" style={{ margin: "10px 0 0" }}>
-          Zpracování tento měsíc: {budget.spentUsd.toFixed(2)} / {budget.budgetUsd} USD
+          Zpracování tento měsíc: {czUsd(budget.spentUsd)} / {czUsd(budget.budgetUsd)} USD
         </p>
       )}
     </div>
