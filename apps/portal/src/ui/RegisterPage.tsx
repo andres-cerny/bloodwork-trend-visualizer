@@ -17,7 +17,7 @@ import { useState } from "react";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { requestReset, requestSignup } from "../lib/api";
 import { useTurnstile } from "../lib/turnstile";
-import { Door, TurnstileBox, messageOf } from "./Door";
+import { Door, DoorFoot, TurnstileBox, messageOf } from "./Door";
 import { LOGIN_PATH } from "./LandingPage";
 import { CONSENT_HEALTH, CONSENT_TERMS, linked, PRIVACY_PATH, TERMS_PATH } from "./legal";
 import VerifyMailPage from "./VerifyMailPage";
@@ -99,11 +99,11 @@ export default function RegisterPage({ mode }: { mode: RegisterMode }) {
           Poslat odkaz
         </button>
       </form>
-      <p className="door-foot sub">
+      <DoorFoot>
         <a href={LOGIN_PATH}>Přihlášení</a>
         {mode === "register" ? <a href="/zapomenute-heslo">Zapomenuté heslo</a> : <a href="/registrace">Registrovat</a>}
         <a href={PRIVACY_PATH}>Co ukládáme, a co ne</a>
-      </p>
+      </DoorFoot>
     </Door>
   );
 }

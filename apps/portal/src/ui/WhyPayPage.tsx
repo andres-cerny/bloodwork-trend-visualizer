@@ -11,13 +11,13 @@
  * written here rather than fetched because the page has to read before a
  * login and the prices are a decision, not a measurement.
  */
-import { PACKAGES } from "./BuySheet";
+import { ALLOWANCE, LegalHead } from "./legal";
 
 /** The six sentences, exported so a node test can hold them to the copy rules. */
 export const WHY_PAY: readonly string[] = [
   "Každý dokument čtou dva modely nezávisle na sobě, aby se odhalil přepis, ve kterém jeden z nich chybuje, a za každou přečtenou stránku platíme.",
   "Prvních 5 dokumentů má každý účet zdarma, natrvalo — dokument je jedno PDF nebo jedna sada fotografií, nejvýše 6 stran.",
-  `Kdo potřebuje víc, přikoupí balíček: ${PACKAGES[0].documents} dokumentů za ${PACKAGES[0].czk} Kč nebo ${PACKAGES[1].documents} za ${PACKAGES[1].czk} Kč, bez předplatného, a dokumenty nepropadají.`,
+  `Kdo potřebuje víc, přikoupí balíček: ${ALLOWANCE.packages[0].documents} dokumentů za ${ALLOWANCE.packages[0].czk} Kč nebo ${ALLOWANCE.packages[1].documents} za ${ALLOWANCE.packages[1].czk} Kč, bez předplatného, a dokumenty nepropadají.`,
   "Smazání reportu dokument nevrátí — čtení už proběhlo a bylo zaplaceno; vrací se jen dokument, ze kterého se nepodařilo přečíst ani jednu stranu.",
   "Platbu zpracovává Stripe, kartou nebo přes Apple Pay a Google Pay, a číslo karty k nám nedorazí.",
   "Přikoupit najdete v aplikaci na kartě Reporty, hned pod uloženými reporty.",
@@ -26,9 +26,7 @@ export const WHY_PAY: readonly string[] = [
 export default function WhyPayPage() {
   return (
     <main className="privacy">
-      <p>
-        <a href="/">← Moje krev</a>
-      </p>
+      <LegalHead />
       <h1>Proč přikoupit?</h1>
       {WHY_PAY.map((s) => (
         <p key={s}>{s}</p>

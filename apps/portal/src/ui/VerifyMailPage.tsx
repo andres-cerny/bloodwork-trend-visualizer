@@ -5,7 +5,7 @@
  * difference shows. Nothing here polls or waits; the link opens /heslo on
  * its own, in whatever tab the mail app chooses.
  */
-import { Door } from "./Door";
+import { Door, DoorFoot } from "./Door";
 import { LOGIN_PATH } from "./LandingPage";
 
 export const LINK_HOURS = 24;
@@ -18,9 +18,9 @@ export default function VerifyMailPage({ email }: { email: string }) {
         Poslali jsme odkaz na <strong>{email}</strong>. Otevřete ho do {LINK_HOURS} hodin.
       </p>
       <p className="hint">Nepřišel? Podívejte se do nevyžádané pošty. Odkaz lze použít jednou.</p>
-      <p className="door-foot sub">
+      <DoorFoot>
         <a href={LOGIN_PATH}>Přihlášení</a>
-      </p>
+      </DoorFoot>
     </Door>
   );
 }

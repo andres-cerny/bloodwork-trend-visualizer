@@ -8,15 +8,13 @@
  * sections, short, no clause a reader would need a lawyer to parse — the
  * reader is a person with a lab report, not a counterparty.
  */
-import { ALLOWANCE, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, OPERATOR, PRIVACY_PATH } from "./legal";
+import { ALLOWANCE, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, LegalHead, OPERATOR, PRIVACY_PATH } from "./legal";
 
 export default function TermsPage() {
   const [small, large] = ALLOWANCE.packages;
   return (
     <main className="privacy legal">
-      <p>
-        <a href="/">← Moje krev</a>
-      </p>
+      <LegalHead />
       <DraftBanner />
       <h1>Podmínky užití</h1>
       <p className="legal-meta">Verze: {LEGAL_VERSION}</p>

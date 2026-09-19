@@ -58,6 +58,28 @@ const tab = async (page: Page, name: string) => {
 const IGNORE = ["iframe"];
 
 /**
+ * Every link in a nav is a box of its own, 24px or taller. The tiny-target
+ * rule exempts an inline link because the sentence around it is the
+ * target; a link in a nav has no sentence, and until 2026-09-19 three door
+ * cards and the three prose pages' „← Moje krev" rendered theirs inline,
+ * 21px tall and exempt. This is the explicit floor the exemption cannot
+ * reach: on every screen, whichever width.
+ */
+async function expectNavLinkBoxes(page: Page) {
+  const links = await page.locator("nav a").evaluateAll((as) =>
+    as.map((a) => {
+      const r = a.getBoundingClientRect();
+      return { text: a.textContent?.trim() ?? "", height: r.height, width: r.width, inline: getComputedStyle(a).display.startsWith("inline") };
+    }),
+  );
+  for (const l of links) {
+    if (l.width === 0 && l.height === 0) continue; // hidden with its panel
+    expect(l.height, `nav link „${l.text}" is ${Math.round(l.height)}px tall`).toBeGreaterThanOrEqual(24);
+    expect(l.inline, `nav link „${l.text}" is inline text, not a box`).toBe(false);
+  }
+}
+
+/**
  * The "i" after a parameter's name needs `about` texts on the catalog entry,
  * and the shipped registry.json may not carry them yet — the texts arrive
  * through the generator. So the sweep seeds its own: the fetch of
@@ -693,6 +715,7 @@ for (const [vpName, viewport] of VIEWPORTS) {
             const flaws = await audit(page, { ignore: IGNORE, skip: screen.skip });
             expect(errorsOn(page), `page errors on ${screen.name}`).toEqual([]);
             judge(`${vpName} ${theme} — ${screen.name}`, flaws);
+            await expectNavLinkBoxes(page);
             await screen.check?.(page);
           } finally {
             await page.close();

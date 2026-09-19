@@ -15,7 +15,7 @@
 import { useEffect, useState } from "react";
 import { processorPhrase, RETENTION_NOTE, sendsToGoogle } from "@bw/ui-kit";
 import { getProcessors } from "../lib/api";
-import { CONSENT_HEALTH, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, OPERATOR, TERMS_PATH } from "./legal";
+import { CONSENT_HEALTH, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, LegalHead, OPERATOR, TERMS_PATH } from "./legal";
 
 export default function Privacy() {
   // Who processes a page is asked of the deployment, not written down here.
@@ -34,9 +34,7 @@ export default function Privacy() {
 
   return (
     <main className="privacy legal">
-      <p>
-        <a href="/">← Moje krev</a>
-      </p>
+      <LegalHead />
       <DraftBanner />
       <h1>Zásady ochrany soukromí</h1>
       <p className="legal-meta">Verze: {LEGAL_VERSION}</p>

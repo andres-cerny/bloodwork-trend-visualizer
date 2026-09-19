@@ -275,3 +275,25 @@ describe("the router", () => {
     expect(host.querySelectorAll(".legal h2").length).toBe(12);
   });
 });
+
+describe("the way back from a prose page", () => {
+  it("is a nav at the top — a box, like the footer's links — on all three, not an inline link in a paragraph", async () => {
+    // An inline <a> in a <p> is 21px tall: under the 24px floor the sweep
+    // holds every link to, and exempt from it only because inline links in
+    // prose are sized by their sentence. „← Moje krev" stands alone.
+    for (const path of ["/podminky", "/soukromi", "/proc-prikoupit"]) {
+      act(() => root.unmount());
+      root = createRoot(host);
+      history.replaceState(null, "", path);
+      vi.stubGlobal("fetch", fakeFetch({}));
+      await render(<App />);
+      const head = host.querySelector<HTMLElement>("main > nav.legal-foot.legal-head");
+      expect(head, `${path}: a head nav`).not.toBeNull();
+      expect(head!.getAttribute("aria-label")).toBe("Zpět");
+      expect([...head!.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")])).toEqual([["← Moje krev", "/"]]);
+      expect(host.querySelector('main > p > a[href="/"]'), `${path}: no inline back link`).toBeNull();
+      // Before the heading, where a way back belongs.
+      expect(head!.compareDocumentPosition(host.querySelector("main h1")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+});

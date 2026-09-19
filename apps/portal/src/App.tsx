@@ -21,7 +21,7 @@ import WhyPayPage from "./ui/WhyPayPage";
 import RegisterPage from "./ui/RegisterPage";
 import TermsPage from "./ui/TermsPage";
 import LandingPage, { LOGIN_PATH } from "./ui/LandingPage";
-import { Door, DoorWays, TurnstileBox, fetchMe, messageOf, type Me, useShownPassword, useSignupOpen } from "./ui/Door";
+import { Door, DoorFoot, DoorWays, TurnstileBox, fetchMe, messageOf, type Me, useShownPassword, useSignupOpen } from "./ui/Door";
 import { login } from "./lib/api";
 import { useTurnstile } from "./lib/turnstile";
 
@@ -145,15 +145,11 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
         </button>
       </form>
       <DoorWays open={open} />
-      {/* Each link its own box (flex, not inline text): at 360 the row wraps,
-          and an inline anchor that wraps covers the whole line. */}
-      <nav className="door-foot legal-foot" aria-label="Další cesty">
+      <DoorFoot>
         <a href="/">← Úvod</a>
-        <span aria-hidden="true">·</span>
         <a href="/soukromi">Co ukládáme, a co ne</a>
-        <span aria-hidden="true">·</span>
         <a href="/napiste-nam">Napište nám</a>
-      </nav>
+      </DoorFoot>
     </Door>
   );
 }

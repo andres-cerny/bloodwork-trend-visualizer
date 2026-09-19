@@ -871,8 +871,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
   font-size: 0.88rem;
   color: var(--ink-muted);
 }
-.legal-foot a { color: var(--ink-muted); padding: 0.25rem 0; }
+/* Each link is a flex item, so its padding is its box: 0.35rem over 21px of
+   type is 32px, past the 24px floor the sweep holds a standalone link to. */
+.legal-foot a { color: var(--ink-muted); padding: 0.35rem 0; }
 .legal-foot a:hover { color: var(--accent-ink); }
+/* The way back at the top of a prose page: the same link box, no rule
+   above it and no space for one. */
+.legal-foot.legal-head { margin-top: 0; padding-top: 0; border-top: none; }
 /* The same footer inside the door's card keeps the card's spacing. */
 .door .legal-foot { margin-top: 0.3rem; }
 
