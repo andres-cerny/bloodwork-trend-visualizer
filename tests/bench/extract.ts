@@ -35,6 +35,20 @@ export const PRICING: Record<string, [number, number]> = {
   // Paid tier, USD per 1M tokens. Becomes [1.50, 7.50] on 2027-01-01 —
   // docs/plans/lab-adaptability.md "Risks". Re-run C5's table then.
   "gemini-3.8-flash": [0.75, 3.75],
+  // The free-tier candidates (openai_compat.ts). Workers AI: the catalog's
+  // own `price` property, read 2026-09-18 — its 10k free neurons/day are not
+  // modelled, the run records the token bill and the free share is computed
+  // after. Groq: $0.80 / $4.00 for qwen3.8-27b (pricepertoken, 2026-09).
+  // Mistral: mistral.ai/pricing/api, Small 4.
+  "@cf/zai-org/glm-5.3-flash": [0.15, 0.5],
+  "@cf/meta/llama-4-scout-17b-16e-instruct": [0.27, 0.85],
+  "@cf/qwen/qwen3.8-27b": [0.45, 3.2],
+  "qwen/qwen3.8-27b": [0.8, 4.0],
+  "mistral-small-2603": [0.15, 0.6],
+  // Ministral 3 14B: list price at mistral.ai/pricing/api, 2026-09 ($0.2 in,
+  // $0.2 out). The workspace is on the free Experiment plan, so the real
+  // bill is $0 — the number only feeds the estimate.
+  "ministral-14b-2512": [0.2, 0.2],
   // NOTE: `mistral-ocr-4-1` is deliberately absent. It is billed PER PAGE
   // ($0.004), not per token, so `priceUsd` must never be called for it —
   // mistral.ts computes its own cost from `usage_info.pages_processed`. A
@@ -70,9 +84,11 @@ export interface Reader {
   /**
    * Which API answers. Absent means Anthropic, so every existing arm is
    * untouched. `mistral` is not an LLM call at all — it is the OCR layout
-   * parser, priced per page rather than per token (mistral.ts).
+   * parser, priced per page rather than per token (mistral.ts). The last
+   * three are the free-tier chat endpoints (openai_compat.ts); `mistral-chat`
+   * is Mistral's LLM, not its OCR.
    */
-  provider?: "anthropic" | "google" | "mistral";
+  provider?: "anthropic" | "google" | "mistral" | "cloudflare" | "groq" | "mistral-chat";
   /** Gemini only: how many tokens the image is worth to the model (gemini.ts). */
   mediaResolution?: "high" | "ultra_high";
 }

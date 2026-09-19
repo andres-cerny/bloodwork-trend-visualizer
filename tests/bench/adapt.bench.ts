@@ -99,6 +99,7 @@ import {
   remapFromRaw,
   remapMeasurements,
 } from "./mistral";
+import { CF_GLM, CF_QWEN, CF_SCOUT, GROQ_QWEN, MINISTRAL_14B, MISTRAL_SMALL, compatRequest, describeRequest as describeCompatRequest, type CompatProvider } from "./openai_compat";
 import { readAnnotated, readDocument, readImage, readText } from "./readers";
 import {
   fabrications,
@@ -150,6 +151,14 @@ function gate(n: number) {
   };
 }
 const mistralGate = gate(MISTRAL_IN_FLIGHT);
+/**
+ * The free chat tiers are rate-limited by design (openai_compat.ts): Groq's
+ * is 30 RPM and 8k TPM, which is one page at a time; Mistral's Experiment
+ * plan is ~1 request/s. Workers AI keeps the pool. `GROQ_IN_FLIGHT` raises
+ * the Groq cap on the paid tier.
+ */
+const groqGate = gate(Math.max(1, parseInt(process.env.GROQ_IN_FLIGHT ?? "1", 10)));
+const mistralChatGate = gate(Math.max(1, parseInt(process.env.MISTRAL_CHAT_IN_FLIGHT ?? "2", 10)));
 
 /* -------------------------------------------------------------------- arms */
 
@@ -230,6 +239,17 @@ export const ARMS: SingleArm[] = [
   // the model, which is the axis the Haiku mapper failed on. $0.005/page, the
   // annotations tier.
   { id: "mistral_annot", label: "Mistral OCR + document annotation (our schema)", reader: { model: MISTRAL_OCR_MODEL, provider: "mistral" }, inputs: ["image"], estimateUsd: { image: ANNOT_PAGE_PRICE_USD }, pricePerPageUsd: ANNOT_PAGE_PRICE_USD, annotate: true },
+  // The free-tier candidates (openai_compat.ts), single readers first. Text
+  // estimates: ~1.5k in + ~3.6k out at the list price; image estimates add
+  // the image tokens each endpoint reported on the 2026-09-18 probe (GLM
+  // ~5.1k, Scout ~2.4k, Qwen ~6.4k at Workers AI; Groq a fixed 2,048). The
+  // Workers AI bill is on paper — the first ~10k neurons a day are free.
+  { id: "cf_glm", label: "Workers AI: GLM-5.3 Flash", reader: { model: CF_GLM, provider: "cloudflare" }, inputs: ["text", "image"], estimateUsd: { text: 0.002, image: 0.0026 }, imageTokens: 5100 },
+  { id: "cf_scout", label: "Workers AI: Llama 4 Scout", reader: { model: CF_SCOUT, provider: "cloudflare" }, inputs: ["text", "image"], estimateUsd: { text: 0.0035, image: 0.0037 }, imageTokens: 2400 },
+  { id: "cf_qwen", label: "Workers AI: Qwen 3.8 27B", reader: { model: CF_QWEN, provider: "cloudflare" }, inputs: ["text", "image"], estimateUsd: { text: 0.012, image: 0.014 }, imageTokens: 6400 },
+  { id: "groq_qwen", label: "Groq: Qwen 3.8 27B", reader: { model: GROQ_QWEN, provider: "groq" }, inputs: ["text", "image"], estimateUsd: { text: 0.016, image: 0.016 }, imageTokens: 2048 },
+  { id: "mistral_small", label: "Mistral Small 4 (chat, vision)", reader: { model: MISTRAL_SMALL, provider: "mistral-chat" }, inputs: ["text", "image"], estimateUsd: { text: 0.0024, image: 0.003 } },
+  { id: "ministral_14b", label: "Mistral: Ministral 3 14B (chat, vision)", reader: { model: MINISTRAL_14B, provider: "mistral-chat" }, inputs: ["text", "image"], estimateUsd: { text: 0.002, image: 0.003 } },
 ];
 
 export const PAIRS: PairArm[] = [
@@ -241,6 +261,23 @@ export const PAIRS: PairArm[] = [
   { id: "gemini38_ultra+mistral_ocr", label: "the cheap pair — two vendors, ~$0.025/page", pair: ["gemini38_ultra", "mistral_ocr"] },
   { id: "sonnet5+mistral_annot", label: "a reader and a schema-filling OCR", pair: ["sonnet5", "mistral_annot"] },
   { id: "gemini38_ultra+mistral_annot", label: "the cheap pair, no mapper of ours", pair: ["gemini38_ultra", "mistral_annot"] },
+  // A free reader beside Gemini (photos) or Haiku (text): what the app would
+  // run if Sonnet left the pair. The number that decides is UNCAUGHT.
+  { id: "gemini38_ultra+cf_glm", label: "free photo pair: Gemini + GLM", pair: ["gemini38_ultra", "cf_glm"] },
+  { id: "gemini38_ultra+cf_scout", label: "free photo pair: Gemini + Scout", pair: ["gemini38_ultra", "cf_scout"] },
+  { id: "gemini38_ultra+cf_qwen", label: "free photo pair: Gemini + Qwen (Workers AI)", pair: ["gemini38_ultra", "cf_qwen"] },
+  { id: "gemini38_ultra+groq_qwen", label: "free photo pair: Gemini + Qwen (Groq)", pair: ["gemini38_ultra", "groq_qwen"] },
+  { id: "gemini38_ultra+mistral_small", label: "free photo pair: Gemini + Mistral Small", pair: ["gemini38_ultra", "mistral_small"] },
+  { id: "gemini38_ultra+ministral_14b", label: "free photo pair: Gemini + Ministral 14B", pair: ["gemini38_ultra", "ministral_14b"] },
+  { id: "haiku45+cf_glm", label: "free text pair: Haiku + GLM", pair: ["haiku45", "cf_glm"] },
+  { id: "haiku45+cf_scout", label: "free text pair: Haiku + Scout", pair: ["haiku45", "cf_scout"] },
+  { id: "haiku45+cf_qwen", label: "free text pair: Haiku + Qwen (Workers AI)", pair: ["haiku45", "cf_qwen"] },
+  { id: "haiku45+groq_qwen", label: "free text pair: Haiku + Qwen (Groq)", pair: ["haiku45", "groq_qwen"] },
+  { id: "haiku45+mistral_small", label: "free text pair: Haiku + Mistral Small", pair: ["haiku45", "mistral_small"] },
+  { id: "haiku45+ministral_14b", label: "free text pair: Haiku + Ministral 14B", pair: ["haiku45", "ministral_14b"] },
+  { id: "cf_glm+cf_scout", label: "two free readers, one host", pair: ["cf_glm", "cf_scout"] },
+  { id: "cf_glm+groq_qwen", label: "two free readers, two vendors", pair: ["cf_glm", "groq_qwen"] },
+  { id: "cf_glm+ministral_14b", label: "two free readers, two vendors, one in the EU", pair: ["cf_glm", "ministral_14b"] },
 ];
 
 const armIds = (process.env.BENCH_ARMS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -643,9 +680,14 @@ it("lab adaptability — class × arm, scored per class", async () => {
     anthropic: process.env.ANTHROPIC_API_KEY ?? "",
     google: process.env.GEMINI_API_KEY ?? "",
     mistral: process.env.MISTRAL_API_KEY ?? "",
+    // Empty means "the wrangler login" — openai_compat.ts reads the OAuth
+    // token itself and fails the call, not the run, when there is none.
+    cloudflare: process.env.CLOUDFLARE_API_TOKEN ?? "",
+    groq: process.env.GROQ_API_KEY ?? "",
+    "mistral-chat": process.env.MISTRAL_API_KEY ?? "",
   };
-  const KEY_NAME = { anthropic: "ANTHROPIC_API_KEY", google: "GEMINI_API_KEY", mistral: "MISTRAL_API_KEY" } as const;
-  for (const p of needs) if (!keys[p]) throw new Error(`${KEY_NAME[p]} not set — set -a; source .env; set +a`);
+  const KEY_NAME = { anthropic: "ANTHROPIC_API_KEY", google: "GEMINI_API_KEY", mistral: "MISTRAL_API_KEY", cloudflare: "", groq: "GROQ_API_KEY", "mistral-chat": "MISTRAL_API_KEY" } as const;
+  for (const p of needs) if (!keys[p] && KEY_NAME[p]) throw new Error(`${KEY_NAME[p]} not set — set -a; source .env; set +a`);
 
   const python = pythonWithFitz();
   const pillow = singles.some((a) => a.tiled) ? pythonWithPillow() : null;
@@ -670,7 +712,8 @@ it("lab adaptability — class × arm, scored per class", async () => {
       const provider = arm.reader.provider ?? "anthropic";
       // The OCR provider answers 429 when asked too fast, and a 429 is not a
       // reading failure. It alone is gated; every other arm keeps the pool.
-      const polite = <T,>(fn: () => Promise<T>): Promise<T> => (provider === "mistral" ? mistralGate(fn) : fn());
+      const polite = <T,>(fn: () => Promise<T>): Promise<T> =>
+        provider === "mistral" ? mistralGate(fn) : provider === "groq" ? groqGate(fn) : provider === "mistral-chat" ? mistralChatGate(fn) : fn();
       let call: CallResult;
       let imagePath: string | undefined;
       if (page.kind === "text" && arm.sourcePdf) {

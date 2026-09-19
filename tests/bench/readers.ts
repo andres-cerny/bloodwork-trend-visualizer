@@ -29,6 +29,9 @@ import { rowsAsText, type TextRow } from "@bw/lab-core";
 import { priceUsd, type CallResult, type Reader } from "./extract";
 import { callGemini, type Tile } from "./gemini";
 import { callMistral } from "./mistral";
+import { callCompat, type CompatProvider } from "./openai_compat";
+
+const COMPAT: ReadonlySet<string> = new Set<CompatProvider>(["cloudflare", "groq", "mistral-chat"]);
 
 export interface PageImage {
   base64: string;
@@ -75,6 +78,7 @@ export async function readDocument(apiKey: string, reader: Reader, doc: PageDocu
 
 export async function readText(apiKey: string, reader: Reader, rows: TextRow[]): Promise<CallResult> {
   if (reader.provider === "google") return callGemini(apiKey, reader, { kind: "text", rows });
+  if (reader.provider && COMPAT.has(reader.provider)) return callCompat(reader.provider as CompatProvider, apiKey, reader, { kind: "text", rows });
   const t0 = performance.now();
   try {
     const x = await extractPageText(apiKey, reader.model, rowsAsText(rows));
@@ -110,6 +114,10 @@ export async function readImage(apiKey: string, reader: Reader, image: PageImage
   if (reader.provider === "mistral") {
     // No prompt and no text-layer hint: OCR reads the pixels it is given.
     return callMistral(apiKey, reader, { kind: "image", base64: image.base64, mediaType: image.mediaType });
+  }
+  if (reader.provider && COMPAT.has(reader.provider)) {
+    // The free-tier chat endpoints take the Claude-tier render (openai_compat.ts, "Images").
+    return callCompat(reader.provider as CompatProvider, apiKey, reader, { kind: "image", base64: image.base64, mediaType: image.mediaType, textLayer: image.textLayer });
   }
   if (reader.provider === "google") {
     return callGemini(

@@ -93,8 +93,8 @@ export interface Tile {
  */
 export { toGeminiSchema };
 
-/** The text path's schema: `source_snippet` swapped for `row_index`, as `TOOL_TEXT` does. */
-function textToolSchema(): any {
+/** The text path's schema: `source_snippet` swapped for `row_index`, as `TOOL_TEXT` does. Shared with openai_compat.ts. */
+export function textToolSchema(): any {
   const tool = JSON.parse(JSON.stringify(TOOL)) as any;
   const item = tool.input_schema.properties.measurements.items;
   delete item.properties.source_snippet;

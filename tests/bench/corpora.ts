@@ -31,6 +31,7 @@ import { type TextRow } from "@bw/lab-core";
 
 import { FIXTURES, SCAN_FIXTURE, type Fixture } from "../live/fixtures";
 import { parsePdf, realSamples } from "./corpus";
+import { type Reader } from "./extract";
 import { annotateMaterial, loadBaseline, type RawMeasurement } from "./score";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -361,11 +362,13 @@ export interface Rendered {
  * whatever the pixels are, so there is nothing to save by shrinking one.
  * Cached under `outDir` so a second arm never pays the render twice.
  */
-export function renderFor(page: CorpusPage, provider: "anthropic" | "google" | "mistral", outDir: string, python: string | null): Rendered {
+export function renderFor(page: CorpusPage, provider: NonNullable<Reader["provider"]>, outDir: string, python: string | null): Rendered {
   mkdirSync(outDir, { recursive: true });
   if ("file" in page.image) {
     const mediaType = /\.png$/i.test(page.image.file) ? "image/png" : "image/jpeg";
-    if (provider !== "anthropic") return { path: page.image.file, mediaType };
+    // Gemini and Mistral OCR take the untouched photo; Claude and the
+    // free-tier chat endpoints (openai_compat.ts, "Images") the 2576 px tier.
+    if (provider === "google" || provider === "mistral") return { path: page.image.file, mediaType };
     const out = join(outDir, `${page.slug}.claude.jpg`);
     if (!existsSync(out)) render(python, page.image.file, 1, "edge", CLAUDE_PHOTO_EDGE, out);
     return { path: out, mediaType: "image/jpeg" };
