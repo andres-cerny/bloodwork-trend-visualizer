@@ -25,6 +25,8 @@ import type { PreparedFile } from "../src/lib/upload";
 
 /** One read per file, settled by the test: `reads.get(name)` resolves or rejects it. */
 const reads = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
+/** Report ids whose store fails, with the worker's sentence — read, not stored. */
+const storeFails = new Map<string, Error>();
 
 vi.mock("../src/lib/upload", () => {
   const page = { pageNum: 1, imageUrl: "blob:p1", imageWidth: 100, imageHeight: 140, imageBase64: "", mediaType: "image/png", words: [], rows: [], hasTextLayer: true };
@@ -44,17 +46,23 @@ vi.mock("../src/lib/upload", () => {
           reject,
         });
       }),
-    storeReport: async (report: LabReport) => report,
+    storeReport: async (report: LabReport) => {
+      const fail = storeFails.get(report.id);
+      if (fail) throw fail;
+      return report;
+    },
   };
 });
 
-import UploadFlow from "../src/ui/UploadFlow";
+import UploadFlow, { storeFailedCopy } from "../src/ui/UploadFlow";
+import { ApiError } from "../src/lib/api";
 
 let host: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
   reads.clear();
+  storeFails.clear();
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
@@ -186,6 +194,30 @@ describe("the queue and its batch", () => {
     expect(failed?.textContent).toContain("b.pdf");
     expect(failed?.textContent).toContain("čtečka odpověděla 500");
     expect(host.querySelectorAll("li.job.done")).toHaveLength(2);
+  });
+
+  it("a store that fails after the read says so — read, not stored, the document spent — and steps the batch", async () => {
+    // The worker refused the row (413 was the case on 2026-09-19: six pages
+    // of data: URLs); the pages were read and paid for, so nothing is given
+    // back, and the sentence must say which half failed rather than
+    // „Nepodařilo se zpracovat PDF".
+    storeFails.set("id-1", new ApiError("Report je příliš velký.", "too_large", 413));
+    const p = mount(true);
+    await pickFiles(["a.pdf", "b.pdf"]);
+    await confirm("a.pdf");
+    await confirm("b.pdf");
+    await lands("a.pdf");
+    expect(p.batches.at(-1)).toEqual({ total: 2, settled: 1 });
+    expect(p.stored).toHaveLength(0);
+    const failed = host.querySelector("li.job.failed");
+    expect(failed?.textContent).toContain("a.pdf");
+    expect(failed?.querySelector(".job-note")?.textContent).toBe(storeFailedCopy("Report je příliš velký."));
+    expect(storeFailedCopy("Report je příliš velký.")).toBe(
+      "Report se přečetl, ale nepodařilo se ho uložit: Report je příliš velký. Dokument z nároku je využitý.",
+    );
+    await lands("b.pdf");
+    expect(p.batches.at(-1)).toEqual({ total: 0, settled: 0 });
+    expect(p.stored).toHaveLength(1);
   });
 
   it("a file skipped at the review steps the batch too — nothing read, nothing stored, one file fewer to wait for", async () => {

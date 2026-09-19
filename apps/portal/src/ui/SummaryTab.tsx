@@ -511,7 +511,7 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
           <p className="prose">
             {overview.draws > 1
               ? "Zatím žádný parametr změřený dvakrát — přesuny vůči rozmezí od druhého měření."
-              : "Jediný odběr — přesuny vůči rozmezí od druhého odběru."}
+              : "Zatím jeden odběr. Změny vůči rozmezí se ukážou po druhém."}
           </p>
         ) : worse.length === 0 && better.length === 0 ? (
           <p className="prose">Žádný přesun vůči referenčnímu rozmezí od minulého odběru.</p>

@@ -93,9 +93,36 @@ describe("RegisterPage — registrace", () => {
     root = createRoot(host);
     render(<Privacy />);
     await flush();
-    const quoted = q("blockquote.legal-quote")!.textContent!.replace(/^„|"$/g, "");
+    const quoted = q("blockquote.legal-quote")!.textContent!.replace(/^„|“$/g, "");
     expect(ticked).toBe(quoted);
     expect(quoted).toBe(CONSENT_HEALTH);
+  });
+
+  it("ends on the same nav the login and the contact page end on: each link a box, a dot between", () => {
+    // Inline links in a <p> are 21px tall and wrap into ragged lines at 360;
+    // the door's foot is one nav, a column of link boxes with no dots — the
+    // card never fits three in a row — and every door must be that nav, not
+    // three spellings of it.
+    const foot = () => q<HTMLElement>("nav.door-foot.legal-foot")!;
+    const shape = () => ({
+      label: foot().getAttribute("aria-label"),
+      links: [...foot().querySelectorAll("a")].map((a) => a.textContent),
+      dots: [...foot().querySelectorAll('span[aria-hidden="true"]')].map((s) => s.textContent),
+    });
+    render(<RegisterPage mode="register" />);
+    expect(q("p.door-foot")).toBeNull();
+    expect(shape()).toEqual({ label: "Další cesty", links: ["Přihlášení", "Zapomenuté heslo", "Co ukládáme, a co ne"], dots: [] });
+
+    act(() => root.unmount());
+    root = createRoot(host);
+    render(<RegisterPage mode="forgot" />);
+    expect(shape()).toEqual({ label: "Další cesty", links: ["Přihlášení", "Registrovat", "Co ukládáme, a co ne"], dots: [] });
+
+    act(() => root.unmount());
+    root = createRoot(host);
+    render(<VerifyMailPage email="nova@example.com" />);
+    expect(q("p.door-foot")).toBeNull();
+    expect(shape()).toEqual({ label: "Další cesty", links: ["Přihlášení"], dots: [] });
   });
 
   it("links Přihlášení to the login form, not to the landing", () => {

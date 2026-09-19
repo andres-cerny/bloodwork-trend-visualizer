@@ -11,7 +11,7 @@
  * and the account is born when it is set.
  */
 import { useEffect, useState } from "react";
-import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./Door";
+import { Door, DoorFoot, fetchMe, messageOf, type Me, useShownPassword } from "./Door";
 import { checkInvite, register, setPassword } from "../lib/api";
 
 const MIN_PASSWORD = 8;
@@ -44,9 +44,9 @@ export default function InvitePage({ onDone }: { onDone: (me: Me) => void }) {
       return (
         <Door>
           <p className="notice">Odkaz už neplatí. Napište mi a pošlu nový.</p>
-          <p className="door-foot sub">
+          <DoorFoot>
             <a href="/">Přihlášení</a>
-          </p>
+          </DoorFoot>
         </Door>
       );
     case "signup":
@@ -149,9 +149,9 @@ function InviteForm({
           {kind === "signup" ? "Vytvořit účet" : "Nastavit heslo"}
         </button>
       </form>
-      <p className="door-foot sub">
+      <DoorFoot>
         <a href="/soukromi">Co ukládáme, a co ne</a>
-      </p>
+      </DoorFoot>
     </Door>
   );
 }

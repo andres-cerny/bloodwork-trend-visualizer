@@ -7,54 +7,14 @@
  * and its token goes with the message. The reply is by e-mail, by hand,
  * which is what the paragraph promises and nothing more.
  */
-import { useEffect, useRef, useState } from "react";
-import { Door, fetchMe, messageOf, type Me } from "./Door";
+import { useEffect, useState } from "react";
+import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
+import { Door, DoorFoot, TurnstileBox, fetchMe, messageOf, type Me } from "./Door";
 import { sendHelpdesk } from "../lib/api";
+import { useTurnstile } from "../lib/turnstile";
 
 /** The worker's cap, restated for the counter under the field. */
 const MAX_CHARS = 4000;
-/** The widget's action; the worker checks the token was minted for it. */
-const TURNSTILE_ACTION = "helpdesk";
-const TURNSTILE_SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoadHelpdesk";
-
-declare global {
-  interface Window {
-    turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => void };
-    onTurnstileLoadHelpdesk?: () => void;
-  }
-}
-
-/**
- * The Turnstile widget as a token, or nothing when this deployment has no
- * site key. Its own hook rather than ui-kit's `useTurnstile`, which trades
- * the solve for a demo session — here the token is simply sent along.
- */
-function useTurnstileToken(siteKey: string | undefined, enabled: boolean) {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const [token, setToken] = useState<string | null>(null);
-  useEffect(() => {
-    if (!siteKey || !enabled || !boxRef.current) return;
-    const el = boxRef.current;
-    const render = () => {
-      if (!window.turnstile || el.childElementCount > 0) return;
-      window.turnstile.render(el, {
-        sitekey: siteKey,
-        action: TURNSTILE_ACTION,
-        callback: (t: string) => setToken(t),
-        "expired-callback": () => setToken(null),
-      });
-    };
-    if (window.turnstile) render();
-    else {
-      window.onTurnstileLoadHelpdesk = render;
-      const s = document.createElement("script");
-      s.src = TURNSTILE_SCRIPT;
-      s.async = true;
-      document.head.appendChild(s);
-    }
-  }, [siteKey, enabled]);
-  return { boxRef, token, required: Boolean(siteKey) && enabled };
-}
 
 type Who = { kind: "asking" } | { kind: "known"; me: Me | null };
 
@@ -77,12 +37,13 @@ function ContactForm({ me }: { me: Me | null }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
-  const turnstile = useTurnstileToken(import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined, !known);
+  // A stranger proves they are a person; someone logged in already did.
+  const gate = useTurnstile(PORTAL_TURNSTILE_ACTIONS.helpdesk, !known);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (turnstile.required && !turnstile.token) {
+    if (gate.available && !gate.token) {
       setError("Potvrďte prosím, že nejste robot.");
       return;
     }
@@ -92,11 +53,13 @@ function ContactForm({ me }: { me: Me | null }) {
         email: known ? undefined : email.trim(),
         text: text.trim(),
         reportId: reportId.trim() || undefined,
-        turnstileToken: turnstile.token ?? undefined,
+        turnstileToken: gate.token ?? undefined,
       });
       setSent(known ?? email.trim().toLowerCase());
     } catch (err) {
       setError(messageOf(err));
+      // Spent either way; the next try needs a fresh one.
+      gate.reset();
     } finally {
       setBusy(false);
     }
@@ -109,9 +72,9 @@ function ContactForm({ me }: { me: Me | null }) {
         <p className="sub contact-sent">
           Děkujeme, zpráva došla. Odpovíme na <strong>{sent}</strong>, obvykle do dvou dnů.
         </p>
-        <nav className="door-foot legal-foot" aria-label="Další cesty">
+        <DoorFoot>
           <a href="/">← Zpět do aplikace</a>
-        </nav>
+        </DoorFoot>
       </Door>
     );
   }
@@ -141,23 +104,23 @@ function ContactForm({ me }: { me: Me | null }) {
           </span>
         </label>
         <label>
-          Report (nepovinné)
+          Datum odběru (nepovinné)
           <input type="text" value={reportId} onChange={(e) => setReportId(e.target.value)} maxLength={64} autoComplete="off" />
-          <span className="hint">Datum odběru, např. 2026-03-04, pokud se zpráva týká jednoho z vašich reportů.</span>
+          {/* Labelled by what a person knows — the report list names a
+              report by its date — and the id from a report row's link is
+              accepted too; the worker resolves either. */}
+          <span className="hint">Např. 2026-03-04, pokud se zpráva týká jednoho z vašich reportů. Id reportu z odkazu u reportu stačí také.</span>
         </label>
-        {turnstile.required && <div ref={turnstile.boxRef} className="contact-turnstile" />}
+        <TurnstileBox gate={gate} />
         {error && <p className="notice">{error}</p>}
         <button className="btn primary" disabled={busy || !text.trim()}>
           Odeslat
         </button>
       </form>
-      {/* Each link its own box (flex, not inline text): an inline anchor is
-          21px tall and fails the 24px floor the sweep holds every link to. */}
-      <nav className="door-foot legal-foot" aria-label="Další cesty">
+      <DoorFoot>
         <a href="/">← Zpět</a>
-        <span aria-hidden="true">·</span>
         <a href="/soukromi">Co ukládáme, a co ne</a>
-      </nav>
+      </DoorFoot>
     </Door>
   );
 }

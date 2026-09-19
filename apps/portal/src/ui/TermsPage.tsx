@@ -8,23 +8,21 @@
  * sections, short, no clause a reader would need a lawyer to parse — the
  * reader is a person with a lab report, not a counterparty.
  */
-import { ALLOWANCE, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, OPERATOR, PRIVACY_PATH } from "./legal";
+import { ALLOWANCE, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, LegalHead, OPERATOR, PRIVACY_PATH } from "./legal";
 
 export default function TermsPage() {
   const [small, large] = ALLOWANCE.packages;
   return (
     <main className="privacy legal">
-      <p>
-        <a href="/">← Moje krev</a>
-      </p>
+      <LegalHead />
       <DraftBanner />
       <h1>Podmínky užití</h1>
       <p className="legal-meta">Verze: {LEGAL_VERSION}</p>
 
       <h2>1. Kdo službu provozuje</h2>
       <p>
-        Službu Moje krev (dále „služba") provozuje {OPERATOR.name}, {OPERATOR.address} (dále
-        „provozovatel"). Kontakt: {OPERATOR.email}, nebo stránka{" "}
+        Službu Moje krev (dále „služba“) provozuje {OPERATOR.name}, {OPERATOR.address} (dále
+        „provozovatel“). Kontakt: {OPERATOR.email}, nebo stránka{" "}
         <a href={CONTACT_PATH}>Napište nám</a>.
       </p>
 
@@ -61,7 +59,7 @@ export default function TermsPage() {
         </li>
         <li>
           Heslo a přihlašovací odkazy jsou vaše; kdo je má, má i účet. Ztrátu přístupu řeší
-          odkaz „Zapomenuté heslo" na adresu účtu.
+          odkaz „Zapomenuté heslo“ na adresu účtu.
         </li>
       </ul>
 

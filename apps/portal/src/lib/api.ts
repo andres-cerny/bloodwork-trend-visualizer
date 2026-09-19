@@ -222,7 +222,16 @@ export async function extractPage(
 
 export const listReports = () => request<LabReport[]>("/api/reports");
 
-export const putReport = (report: LabReport) => request<{ ok: true }>(`/api/reports/${report.id}`, jsonInit("PUT", report));
+/**
+ * A report as it is sent: the pages may go without `imageUrl`. The worker
+ * never stores that field — a page image is named by route at rest — but it
+ * does count it against its 2 MiB payload cap, and a painted page is a
+ * ~59 kB data: URL in the browser. The first PUT of a report goes without
+ * them (lib/upload.ts storeReport); the second carries the routes.
+ */
+export type ReportBody = Omit<LabReport, "pages"> & { pages: Array<Omit<LabReport["pages"][number], "imageUrl"> & { imageUrl?: string }> };
+
+export const putReport = (report: ReportBody) => request<{ ok: true }>(`/api/reports/${report.id}`, jsonInit("PUT", report));
 
 export const putPage = (reportId: string, pageNum: number, blob: Blob, width: number, height: number) =>
   request<{ ok: true; imageUrl: string }>(`/api/reports/${reportId}/${pageNum}`, {

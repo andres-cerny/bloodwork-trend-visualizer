@@ -50,9 +50,22 @@ describe("dark theme", () => {
     const covered = new Set(systemDark.map((d) => d.split(":")[0]));
     // Geometry tokens (radii, rail width) are not colours and never change.
     const colourish = light.filter((n) =>
-      /(plane|surface|ink|accent|grid|border|series|status|band|chip|shadow|csm)/.test(n),
+      /(plane|surface|ink|accent|grid|border|series|status|band|chip|shadow|scrim|csm)/.test(n),
     );
     expect(colourish.filter((n) => !covered.has(n))).toEqual([]);
+  });
+
+  it("defines the scrim once, with its own dark value", () => {
+    // The veil behind a drawer or a sheet was a literal rgba in two portal
+    // sheets and one bloodwork sheet, and the same literal in both palettes:
+    // a 42% near-black over a near-black page is no veil at all. A token,
+    // and a deeper one for dark.
+    const light = decls(block(/^:root \{/m));
+    const dk = decls(block(/^:root \{\s*\n\s*--dk-plane/m));
+    expect(light.find((d) => d.startsWith("--scrim:"))).toMatch(/^--scrim: rgba\(/);
+    expect(dk.find((d) => d.startsWith("--dk-scrim:"))).toMatch(/^--dk-scrim: rgba\(/);
+    expect(light.find((d) => d.startsWith("--scrim:"))).not.toBe(dk.find((d) => d.startsWith("--dk-scrim:"))?.replace("--dk-", "--"));
+    expect(systemDark).toContain("--scrim: var(--dk-scrim)");
   });
 });
 

@@ -214,6 +214,47 @@ describe("the privacy page says what the code does", () => {
     await render(<Privacy />);
     expect(text()).toContain("Zpráva z Napište nám — do odpovědi a 12 měsíců po ní.");
   });
+
+  it("names each processor's seat in its own bullet, and does not say Telegram is in the USA under SCCs", async () => {
+    // „Všichni sídlí v USA; … standardní smluvní doložky" was false for
+    // Telegram: Dubai, and no data-processing agreement — it carries only
+    // the help-desk message the person wrote, never a value or a page. The
+    // seat is stated where it is known, per processor, and the „Návrh:"
+    // mark stays for Ondřej to check the list against his contracts.
+    vi.stubGlobal("fetch", fakeFetch({ photoReaders: "anthropic+google" }));
+    await render(<Privacy />);
+    const t = text();
+    expect(t).not.toContain("všichni sídlí v USA");
+    const bulletOf = (name: string) => [...host.querySelectorAll("li")].find((li) => li.querySelector("strong")?.textContent === name);
+    for (const name of ["Cloudflare", "Anthropic", "Google", "Resend", "Stripe"]) {
+      const bullet = bulletOf(name);
+      expect(bullet, name).toBeDefined();
+      expect(bullet!.textContent, name).toContain("Sídlo: USA");
+      expect(bullet!.textContent, name).toContain("standardní smluvní doložky");
+    }
+    const telegram = bulletOf("Telegram")!;
+    expect(telegram.textContent).toContain("Sídlo: Spojené arabské emiráty");
+    expect(telegram.textContent).not.toContain("USA");
+    expect(telegram.textContent).not.toContain("smluvní doložky");
+    expect(telegram.textContent).toContain("Dostane jen zprávu, kterou jste napsali");
+    expect(telegram.textContent).toContain("žádné zdravotní údaje");
+    expect(t).toContain("Návrh:");
+  });
+});
+
+describe("Czech typography", () => {
+  it("closes „ with “ in every prose quote of the legal texts — never with a straight \"", () => {
+    // „služba" with a straight closer is a quote that opens Czech and closes
+    // ASCII. Read as source, with JSX attributes stripped, because the rule
+    // is about prose and an attribute value is not prose.
+    for (const file of ["TermsPage.tsx", "Privacy.tsx", "legal.tsx"]) {
+      const prose = source(file).replace(/=\s*"[^"]*"/g, "=…");
+      const opens = [...prose.matchAll(/„/g)].length;
+      const straightClosed = [...prose.matchAll(/„[^„“"\n]*"/g)].map((m) => m[0]);
+      expect(straightClosed, `${file}: straight closers`).toEqual([]);
+      if (opens > 0) expect([...prose.matchAll(/“/g)].length, `${file}: every „ has its “`).toBeGreaterThanOrEqual(opens);
+    }
+  });
 });
 
 describe("the landing", () => {
@@ -273,5 +314,27 @@ describe("the router", () => {
     await render(<App />);
     expect(host.querySelector("h1")?.textContent).toBe("Podmínky užití");
     expect(host.querySelectorAll(".legal h2").length).toBe(12);
+  });
+});
+
+describe("the way back from a prose page", () => {
+  it("is a nav at the top — a box, like the footer's links — on all three, not an inline link in a paragraph", async () => {
+    // An inline <a> in a <p> is 21px tall: under the 24px floor the sweep
+    // holds every link to, and exempt from it only because inline links in
+    // prose are sized by their sentence. „← Moje krev" stands alone.
+    for (const path of ["/podminky", "/soukromi", "/proc-prikoupit"]) {
+      act(() => root.unmount());
+      root = createRoot(host);
+      history.replaceState(null, "", path);
+      vi.stubGlobal("fetch", fakeFetch({}));
+      await render(<App />);
+      const head = host.querySelector<HTMLElement>("main > nav.legal-foot.legal-head");
+      expect(head, `${path}: a head nav`).not.toBeNull();
+      expect(head!.getAttribute("aria-label")).toBe("Zpět");
+      expect([...head!.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")])).toEqual([["← Moje krev", "/"]]);
+      expect(host.querySelector('main > p > a[href="/"]'), `${path}: no inline back link`).toBeNull();
+      // Before the heading, where a way back belongs.
+      expect(head!.compareDocumentPosition(host.querySelector("main h1")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
   });
 });

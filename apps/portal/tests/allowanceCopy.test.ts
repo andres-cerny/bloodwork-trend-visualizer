@@ -5,10 +5,13 @@
  * no DOM — the layout of the chip, the sheet and the page is the auditor's
  * (tests/e2e/audit-portal.e2e.ts).
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { type Allowance, ApiError } from "../src/lib/api";
 import { allowanceLabel, allowanceNumbers, exhaustedCopy, PURCHASE_DONE, PURCHASE_LANDED, PURCHASE_PENDING } from "../src/ui/AllowanceChip";
 import { BUY_FAILED, buyNotice, PACKAGES, packageLabel, SHOP_CLOSED } from "../src/ui/BuySheet";
+import { ALLOWANCE } from "../src/ui/legal";
 import { WHY_PAY } from "../src/ui/WhyPayPage";
 
 const a = (used: number, purchased = 0, free = 5): Allowance => ({ free, purchased, used, remaining: Math.max(0, free + purchased - used) });
@@ -89,6 +92,28 @@ describe("the sheet", () => {
     // Anything else — a network error, Stripe refusing — is the generic line.
     expect(buyNotice(new ApiError("No such price", "stripe_failed", 502))).toBe(BUY_FAILED);
     expect(buyNotice(new TypeError("Failed to fetch"))).toBe(BUY_FAILED);
+  });
+});
+
+describe("one source for the promise", () => {
+  // The free five, the six pages and the two prices are a promise a
+  // stranger reads on the landing and in the terms (legal.tsx ALLOWANCE);
+  // the sheet and the why-pay page must read the same constant, not
+  // restate the numbers, or the day one changes the other keeps promising.
+  it("the sheet's PACKAGES are ALLOWANCE.packages, in order", () => {
+    expect(PACKAGES.map((p) => ({ documents: p.documents, czk: p.czk }))).toEqual(ALLOWANCE.packages.map((p) => ({ ...p })));
+    expect(PACKAGES.map((p) => p.id)).toEqual(ALLOWANCE.packages.map((p) => String(p.documents)));
+  });
+
+  it("the why-pay text carries ALLOWANCE.free and ALLOWANCE.pagesPerDocument, and its source no literal for either", () => {
+    const text = WHY_PAY.join(" ");
+    expect(text).toContain(`Prvních ${ALLOWANCE.free} dokumentů`);
+    expect(text).toContain(`nejvýše ${ALLOWANCE.pagesPerDocument} stran`);
+    expect(text).toContain(`${ALLOWANCE.packages[0].documents} dokumentů za ${ALLOWANCE.packages[0].czk} Kč`);
+    const source = readFileSync(join(import.meta.dirname, "../src/ui/WhyPayPage.tsx"), "utf-8");
+    expect(source).not.toMatch(/Prvních \d/);
+    expect(source).not.toMatch(/nejvýše \d/);
+    expect(source).not.toContain("./BuySheet");
   });
 });
 

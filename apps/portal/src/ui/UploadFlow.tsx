@@ -86,6 +86,16 @@ type Stage =
  */
 const ACCEPT = ["application/pdf", ...PHOTO_TYPES].join(",");
 
+/**
+ * What the log says when the read went through and the store did not. The
+ * two halves are different facts: the pages were read and the document is
+ * spent (the worker refuses a release once a page was read), and the row
+ * was refused. „Nepodařilo se zpracovat PDF" would name the wrong half.
+ * `reason` is the worker's own sentence where it gave one.
+ */
+export const storeFailedCopy = (reason: string) =>
+  `Report se přečetl, ale nepodařilo se ho uložit: ${reason.replace(/\.?$/, ".")} Dokument z nároku je využitý.`;
+
 /** What the machine is doing — as many files as have been confirmed. */
 interface Running {
   id: string;
@@ -191,6 +201,9 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     // first reader to name it wins, and the count is of distinct rows.
     const seen = new Set<string>();
     const latest: string[] = [];
+    // True once the read has returned: from here a failure is a failed
+    // store, the document is spent, and the sentence says so.
+    let read = false;
     try {
       const { report, notes } = await extractReport(
         id,
@@ -210,12 +223,14 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         },
         onAllowance,
       );
+      read = true;
       updateRunning(id, { phase: "storing" });
       const stored = await storeReport(report, pages);
       onStored(stored);
       addLog({ name, status: "done", notes, error: null });
     } catch (e) {
-      const message = e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${e instanceof Error ? e.message : e}`;
+      const reason = e instanceof ApiError || e instanceof Error ? e.message : String(e);
+      const message = read ? storeFailedCopy(reason) : e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${reason}`;
       addLog({ name, status: "failed", notes: [], error: message });
       if (e instanceof ApiError && e.budget) onBudget(e.budget);
       if (e instanceof ApiError && e.allowance) onAllowance(e.allowance);

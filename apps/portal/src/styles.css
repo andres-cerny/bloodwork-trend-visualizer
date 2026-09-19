@@ -207,12 +207,17 @@ body {
   flex: 0 0 auto;
 }
 
-/* The bot gate's frame: the widget's own height, reserved before it
-   renders, so the button under it does not jump. Cloudflare draws the
-   widget; only its place is ours. */
+/* The bot gate's frame. Cloudflare draws the widget and sets its own height;
+   the box reserves none, because a fixed 65px was 65px of nothing whenever
+   the script did not arrive. The widget is 300px wide by Cloudflare's design;
+   below that the card scrolls it rather than clipping it. The sentence under
+   it, when the widget never came, is a hint in muted ink: nothing the reader
+   did was wrong. */
 .door .door-turnstile {
-  min-height: 65px;
+  max-width: 100%;
+  overflow-x: auto;
 }
+.door .door-turnstile-failed { margin: 0; }
 
 /* The two other ways off the login: registration and a forgotten password,
    side by side where there is room, each a tap target of its own. */
@@ -839,14 +844,16 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 }
 
 /* The legal pages: what both drafts share --------------------------------- */
-/* The draft banner is a critical-soft strip: it must be read before the
-   text under it, and it disappears with one constant. */
+/* The draft banner is a strip in the page's own ink, bold: it must be read
+   before the text under it, and it disappears with one constant. Not the
+   critical pair — a draft is a state, and red is for a failure. */
 .legal-draft {
   margin: 0.6rem 0 0;
   padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--status-critical-soft);
-  color: var(--critical-ink);
+  background: var(--surface-2);
+  color: var(--ink-1);
   font-weight: 600;
 }
 .legal-meta { color: var(--ink-muted); font-size: 0.85rem; margin: -0.6rem 0 1rem; }
@@ -862,6 +869,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .legal-foot {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem 0.6rem;
   margin-top: 2.2rem;
   padding-top: 0.9rem;
@@ -869,10 +877,19 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
   font-size: 0.88rem;
   color: var(--ink-muted);
 }
-.legal-foot a { color: var(--ink-muted); padding: 0.25rem 0; }
+/* Each link is a flex item, so its padding is its box: 0.35rem over 21px of
+   type is 32px, past the 24px floor the sweep holds a standalone link to. */
+.legal-foot a { color: var(--ink-muted); padding: 0.35rem 0; }
 .legal-foot a:hover { color: var(--accent-ink); }
-/* The same footer inside the door's card keeps the card's spacing. */
-.door .legal-foot { margin-top: 0.3rem; }
+/* The way back at the top of a prose page: the same link box, no rule
+   above it and no space for one. */
+.legal-foot.legal-head { margin-top: 0; padding-top: 0; border-top: none; }
+/* The same footer inside the door's card keeps the card's spacing — as a
+   column. The card is 23.5rem at every width, ~316px inside, and three
+   links with dots between do not fit one row at any of them: the wrap left
+   a dot dangling at the line's end at 360 and at 1440 alike. One link box
+   per row, the row's full width, no dots. */
+.door .legal-foot { margin-top: 0.3rem; flex-direction: column; align-items: stretch; gap: 0; }
 
 /* Dokumenty: the allowance line under the report list, and the buy sheet -- */
 /* One line, wrapping: the numbers, the button, the link. The link takes the
@@ -885,10 +902,10 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .allow-out { margin: 0; }
 
 /* The sheet: from the bottom edge on a phone, a centred card above 480px —
-   the split .about-pop makes. The scrim is the drawer's (legacy.css). */
+   the split .about-pop makes. The scrim is the kit's --scrim, the drawer's too. */
 .sheet-back {
   position: fixed; inset: 0; z-index: 70;
-  background: rgba(15, 15, 12, 0.42);
+  background: var(--scrim);
   display: flex; align-items: flex-end; justify-content: center;
 }
 .sheet {
@@ -921,7 +938,12 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .pack-price { font-size: 1.1rem; font-weight: 650; white-space: nowrap; }
 /* The comparison: muted, one line where it fits, wrapping at 360. */
 .pack-cmp { grid-column: 1 / -1; color: var(--ink-muted); font-size: 0.86rem; line-height: 1.45; overflow-wrap: anywhere; }
-.pack .btn { grid-column: 1 / -1; justify-self: start; margin-top: 6px; }
+/* Koupit is the sheet's primary action: the package's full width and the
+   44px a thumb needs, not the chip's small button. */
+.pack .btn { grid-column: 1 / -1; justify-self: stretch; margin-top: 8px; min-height: 44px; font-size: 0.92rem; }
+/* A rule the worker stated — the shop is closed, the demo may not buy — is
+   a state line in muted ink; .notice, in signal red, is for a failure. */
+.sheet .sheet-state { margin: 10px 0 0; color: var(--ink-muted); }
 
 /* „Napište nám": the door card with a message in it. The textarea grows
    downward only — a sideways drag would push it past the card at 360. The
@@ -939,13 +961,6 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .door .contact-count {
   align-self: flex-end;
   font-variant-numeric: tabular-nums;
-}
-/* The widget is 300 px wide by Cloudflare's design; below that the card
-   scrolls it rather than clipping it. */
-.door .contact-turnstile {
-  min-height: 65px;
-  max-width: 100%;
-  overflow-x: auto;
 }
 .door .contact-sent strong {
   color: var(--ink-1);

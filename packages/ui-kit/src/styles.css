@@ -80,6 +80,10 @@
      the two-part `--shadow-md` cannot be used there. Lifts a small floating
      thing off whatever it floats over: the chart tooltip is the only one. */
   --shadow-pop: 0 2px 7px rgba(20, 19, 15, 0.22);
+  /* The veil behind a drawer or a sheet: what it blocks is still there,
+     dimmed. Ink at low alpha in light; deeper in dark, where a 42% near-black
+     over a near-black page would veil nothing. */
+  --scrim: rgba(15, 15, 12, 0.42);
 
   /* CSM brand constants — Centrum sportovní medicíny, the /csm tenant.
      Deep blue from the seven-segment wordmark, gold from the print name.
@@ -143,6 +147,7 @@
   --dk-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px -12px rgba(0, 0, 0, 0.7);
   --dk-shadow-lg: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
   --dk-shadow-pop: 0 2px 7px rgba(0, 0, 0, 0.7);
+  --dk-scrim: rgba(0, 0, 0, 0.62);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -178,6 +183,7 @@
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);
     --shadow-pop: var(--dk-shadow-pop);
+    --scrim: var(--dk-scrim);
   }
 }
 
@@ -214,6 +220,7 @@
     --shadow-md: var(--dk-shadow-md);
     --shadow-lg: var(--dk-shadow-lg);
     --shadow-pop: var(--dk-shadow-pop);
+    --scrim: var(--dk-scrim);
 }
 
 * { box-sizing: border-box; }

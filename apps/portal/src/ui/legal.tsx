@@ -98,6 +98,20 @@ export function DraftBanner() {
   );
 }
 
+/**
+ * The way back, at the top of every prose page. A nav with one link, styled
+ * as the footer's links are — each a box with its own padding — rather than
+ * an anchor inline in a paragraph: that one is 21px tall, and stands alone,
+ * so nothing around it is the target.
+ */
+export function LegalHead() {
+  return (
+    <nav className="legal-foot legal-head" aria-label="Zpět">
+      <a href="/">← Moje krev</a>
+    </nav>
+  );
+}
+
 /** The links every logged-out page ends with. */
 export function LegalFooter() {
   return (
