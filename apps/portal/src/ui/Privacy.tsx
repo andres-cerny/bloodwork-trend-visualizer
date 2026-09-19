@@ -17,6 +17,13 @@ import { processorPhrase, RETENTION_NOTE, sendsToGoogle } from "@bw/ui-kit";
 import { getProcessors } from "../lib/api";
 import { CONSENT_HEALTH, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, LegalHead, OPERATOR, TERMS_PATH } from "./legal";
 
+/**
+ * The seat and the transfer basis of the five processors under a
+ * data-processing agreement — one sentence, once, so the five bullets
+ * cannot drift from each other. Telegram is not among them: see its bullet.
+ */
+const SEAT_USA = "Sídlo: USA; předání se opírá o standardní smluvní doložky EU, které jsou součástí smlouvy o zpracování.";
+
 export default function Privacy() {
   // Who processes a page is asked of the deployment, not written down here.
   // workers/portal-extract is config over the extractor's code, so a secret
@@ -54,7 +61,7 @@ export default function Privacy() {
           vašeho výslovného souhlasu, který dáváte při registraci zaškrtnutím věty:
         </li>
       </ul>
-      <blockquote className="legal-quote">„{CONSENT_HEALTH}"</blockquote>
+      <blockquote className="legal-quote">„{CONSENT_HEALTH}“</blockquote>
       <ul>
         <li>
           <strong>E-mail</strong> — vede účet, chodí na něj přihlašovací odkazy a odpovědi na vaše
@@ -119,6 +126,11 @@ export default function Privacy() {
         server a z něj {processorPhrase(photoReaders)}, kde se přepíšou na čísla. {RETENTION_NOTE}{" "}
         Útrata za zpracování má měsíční strop na osobu.
       </p>
+      {/* The seat is stated per processor, where it is known. Five sit in
+          the USA under a data-processing agreement with the EU's standard
+          contractual clauses; Telegram sits in Dubai with no such agreement
+          and carries nothing but the message the person wrote — so one
+          sentence about all of them was false for it. */}
       <ul>
         <li>
           <strong>Cloudflare</strong> — běh aplikace, databáze a úložiště začerněných stránek.
@@ -126,34 +138,36 @@ export default function Privacy() {
           rozprostřené po síti Cloudflare, takže kopie mohou být i mimo EU. Model běžící u
           Cloudflare (Workers AI) přečte zprávu z Napište nám spolu se záznamy o odmítnutích
           vašeho účtu a připraví provozovateli první odhad příčiny; nedostane žádnou hodnotu ani
-          stránku.
+          stránku. {SEAT_USA}
         </li>
         <li>
           <strong>Anthropic</strong> — začerněný text stránky, u skenů a fotek začerněný obrázek
-          stránky, k přepisu na čísla.
+          stránky, k přepisu na čísla. {SEAT_USA}
         </li>
         {sendsToGoogle(photoReaders) && (
           <li>
             <strong>Google</strong> — začerněný obrázek stránky u fotografií a skenů, jako druhé
-            čtení téže stránky.
+            čtení téže stránky. {SEAT_USA}
           </li>
         )}
         <li>
           <strong>Resend</strong> — vaše e-mailová adresa a obsah zprávy (odkaz, odpověď), aby
-          mail došel.
+          mail došel. {SEAT_USA}
         </li>
         <li>
           <strong>Stripe</strong> — při nákupu balíčku: e-mail a částka. Číslo karty zadáváte
-          Stripe; naše aplikace ho nikdy nevidí.
+          Stripe; naše aplikace ho nikdy nevidí. {SEAT_USA}
         </li>
         <li>
           <strong>Telegram</strong> — zpráva z Napište nám (adresa, text, případně id reportu) se
-          přepošle provozovateli do jeho chatu, aby se k němu dostala hned.
+          přepošle provozovateli do jeho chatu, aby se k němu dostala hned. Sídlo: Spojené
+          arabské emiráty. Dostane jen zprávu, kterou jste napsali — žádné zdravotní údaje, žádnou
+          hodnotu ani stránku; smlouvu o zpracování s ním nemáme, proto k němu nic jiného nejde.
         </li>
       </ul>
       <p>
-        Návrh: všichni sídlí v USA; předání se opírá o standardní smluvní doložky EU, které jsou
-        součástí jejich smluv o zpracování. Žádný z nich nedostane vaše jméno — nemáme ho.
+        Návrh: sídla a smluvní základ jsou uvedeny u každého zpracovatele zvlášť; provozovatel je
+        před schválením ověří proti svým smlouvám. Žádný z nich nedostane vaše jméno — nemáme ho.
       </p>
 
       {/* What the model does and does not decide. A footnote under every

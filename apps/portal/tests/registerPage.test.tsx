@@ -93,7 +93,7 @@ describe("RegisterPage — registrace", () => {
     root = createRoot(host);
     render(<Privacy />);
     await flush();
-    const quoted = q("blockquote.legal-quote")!.textContent!.replace(/^„|"$/g, "");
+    const quoted = q("blockquote.legal-quote")!.textContent!.replace(/^„|“$/g, "");
     expect(ticked).toBe(quoted);
     expect(quoted).toBe(CONSENT_HEALTH);
   });

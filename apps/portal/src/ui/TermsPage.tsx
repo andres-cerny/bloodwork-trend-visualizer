@@ -21,8 +21,8 @@ export default function TermsPage() {
 
       <h2>1. Kdo službu provozuje</h2>
       <p>
-        Službu Moje krev (dále „služba") provozuje {OPERATOR.name}, {OPERATOR.address} (dále
-        „provozovatel"). Kontakt: {OPERATOR.email}, nebo stránka{" "}
+        Službu Moje krev (dále „služba“) provozuje {OPERATOR.name}, {OPERATOR.address} (dále
+        „provozovatel“). Kontakt: {OPERATOR.email}, nebo stránka{" "}
         <a href={CONTACT_PATH}>Napište nám</a>.
       </p>
 
@@ -59,7 +59,7 @@ export default function TermsPage() {
         </li>
         <li>
           Heslo a přihlašovací odkazy jsou vaše; kdo je má, má i účet. Ztrátu přístupu řeší
-          odkaz „Zapomenuté heslo" na adresu účtu.
+          odkaz „Zapomenuté heslo“ na adresu účtu.
         </li>
       </ul>
 
