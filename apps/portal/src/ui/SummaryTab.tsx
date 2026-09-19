@@ -18,6 +18,14 @@
  * answers "is that number right", and a reader reaches the second through
  * the first.
  *
+ * On a phone the Průběh column does not fit, so its picture moves into the
+ * last cell: the same `Sparkline`, smaller, drawn inside the "graf →" button
+ * with the word under it. One element is the sketch and the link, so the
+ * tap box is the whole stack — 44px for four more pixels of row, where the
+ * word alone would have cost twenty — and the value, the unit and the
+ * printed range keep their columns. The one-report table has no sketch at
+ * either width — one point is not a course.
+ *
  * A group row carries two readings of the same record and the width picks
  * one. A desktop gets the single clause it always had: the magnitude
  * (lab-core's `watchList` sentence), the change, the date. A phone gets two
@@ -292,8 +300,18 @@ function Table({ records, trends, onOpenTrend, aboutOf, caption, id }: { records
                     )}
                   </td>
                   <td className="sum-more">
+                    {/* On a phone the Průběh column is gone and its picture
+                        rides here instead, inside the link: the sketch above,
+                        "graf →" under it, one door and one tap box. A desktop
+                        hides the sketch (styles.css, `.sum-sketch`) and keeps
+                        the column. */}
                     <button className="btn linkish sum-go" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
-                      graf →
+                      {trend && (
+                        <span className="sum-sketch">
+                          <Sparkline trend={trend} width={72} height={26} />
+                        </span>
+                      )}
+                      <span>graf →</span>
                     </button>
                   </td>
                 </tr>

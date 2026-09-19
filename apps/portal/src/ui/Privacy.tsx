@@ -77,6 +77,15 @@ export default function Privacy() {
         zpracování má měsíční strop na osobu.
       </p>
 
+      {/* What the model does and does not decide. Under Souhrn until
+          2026-09-19, where it was a footnote to every tab; it is a promise
+          about processing, so it stands here with the other promises. */}
+      <h2>Co počítá kód, a co model</h2>
+      <p>
+        Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model přepisuje, co je
+        vytištěno; název přiřadí jen tam, kde jednotka a rozmezí souhlasí, a vy to vidíte.
+      </p>
+
       <h2>AI konzultace — jen když chcete</h2>
       <p>
         Na záložce AI konzultace si můžete vytvořit dočasný odkaz na stránku s prostým textem: vaše

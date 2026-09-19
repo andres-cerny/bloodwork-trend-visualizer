@@ -443,7 +443,6 @@ h2 .n, .sum-group h3 .n {
 .tc-stat .big.out { color: var(--critical-ink); }
 .tc-stat .delta { font-size: 0.86rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .tc-stat .range { font-size: 0.8rem; color: var(--ink-muted); }
-.mk-foot { margin-top: 18px; }
 
 /* AI konzultace ----------------------------------------------------------- */
 /* The one new element: the sentence to copy. The runlog's ground and size,
@@ -581,14 +580,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .sum-table .sum-name.btn.linkish { padding: 4px 4px; margin: -4px -4px; min-height: 24px; font-weight: 600; text-decoration: none; text-align: left; white-space: normal; }
 .sum-table .sum-name.btn.linkish:hover, .sum-table .sum-name.btn.linkish:focus-visible { color: var(--accent-ink); text-decoration: underline; }
 
-/* On a phone the Souhrn table is name, value, range, graf → — nothing to
-   scroll for. Dates, the flag chip, the change and the sparkline live one
-   tap away in Trendy; red on the value already says "outside". The last
+/* On a phone the Souhrn table is name, value, range, and the sketch over
+   graf → — nothing to scroll for. Dates, the flag chip and the change live
+   one tap away in Trendy; red on the value already says "outside". The last
    column shows at every width; only the phone tightens the cells. */
 .sum-table .sum-more { text-align: right; }
 @media (max-width: 819.98px) {
   .sum-table .sum-wide { display: none !important; }
-  .sum-table .sum-more .sum-go { min-height: 24px; padding: 4px 0; }
   /* 360px minus the card's chrome is 300-odd pixels for four columns. The
      value keeps its unit on a second line, the range may break at its dash,
      and the cells give up half their padding — the table then fits with
@@ -598,6 +596,26 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
   .sum-table th:last-child, .sum-table td:last-child { padding-right: 0; }
   .sum-table td.num { white-space: normal; overflow-wrap: anywhere; }
   .sum-table td.num .unit-line { display: block; }
+}
+
+/* The phone's sketch: the desktop's Průběh picture, smaller, riding inside
+   the "graf →" link — sketch above, word below, one door and one tap box.
+   The stack is what makes the 44px target cheap: the word alone would grow
+   the row by twenty pixels to reach it, the sketch alone is 24px, and the
+   two together are four pixels over the height the value and its unit
+   already take (57 → 61 at 360). A desktop hides the sketch and keeps its
+   column; the `.spark` rule above sizes that one. */
+.sum-table .sum-sketch { display: none; }
+@media (max-width: 819.98px) {
+  .sum-table .sum-more .sum-go {
+    display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 1px;
+    width: 100%; min-height: 44px; padding: 0; line-height: 1.3;
+  }
+  /* 64px where the row has it, down to 46 at 360 beside a long name: the
+     column takes what the names and headers leave, and the sketch fills it.
+     `preserveAspectRatio="none"` on the svg is what lets it. */
+  .sum-table .sum-sketch { display: block; width: 100%; min-width: 46px; max-width: 64px; }
+  .sum-table .sum-sketch .spark { display: block; width: 100%; height: 24px; border-radius: 3px; }
 }
 
 /* Find a parameter ----------------------------------------------------------- */

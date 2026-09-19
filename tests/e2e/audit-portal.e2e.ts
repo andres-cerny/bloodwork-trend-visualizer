@@ -115,6 +115,60 @@ interface Screen {
   check?: (page: Page) => Promise<void>;
 }
 
+/**
+ * The Souhrn table rows, at the width they are read at. Under 820px the row
+ * carries the chart's sketch inside its "graf →" link — the sketch must sit
+ * inside the row's box (a stretched svg or a wrapped word would leave it),
+ * the link's tap box must be the 44px a thumb needs, and the row may not
+ * have grown for it by more than the few pixels the stack costs over the
+ * value and its unit (57 → 61 at 360; 64 is the ceiling). Above 820px the
+ * sketch is gone and the Průběh column is the 104×30 it always was — the
+ * desktop is proven untouched, not assumed.
+ */
+async function expectSketchRows(page: Page) {
+  const { width } = page.viewportSize()!;
+  const rows = page.locator("#sum-table-out tbody tr");
+  // The two rows above the fold; the rest are display: none on a phone.
+  const n = Math.min(await rows.count(), 2);
+  expect(n, "out-of-range rows to measure").toBeGreaterThan(0);
+  for (let i = 0; i < n; i++) {
+    const row = rows.nth(i);
+    const box = (await row.boundingBox())!;
+    if (width < 820) {
+      const sketch = await row.locator(".sum-sketch .spark").boundingBox();
+      expect(sketch, `row ${i}: the phone row carries the sketch`).not.toBeNull();
+      expect(sketch!.x, `row ${i}: sketch left edge`).toBeGreaterThanOrEqual(box.x - 0.5);
+      expect(sketch!.x + sketch!.width, `row ${i}: sketch right edge`).toBeLessThanOrEqual(box.x + box.width + 0.5);
+      expect(sketch!.y, `row ${i}: sketch top edge`).toBeGreaterThanOrEqual(box.y - 0.5);
+      expect(sketch!.y + sketch!.height, `row ${i}: sketch bottom edge`).toBeLessThanOrEqual(box.y + box.height + 0.5);
+      expect(sketch!.width, `row ${i}: sketch wide enough to read`).toBeGreaterThanOrEqual(46);
+      const go = (await row.locator(".sum-go").boundingBox())!;
+      expect(go.height, `row ${i}: graf → tap box`).toBeGreaterThanOrEqual(44);
+      expect(box.height, `row ${i}: the row did not grow for the sketch`).toBeLessThanOrEqual(64);
+      expect(await row.locator(".sparkbtn").isVisible(), `row ${i}: the desktop's Průběh cell is hidden`).toBe(false);
+    } else {
+      expect(await row.locator(".sum-sketch").isVisible(), `row ${i}: no sketch in the link on a desktop`).toBe(false);
+      const spark = (await row.locator(".sparkbtn .spark").boundingBox())!;
+      expect([Math.round(spark.width), Math.round(spark.height)], `row ${i}: the Průběh sparkline`).toEqual([104, 30]);
+    }
+  }
+  const sideways = await page.locator("#sum-table-out").evaluate((t) => t.parentElement!.scrollWidth - t.parentElement!.clientWidth);
+  expect(sideways, "the out-of-range table scrolls sideways").toBe(0);
+}
+
+// Souhrn is the landing tab since Přehled was dropped — its tile wall said
+// what the summary groups and tables already say.
+const SOUHRN: Screen = {
+  name: "souhrn (výchozí)",
+  go: async () => {},
+  check: async (page) => {
+    await expectSketchRows(page);
+    // The clause about what the model does moved to /soukromi; under the
+    // summary it was a footnote to every tab.
+    expect(await page.getByText(/deterministický kód/).count(), "no model clause under Souhrn").toBe(0);
+  },
+};
+
 const SCREENS: Screen[] = [
   // The door, as the two links the operator sends open it. The login form
   // itself shares these classes and this card; the fake API answers /api/me,
@@ -122,9 +176,18 @@ const SCREENS: Screen[] = [
   { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
   { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
   { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
-  // Souhrn is the landing tab since Přehled was dropped — its tile wall said
-  // what the summary groups and tables already say.
-  { name: "souhrn (výchozí)", go: async () => {} },
+  {
+    // The public page, logged out. The model's clause — what it transcribes
+    // and what it never computes — moved here from under Souhrn, so this is
+    // where it must be.
+    name: "soukromí",
+    at: { path: "/soukromi", ready: ".privacy h1" },
+    go: async () => {},
+    check: async (page) => {
+      expect(await page.getByText(/^Hodnoty, jednotky i meze počítá deterministický kód, ne model\./).count()).toBe(1);
+    },
+  },
+  SOUHRN,
   {
     // A new account's first screen: one report, nothing to compare it with.
     // The account's reports are cut to the demo's latest — four rows out of
@@ -161,6 +224,13 @@ const SCREENS: Screen[] = [
       for (const id of ["sum-table-out", "sum-table-in"]) {
         const sideways = await page.locator(`#${id}`).evaluate((t) => t.parentElement!.scrollWidth - t.parentElement!.clientWidth);
         expect(sideways, `${id} scrolls sideways`).toBe(0);
+      }
+      // One point is not a course: no sketch at either width, and the link
+      // keeps the phone's 44px on its own.
+      expect(await page.locator(".sum-table .sum-sketch").count(), "no sketch under one report").toBe(0);
+      if (page.viewportSize()!.width < 820) {
+        const go = (await page.locator("#sum-table-out .sum-go").first().boundingBox())!;
+        expect(go.height, "graf → tap box with one report").toBeGreaterThanOrEqual(44);
       }
     },
   },
@@ -401,6 +471,30 @@ const VIEWPORTS: Array<[string, { width: number; height: number }]> = [
   ["desktop 1200", DESKTOP],
   ["wide 1512", WIDE],
 ];
+
+/**
+ * A sixth width, for one screen: 414 is the wider iPhone, and the sketch
+ * column is sized by what the names and headers leave — 46px at 360, 64 at
+ * 414 — so the row is measured at both ends of that range. The sweep's five
+ * widths stay five; this is one screen, not a sixth column of the matrix.
+ */
+const PHONE_414 = { width: 414, height: 896 };
+for (const theme of ["light", "dark"] as const) {
+  describe(`phone 414 · ${theme}`, () => {
+    it(`${SOUHRN.name} has no layout flaws`, async () => {
+      const page = await app.open(PHONE_414);
+      await setTheme(page, theme);
+      try {
+        const flaws = await audit(page, { ignore: IGNORE });
+        expect(errorsOn(page), `page errors on ${SOUHRN.name}`).toEqual([]);
+        judge(`phone 414 ${theme} — ${SOUHRN.name}`, flaws);
+        await expectSketchRows(page);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+  });
+}
 
 for (const [vpName, viewport] of VIEWPORTS) {
   for (const theme of ["light", "dark"] as const) {
