@@ -99,10 +99,11 @@ Every button on every screen is pressed; every screen is swept at 360,
 414, 768, 1024 and 1440 px in both palettes. What breaks is fixed when
 it is a class of defect (and guarded), listed when it is cosmetic. The
 list lives in [multi-user-findings.md](multi-user-findings.md) — written
-2026-09-19: every proof above holds; two classes fixed and guarded (money
+2026-09-19: every proof above holds; five classes fixed and guarded (money
 with a decimal point in Czech copy, a report row outgrowing its list on a
-phone); the one open thing that matters is Souhrn saying nothing about
-out-of-range values while an account has a single draw.
+phone, Souhrn saying nothing about out-of-range values while an account
+has a single draw, a session outliving logout and a password reset, the
+settings cap a few hundred unmapped names could pass).
 
 ## Goal 5 — the gate
 
