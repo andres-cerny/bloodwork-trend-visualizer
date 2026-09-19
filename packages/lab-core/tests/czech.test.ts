@@ -4,7 +4,7 @@
  * to Czech doctors.
  */
 import { describe, expect, it } from "vitest";
-import { count, czDate, czMonthYear, plural, prettyUnit } from "@bw/lab-core";
+import { count, czDate, czMonthYear, czUsd, plural, prettyUnit } from "@bw/lab-core";
 
 describe("plural", () => {
   it("uses the singular for one", () => {
@@ -65,5 +65,14 @@ describe("prettyUnit", () => {
     expect(prettyUnit("-")).toBe("");
     expect(prettyUnit("")).toBe("");
     expect(prettyUnit(null)).toBe("");
+  });
+});
+
+describe("czUsd", () => {
+  it("writes a decimal comma, never JavaScript's point", () => {
+    expect(czUsd(0.0244)).toBe("0,02");
+    expect(czUsd(2.5)).toBe("2,50");
+    expect(czUsd(0)).toBe("0");
+    expect(czUsd(5)).toBe("5");
   });
 });

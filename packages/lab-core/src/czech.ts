@@ -56,3 +56,17 @@ export function prettyUnit(unit: string | null | undefined): string {
     [...digits].map((d) => SUPERSCRIPT[d] ?? d).join(""),
   );
 }
+
+/**
+ * An amount of money as Czech copy writes it: "0,03", "2,50", "5".
+ *
+ * `toFixed` and template literals both print JavaScript's decimal point,
+ * and one "0.03 / 5 USD" under a table of "5,32 mmol/l" reads as a bug to
+ * the eye this app is for. Two decimals when there are any — the ledger
+ * counts cents — and none for a whole number, so a ceiling stays "5 USD"
+ * rather than "5,00 USD".
+ */
+export function czUsd(n: number): string {
+  const whole = Number.isInteger(n);
+  return n.toLocaleString("cs-CZ", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 });
+}
