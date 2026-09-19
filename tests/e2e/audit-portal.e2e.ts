@@ -169,24 +169,40 @@ const SOUHRN: Screen = {
   },
 };
 
+/**
+ * A stranger, not the account: the fake API answers /api/me for one logged-in
+ * person, so the logged-out screens are reached by refusing that one call
+ * in the page. /api/processors is not in the fake API, so the processor
+ * clause renders in its "not knowing" form — both readers named — which is
+ * the longer of the two and the one to lay out.
+ */
+const loggedOut = async (page: Page) => {
+  await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "unauthorized" } }));
+  await page.route("**/api/auth/demo", (route) => route.fulfill({ status: 200, json: { available: true } }));
+};
+
 const SCREENS: Screen[] = [
-  // The door, as the two links the operator sends open it. The login form
-  // itself shares these classes and this card; the fake API answers /api/me,
-  // so it cannot be reached here without a second server, and is not.
-  { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
-  { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
-  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
+  // The words a stranger reads first: the landing at "/", the login form one
+  // link on, and the two legal drafts with their banner.
+  { name: "úvod (nepřihlášený)", at: { path: "/", ready: ".landing" }, prepare: loggedOut, go: async () => {} },
+  { name: "přihlášení", at: { path: "/prihlaseni", ready: ".door form" }, prepare: loggedOut, go: async () => {} },
+  { name: "podmínky", at: { path: "/podminky", ready: ".legal h1" }, prepare: loggedOut, go: async () => {} },
   {
-    // The public page, logged out. The model's clause — what it transcribes
-    // and what it never computes — moved here from under Souhrn, so this is
-    // where it must be.
+    // The model's clause — what it transcribes and what it never computes —
+    // moved here from under Souhrn, so this is where it must be.
     name: "soukromí",
-    at: { path: "/soukromi", ready: ".privacy h1" },
+    at: { path: "/soukromi", ready: ".legal h1" },
+    prepare: loggedOut,
     go: async () => {},
     check: async (page) => {
       expect(await page.getByText(/^Hodnoty, jednotky i meze počítá deterministický kód, ne model\./).count()).toBe(1);
     },
   },
+  // The door, as the two links the operator sends open it. The login form
+  // itself shares these classes and this card.
+  { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
+  { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
+  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
   SOUHRN,
   {
     // A new account's first screen: one report, nothing to compare it with.
