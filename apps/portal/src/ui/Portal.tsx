@@ -247,12 +247,20 @@ export default function Portal({ email, demo, onLogout }: Props) {
     setReports(reportsRef.current);
   }, []);
 
+  /**
+   * One or many rows of one report, replaced and saved in a single PUT. A
+   * single Potvrdit or Opravit sends one row; „Potvrdit všechny řádky k
+   * ověření" sends every pending row through the same call, so a batch is
+   * one save and one undo rather than a burst of writes racing each other.
+   */
   const correct = useCallback(
-    (reportId: string, index: number, next: Measurement) => {
+    (reportId: string, changes: ReadonlyArray<{ index: number; next: Measurement }>) => {
+      if (changes.length === 0) return;
+      const byIndex = new Map(changes.map((c) => [c.index, c.next]));
       commitReports((prev) =>
         prev.map((r) => {
           if (r.id !== reportId) return r;
-          const updated = { ...r, measurements: r.measurements.map((m, i) => (i === index ? next : m)) };
+          const updated = { ...r, measurements: r.measurements.map((m, i) => byIndex.get(i) ?? m) };
           persist(updated);
           return updated;
         }),
