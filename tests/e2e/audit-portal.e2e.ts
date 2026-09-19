@@ -122,6 +122,33 @@ const SCREENS: Screen[] = [
   { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
   { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
   { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
+  // „Napište nám", as a logged-in person sees it: the address is the login's
+  // and read-only, the message field is empty. The fake API answers /api/me,
+  // so the logged-out form (address typed, widget) is the same card with one
+  // more input and is not reached here.
+  {
+    name: "napište nám",
+    at: { path: "/napiste-nam", ready: ".door form textarea" },
+    go: async () => {},
+    check: async (page) => {
+      expect(await page.locator(".door input[readonly]").inputValue()).toBe("audit@example.com");
+      expect(await page.getByRole("button", { name: "Odeslat" }).isDisabled(), "nothing to send yet").toBe(true);
+    },
+  },
+  {
+    // The sentence after sending, with the address it names.
+    name: "napište nám (odesláno)",
+    at: { path: "/napiste-nam", ready: ".door form textarea" },
+    go: async (page) => {
+      await page.locator(".door textarea").fill("Nahrávání se zastaví u druhé strany a nic neřekne.");
+      await page.getByRole("button", { name: "Odeslat" }).click();
+      await page.waitForSelector(".contact-sent", { timeout: 5_000 });
+      await page.waitForTimeout(200);
+    },
+    check: async (page) => {
+      expect(await page.locator(".contact-sent").innerText()).toContain("Odpovíme na audit@example.com, obvykle do dvou dnů.");
+    },
+  },
   // Souhrn is the landing tab since Přehled was dropped — its tile wall said
   // what the summary groups and tables already say.
   { name: "souhrn (výchozí)", go: async () => {} },

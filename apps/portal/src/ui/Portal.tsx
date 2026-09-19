@@ -816,7 +816,8 @@ export default function Portal({ email, demo, onLogout }: Props) {
           <p className="muted mk-foot">
             Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model přepisuje, co je
             vytištěno; název přiřadí jen tam, kde jednotka a rozmezí souhlasí, a vy to vidíte.
-            Uloženy jsou jen hodnoty a začerněné stránky — bez jména, bez rodného čísla.
+            Uloženy jsou jen hodnoty a začerněné stránky — bez jména, bez rodného čísla.{" "}
+            Něco nefunguje? <a href="/napiste-nam">Napište nám</a>.
           </p>
         )}
       </main>

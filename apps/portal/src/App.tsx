@@ -9,6 +9,7 @@
  * trends — is ui/Portal.tsx.
  */
 import { useEffect, useState } from "react";
+import ContactPage from "./ui/ContactPage";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
@@ -21,6 +22,7 @@ export default function App() {
   const [entered, setEntered] = useState<Me | null>(null);
   const path = location.pathname;
   if (path === "/soukromi") return <Privacy />;
+  if (path === "/napiste-nam") return <ContactPage />;
   if (!entered && (path === "/registrace" || path === "/heslo")) {
     return (
       <InvitePage
@@ -127,7 +129,7 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
         </div>
       )}
       <p className="door-foot sub">
-        <a href="/soukromi">Co ukládáme, a co ne</a>
+        <a href="/soukromi">Co ukládáme, a co ne</a> · <a href="/napiste-nam">Napište nám</a>
       </p>
     </Door>
   );
