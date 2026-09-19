@@ -839,14 +839,16 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 }
 
 /* The legal pages: what both drafts share --------------------------------- */
-/* The draft banner is a critical-soft strip: it must be read before the
-   text under it, and it disappears with one constant. */
+/* The draft banner is a strip in the page's own ink, bold: it must be read
+   before the text under it, and it disappears with one constant. Not the
+   critical pair — a draft is a state, and red is for a failure. */
 .legal-draft {
   margin: 0.6rem 0 0;
   padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--status-critical-soft);
-  color: var(--critical-ink);
+  background: var(--surface-2);
+  color: var(--ink-1);
   font-weight: 600;
 }
 .legal-meta { color: var(--ink-muted); font-size: 0.85rem; margin: -0.6rem 0 1rem; }
@@ -885,10 +887,10 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .allow-out { margin: 0; }
 
 /* The sheet: from the bottom edge on a phone, a centred card above 480px —
-   the split .about-pop makes. The scrim is the drawer's (legacy.css). */
+   the split .about-pop makes. The scrim is the kit's --scrim, the drawer's too. */
 .sheet-back {
   position: fixed; inset: 0; z-index: 70;
-  background: rgba(15, 15, 12, 0.42);
+  background: var(--scrim);
   display: flex; align-items: flex-end; justify-content: center;
 }
 .sheet {
