@@ -33,6 +33,18 @@ export const PACKAGES: readonly Package[] = [
 export const SHOP_CLOSED = "Obchod zatím není otevřený.";
 export const BUY_FAILED = "Platbu se nepodařilo zahájit. Zkuste to prosím znovu.";
 
+/**
+ * What the sheet says when the buy did not leave for Stripe. Two answers are
+ * rules the worker states in its own words, not failures — the shop is not
+ * open, the demo may not buy — and the person reads the rule; everything
+ * else (Stripe refusing, the network) is the one generic line.
+ */
+export function buyNotice(e: unknown): string {
+  if (e instanceof ApiError && e.code === "shop_closed") return SHOP_CLOSED;
+  if (e instanceof ApiError && e.code === "demo_readonly" && e.message) return e.message;
+  return BUY_FAILED;
+}
+
 /** „5 dokumentů za 49 Kč" — the package as one phrase. */
 export const packageLabel = (p: Package) => `${p.documents} dokumentů za ${p.czk} Kč`;
 
@@ -66,7 +78,7 @@ export default function BuySheet({ open, onClose }: Props) {
       const { url } = await buyDocuments(p.id);
       location.assign(url);
     } catch (e) {
-      setNotice(e instanceof ApiError && e.code === "shop_closed" ? SHOP_CLOSED : BUY_FAILED);
+      setNotice(buyNotice(e));
       setBusy(null);
     }
   }
