@@ -124,7 +124,78 @@ phone, Souhrn saying nothing about out-of-range values while an account
 has a single draw, a session outliving logout and a password reset, the
 settings cap a few hundred unmapped names could pass).
 
-## Goal 5 — the gate
+## Round two, 2026-09-19 evening — opening the door
+
+Ondřej's decisions after seeing the branch (his call, not to be re-argued
+by an agent): open registration with the address verified by mail before
+the password; Turnstile on the three public forms; **5 documents free,
+for ever, per account** — a document is one PDF or one set of photos up
+to 6 pages, and deleting a report does not give the slot back; packages
+of **5 for 49 Kč** and **15 for 99 Kč** through Stripe Checkout; a help
+desk whose messages are stored and forwarded to Telegram; legal texts
+and a landing page; operational fuses sized to the price. The Stripe
+account and the Telegram bot do not exist yet — everything bound to them
+is built behind a secret and proven with a fake, so switching on is
+`wrangler secret put`, not a code change. The domain is his, separately;
+until it exists mail can only reach his own address.
+
+## Goal 6 — a stranger registers with an e-mail and a password
+
+**Done when** `OPEN_SIGNUP=true` lets an address register with no invite:
+the address gets a link (Resend, `MAIL_FROM`), the link opens the
+set-password screen, Turnstile guards register / login / forgot-password
+(not upload), and an unverified address can spend nothing. Invites keep
+working as a code that skips Turnstile. Fake Resend and fake Turnstile in
+plain-node tests; the real flow proven once against Ondřej's own address.
+Rate limit: 5 registrations per IP per hour, 20 per day; the lockout on
+login stays.
+
+## Goal 7 — documents, not dollars
+
+**Done when** the account's allowance is counted in documents: `5` free
+on creation, `+5`/`+15` per purchase, one taken at the moment a document
+is accepted for extraction (not per page; a failed extraction gives it
+back, a deleted report does not), and the shell shows „Dokumenty: 3 z 5"
+with „Přikoupit" and a „Proč přikoupit?" link of the same kind as „co
+ukládáme a co ne". The per-person USD ledger stays as a fuse behind it.
+Stripe: Checkout sessions for the two packages, the webhook that credits
+the account (idempotent on the event id), a `purchases` table — all behind
+`STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`; without them the buy sheet
+says the shop is not open yet. Fake Stripe in tests, the signature check
+tested with a real HMAC.
+
+## Goal 8 — someone to write to, and someone who is told
+
+**Done when** a logged-in or logged-out person can send a message
+(„Napište nám": e-mail, text, optional report id) that lands in a
+`messages` table and, when `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HELPDESK_CHAT`
+are set, in a Telegram chat; and a scheduled check (cron trigger) posts to
+`TELEGRAM_OPS_CHAT` when the app or the extractor answers anything but
+200, when the month's extract spend passes 80 % of `BUDGET_USD_LIMIT`, or
+when the D1 export failed. Fake Telegram in tests. Fuses sized to the
+price: `BUDGET_USD_LIMIT` 30 USD a month global (a free account can cost
+at most 5 × 6 × 5 ¢ = 1,50 USD), alert at 80 %.
+
+## Goal 9 — the words a stranger reads first
+
+**Done when** `/` logged-out is a landing page (what this is, what is
+stored and what never leaves the device, the demo patient, „Registrovat",
+„Přihlásit"), `/podminky` holds terms of use, `/soukromi` names every
+sub-processor (Cloudflare, Anthropic, Google, Resend, Stripe) and the
+legal basis for health data (explicit consent — a checkbox at
+registration, its wording here), the age line (18+), the „není
+zdravotnický prostředek" sentence, and a support contact (the help desk).
+Czech, plain, no marketing; drafts for Ondřej to approve, marked as such
+in the page until he does.
+
+## Goal 10 — the gate, again, then live
+
+`test:all`, the mapping bench, `portal-auditor`, `invariant-reviewer`;
+Ondřej reviews; then the live D1 takes the migrations of this branch and
+`deploy:moje-krev` ships it. The secrets that open registration, the
+shop and Telegram are set by hand afterwards, one at a time.
+
+## Goal 5 — the gate (round one, passed 2026-09-19)
 
 `npm run test:all`, `bench:mapping` over all fixtures, `portal-auditor`
 over the mapping, trends and summary tabs, `invariant-reviewer` over the
