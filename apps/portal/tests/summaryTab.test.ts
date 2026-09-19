@@ -133,6 +133,20 @@ describe("Souhrn on a phone", () => {
     expect(html).toContain('aria-controls="sum-moves-worse"');
   });
 
+  it("draws the sketch inside the row's graf → link, above the word", () => {
+    // The phone's picture is the desktop's `Sparkline`, not a second
+    // drawing: one `.spark` svg per row in the Průběh cell and one in the
+    // link, and styles.css shows one of them. Inside the button, so the
+    // sketch and the word are one tap box.
+    const rows = html.match(/<tr>(?:(?!<\/tr>).)*<\/tr>/gs)!.filter((r) => r.includes("sum-go"));
+    expect(rows.length).toBe(8);
+    for (const row of rows) {
+      const link = row.match(/<button class="btn linkish sum-go"[^>]*>(.*?)<\/button>/s)![1];
+      expect(link).toMatch(/^<span class="sum-sketch"><svg class="spark"[\s\S]*<\/svg><\/span><span>graf →<\/span>$/);
+      expect((row.match(/<svg class="spark"/g) ?? []).length).toBe(2);
+    }
+  });
+
   it("does not say Více twice on one card", () => {
     // The per-row link opens the chart; the card's fold opens the list. When
     // both said "Více" they were the same word for two different things.
@@ -255,6 +269,14 @@ describe("Souhrn with one report", () => {
 
   it("keeps the i after every parameter name", () => {
     expect((one.match(/class="about-btn"/g) ?? []).length).toBe(8);
+  });
+
+  it("draws no sketch under one point, and keeps the link", () => {
+    // One measurement is not a course; the desktop has no Průběh column
+    // here and the phone gets no sketch in its place.
+    expect(one).not.toContain("sum-sketch");
+    expect(one).not.toContain('class="spark"');
+    expect((one.match(/graf →/g) ?? []).length).toBe(8);
   });
 
   it("qualifies the all-clear when the out-of-range readings are the withheld ones", () => {
