@@ -23,6 +23,11 @@ export interface Settings {
   customAnalytes?: CustomAnalyte[];
   /** What the person told their AI assistant about themselves, once. */
   aiContext?: AiContext;
+  /**
+   * What the mapping model answered, per printed name — asked once per
+   * account, so a reload does not spend again (lib/aiMapping.ts).
+   */
+  aiAsked?: AiAsked;
 }
 
 export class ApiError extends Error {
@@ -204,9 +209,30 @@ export interface MapSuggestion {
 }
 export interface AiMapAnswer {
   suggestions: MapSuggestion[];
+  /** Which model answered, for the record kept per name. */
+  model?: string;
   costUsd?: number;
   budget: Budget;
 }
+/**
+ * One name's answer as the account keeps it. `applied` marks the ones the
+ * model filed without a click; `asking` is the in-memory mark between the
+ * call and its answer, never persisted (see lib/aiMapping.ts).
+ */
+export interface AiAskedEntry {
+  decision: MapSuggestion["decision"];
+  canonicalId: string | null;
+  confidence: MapSuggestion["confidence"];
+  reason: string;
+  model: string;
+  /** ISO date, "2026-09-19". */
+  at: string;
+  /** For `new`: what it proposed, so the founding form opens with it after a reload. */
+  proposed?: MapSuggestion["proposed"];
+  applied?: true;
+  asking?: true;
+}
+export type AiAsked = Record<string, AiAskedEntry>;
 export const suggestWithAi = (names: NameToMap[], catalog: CatalogEntry[]) =>
   request<AiMapAnswer>("/api/map", jsonInit("POST", { names, catalog }));
 
