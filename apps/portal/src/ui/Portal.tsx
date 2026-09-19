@@ -193,6 +193,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
     [registry],
   );
 
+  // The "i" after a parameter's name reads the catalog's texts; a founded
+  // parameter has none and gets no button (AboutParam.tsx).
+  const aboutOf = useCallback((cid: string) => registry?.get(cid)?.about, [registry]);
+
   const trends = useMemo(
     () =>
       registry
@@ -568,10 +572,11 @@ export default function Portal({ email, demo, onLogout }: Props) {
                 trends={trends}
                 onOpenTrend={showTrend}
                 onOpenVerify={() => goTab("verify")}
+                aboutOf={aboutOf}
               />
             </Panel>
             <Panel id="trends" active={tab}>
-              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} />
+              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} aboutOf={aboutOf} />
             </Panel>
             <Panel id="verify" active={tab}>
               <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />
