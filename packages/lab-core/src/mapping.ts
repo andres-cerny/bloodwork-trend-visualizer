@@ -579,7 +579,7 @@ export function signalsOf(c: Candidate, incoming: UnmappedAnalyte, opts: { nameB
     state: opts.nameByModel !== undefined ? "ok" : c.nameWeak ? "bad" : "ok",
     detail:
       opts.nameByModel !== undefined
-        ? `podle AI ${c.displayName}${opts.nameByModel ? ` — ${opts.nameByModel}` : ""}`
+        ? `podle modelu ${c.displayName}${opts.nameByModel ? ` — ${opts.nameByModel}` : ""}`
         : c.nameWeak
           ? "jiný název — pravděpodobně jiné vyšetření"
           : `podobá se názvu ${c.displayName}`,

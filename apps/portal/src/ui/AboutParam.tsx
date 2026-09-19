@@ -28,6 +28,9 @@
  * whose focus is not the popover's to take back.
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+
+/** React warns about a layout effect under renderToString; on the server there is nothing to lay out. */
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 import { createPortal } from "react-dom";
 
 export interface About {
@@ -76,7 +79,7 @@ export default function AboutParam({ name, about }: { name: string; about?: Abou
   // Where it goes, and again whenever the page moves under it. Set on the
   // element directly rather than through state: a layout effect runs before
   // paint, so the first frame is already in place.
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!open) return;
     const place = () => {
       const btn = btnRef.current;

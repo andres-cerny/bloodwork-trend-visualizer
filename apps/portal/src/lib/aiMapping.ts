@@ -33,7 +33,7 @@ const asking = (at: string): AiAskedEntry => ({ decision: "unknown", canonicalId
 /** Said on the card for a name the model was sent and did not answer. */
 const NOT_ANSWERED = "Model tento název nezařadil.";
 
-/** What is stored per reason: ten words in Czech, with room — the whole record shares one 64 kB settings blob. */
+/** What is stored per reason: ten words in Czech, with room — the whole record shares one settings blob, capped by the worker (512 kB). */
 const REASON_MAX = 120;
 
 /** Unmapped, could trend, and not asked before (or right now). */

@@ -66,7 +66,7 @@ describe("the model's answers on the mapping tab", () => {
   it("a medium answer is shown under the model's heading with its reason and confidence, and the name still waits", () => {
     const html = render([report([m("S_K", "4,2", "mmol/l", "3,5 - 5,1", null)])], { S_K: entry({ canonicalId: "draslik", confidence: "medium", reason: "K je draslík." }) });
     expect(html).toContain("Návrh modelu");
-    expect(html).toContain("podle AI Draslík — K je draslík. (jistota: střední)");
+    expect(html).toContain("podle modelu Draslík — K je draslík. (jistota: střední)");
     expect(html).toContain("1 název čeká");
     expect(html).not.toContain("Model přiřadil");
   });

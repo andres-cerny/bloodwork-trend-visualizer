@@ -634,7 +634,7 @@ describe("a candidate the model named", () => {
     expect(verdictOf(c)).toBe("contradicted");
     expect(verdictOf(c, { nameByModel: true })).toBe("recommended");
     expect(canApplyUnasked(c)).toBe(true);
-    expect(signalsOf(c, u, { nameByModel: "Na je sodík." }).find((s) => s.key === "name")).toMatchObject({ state: "ok", detail: "podle AI Sodík — Na je sodík." });
+    expect(signalsOf(c, u, { nameByModel: "Na je sodík." }).find((s) => s.key === "name")).toMatchObject({ state: "ok", detail: "podle modelu Sodík — Na je sodík." });
   });
 
   it("is still refused when the unit disagrees, is unknown, or the interval contradicts", () => {
