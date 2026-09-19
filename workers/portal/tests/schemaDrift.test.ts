@@ -41,6 +41,7 @@ describe("reading schema.sql", () => {
       "password_salt",
       "password_iters",
       "budget_usd",
+      "session_epoch",
     ]);
   });
 

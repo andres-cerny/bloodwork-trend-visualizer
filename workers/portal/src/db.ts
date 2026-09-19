@@ -19,12 +19,17 @@ export const SQL = {
   burnInvite:
     "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_at IS NULL AND (expires_at IS NULL OR expires_at > ?3)",
   userByEmail:
-    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd FROM users WHERE email = ?1",
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch FROM users WHERE email = ?1",
   userById:
-    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd FROM users WHERE id = ?1",
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch FROM users WHERE id = ?1",
   insertUser:
     "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
   setPassword: "UPDATE users SET password_hash = ?2, password_salt = ?3, password_iters = ?4 WHERE id = ?1",
+  // End every session of the account: cookies carry the number they were
+  // minted under, and requireSession refuses one that is not the row's.
+  // RETURNING, so the caller can mint the one session that goes on living
+  // (the set-password link's) under the new number without a second read.
+  bumpSessionEpoch: "UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?1 RETURNING session_epoch",
   deleteUser: "DELETE FROM users WHERE id = ?1",
   // The per-person ceiling, set by the operator against an e-mail — the id
   // is not something they have to hand. NULL puts the account back on
@@ -116,6 +121,8 @@ export interface UserRow {
    * PORTAL_USD_LIMIT. Zero is a value, not an absence — see `limitFor`.
    */
   budget_usd: number | null;
+  /** The generation of sessions that is live; a cookie names one. */
+  session_epoch: number;
 }
 
 export interface InviteRow {

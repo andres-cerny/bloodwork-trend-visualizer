@@ -19,7 +19,7 @@ const SECRET = "test-portal-secret";
 const EXTRACT_SECRET = "test-extract-secret";
 
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null }>;
+  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null; session_epoch: number }>;
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string; created_at: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string; width: number | null; height: number | null }>;
 }
@@ -150,8 +150,8 @@ function fakeExtractStream(lines: unknown[]) {
   return { fetcher, calls };
 }
 
-const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
-const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
+const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
+const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
 
 const report = (id: string) => ({
   id,
@@ -355,6 +355,40 @@ describe("settings", () => {
 
   it("refuses anything but an object", async () => {
     expect((await call(A, "PUT", "/api/settings", [1, 2])).status).toBe(400);
+  });
+
+  /**
+   * `settings.aiAsked` files the mapping model's answer per printed name —
+   * decision, id, confidence, reason, model, date — at ~200 bytes a name.
+   * The cap was 64 kB, which a few hundred unmapped names from an unknown
+   * lab pass, and every save after that failed with the client's generic
+   * „Přiřazení se nepodařilo uložit." — with no way to learn why.
+   */
+  it("keeps a 300 kB settings body, and refuses a 600 kB one saying what is too large", async () => {
+    // One asked name, as aiMapping.ts stores it; ASCII, so bytes are chars.
+    const asked = (i: number) => [
+      `S_Parametr_${String(i).padStart(5, "0")}`,
+      { decision: "unknown", canonicalId: null, confidence: "low", reason: "Nazev nelze bez dalsiho kontextu priradit k polozce katalogu.", model: "claude-haiku-4-5", at: "2026-09-19T10:00:00.000Z" },
+    ];
+    const settingsOf = (kb: number) => {
+      const out: Record<string, unknown> = {};
+      for (let i = 0; JSON.stringify(out).length < kb * 1024; i++) {
+        const [name, record] = asked(i);
+        out[name as string] = record;
+      }
+      return { aiAsked: out };
+    };
+    const kept = settingsOf(300);
+    expect((await call(A, "PUT", "/api/settings", kept)).status).toBe(200);
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual(kept);
+
+    const res = await call(A, "PUT", "/api/settings", settingsOf(600));
+    expect(res.status).toBe(413);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.error).toBe("too_large");
+    expect(body.message).toMatch(/^Nastavení účtu \(přiřazení názvů, vlastní parametry a AI kontext\) je příliš velké: 6\d\d kB, nejvýše 512 kB\.$/);
+    // The refusal kept the last good settings.
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual(kept);
   });
 });
 

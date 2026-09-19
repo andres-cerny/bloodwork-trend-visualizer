@@ -11,7 +11,7 @@ import { mintCookieToken } from "../src/session";
 const SECRET = "test-portal-secret";
 
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null }>;
+  users: Array<{ id: string; email: string; created_at: string; settings: string | null; session_epoch: number }>;
   invites: Array<{ code: string; used_by: string | null; used_at: string | null; expires_at: string | null; user_id: string | null }>;
   failures: Array<{ email: string; at: number }>;
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string }>;
@@ -101,8 +101,8 @@ function fakeKv(seed: string[]) {
   } as unknown as KVNamespace & { _store: Map<string, string> };
 }
 
-const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
-const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
+const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
+const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
 const payload = (id: string, date: string) =>
   JSON.stringify({
     id,

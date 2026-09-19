@@ -211,6 +211,28 @@ A database created before 2026-09-11 needs the column once:
 cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migrations/2026-09-11-budget.sql
 ```
 
+## Ending a session for good
+
+The login cookie is a signed claim, and the worker keeps no list of them.
+What it keeps instead is one number per account, `users.session_epoch`:
+every cookie carries the number it was minted under, „Odhlásit se" and a
+set-password link add one to the row, and a cookie naming an older number
+is a 401 on its next request — a copy of it included, on every device.
+Deleting the account takes the row and the number with it. A visitor
+leaving the demo moves nothing: their cookie is a stranger's, not the
+owner's.
+
+A database created before 2026-09-19 needs the column once, **before** the
+worker that reads it is deployed (`npm run check:schema` says whether it is
+there):
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migrations/2026-09-19-session-epoch.sql
+```
+
+Every cookie minted before that deploy lacks the number and is refused, so
+everyone logs in once more. Nothing else moves.
+
 **To let the cloud session deploy instead:** in claude.ai/code environment
 settings, allow `api.cloudflare.com` in the network policy and add
 `CLOUDFLARE_API_TOKEN` (custom token: Workers Scripts:Edit, D1:Edit,

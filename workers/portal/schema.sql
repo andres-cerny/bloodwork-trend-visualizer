@@ -24,7 +24,13 @@ CREATE TABLE IF NOT EXISTS users (
   -- number here overrides it for this account alone, so one person can be
   -- raised without raising the family. 0 is a real value — it freezes the
   -- account's uploads without touching anyone else's.
-  budget_usd     REAL
+  budget_usd     REAL,
+  -- Which generation of this account's sessions is live. The login cookie
+  -- is a stateless signed claim and carries this number; a cookie whose
+  -- number is not the row's is refused. Logout and a set-password link add
+  -- one, which is how a copied cookie stops working when the person meant
+  -- it to (src/session.ts).
+  session_epoch  INTEGER NOT NULL DEFAULT 0
 );
 
 -- Every door into an account is a code the operator mints: unbound (user_id
