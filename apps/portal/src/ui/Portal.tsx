@@ -811,14 +811,6 @@ export default function Portal({ email, demo, onLogout }: Props) {
             </Panel>
           </>
         )}
-
-        {registry && (
-          <p className="muted mk-foot">
-            Hodnoty, jednotky i meze počítá deterministický kód, ne model. Model přepisuje, co je
-            vytištěno; název přiřadí jen tam, kde jednotka a rozmezí souhlasí, a vy to vidíte.
-            Uloženy jsou jen hodnoty a začerněné stránky — bez jména, bez rodného čísla.
-          </p>
-        )}
       </main>
     </div>
   );

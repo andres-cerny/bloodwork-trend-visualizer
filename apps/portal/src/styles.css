@@ -443,7 +443,6 @@ h2 .n, .sum-group h3 .n {
 .tc-stat .big.out { color: var(--critical-ink); }
 .tc-stat .delta { font-size: 0.86rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .tc-stat .range { font-size: 0.8rem; color: var(--ink-muted); }
-.mk-foot { margin-top: 18px; }
 
 /* AI konzultace ----------------------------------------------------------- */
 /* The one new element: the sentence to copy. The runlog's ground and size,

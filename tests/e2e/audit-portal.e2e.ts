@@ -161,7 +161,12 @@ async function expectSketchRows(page: Page) {
 const SOUHRN: Screen = {
   name: "souhrn (výchozí)",
   go: async () => {},
-  check: expectSketchRows,
+  check: async (page) => {
+    await expectSketchRows(page);
+    // The clause about what the model does moved to /soukromi; under the
+    // summary it was a footnote to every tab.
+    expect(await page.getByText(/deterministický kód/).count(), "no model clause under Souhrn").toBe(0);
+  },
 };
 
 const SCREENS: Screen[] = [
@@ -171,6 +176,17 @@ const SCREENS: Screen[] = [
   { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
   { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
   { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
+  {
+    // The public page, logged out. The model's clause — what it transcribes
+    // and what it never computes — moved here from under Souhrn, so this is
+    // where it must be.
+    name: "soukromí",
+    at: { path: "/soukromi", ready: ".privacy h1" },
+    go: async () => {},
+    check: async (page) => {
+      expect(await page.getByText(/^Hodnoty, jednotky i meze počítá deterministický kód, ne model\./).count()).toBe(1);
+    },
+  },
   SOUHRN,
   {
     // A new account's first screen: one report, nothing to compare it with.
