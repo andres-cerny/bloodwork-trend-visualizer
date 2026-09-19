@@ -47,6 +47,24 @@ def test_norm_key_strips_material_codes_but_not_a_names_own_prefix():
     assert r.match("anti-TPO") is None
 
 
+# Guard seen failing 2026-09-19: the id "non_hdl" went through norm_key, lost
+# its "non_" as a material prefix and took the bare "hdl" key from hdl —
+# whichever entry was added last owned it. registry.test.ts has held the
+# TypeScript side since 2026-09-06 ("keeps non_hdl").
+def test_canonical_id_is_not_a_printed_name():
+    r = Registry([
+        AnalyteDef("hdl", "HDL cholesterol", ["S_HDL cholesterol"], "mmol/l", {}),
+        AnalyteDef("non_hdl", "Non-HDL cholesterol", ["S_Výpočet non-HDL"], "mmol/l", {}),
+        AnalyteDef("albumin", "Albumin", ["S_Albumin"], "g/l", {}),
+        AnalyteDef("elfo_albumin", "ELFO – albumin", ["ELFO albumin"], "%", {}),
+    ])
+    assert r.match("HDL cholesterol") == "hdl"
+    assert r.match("hdl") == "hdl"
+    assert r.match("S_Výpočet non-HDL") == "non_hdl"
+    assert r.match("S_Albumin") == "albumin"
+    assert r.match("ELFO albumin") == "elfo_albumin"
+
+
 # --- name similarity --------------------------------------------------------
 def test_close_name_is_top_suggestion():
     reg = _registry()
