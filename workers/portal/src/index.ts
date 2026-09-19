@@ -1072,11 +1072,13 @@ const routes = {
       case "POST /api/stripe/webhook":
         return handleStripeWebhook(request, env);
       // „Napište nám", logged in or not: the session names the sender when
-      // there is one, and a stranger names themselves (src/helpdesk.ts).
+      // there is one, and a stranger names themselves (src/helpdesk.ts). A
+      // demo cookie is a stranger's: the message is not the owner's, must not
+      // carry their address, and gets the stranger's Turnstile and limits.
       case "POST /api/helpdesk": {
         const who = await requireSession(request, env);
         if (who) accountOf.set(request, who.user.id);
-        return handleHelpdesk(request, env, who?.user ?? null, ctx);
+        return handleHelpdesk(request, env, who && !who.demo ? who.user : null, ctx);
       }
     }
     const invite = INVITE.exec(url.pathname);
