@@ -1535,10 +1535,25 @@ def collisions(data: list[dict]) -> list[str]:
     return out
 
 
+def missing_about(data: list[dict]) -> list[str]:
+    """Every analyte without its two sentences in analyte_about.json, and
+    every text without an analyte. The "i" in Trendy and Souhrn shows nothing
+    for an entry without `about`, so a new entry ships with its text or not
+    at all; a stale text is a sign an id was renamed."""
+    about = json.loads((Path(__file__).resolve().parent / "analyte_about.json").read_text("utf-8"))
+    ids = {a["canonical_id"] for a in data}
+    out = [f"no about text for {cid!r}" for cid in sorted(ids - set(about))]
+    out += [f"about text for unknown id {cid!r}" for cid in sorted(set(about) - ids)]
+    for cid, t in about.items():
+        if not (isinstance(t, dict) and t.get("what", "").strip() and t.get("usedFor", "").strip()):
+            out.append(f"about text for {cid!r} lacks what/usedFor")
+    return out
+
+
 if __name__ == "__main__":
     ensure_dirs()
     data = build()
-    problems = collisions(data)
+    problems = collisions(data) + missing_about(data)
     if problems:
         sys.exit("refusing to write registry.json:\n  " + "\n  ".join(problems))
     REGISTRY_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

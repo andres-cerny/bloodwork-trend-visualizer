@@ -1,0 +1,1378 @@
+{
+ "glukoza": {
+  "what": "Glukóza je jednoduchý cukr, který krev rozvádí do buněk jako hlavní zdroj energie; jeho hladina závisí na trávení sacharidů a na řízení hormony slinivky břišní.",
+  "usedFor": "Sleduje se při posuzování metabolismu cukrů a činnosti slinivky břišní, typicky v souvislosti s hospodařením těla s energií."
+ },
+ "urea": {
+  "what": "Urea (močovina) je odpadní látka vznikající v játrech při odbourávání bílkovin, kterou ledviny vylučují do moči.",
+  "usedFor": "Test slouží k posouzení funkce ledvin a bílkovinného metabolismu, případně stavu hydratace."
+ },
+ "kreatinin": {
+  "what": "Kreatinin je odpadní látka vznikající rozpadem kreatinu ve svalech; do krve se uvolňuje průběžně a z těla je odstraňován ledvinami.",
+  "usedFor": "Sleduje se při posuzování funkce ledvin, konkrétně jejich schopnosti odpadní látky z krve odfiltrovat."
+ },
+ "egfr": {
+  "what": "eGFR (odhadovaná glomerulární filtrace) je hodnota vypočtená ze sérového kreatininu, věku a pohlaví metodou CKD-EPI; vyjadřuje množství plazmy přefiltrované ledvinami za jednotku času.",
+  "usedFor": "Ukazatel shrnuje celkovou funkci ledvin a používá se k jejímu sledování v čase."
+ },
+ "kyselina_mocova": {
+  "what": "Kyselina močová je konečný produkt odbourávání purinů, látek obsažených v buňkách těla i v některých potravinách; z krve je odstraňována především ledvinami.",
+  "usedFor": "Sleduje se při otázkách kolem metabolismu purinů, funkce ledvin a kloubních obtíží spojovaných s ukládáním močanových krystalů."
+ },
+ "bilirubin_celkovy": {
+  "what": "Bilirubin celkový je žlučové barvivo vznikající při rozpadu hemoglobinu z červených krvinek; zahrnuje jak volnou (nekonjugovanou), tak v játrech upravenou (konjugovanou) formu.",
+  "usedFor": "Test odráží funkci jater a žlučových cest a rychlost rozpadu červených krvinek."
+ },
+ "bilirubin_konjugovany": {
+  "what": "Bilirubin konjugovaný (přímý) je forma bilirubinu, kterou játra chemicky upravila navázáním na kyselinu glukuronovou, na rozdíl od volné formy zahrnuté v bilirubinu celkovém.",
+  "usedFor": "Test se používá k rozlišení jaterních a žlučových příčin změn bilirubinu od příčin souvisejících s rozpadem červených krvinek."
+ },
+ "ast": {
+  "what": "AST, rozepsáno aspartátaminotransferáza, je enzym přítomný především v jaterních a svalových buňkách; do krve se uvolňuje při jejich poškození.",
+  "usedFor": "Sleduje se při posuzování stavu jater a svalové tkáně a při rozlišování, ze kterého z těchto zdrojů poškození pochází."
+ },
+ "alt": {
+  "what": "ALT, rozepsáno alaninaminotransferáza, je enzym nacházející se převážně v jaterních buňkách; do krve se uvolňuje při jejich poškození.",
+  "usedFor": "Sleduje se především při posuzování stavu jater; na rozdíl od AST se nachází téměř výhradně v játrech, a proto na jaterní buňky ukazuje přesněji."
+ },
+ "alp": {
+  "what": "ALP, rozepsáno alkalická fosfatáza, je enzym vznikající ve více tkáních těla, nejvíce v játrech a v kostech; naměřená hodnota odráží součet aktivity z těchto zdrojů.",
+  "usedFor": "Sleduje se při posuzování stavu jater a žlučových cest a při otázkách kolem kostního metabolismu; pro rozlišení zdroje slouží kostní izoenzym ALP."
+ },
+ "alp_kostni": {
+  "what": "ALP kostní je izoenzym alkalické fosfatázy vznikající v kostních buňkách zvaných osteoblasty; na rozdíl od celkové ALP odráží pouze podíl pocházející z kostí, nikoli z jater.",
+  "usedFor": "Sleduje se při otázkách kolem kostního metabolismu a novotvorby kostní tkáně, kdy je potřeba oddělit kostní podíl od jaterního."
+ },
+ "ggt": {
+  "what": "GGT, rozepsáno gama-glutamyltransferáza, je enzym nacházející se především v buňkách jater a žlučových cest; do krve se uvolňuje při jejich zatížení.",
+  "usedFor": "Sleduje se při posuzování stavu jater a žlučových cest, často společně s dalšími jaterními enzymy pro upřesnění jejich zdroje."
+ },
+ "ldh": {
+  "what": "LDH (laktátdehydrogenáza) je enzym přítomný ve většině tkání těla – ve svalech, játrech, srdci, ledvinách i červených krvinkách – a účastní se přeměny energie v buňkách.",
+  "usedFor": "Enzym se uvolňuje do krve při poškození buněk, proto slouží jako obecný ukazatel poškození tkání – používá se při onemocnění jater, svalů, srdce nebo při rozpadu červených krvinek."
+ },
+ "ck": {
+  "what": "Kreatinkináza (CK) je enzym kosterního svalstva, srdečního svalu a mozku, který zajišťuje rychlou dodávku energie pro svalovou činnost; test měří celkovou aktivitu všech jeho forem.",
+  "usedFor": "Uvolňuje se do krve při poškození svalů, proto se sleduje při podezření na poškození kosterních svalů či srdce a po intenzivní fyzické zátěži; podíl ze srdečního svalu zachycuje samostatný test CK-MB."
+ },
+ "acp": {
+  "what": "ACP celková (kyselá fosfatáza) je enzym vyskytující se v prostatě, kostech, játrech, červených krvinkách a krevních destičkách, který štěpí fosfátové sloučeniny v kyselém prostředí.",
+  "usedFor": "Test se používá při sledování onemocnění prostaty a kostí, případně stavů spojených se zvýšeným rozpadem krevních destiček nebo červených krvinek."
+ },
+ "piiinp": {
+  "what": "PIIINP (aminoterminální propeptid prokolagenu III) je fragment vznikající při tvorbě kolagenu III. typu ve vazivové tkáni; jeho množství v krvi odráží rychlost tvorby nového vaziva.",
+  "usedFor": "Test se používá při sledování tvorby jaterního vaziva (fibrózy) u chronických jaterních onemocnění a při dlouhodobé léčbě methotrexátem, která játra zatěžuje."
+ },
+ "ace": {
+  "what": "Angiotenzin konvertující enzym (ACE) je enzym vyskytující se především v plicích a cévní stěně, který se podílí na přeměně angiotenzinu I na angiotenzin II a na regulaci krevního tlaku.",
+  "usedFor": "Test se používá především při podezření na sarkoidózu, protože ložiska zánětlivých buněk (granulomy) typická pro toto onemocnění tento enzym tvoří."
+ },
+ "alfa1_antitrypsin": {
+  "what": "Alfa-1-antitrypsin je bílkovina vznikající především v játrech, která v krvi tlumí činnost enzymů (proteáz) uvolňovaných zejména z bílých krvinek, a chrání tak tkáně, především plíce, před jejich rozkladným účinkem.",
+  "usedFor": "Vyšetření se používá při podezření na vrozený nedostatek alfa-1-antitrypsinu, například u časné rozedmy plic nebo neobjasněného onemocnění jater; bílkovina patří i mezi ukazatele zánětu."
+ },
+ "amoniak": {
+  "what": "Amoniak je dusíkatá látka, která vzniká při odbourávání bílkovin a aminokyselin v těle a je běžně zpracovávána v játrech na močovinu.",
+  "usedFor": "Test se používá při podezření na poruchu jaterních funkcí nebo vrozené poruchy odbourávání disíku (močovinového cyklu), protože zhoršené zpracování amoniaku vede k jeho hromadění v krvi."
+ },
+ "amylaza": {
+  "what": "Amyláza celková je enzym tvořený slinivkou břišní a slinnými žlázami, který štěpí škrob na jednodušší cukry; test zachycuje obě formy dohromady, na rozdíl od amylázy pankreatické.",
+  "usedFor": "Test se používá při podezření na onemocnění slinivky břišní, například zánět, i při onemocnění slinných žláz."
+ },
+ "beta_hydroxybutyrat": {
+  "what": "Beta-hydroxybutyrát je jedna z ketolátek, která vzniká v játrech při odbourávání tuků jako alternativní zdroj energie pro buňky.",
+  "usedFor": "Test se používá při sledování ketoacidózy, zejména u diabetu, a při posuzování metabolismu tuků při hladovění nebo dietách s omezeným příjmem sacharidů."
+ },
+ "beta2_mikroglobulin": {
+  "what": "Beta-2-mikroglobulin je malá bílkovina přítomná na povrchu téměř všech buněk s jádrem, která se uvolňuje do krve při jejich obměně a je z těla vylučována ledvinami.",
+  "usedFor": "Test se používá při sledování funkce ledvin a při hodnocení aktivity některých onemocnění krvetvorby a imunitního systému, například mnohočetného myelomu nebo lymfomů."
+ },
+ "bilirubin_nekonjugovany": {
+  "what": "Bilirubin nekonjugovaný (nepřímý) je forma bilirubinu vznikající rozpadem hemoglobinu z červených krvinek, která ještě nebyla v játrech navázána na kyselinu glukuronovou.",
+  "usedFor": "Odlišuje se od bilirubinu konjugovaného (přímého), který touto přeměnou v játrech již prošel; test pomáhá rozlišit, zda žloutenka vzniká rozpadem červených krvinek, nebo poruchou jaterního zpracování bilirubinu."
+ },
+ "ceruloplazmin": {
+  "what": "Ceruloplazmin je bílkovina vznikající v játrech, která v krevní plazmě váže a přenáší měď a podílí se na jejím transportu do tkání.",
+  "usedFor": "Vyšetření se používá při posuzování metabolismu mědi a funkce jater, například při podezření na poruchy ukládání mědi v organismu."
+ },
+ "cholinesteraza": {
+  "what": "Cholinesteráza (CHE), také butyrylcholinesteráza, je enzym tvořený v játrech, který v krvi štěpí acetylcholin a další estery cholinu.",
+  "usedFor": "Hodnota odráží syntetickou funkci jater a používá se také při sledování expozice organofosfátům nebo při přípravě na podání svalových relaxancií během anestezie."
+ },
+ "egfr_cystatin": {
+  "what": "eGFR z cystatinu C je odhad glomerulární filtrace, tedy rychlosti, jakou ledviny filtrují krev, vypočtený z koncentrace cystatinu C, bílkoviny tvořené stálou rychlostí všemi jadernými buňkami těla, nikoli z kreatininu.",
+  "usedFor": "Používá se k posouzení funkce ledvin, zejména tam, kde hladinu kreatininu ovlivňuje svalová hmota, strava nebo jiné faktory nesouvisející s ledvinami."
+ },
+ "fruktosamin": {
+  "what": "Fruktosamin vzniká navázáním glukózy na bílkoviny krevní plazmy, především albumin, procesem zvaným glykace.",
+  "usedFor": "Odráží průměrnou hladinu glukózy v krvi za uplynulé dva až tři týdny a používá se ke sledování kompenzace diabetu, například tam, kde glykovaný hemoglobin nelze použít."
+ },
+ "haptoglobin": {
+  "what": "Haptoglobin je bílkovina tvořená v játrech, která v krvi váže volný hemoglobin uvolněný z rozpadlých červených krvinek.",
+  "usedFor": "Používá se především při podezření na hemolýzu, tedy zvýšený rozpad červených krvinek, a patří mezi bílkoviny akutní fáze reagující na zánět."
+ },
+ "homa_ir": {
+  "what": "HOMA-IR (Homeostatic Model Assessment of Insulin Resistance) je výpočet z hladiny glukózy a inzulinu naměřených nalačno, který odhaduje citlivost tkání na inzulin.",
+  "usedFor": "Používá se k posouzení inzulinové rezistence, tedy snížené schopnosti tkání reagovat na inzulin, v souvislosti s poruchami metabolismu glukózy a rizikem cukrovky 2. typu."
+ },
+ "laktat": {
+  "what": "Laktát je kyselina mléčná, meziprodukt látkové výměny cukrů vznikající zejména při anaerobním, tedy bezkyslíkatém, zpracování glukózy ve svalech a dalších tkáních.",
+  "usedFor": "Sleduje se při intenzivní fyzické zátěži, u poruch okysličení tkání a při některých celkových onemocněních postihujících metabolismus."
+ },
+ "lipoprotein_a": {
+  "what": "Lipoprotein(a), zkráceně Lp(a), je částice podobná LDL, lipoproteinu o nízké hustotě přenášejícímu cholesterol, na kterou je navíc navázána bílkovina apolipoprotein(a).",
+  "usedFor": "Jeho hladina je z velké části daná geneticky a používá se při posuzování rizika kardiovaskulárních onemocnění, jako je ateroskleróza."
+ },
+ "m_protein": {
+  "what": "M-protein (paraprotein) je monoklonální imunoglobulin nebo jeho fragment, který tvoří jediný klon plazmatických buněk. Jeho množství se stanovuje elektroforézou bílkovin séra, typ upřesňuje imunofixace.",
+  "usedFor": "Vyšetření se používá při podezření na plazmocelulární onemocnění, například mnohočetný myelom nebo monoklonální gamapatii nejasného významu (MGUS), a při sledování jejich průběhu."
+ },
+ "orosomukoid": {
+  "what": "Orosomukoid, také nazývaný alfa-1-kyselý glykoprotein, je bílkovina tvořená v játrech, jejíž hladina v krvi stoupá při zánětlivé reakci organismu.",
+  "usedFor": "Patří mezi bílkoviny akutní fáze a používá se jako doplňkový ukazatel probíhajícího zánětu nebo tkáňového poškození."
+ },
+ "prealbumin": {
+  "what": "Prealbumin, odborně transthyretin, je bílkovina tvořená v játrech, která v krvi přenáší hormony štítné žlázy a vitamin A.",
+  "usedFor": "Vzhledem ke krátkému poločasu se používá jako ukazatel aktuálního stavu výživy a syntetické funkce jater."
+ },
+ "zlucove_kyseliny": {
+  "what": "Žlučové kyseliny celkové jsou látky vznikající v játrech z cholesterolu, které se vylučují do žluči a podílejí se na trávení tuků.",
+  "usedFor": "Jejich hladina v krvi se sleduje při onemocněních jater a žlučových cest a v těhotenství při podezření na nitrojaterní cholestázu."
+ },
+ "erytropoetin": {
+  "what": "Erytropoetin (EPO) je hormon tvořený převážně v ledvinách, který stimuluje kostní dřeň k tvorbě červených krvinek. Jeho hladina se měří v séru.",
+  "usedFor": "Vyšetření se používá při objasňování příčin chudokrevnosti nebo nadbytku červených krvinek, zejména při rozlišení, zda je porucha v tvorbě hormonu ledvinami, nebo přímo v kostní dřeni."
+ },
+ "fsh": {
+  "what": "FSH (folikulostimulační hormon) je hormon podvěsku mozkového (hypofýzy), který ve vaječnících podporuje zrání folikulů a ve varlatech tvorbu spermií.",
+  "usedFor": "Vyšetření se používá při posuzování funkce vaječníků nebo varlat, plodnosti, poruch menstruačního cyklu a přechodu do menopauzy."
+ },
+ "lh": {
+  "what": "LH (luteinizační hormon) je hormon hypofýzy, který spolu s FSH (folikulostimulačním hormonem) řídí činnost vaječníků a varlat; u žen spouští ovulaci, u mužů řídí tvorbu testosteronu.",
+  "usedFor": "Vyšetření se používá při posuzování plodnosti, průběhu ovulačního cyklu a funkce pohlavních žláz."
+ },
+ "dhea_s": {
+  "what": "DHEA-S je sulfátová forma dehydroepiandrosteronu, hormonu tvořeného převážně v nadledvinách, který slouží jako výchozí látka pro tvorbu pohlavních hormonů.",
+  "usedFor": "Vyšetření se používá při posuzování funkce nadledvin a při vyšetřování zvýšené tvorby androgenů (mužských pohlavních hormonů), například u nadměrného ochlupení žen."
+ },
+ "kortizol": {
+  "what": "Kortizol je hormon kůry nadledvin, který se podílí na regulaci metabolismu, krevního tlaku a reakci na stres; jeho hladina během dne přirozeně kolísá, proto se obvykle odebírá ráno.",
+  "usedFor": "Vyšetření se používá při posuzování funkce nadledvin a hypofýzy, při podezření na nadměrnou nebo nedostatečnou tvorbu kortizolu, například při únavě, změnách hmotnosti nebo krevního tlaku."
+ },
+ "testosteron_volny": {
+  "what": "Testosteron volný je část testosteronu, která v krvi není vázaná na bílkoviny SHBG a albumin a je biologicky aktivní; na rozdíl od celkového testosteronu nezahrnuje vázanou frakci.",
+  "usedFor": "Vyšetření se používá při posuzování funkce varlat nebo vaječníků a projevů nedostatku či nadbytku androgenů, zejména mění-li se hladina vazebných bílkovin."
+ },
+ "testosteron": {
+  "what": "Testosteron je hlavní mužský pohlavní hormon, tvořený u mužů varlaty, u žen v menší míře vaječníky a nadledvinami; celková hodnota zahrnuje volnou i na bílkoviny vázanou část.",
+  "usedFor": "Vyšetření se používá u mužů při posuzování funkce varlat, plodnosti a projevů nedostatku testosteronu, u žen při projevech nadbytku androgenů, například nadměrném ochlupení."
+ },
+ "shbg": {
+  "what": "SHBG (globulin vázající pohlavní hormony) je bílkovina tvořená v játrech, která v krvi váže testosteron a estradiol.",
+  "usedFor": "Vyšetření se používá při hodnocení dostupnosti pohlavních hormonů a k výpočtu volného testosteronu nebo indexu volných androgenů (FAI)."
+ },
+ "fai": {
+  "what": "FAI (index volných androgenů) je poměr celkového testosteronu k SHBG vyjádřený v procentech; jde o výpočet, nikoli o přímo měřenou látku.",
+  "usedFor": "Výpočet se používá jako ukazatel dostupnosti androgenů (mužských pohlavních hormonů), především u žen při vyšetřování jejich nadbytku, například u nadměrného ochlupení nebo poruch cyklu."
+ },
+ "igf1": {
+  "what": "IGF-1 (inzulinu podobný růstový faktor 1) je látka tvořená hlavně v játrech pod vlivem růstového hormonu a zprostředkovává jeho účinky na tkáně.",
+  "usedFor": "Vyšetření se používá při posuzování činnosti růstového hormonu a hypofýzy, například u poruch růstu v dětství nebo změn tělesné stavby v dospělosti."
+ },
+ "acth": {
+  "what": "ACTH (adrenokortikotropní hormon) je hormon hypofýzy, který řídí tvorbu kortizolu v kůře nadledvin.",
+  "usedFor": "Vyšetření se používá při posuzování funkce hypofýzy a nadledvin, zejména při rozlišování příčin poruch tvorby kortizolu."
+ },
+ "aldosteron": {
+  "what": "Aldosteron je hormon kůry nadledvin, který reguluje hospodaření se sodíkem a draslíkem a tím ovlivňuje i krevní tlak.",
+  "usedFor": "Vyšetření se používá při posuzování funkce nadledvin a při vyšetřování příčin zvýšeného krevního tlaku nebo poruch hladiny draslíku, obvykle spolu s reninem."
+ },
+ "amh": {
+  "what": "Anti-Müllerian hormon (AMH) je bílkovina tvořená buňkami drobných vaječníkových folikulů u žen nebo Sertoliho buňkami varlat u mužů.",
+  "usedFor": "Vyšetření se používá při posuzování zásoby vajíček ve vaječnících (ovariální rezervy) u žen a činnosti varlat u mužů, často v souvislosti s plodností nebo léčbou neplodnosti."
+ },
+ "androstendion": {
+  "what": "Androstendion je steroidní hormon, meziprodukt syntézy pohlavních hormonů, tvořený v nadledvinách a pohlavních žlázách; z něj dále vzniká testosteron a estrogeny.",
+  "usedFor": "Vyšetření se používá k posouzení funkce nadledvin a pohlavních žláz a při hledání příčin nadměrné tvorby mužských pohlavních hormonů."
+ },
+ "dhea": {
+  "what": "DHEA (dehydroepiandrosteron) je steroidní hormon tvořený převážně v nadledvinách, výchozí látka pro tvorbu testosteronu a estrogenů; na rozdíl od DHEA-S jde o nekonjugovanou (nesulfátovanou) formu.",
+  "usedFor": "Vyšetření se používá k posouzení funkce nadledvin a tvorby mužských pohlavních hormonů, mimo jiné při vyšetřování nadměrného ochlupení nebo poruch dospívání."
+ },
+ "gastrin": {
+  "what": "Gastrin je hormon tvořený buňkami žaludeční sliznice a horní části tenkého střeva, který řídí tvorbu žaludeční kyseliny a trávicích šťáv.",
+  "usedFor": "Vyšetření se používá při posuzování funkce žaludku, zejména při podezření na gastrinom (hormonálně aktivní nádor slinivky nebo dvanáctníku) nebo na poruchy tvorby žaludeční kyseliny."
+ },
+ "hcg": {
+  "what": "hCG (choriogonadotropin) je hormon tvořený placentou v těhotenství a některými nádory; jde o celkovou hodnotu včetně volné beta podjednotky.",
+  "usedFor": "Vyšetření se používá k průkazu a sledování těhotenství a při vyšetřování nádorů varlat, vaječníků nebo dělohy."
+ },
+ "kalcitonin": {
+  "what": "Kalcitonin je hormon tvořený C-buňkami štítné žlázy, který se podílí na regulaci hladiny vápníku v těle.",
+  "usedFor": "Vyšetření se používá jako nádorový ukazatel při podezření na medulární karcinom štítné žlázy, při sledování po jeho léčbě a při vyšetřování uzlů štítné žlázy."
+ },
+ "metanefrin": {
+  "what": "Metanefrin v plazmě je metabolit adrenalinu, měřený ve volné (nekonjugované) formě přímo v krevní plazmě.",
+  "usedFor": "Vyšetření se používá při posuzování funkce dřeně nadledvin, zejména při vyšetřování feochromocytomu a jiných nádorů tvořících katecholaminy."
+ },
+ "normetanefrin": {
+  "what": "Normetanefrin v plazmě je metabolit noradrenalinu, měřený ve volné (nekonjugované) formě přímo v krevní plazmě.",
+  "usedFor": "Vyšetření se používá při posuzování dřeně nadledvin a sympatického nervstva, zejména při vyšetřování feochromocytomu, paragangliomu a jiných nádorů tvořících katecholaminy."
+ },
+ "progesteron_17_oh": {
+  "what": "17-OH-progesteron (17-hydroxyprogesteron) je steroidní meziprodukt syntézy kortizolu, tvořený v nadledvinách a pohlavních žlázách.",
+  "usedFor": "Vyšetření se používá při vyšetřování vrozené poruchy nadledvin zvané kongenitální adrenální hyperplazie a při posuzování funkce nadledvin."
+ },
+ "renin": {
+  "what": "Renin je enzym tvořený ledvinami, který spouští řetězec reakcí řídících krevní tlak a rovnováhu sodíku a tekutin (systém renin-angiotenzin-aldosteron); jde o přímo stanovenou koncentraci.",
+  "usedFor": "Vyšetření se používá při posuzování příčin vysokého krevního tlaku a poruch nadledvin, obvykle společně s hladinou aldosteronu."
+ },
+ "rustovy_hormon": {
+  "what": "Růstový hormon (STH, somatotropin) je hormon tvořený podvěskem mozkovým (hypofýzou), který řídí růst a metabolismus tkání.",
+  "usedFor": "Vyšetření se používá při posuzování funkce hypofýzy, poruch růstu u dětí a podezření na nadměrnou nebo nedostatečnou tvorbu tohoto hormonu u dospělých."
+ },
+ "sodik": {
+  "what": "Sodík je hlavní minerální iont v tekutině mimo buňky, který spolu s dalšími ionty udržuje rovnováhu tekutin a elektrickou aktivitu buněk.",
+  "usedFor": "Vyšetření se používá při posuzování hospodaření s vodou a minerály, funkce ledvin a nadledvin a jako součást základního vyšetření minerálů (iontogramu)."
+ },
+ "draslik": {
+  "what": "Draslík je minerální iont nacházející se převážně uvnitř buněk, podílející se na činnosti svalů, nervů a srdce.",
+  "usedFor": "Vyšetření se používá při posuzování funkce ledvin a nadledvin, hospodaření s minerály a činnosti srdce, zejména v souvislosti s poruchami srdečního rytmu."
+ },
+ "chloridy": {
+  "what": "Chloridy jsou záporně nabité ionty (anionty) rozpuštěné v krevní plazmě, které spolu se sodíkem a draslíkem udržují elektrickou rovnováhu a objem tělesných tekutin.",
+  "usedFor": "Vyšetření se používá při posuzování acidobazické rovnováhy a rovnováhy vody a minerálů v těle, často společně se sodíkem a draslíkem."
+ },
+ "vapnik": {
+  "what": "Vápník je minerál přítomný v krvi zčásti volně, zčásti vázaný na bílkoviny; test měří jeho celkové množství v krevní plazmě.",
+  "usedFor": "Vyšetření se používá při posuzování stavu kostí, funkce příštítných tělísek a metabolismu vitaminu D, i při hodnocení nervosvalové činnosti."
+ },
+ "horcik": {
+  "what": "Hořčík je minerál rozpuštěný v krevní plazmě (séru), který se podílí na činnosti svalů a nervů a na tvorbě energie v buňkách; test měří jeho hladinu v séru, tedy mimo buňky, nikoli zásoby uvnitř buněk.",
+  "usedFor": "Vyšetření se používá při posuzování minerálové rovnováhy a činnosti svalů a nervového systému, případně při vysvětlování svalových křečí nebo poruch srdečního rytmu."
+ },
+ "horcik_ery": {
+  "what": "Hořčík v erytrocytech je množství hořčíku uloženého uvnitř červených krvinek, kde se ho nachází podstatně více než v krevní plazmě; test tak odráží zásoby hořčíku v buňkách, nikoli jeho hladinu v séru.",
+  "usedFor": "Vyšetření se používá při podezření na nitrobuněčný nedostatek hořčíku, který běžné sérové stanovení hořčíku nemusí zachytit."
+ },
+ "fosfor": {
+  "what": "Fosfor je minerál, který se v krvi měří ve formě anorganických fosfátů; spolu s vápníkem je součástí kostní tkáně a účastní se buněčného metabolismu energie.",
+  "usedFor": "Vyšetření se používá při posuzování stavu kostí a metabolismu minerálů, obvykle společně s vápníkem, a při hodnocení funkce ledvin a příštítných tělísek."
+ },
+ "zinek": {
+  "what": "Zinek je stopový prvek rozpuštěný v krevní plazmě, který je součástí mnoha enzymů a podílí se na imunitních a metabolických dějích v těle.",
+  "usedFor": "Vyšetření se používá při posuzování zásobení organismu stopovými prvky, například při hodnocení hojení ran, imunity nebo poruch chuti a čichu."
+ },
+ "bikarbonat": {
+  "what": "Bikarbonát (hydrogenuhličitan) je iont, v jehož podobě krev přenáší většinu oxidu uhličitého; spolu s kyselinou uhličitou tvoří hlavní pufrovací systém udržující acidobazickou rovnováhu.",
+  "usedFor": "Vyšetření se používá při posuzování acidobazické rovnováhy a funkce plic a ledvin, které množství bikarbonátu v krvi regulují."
+ },
+ "med": {
+  "what": "Měď je stopový prvek rozpuštěný v krevní plazmě, který je součástí enzymů podílejících se na tvorbě pojivové tkáně, přenosu železa a činnosti nervového systému.",
+  "usedFor": "Vyšetření se používá při posuzování zásobení organismu stopovými prvky, například při hodnocení neurologických potíží nebo poruch metabolismu železa."
+ },
+ "selen": {
+  "what": "Selen je stopový prvek rozpuštěný v krevní plazmě, který je součástí enzymů s antioxidační funkcí a podílí se na činnosti štítné žlázy.",
+  "usedFor": "Vyšetření se používá při posuzování zásobení organismu stopovými prvky, například při hodnocení funkce štítné žlázy nebo imunitního systému."
+ },
+ "cholesterol": {
+  "what": "Cholesterol celkový je veškerý cholesterol (tuková látka přenášená v krvi v lipoproteinových částicích) bez ohledu na frakci, tedy LDL, HDL a další dohromady.",
+  "usedFor": "Vyšetření se používá při posuzování metabolismu tuků a rizikových faktorů souvisejících s cévním systémem, obvykle jako součást lipidového panelu."
+ },
+ "triacylglyceroly": {
+  "what": "Triacylglyceroly (triglyceridy) jsou tuky přenášené v krvi v lipoproteinových částicích, které slouží organismu jako zásobní zdroj energie.",
+  "usedFor": "Vyšetření se používá při posuzování metabolismu tuků, obvykle jako součást lipidového panelu spolu s cholesterolem a jeho frakcemi."
+ },
+ "hdl": {
+  "what": "HDL cholesterol je cholesterol obsažený v lipoproteinových částicích HDL (lipoproteiny o vysoké hustotě), jedné z frakcí, na které se celkový cholesterol v krvi dělí.",
+  "usedFor": "Vyšetření se používá při posuzování metabolismu tuků jako součást lipidového panelu, odděleně od LDL a dalších frakcí cholesterolu."
+ },
+ "ldl": {
+  "what": "LDL cholesterol je cholesterol vázaný na lipoproteiny o nízké hustotě, které přenášejí cholesterol z jater do tkání. Hodnota se často získává výpočtem z celkového cholesterolu, HDL cholesterolu a triglyceridů.",
+  "usedFor": "Patří mezi základní ukazatele lipidového metabolismu a používá se při posuzování rizika aterosklerózy a kardiovaskulárních onemocnění."
+ },
+ "non_hdl": {
+  "what": "Non-HDL cholesterol je celkový cholesterol snížený o HDL cholesterol – zahrnuje součet cholesterolu ve všech aterogenních částicích (LDL, VLDL, remnantní částice), nejen v LDL.",
+  "usedFor": "Používá se jako souhrnný ukazatel lipidového metabolismu, který zahrnuje širší okruh částic než samotný LDL cholesterol."
+ },
+ "aip": {
+  "what": "Aterogenní index plazmy je výpočet z poměru triglyceridů a HDL cholesterolu (dekadický logaritmus tohoto poměru), vyjadřující vztah mezi těmito dvěma složkami lipidového profilu.",
+  "usedFor": "Používá se jako doplňkový ukazatel lipidového metabolismu, který spojuje hladinu triglyceridů a HDL cholesterolu do jednoho čísla."
+ },
+ "apolipoprotein_b": {
+  "what": "Apolipoprotein B je bílkovina tvořící strukturní součást LDL, VLDL a dalších aterogenních lipoproteinových částic, přičemž na každé částici je přítomna právě jedna molekula.",
+  "usedFor": "Odráží celkový počet aterogenních lipoproteinových částic v krvi a používá se při hodnocení rizika kardiovaskulárních onemocnění jako doplněk k LDL cholesterolu."
+ },
+ "pomer_apob_apoa1": {
+  "what": "Poměr ApoB/ApoA-I je výpočet z podílu apolipoproteinu B (bílkoviny aterogenních částic) a apolipoproteinu A-I (hlavní bílkoviny částic HDL).",
+  "usedFor": "Používá se jako souhrnný ukazatel rovnováhy mezi aterogenními a ochrannými lipoproteinovými částicemi v lipidovém metabolismu."
+ },
+ "pomer_ldl_hdl": {
+  "what": "Poměr LDL/HDL je výpočet z podílu LDL cholesterolu a HDL cholesterolu, tedy dvou hlavních cholesterolových frakcí v krvi.",
+  "usedFor": "Používá se jako doplňkový ukazatel lipidového metabolismu, který dává do vztahu množství cholesterolu v částicích LDL a HDL."
+ },
+ "remnantni_cholesterol": {
+  "what": "Remnantní cholesterol je cholesterol obsažený ve zbytkových (remnantních) částicích vznikajících odbouráváním VLDL a chylomikronů bohatých na triglyceridy. Získává se výpočtem z celkového, LDL a HDL cholesterolu.",
+  "usedFor": "Slouží jako doplňkový ukazatel lipidového profilu a posuzuje se při hodnocení rizika kardiovaskulárních onemocnění, zejména při zvýšených triglyceridech."
+ },
+ "vldl": {
+  "what": "VLDL cholesterol je cholesterol vázaný na lipoproteiny o velmi nízké hustotě, které vznikají v játrech a přenášejí především triglyceridy. Hodnota bývá odvozena výpočtem z koncentrace triglyceridů.",
+  "usedFor": "Je součástí lipidového profilu a posuzuje se společně s ostatními frakcemi cholesterolu při hodnocení metabolismu tuků a rizika kardiovaskulárních onemocnění."
+ },
+ "zelezo": {
+  "what": "Železo je stopový prvek přijímaný stravou, který se v krvi váže na transportní bílkovinu transferrin; měří se jeho koncentrace v krevním séru.",
+  "usedFor": "Vyšetření se používá k posouzení zásobení organismu železem a jeho metabolismu, obvykle spolu s dalšími ukazateli, jako je ferritin nebo transferrin, při otázkách týkajících se krvetvorby."
+ },
+ "vk_fe_volna": {
+  "what": "Volná vazebná kapacita Fe (železa, UIBC) je ta část vazebné kapacity transferrinu, která zůstává nenasycená – na rozdíl od celkové vazebné kapacity nezahrnuje už navázané železo.",
+  "usedFor": "Používá se spolu se sérovým železem, s nímž v součtu dává celkovou vazebnou kapacitu, k výpočtu saturace transferrinu a k posouzení metabolismu železa."
+ },
+ "vk_fe_celkova": {
+  "what": "Celková vazebná kapacita Fe (železa, TIBC) vyjadřuje celkové množství železa, které by transferrin v séru dokázal navázat – součet už navázaného železa a jeho volné, nenasycené kapacity.",
+  "usedFor": "Používá se spolu se sérovým železem k výpočtu saturace transferrinu a k posouzení metabolismu železa; nepřímo odráží množství transferrinu v krvi."
+ },
+ "saturace_trf": {
+  "what": "Saturace transferrinu je výpočet vyjadřující, jaký podíl vazebné kapacity transferrinu je obsazen železem – poměr sérového železa k celkové vazebné kapacitě železa.",
+  "usedFor": "Používá se při posuzování metabolismu železa a jeho dostupnosti pro krvetvorbu, typicky spolu se železem, feritinem a vazebnou kapacitou Fe."
+ },
+ "ferritin": {
+  "what": "Ferritin je bílkovina, která v těle skladuje železo; jeho množství v krvi odráží velikost zásob železa v organismu.",
+  "usedFor": "Vyšetření se používá k posouzení zásob železa v těle, například při podezření na jejich nedostatek nebo nadbytek."
+ },
+ "transferrin": {
+  "what": "Transferrin je bílkovina krevní plazmy, která váže a přenáší železo z míst jeho vstřebávání a rozpadu červených krvinek do míst jeho využití a ukládání.",
+  "usedFor": "Vyšetření se používá při posuzování metabolismu železa, obvykle společně s dalšími ukazateli, jako je ferritin nebo sérové železo."
+ },
+ "str": {
+  "what": "Solubilní transferrinový receptor (sTfR) je rozpustná forma receptoru, kterým buňky, zejména předchůdci červených krvinek, přijímají železo navázané na transferrin.",
+  "usedFor": "Vyšetření se používá při rozlišování, zda je chudokrevnost způsobena nedostatkem železa, nebo zánětem či jiným chronickým onemocněním, protože na rozdíl od ferritinu není jeho hladina zánětem výrazně ovlivněna."
+ },
+ "hepcidin": {
+  "what": "Hepcidin je hormon tvořený v játrech, který řídí vstřebávání železa ve střevě a jeho uvolňování ze zásobních buněk do krve.",
+  "usedFor": "Vyšetření se používá při posuzování regulace metabolismu železa, například u nejasných poruch jeho vstřebávání nebo distribuce v těle."
+ },
+ "vitamin_b12": {
+  "what": "Vitamin B12 (kobalamin) je vitamin rozpustný ve vodě, nutný pro tvorbu červených krvinek, syntézu DNA a funkci nervové soustavy; toto vyšetření měří jeho celkové množství v krvi, včetně části nedostupné buňkám.",
+  "usedFor": "Vyšetření se používá při posuzování zásobení organismu vitaminem B12, například v souvislosti se změnami krevního obrazu nebo neurologickými potížemi."
+ },
+ "aktivni_b12": {
+  "what": "Aktivní B12 (holoTC, holotranskobalamin) je část vitaminu B12 navázaná na bílkovinu transkobalamin, kterou mohou buňky přijímat; na rozdíl od celkového vitaminu B12 nezahrnuje část vázanou na haptokorin.",
+  "usedFor": "Vyšetření se používá k posouzení dostupnosti vitaminu B12 pro buňky, často společně s jeho celkovou hladinou nebo dalšími ukazateli jeho metabolismu."
+ },
+ "kyselina_listova_ery": {
+  "what": "Kyselina listová v erytrocytech je množství folátu uloženého uvnitř červených krvinek při jejich vzniku; na rozdíl od hladiny v séru odráží zásoby za delší období, odpovídající životnosti červené krvinky.",
+  "usedFor": "Vyšetření se používá k posouzení dlouhodobějších zásob kyseliny listové v těle, zejména když hladina v séru neodpovídá klinickému obrazu."
+ },
+ "kyselina_listova": {
+  "what": "Kyselina listová (folát) je vitamin skupiny B, který se účastní syntézy DNA a tvorby krvinek; toto vyšetření měří jeho množství v krevním séru, které na rozdíl od folátu v erytrocytech odráží spíše nedávný přísun.",
+  "usedFor": "Vyšetření se používá při posuzování aktuálního přísunu kyseliny listové, například v souvislosti se změnami krevního obrazu."
+ },
+ "vitamin_d": {
+  "what": "Vitamin D celkový (25-hydroxyvitamin D) je hlavní forma vitaminu D kolující v krvi; vzniká v játrech z vitaminu D vytvořeného v kůži nebo přijatého stravou a zahrnuje formy D2 i D3.",
+  "usedFor": "Vyšetření se používá k posouzení zásobení organismu vitaminem D, který se podílí na metabolismu vápníku a fosforu a na stavbě kostí."
+ },
+ "homocystein": {
+  "what": "Homocystein je aminokyselina vznikající při přeměně metioninu v těle; jeho odbourávání závisí na dostatku vitaminů skupiny B, zejména B12, B6 a kyseliny listové.",
+  "usedFor": "Vyšetření se používá při posuzování metabolismu vitaminů B12, B6 a kyseliny listové a v souvislosti s hodnocením srdečně-cévních rizikových faktorů."
+ },
+ "mma": {
+  "what": "Metylmalonová kyselina (MMA) je meziprodukt látkové přeměny některých aminokyselin a mastných kyselin, jehož odbourávání vyžaduje vitamin B12 jako kofaktor.",
+  "usedFor": "Vyšetření se používá jako doplňkový ukazatel metabolismu vitaminu B12, zejména při nejasných výsledcích jeho hladiny v krvi."
+ },
+ "omega3_index": {
+  "what": "Omega-3 index vyjadřuje podíl mastných kyselin EPA a DHA na celkovém množství mastných kyselin v membránách červených krvinek.",
+  "usedFor": "Vyšetření se používá k posouzení dlouhodobého přísunu omega-3 mastných kyselin ze stravy nebo doplňků stravy."
+ },
+ "vitamin_a": {
+  "what": "Vitamin A (retinol) je tuku rozpustný vitamin, který tělo získává ze stravy nebo vzniká přeměnou z karotenoidů a ukládá se především v játrech.",
+  "usedFor": "Vyšetření odráží zásobení organismu vitaminem A a používá se při posuzování stavu výživy a při potížích se zrakem, kůží nebo obranyschopností."
+ },
+ "vitamin_b1": {
+  "what": "Vitamin B1 (thiamin) je ve vodě rozpustný vitamin skupiny B, který slouží jako kofaktor enzymů metabolismu sacharidů a nervové tkáně.",
+  "usedFor": "Vyšetření slouží k posouzení zásobení organismu thiaminem, který je důležitý pro činnost nervového systému a energetický metabolismus buněk."
+ },
+ "vitamin_b6": {
+  "what": "Vitamin B6 se v krvi měří jako pyridoxal-5-fosfát (PLP), jeho aktivní forma, která slouží jako kofaktor enzymů metabolismu aminokyselin a bílkovin.",
+  "usedFor": "Vyšetření ukazuje zásobení organismu vitaminem B6, který se podílí na metabolismu bílkovin, tvorbě neurotransmiterů a krvetvorbě."
+ },
+ "vitamin_c": {
+  "what": "Vitamin C (kyselina askorbová) je ve vodě rozpustný vitamin, který organismus získává výhradně ze stravy a sám si jej nevytváří.",
+  "usedFor": "Vyšetření odráží aktuální zásobení organismu vitaminem C a používá se při posuzování stavu výživy; vitamin C se podílí na tvorbě kolagenu, hojení tkání a působí jako antioxidant."
+ },
+ "vitamin_d_1_25": {
+  "what": "1,25-dihydroxyvitamin D (kalcitriol) je hormonálně nejaktivnější forma vitaminu D, která vzniká přeměnou v ledvinách a řídí vstřebávání vápníku a fosfátu ze střeva.",
+  "usedFor": "Na rozdíl od celkového vitaminu D neodráží zásoby, ale hormonálně aktivní formu; měří se při poruchách metabolismu vápníku a fosfátu, u onemocnění ledvin a příštítných tělísek."
+ },
+ "vitamin_e": {
+  "what": "Vitamin E (alfa-tokoferol) je tuku rozpustný vitamin s antioxidačními vlastnostmi, který chrání buněčné membrány před oxidačním poškozením.",
+  "usedFor": "Vyšetření odráží zásoby vitaminu E v organismu a používá se při posuzování stavu výživy a vstřebávání tuků."
+ },
+ "vitamin_k": {
+  "what": "Vitamin K1 (fylochinon) je tuku rozpustný vitamin získávaný převážně z rostlinné stravy, nezbytný pro tvorbu srážecích faktorů v játrech.",
+  "usedFor": "Vyšetření odráží zásobení organismu vitaminem K, který je klíčový pro srážlivost krve a podílí se na metabolismu kostní tkáně."
+ },
+ "myoglobin": {
+  "what": "Myoglobin je bílkovina vázající kyslík, přítomná v srdečním a kosterním svalu, která se při poškození svalové tkáně uvolňuje do krve.",
+  "usedFor": "Vyšetření se používá při posuzování poškození kosterního nebo srdečního svalu, protože myoglobin se z poškozené tkáně uvolňuje do krevního oběhu."
+ },
+ "crp": {
+  "what": "CRP (C-reaktivní protein) je bílkovina tvořená v játrech, jejíž tvorba se v rámci akutní zánětlivé reakce organismu zvyšuje.",
+  "usedFor": "Vyšetření se používá k posouzení zánětu nebo infekce a ke sledování odpovědi na léčbu; na rozdíl od hs-CRP, které zachycuje i velmi nízké koncentrace pro odhad srdečně-cévního rizika."
+ },
+ "celkova_bilkovina": {
+  "what": "Celková bílkovina představuje součet všech bílkovin přítomných v krevním séru, především albuminu a globulinů.",
+  "usedFor": "Vyšetření se používá k celkovému posouzení stavu výživy, funkce jater a ledvin a hydratace organismu."
+ },
+ "albumin": {
+  "what": "Albumin je hlavní bílkovina krevního séra, tvořená v játrech; udržuje tekutinu v cévách (onkotický tlak) a přenáší krví řadu látek, například hormony a léky.",
+  "usedFor": "Vyšetření udává množství albuminu v séru (na rozdíl od jeho podílu v elektroforéze bílkovin) a používá se k posouzení funkce jater a ledvin, stavu výživy a hydratace."
+ },
+ "c3": {
+  "what": "C3 komplement je bílkovina komplementového systému, součásti imunitního systému, podílející se na obraně proti infekcím a na zánětlivé reakci.",
+  "usedFor": "Vyšetření se používá k posouzení aktivity komplementu u autoimunitních onemocnění, zánětů ledvin nebo opakovaných infekcí; C3 je společný všem cestám aktivace, C4 jen klasické a lektinové."
+ },
+ "c4": {
+  "what": "C4 komplement je bílkovina komplementového systému (součásti imunitní obrany), která se podílí na časné fázi aktivace komplementu klasickou a lektinovou cestou.",
+  "usedFor": "Vyšetření se používá k posouzení funkce imunitního systému, například při podezření na autoimunitní onemocnění nebo vrozené poruchy komplementu."
+ },
+ "bnp": {
+  "what": "BNP (natriuretický peptid typu B) je hormon uvolňovaný převážně srdečními komorami při jejich zátěži a roztažení stěny; na rozdíl od NT-proBNP jde o účinnou část molekuly.",
+  "usedFor": "Vyšetření se používá k posouzení funkce srdce, zejména při podezření na srdeční selhání nebo při sledování jeho průběhu."
+ },
+ "crp_hs": {
+  "what": "hs-CRP (vysoce senzitivní CRP) je C-reaktivní protein, bílkovina akutní fáze tvořená v játrech, stanovený metodou s vyšší citlivostí než běžné CRP.",
+  "usedFor": "Vyšetření odráží míru zánětu v těle a v kardiologii se používá k posouzení rizika onemocnění srdce a cév."
+ },
+ "interleukin_6": {
+  "what": "Interleukin 6 (IL-6) je signální bílkovina (cytokin) uvolňovaná imunitními a dalšími buňkami při zánětlivé reakci.",
+  "usedFor": "Vyšetření se používá k posouzení míry zánětlivé reakce v těle, například u infekcí nebo systémových zánětlivých stavů."
+ },
+ "prokalcitonin": {
+  "what": "Prokalcitonin je předstupeň (prekurzor) hormonu kalcitoninu, který běžně vzniká ve štítné žláze; při bakteriální infekci ho tvoří i další tkáně těla.",
+  "usedFor": "Vyšetření se používá k odlišení bakteriální infekce od jiných příčin zánětu a k posouzení závažnosti infekce, například sepse."
+ },
+ "troponin_t": {
+  "what": "Troponin T hs je bílkovina srdečního svalu, jedna ze dvou srdečních podjednotek troponinu (druhou je troponin I), uvolňovaná do krve při poškození srdečních buněk; hs značí vysoce senzitivní metodu.",
+  "usedFor": "Vyšetření se používá k posouzení poškození srdečního svalu, například při podezření na infarkt myokardu."
+ },
+ "elfo_albumin": {
+  "what": "ELFO – albumin je podíl albuminu na celkové bílkovině séra stanovený elektroforézou, metodou dělící bílkoviny podle pohyblivosti v elektrickém poli.",
+  "usedFor": "Vyšetření se používá k posouzení zastoupení hlavních bílkovinných frakcí séra, například při jaterních nebo ledvinových onemocněních."
+ },
+ "elfo_alfa1": {
+  "what": "ELFO – alfa-1-globuliny je podíl bílkovinné frakce alfa-1, oddělené elektroforézou hned za albuminem, na celkové bílkovině séra.",
+  "usedFor": "Vyšetření se používá k posouzení zastoupení bílkovinných frakcí séra; frakce alfa-1 zahrnuje mimo jiné alfa-1-antitrypsin."
+ },
+ "elfo_alfa2": {
+  "what": "ELFO – alfa-2-globuliny je podíl bílkovinné frakce alfa-2, oddělené elektroforézou za frakcí alfa-1, na celkové bílkovině séra.",
+  "usedFor": "Vyšetření se používá k posouzení zastoupení bílkovinných frakcí séra; frakce alfa-2 zahrnuje mimo jiné haptoglobin a alfa-2-makroglobulin."
+ },
+ "elfo_beta": {
+  "what": "ELFO – beta-globuliny je podíl bílkovinné frakce beta, oddělené elektroforézou za frakcí alfa-2, na celkové bílkovině séra; některé laboratoře ji dále dělí na beta-1 a beta-2.",
+  "usedFor": "Vyšetření se používá k posouzení zastoupení bílkovinných frakcí séra; frakce beta zahrnuje mimo jiné transferin a složky komplementu."
+ },
+ "elfo_beta1": {
+  "what": "ELFO – beta-1-globuliny je podíl beta-1 podfrakce na celkové bílkovině séra, oddělené v případech, kdy laboratoř dělí frakci beta na dvě části.",
+  "usedFor": "Vyšetření se používá k posouzení zastoupení bílkovinných frakcí séra; podfrakce beta-1 zahrnuje především transferin."
+ },
+ "elfo_beta2": {
+  "what": "ELFO – beta-2-globuliny je podíl beta-2 podfrakce na celkové bílkovině séra, oddělené v případech, kdy laboratoř dělí frakci beta na dvě části.",
+  "usedFor": "Vyšetření se používá k posouzení zastoupení bílkovinných frakcí séra; podfrakce beta-2 zahrnuje především složky komplementu, zejména C3."
+ },
+ "elfo_gama": {
+  "what": "Gama-globuliny jsou frakce bílkovin krevního séra oddělená elektroforézou (ELFO), zahrnující převážně imunoglobuliny (protilátky). Udává se jako podíl na celkové bílkovině séra.",
+  "usedFor": "Používá se při posuzování bílkovinného spektra séra, zejména při otázkách týkajících se imunitního systému nebo tvorby abnormálních bílkovin (paraproteinů)."
+ },
+ "pomer_albumin_globulin": {
+  "what": "Poměr albumin/globuliny (A/G) je výpočet z výsledků elektroforézy bílkovin séra, který dává do poměru množství albuminu a součet globulinových frakcí.",
+  "usedFor": "Používá se jako doplňkový ukazatel při hodnocení bílkovinného spektra séra, například u jaterních či ledvinových onemocnění nebo poruch tvorby imunoglobulinů."
+ },
+ "volne_lehke_retezce_kappa": {
+  "what": "Volné lehké řetězce kappa jsou lehké řetězce protilátek typu kappa, které plazmatické buňky vylučují do krve samostatně, bez navázání na těžký řetězec protilátky; druhým typem jsou řetězce lambda.",
+  "usedFor": "Vyšetření odráží činnost plazmatických buněk kostní dřeně; spolu s řetězci lambda slouží k výpočtu poměru kappa/lambda při podezření na nádorové onemocnění plazmatických buněk, například mnohočetný myelom."
+ },
+ "volne_lehke_retezce_lambda": {
+  "what": "Volné lehké řetězce lambda jsou lehké řetězce protilátek typu lambda, které plazmatické buňky vylučují do krve samostatně, bez navázání na těžký řetězec protilátky; druhým typem jsou řetězce kappa.",
+  "usedFor": "Vyšetření odráží činnost plazmatických buněk kostní dřeně; spolu s řetězci kappa slouží k výpočtu poměru kappa/lambda při podezření na nádorové onemocnění plazmatických buněk, například mnohočetný myelom."
+ },
+ "pomer_kappa_lambda": {
+  "what": "Poměr kappa/lambda je výpočet z naměřených hodnot volných lehkých řetězců kappa a lambda, vyjadřující jejich vzájemný poměr.",
+  "usedFor": "Používá se k posouzení, zda produkce volných lehkých řetězců pochází z různorodé populace plazmatických buněk, nebo zda převažuje jeden typ."
+ },
+ "tsh": {
+  "what": "TSH (tyreotropin, tyreostimulační hormon) je hormon tvořený v podvěsku mozkovém (hypofýze), který řídí činnost štítné žlázy.",
+  "usedFor": "Používá se jako základní ukazatel funkce štítné žlázy, včetně posouzení, zda žláza pracuje v souladu s řízením z hypofýzy."
+ },
+ "ft4": {
+  "what": "T4 volný (fT4) je část hormonu tyroxinu, který tvoří štítná žláza, kolující v krvi nenavázaná na bílkoviny a dostupná tkáním; na rozdíl od T4 celkového nezahrnuje část vázanou na bílkoviny.",
+  "usedFor": "Měří se při hodnocení funkce štítné žlázy, obvykle společně s TSH, k rozlišení jednotlivých typů poruch její činnosti."
+ },
+ "ft3": {
+  "what": "T3 volný (fT3) je část hormonu trijodtyroninu kolující v krvi nenavázaná na bílkoviny (T3 celkový zahrnuje i část vázanou); trijodtyronin vzniká převážně přeměnou tyroxinu v tkáních a zčásti ve štítné žláze.",
+  "usedFor": "Měří se při hodnocení funkce štítné žlázy, zejména v situacích, kdy samotný T4 volný (fT4) k posouzení nepostačuje."
+ },
+ "anti_tg": {
+  "what": "Anti-TG (protilátky proti tyreoglobulinu) jsou protilátky namířené proti tyreoglobulinu, bílkovině, kterou štítná žláza produkuje jako výchozí látku pro tvorbu jejích hormonů.",
+  "usedFor": "Vyšetření odráží autoimunitní reakci proti tkáni štítné žlázy a slouží také jako doplněk k měření tyreoglobulinu při sledování některých nádorů štítné žlázy."
+ },
+ "anti_tpo": {
+  "what": "Anti-TPO (protilátky proti tyreoidální peroxidáze) jsou protilátky namířené proti enzymu tyreoidální peroxidáze, který se ve štítné žláze podílí na tvorbě jejích hormonů.",
+  "usedFor": "Vyšetření odráží autoimunitní reakci proti tkáni štítné žlázy; na rozdíl od anti-TG, mířených proti tyreoglobulinu, jde o reakci proti enzymu, který se přímo podílí na tvorbě hormonů."
+ },
+ "trak": {
+  "what": "TRAK (protilátky proti TSH receptoru) jsou protilátky namířené proti receptoru pro tyreotropní hormon (TSH) na buňkách štítné žlázy; na rozdíl od anti-TG a anti-TPO se váží přímo na receptor.",
+  "usedFor": "Vyšetření odráží autoimunitní proces, při němž protilátky přes receptor pro TSH přímo mění činnost štítné žlázy; měří se zejména při její zvýšené činnosti, zatímco anti-TG a anti-TPO odrážejí zánět její tkáně."
+ },
+ "tyreoglobulin": {
+  "what": "Tyreoglobulin je bílkovina tvořená buňkami štítné žlázy, ze které vznikají hormony T3 a T4; na rozdíl od anti-TG jde o samotnou bílkovinu, ne o protilátku proti ní.",
+  "usedFor": "Sleduje se především po odstranění štítné žlázy kvůli nádorovému onemocnění, jako ukazatel zbytkové tkáně žlázy nebo návratu onemocnění."
+ },
+ "osteokalcin": {
+  "what": "Osteokalcin je bílkovina tvořená osteoblasty, buňkami, které budují novou kostní tkáň. Odráží aktivitu tvorby kosti.",
+  "usedFor": "Používá se k posouzení rychlosti novotvorby kostní tkáně, například při sledování kostního metabolismu nebo léčby ovlivňující kostní obrat."
+ },
+ "c_peptid": {
+  "what": "C-peptid je část molekuly proinzulinu, kterou slinivka uvolňuje spolu s inzulinem ve stejném množství; na rozdíl od inzulinu jeho hladinu nezkresluje inzulin podaný jako lék.",
+  "usedFor": "Používá se k posouzení vlastní tvorby inzulinu slinivkou, například při rozlišení typů cukrovky nebo hodnocení funkce beta-buněk."
+ },
+ "inzulin": {
+  "what": "Inzulin je hormon tvořený beta-buňkami slinivky břišní, který řídí vstup glukózy do buněk a její využití organismem.",
+  "usedFor": "Používá se při posuzování metabolismu glukózy a citlivosti tkání na inzulin, například u otázek souvisejících s cukrovkou nebo inzulinovou rezistencí."
+ },
+ "anti_gad": {
+  "what": "Anti-GAD jsou protilátky namířené proti enzymu dekarboxyláze kyseliny glutamové (GAD), který se nachází v beta-buňkách slinivky břišní.",
+  "usedFor": "Používají se při posuzování autoimunitního poškození buněk slinivky produkujících inzulin, typicky při odlišování typů cukrovky."
+ },
+ "anti_ia2": {
+  "what": "Anti-IA2 jsou protilátky namířené proti tyrozinfosfatáze IA-2, bílkovině přítomné v beta-buňkách slinivky břišní, odlišné od cíle protilátek anti-GAD.",
+  "usedFor": "Používají se spolu s dalšími autoprotilátkami při posuzování autoimunitního poškození buněk slinivky produkujících inzulin, typicky při odlišování typů cukrovky."
+ },
+ "ctx": {
+  "what": "Beta-CrossLaps (CTx) je fragment kolagenu typu I, uvolňovaný do krve při odbourávání kostní tkáně osteoklasty. Odráží rychlost kostní resorpce.",
+  "usedFor": "Používá se k posouzení rychlosti odbourávání kostní tkáně, například při sledování kostního metabolismu nebo léčby ovlivňující kostní obrat."
+ },
+ "hba1c": {
+  "what": "Glykovaný hemoglobin (HbA1c) je forma hemoglobinu v červených krvinkách, na kterou se trvale navázala glukóza z krve. Jeho podíl odráží průměrnou hladinu glukózy za předchozí dva až tři měsíce.",
+  "usedFor": "Používá se k posouzení dlouhodobé kompenzace hladiny glukózy v krvi, typicky při sledování cukrovky."
+ },
+ "ogtt_0": {
+  "what": "Jde o hladinu glukózy v krvi změřenou nalačno, na začátku orálního glukózového tolerančního testu (oGTT), před podáním roztoku glukózy.",
+  "usedFor": "Používá se jako výchozí hodnota pro posouzení, jak organismus zpracovává glukózu v průběhu testu."
+ },
+ "ogtt_60": {
+  "what": "Jde o hladinu glukózy v krvi změřenou 60 minut po vypití roztoku glukózy v rámci orálního glukózového tolerančního testu (oGTT).",
+  "usedFor": "Používá se spolu s dalšími časovými body testu k posouzení, jak rychle a účinně organismus zpracovává přijatou glukózu."
+ },
+ "ogtt_120": {
+  "what": "Jde o hladinu glukózy v krvi změřenou 120 minut po vypití roztoku glukózy v rámci orálního glukózového tolerančního testu (oGTT), na jeho závěr.",
+  "usedFor": "Používá se jako závěrečná hodnota testu k posouzení schopnosti organismu vrátit hladinu glukózy k výchozímu stavu po zátěži."
+ },
+ "p1np": {
+  "what": "P1NP (N-terminální propeptid prokolagenu typu I) je úsek odštěpený při přeměně prokolagenu typu I na kolagen, uvolňovaný do krve osteoblasty při tvorbě nové kostní hmoty.",
+  "usedFor": "Používá se k posouzení rychlosti novotvorby kostní tkáně, například při sledování kostního metabolismu nebo léčby ovlivňující kostní obrat."
+ },
+ "ige": {
+  "what": "Imunoglobulin E (IgE) je třída protilátek, kterou tvoří plazmatické buňky imunitního systému. IgE celkové je celkové množství těchto protilátek v krevním séru bez ohledu na to, proti čemu jsou namířené.",
+  "usedFor": "Vyšetření se používá při posuzování alergických onemocnění a stavů spojených s parazitárními infekcemi, protože odráží celkovou aktivitu alergické větve imunity. Doplňuje se stanovením specifických IgE proti alergenům."
+ },
+ "ecp": {
+  "what": "ECP (eozinofilní kationický protein) je bílkovina uvolňovaná z granul eozinofilů, tedy jednoho typu bílých krvinek, při jejich aktivaci.",
+  "usedFor": "Sleduje aktivitu eozinofilů při alergických a zánětlivých procesech, například u astmatu nebo alergické rýmy."
+ },
+ "tryptaza": {
+  "what": "Tryptáza je enzym, který se uvolňuje ze žírných buněk (mastocytů) při jejich aktivaci. Test měří množství tohoto enzymu v krevním séru.",
+  "usedFor": "Vyšetření tryptázy se používá při podezření na alergickou reakci nebo anafylaxi a při vyšetřování mastocytózy, onemocnění spojeného s nadměrným množstvím žírných buněk."
+ },
+ "leukocyty": {
+  "what": "Leukocyty, česky bílé krvinky, jsou buňky imunitního systému kolující v krvi. Test udává jejich celkový počet v daném objemu krve.",
+  "usedFor": "Počet leukocytů se sleduje při posuzování stavu imunitního systému, probíhající infekce, zánětu nebo onemocnění kostní dřeně."
+ },
+ "erytrocyty": {
+  "what": "Erytrocyty jsou červené krvinky přenášející kyslík, vznikající v kostní dřeni; ukazatel udává jejich počet v krvi.",
+  "usedFor": "Používá se k posouzení tvorby a množství červených krvinek, například při anemii nebo poruchách krvetvorby."
+ },
+ "hemoglobin": {
+  "what": "Hemoglobin je bílkovina obsažená v červených krvinkách, která na sebe váže a v těle přenáší kyslík. Test udává jeho koncentraci v krvi.",
+  "usedFor": "Hladina hemoglobinu se sleduje při posuzování krevního obrazu, zejména v souvislosti s chudokrevností (anémií) nebo poruchami tvorby krvinek."
+ },
+ "hematokrit": {
+  "what": "Hematokrit vyjadřuje podíl objemu erytrocytů na celkovém objemu krve; podobně trombokrit vyjadřuje tentýž podíl, ale pro trombocyty.",
+  "usedFor": "Používá se spolu s dalšími ukazateli krevního obrazu k posouzení množství červených krvinek v krvi."
+ },
+ "mcv": {
+  "what": "MCV (střední objem erytrocytu) vyjadřuje průměrný objem, tedy velikost, jedné červené krvinky; analyzátor jej měří přímo nebo počítá z hematokritu a počtu erytrocytů.",
+  "usedFor": "Používá se k rozlišení typů anemie podle velikosti červených krvinek."
+ },
+ "mch": {
+  "what": "MCH (střední množství hemoglobinu v erytrocytu) udává průměrné množství hemoglobinu v jedné červené krvince; na rozdíl od MCHC nejde o koncentraci.",
+  "usedFor": "Používá se spolu s dalšími erytrocytárními indexy při rozlišování typů anemie."
+ },
+ "mchc": {
+  "what": "MCHC (střední koncentrace hemoglobinu v erytrocytech) vyjadřuje koncentraci hemoglobinu vztaženou k objemu erytrocytu; na rozdíl od MCH tedy nejde o absolutní množství v buňce.",
+  "usedFor": "Používá se při hodnocení typu anemie a barvivosti erytrocytů."
+ },
+ "rdw": {
+  "what": "RDW (šíře distribuce erytrocytů) je míra variability velikosti červených krvinek v krevním vzorku.",
+  "usedFor": "Používá se spolu s MCV k rozlišení typů anemie a k zachycení různorodosti populace erytrocytů."
+ },
+ "trombocyty": {
+  "what": "Trombocyty, česky krevní destičky, jsou buněčné fragmenty vznikající v kostní dřeni, které se podílejí na srážení krve. Test udává jejich počet v daném objemu krve.",
+  "usedFor": "Počet trombocytů se sleduje při posuzování srážlivosti krve a funkce kostní dřeně, například při sklonu ke krvácení nebo tvorbě krevních sraženin."
+ },
+ "trombokrit": {
+  "what": "Trombokrit vyjadřuje podíl objemu trombocytů na celkovém objemu krve; jde o obdobu hematokritu, vztaženou k destičkám místo k erytrocytům.",
+  "usedFor": "Používá se spolu s počtem trombocytů k doplnění obrazu o krevních destičkách."
+ },
+ "pdw": {
+  "what": "PDW (z anglického platelet distribution width) je ukazatel z krevního obrazu, který vyjadřuje rozptyl velikosti trombocytů (krevních destiček) v odebraném vzorku krve.",
+  "usedFor": "Doplňuje střední objem trombocytů (MPV) při posuzování, jak stejnorodá je populace destiček vznikajících v kostní dřeni."
+ },
+ "mpv": {
+  "what": "MPV (z anglického mean platelet volume) je ukazatel z krevního obrazu vyjadřující průměrný objem, tedy velikost, trombocytů (krevních destiček) v odebraném vzorku krve.",
+  "usedFor": "Součást krevního obrazu, která spolu s počtem trombocytů a jejich distribuční šíří (PDW) popisuje stav destičkové složky krve a činnost kostní dřeně."
+ },
+ "retikulocyty": {
+  "what": "Retikulocyty jsou mladé červené krvinky nedávno uvolněné z kostní dřeně, které ještě obsahují zbytky ribonukleové kyseliny (RNA). Test udává jejich relativní podíl mezi všemi červenými krvinkami, ne absolutní počet.",
+  "usedFor": "Odráží činnost kostní dřeně při tvorbě červených krvinek. Používá se při vyšetřování anémie a při sledování obnovy krvetvorby, například po léčbě nebo po transplantaci kostní dřeně."
+ },
+ "retikulocyty_abs": {
+  "what": "Absolutní počet retikulocytů (mladých červených krvinek) v jednotce objemu krve, na rozdíl od relativního podílu retikulocytů vyjádřeného v procentech.",
+  "usedFor": "Stejně jako relativní podíl retikulocytů popisuje tvorbu nových červených krvinek v kostní dřeni, ale bez zkreslení celkovým počtem erytrocytů ve vzorku."
+ },
+ "retik_index": {
+  "what": "Retikulocytární index (RPI) je přepočtená hodnota počtu retikulocytů, která zohledňuje stupeň anémie a dobu, po kterou retikulocyty zůstávají v krevním oběhu, než dozrají.",
+  "usedFor": "Používá se k posouzení, zda kostní dřeň na anémii reaguje přiměřenou tvorbou nových červených krvinek; od prostého počtu retikulocytů se liší právě zohledněním stupně anémie."
+ },
+ "cohb": {
+  "what": "Karboxyhemoglobin (COHb) je hemoglobin, na který se místo kyslíku navázal oxid uhelnatý. Test udává, jaký podíl z celkového hemoglobinu v krvi tato vazba tvoří.",
+  "usedFor": "Odráží míru expozice oxidu uhelnatému, který vzniká při kouření, v požárním kouři nebo při špatném spalování v kamnech, karmách či motorech, a používá se při podezření na otravu tímto plynem."
+ },
+ "fw_2h": {
+  "what": "Sedimentace erytrocytů (FW) měří rychlost, jakou červené krvinky klesají ke dnu zkumavky s krví ponechanou v klidu. Hodnota za 2 hodiny je druhé, pozdější odečtení navazující na měření po jedné hodině.",
+  "usedFor": "Odráží přítomnost zánětu, infekce nebo jiných procesů, které mění složení bílkovin v krvi, a používá se ke sledování jejich průběhu v čase."
+ },
+ "ig": {
+  "what": "Nezralé granulocyty (IG) jsou nedozrálé formy granulocytů, tedy jednoho druhu bílých krvinek podílejících se na obraně proti infekci. Parametr udává jejich podíl na celkovém počtu bílých krvinek v procentech.",
+  "usedFor": "Součást krevního obrazu; sleduje se při podezření na zánět, infekci nebo jinou aktivaci tvorby bílých krvinek v kostní dřeni."
+ },
+ "ig_abs": {
+  "what": "Absolutní počet nezralých granulocytů (nedozrálých bílých krvinek) v jednotce objemu krve, na rozdíl od jejich relativního podílu vyjádřeného v procentech.",
+  "usedFor": "Doplňuje relativní podíl nezralých granulocytů při posuzování zánětu, infekce nebo jiné aktivace tvorby bílých krvinek v kostní dřeni."
+ },
+ "ipf": {
+  "what": "Frakce nezralých trombocytů (IPF) je podíl nejmladších, nedávno vytvořených trombocytů (krevních destiček) na jejich celkovém počtu, vyjádřený v procentech.",
+  "usedFor": "Pomáhá rozlišit, zda snížený počet trombocytů souvisí spíše s jejich sníženou tvorbou v kostní dřeni, nebo se zvýšeným zánikem v krevním oběhu."
+ },
+ "ipf_abs": {
+  "what": "Absolutní počet nejmladších, nedávno vytvořených trombocytů v jednotce objemu krve, na rozdíl od jejich relativního podílu vyjádřeného v procentech (IPF).",
+  "usedFor": "Doplňuje relativní frakci nezralých trombocytů při posuzování, zda kostní dřeň dostatečně nahrazuje trombocyty, které z krevního oběhu ubývají."
+ },
+ "irf": {
+  "what": "Frakce nezralých retikulocytů (IRF) je podíl nejmladších retikulocytů, tedy nedozrálých červených krvinek, na jejich celkovém počtu, vyjádřený v procentech.",
+  "usedFor": "Ukazatel tvorby červených krvinek v kostní dřeni, který na změnu krvetvorby reaguje dříve než celkový počet retikulocytů; sleduje se například při anémii, po chemoterapii nebo po transplantaci kostní dřeně."
+ },
+ "methb": {
+  "what": "Methemoglobin (MetHb) je forma hemoglobinu, ve které je železo oxidováno do trojmocné formy a nedokáže vázat kyslík; vzniká přirozeně v malém množství i vlivem některých látek nebo léků.",
+  "usedFor": "Sleduje se při podezření na poruchu přenosu kyslíku krví, například po expozici některým lékům nebo chemikáliím, nebo při vrozených poruchách hemoglobinu."
+ },
+ "nrbc": {
+  "what": "Normoblasty (NRBC) jsou nezralé předstupně červených krvinek, které ještě obsahují jádro; v krevním oběhu dospělého se za normálních okolností prakticky nevyskytují. Udávají se jako podíl na sto bílých krvinek.",
+  "usedFor": "Používá se k posouzení zátěže krvetvorby, například při těžké chudokrevnosti nebo nedostatku kyslíku, a při podezření na poškození kostní dřeně nebo náhradní krvetvorbu mimo dřeň."
+ },
+ "nrbc_abs": {
+  "what": "Normoblasty (absolutní) jsou tytéž jaderné předstupně červených krvinek jako normoblasty, vyjádřené však jako absolutní počet v objemu krve, nikoli jako podíl na bílých krvinkách.",
+  "usedFor": "Používá se ke stejnému účelu jako relativní počet normoblastů, tedy ke sledování tvorby krve v kostní dřeni, ale nezávisí na počtu bílých krvinek."
+ },
+ "rdw_sd": {
+  "what": "RDW-SD (šíře distribuce objemu erytrocytů, směrodatná odchylka) popisuje rozptyl velikosti červených krvinek přímo v jednotkách objemu, na rozdíl od RDW, které jej vyjadřuje v procentech průměrného objemu.",
+  "usedFor": "Používá se spolu s dalšími parametry krevního obrazu k posouzení stejnorodosti velikosti červených krvinek, například při rozlišování příčin chudokrevnosti."
+ },
+ "ret_he": {
+  "what": "Hemoglobin v retikulocytech (RET-He) udává průměrné množství hemoglobinu obsažené v nejmladších červených krvinkách, retikulocytech, tedy krvinkách vytvořených v posledních dnech.",
+  "usedFor": "Odráží aktuální dostupnost železa pro tvorbu hemoglobinu v kostní dřeni; používá se při rozpoznávání nedostatku železa pro krvetvorbu a při sledování účinku jeho doplňování."
+ },
+ "neutrofily": {
+  "what": "Neutrofily jsou nejpočetnější typ bílých krvinek, které jako první reagují na infekci nebo zánět pohlcováním a ničením bakterií; udávají se jako procentuální podíl na celkovém počtu bílých krvinek.",
+  "usedFor": "Sleduje se v rámci diferenciálního rozpočtu bílých krvinek při podezření na infekci, zánět nebo poruchu tvorby krve."
+ },
+ "lymfocyty": {
+  "what": "Lymfocyty jsou bílé krvinky imunitního systému, zajišťující specifickou obranu proti infekcím a tvorbu protilátek; udávají se jako procentuální podíl na celkovém počtu bílých krvinek.",
+  "usedFor": "Sleduje se v rámci diferenciálního rozpočtu bílých krvinek při hodnocení imunitní odpovědi, virových infekcí nebo onemocnění krvetvorby."
+ },
+ "monocyty": {
+  "what": "Monocyty jsou bílé krvinky, které pohlcují odumřelé buňky a mikroorganismy a po přechodu do tkání se mění v makrofágy; udávají se jako procentuální podíl na celkovém počtu bílých krvinek.",
+  "usedFor": "Sleduje se v rámci diferenciálního rozpočtu bílých krvinek při chronických zánětech, infekcích nebo onemocněních krvetvorby."
+ },
+ "eosinofily": {
+  "what": "Eosinofily jsou bílé krvinky podílející se na obraně proti parazitům a na alergických a zánětlivých reakcích; udávají se jako procentuální podíl na celkovém počtu bílých krvinek.",
+  "usedFor": "Sleduje se v rámci diferenciálního rozpočtu bílých krvinek při alergických onemocněních, parazitárních infekcích nebo některých kožních a plicních chorobách."
+ },
+ "basofily": {
+  "what": "Basofily jsou nejméně početný typ bílých krvinek, uvolňující histamin a další látky při alergických a zánětlivých reakcích; udávají se jako procentuální podíl na celkovém počtu bílých krvinek.",
+  "usedFor": "Sleduje se v rámci diferenciálního rozpočtu bílých krvinek při alergických reakcích, chronických zánětech nebo některých onemocněních krvetvorby."
+ },
+ "neutrofily_abs": {
+  "what": "Neutrofily (absolutní) jsou tytéž buňky jako neutrofily, vyjádřené však jako absolutní počet v objemu krve, nikoli jako procentuální podíl na bílých krvinkách.",
+  "usedFor": "Používá se ke sledování schopnosti organismu bránit se bakteriální infekci nezávisle na celkovém počtu bílých krvinek, na rozdíl od relativního podílu neutrofilů."
+ },
+ "lymfocyty_abs": {
+  "what": "Lymfocyty (absolutní) jsou tytéž buňky jako lymfocyty, vyjádřené však jako absolutní počet v objemu krve, nikoli jako procentuální podíl na bílých krvinkách.",
+  "usedFor": "Používá se ke sledování stavu imunitního systému nezávisle na celkovém počtu bílých krvinek, na rozdíl od relativního podílu lymfocytů."
+ },
+ "monocyty_abs": {
+  "what": "Monocyty (absolutní) udávají počet monocytů, bílých krvinek podílejících se na fagocytóze a imunitní obraně, v jednotce objemu krve – na rozdíl od jejich relativního podílu vyjádřeného v procentech.",
+  "usedFor": "Absolutní počet monocytů se sleduje při hodnocení diferenciálního rozpočtu bílých krvinek, například v souvislosti s infekcemi, záněty nebo chorobami kostní dřeně."
+ },
+ "eosinofily_abs": {
+  "what": "Eosinofily (absolutní) udávají počet eosinofilů, bílých krvinek podílejících se na obraně proti parazitům a na alergických reakcích, v jednotce objemu krve – na rozdíl od jejich relativního podílu v procentech.",
+  "usedFor": "Absolutní počet eosinofilů se hodnotí v rámci diferenciálního rozpočtu leukocytů, mimo jiné při alergických onemocněních, parazitárních infekcích a některých autoimunitních chorobách."
+ },
+ "basofily_abs": {
+  "what": "Basofily (absolutní) udávají počet basofilů, bílých krvinek obsahujících histamin a podílejících se na zánětlivých a alergických reakcích, v jednotce objemu krve – na rozdíl od jejich relativního podílu v procentech.",
+  "usedFor": "Absolutní počet basofilů se sleduje v diferenciálním rozpočtu leukocytů, mimo jiné při alergických stavech a některých onemocněních kostní dřeně."
+ },
+ "atypicke_lymfocyty": {
+  "what": "Atypické lymfocyty jsou lymfocyty se změněným tvarem, velikostí nebo strukturou jádra a cytoplazmy, rozpoznatelné při mikroskopickém hodnocení nátěru periferní krve; udávají se jako podíl z celkového počtu leukocytů.",
+  "usedFor": "Hodnotí se v rámci mikroskopického diferenciálního rozpočtu, nejčastěji v souvislosti s virovými infekcemi, kdy představují reaktivní odpověď lymfocytů."
+ },
+ "blasty": {
+  "what": "Blasty jsou nezralé krvinky, které se za běžných okolností nacházejí především v kostní dřeni a ze kterých postupně dozrávají bílé krvinky. Hodnota udává jejich procentuální podíl mezi bílými krvinkami v krevním nátěru.",
+  "usedFor": "Sleduje se v souvislosti s tvorbou krve v kostní dřeni a používá se při posuzování poruch krvetvorby, včetně nádorových onemocnění krevních buněk."
+ },
+ "metamyelocyty": {
+  "what": "Metamyelocyty jsou vývojové stadium zrání neutrofilních granulocytů, ležící mezi myelocytem a tyčovitou formou; v periferní krvi se hodnotí jejich podíl z celkového počtu leukocytů.",
+  "usedFor": "Přítomnost metamyelocytů v periferní krvi se hodnotí jako součást diferenciálního rozpočtu, mimo jiné při posuzování aktivity kostní dřeně a takzvaného posunu doleva při infekcích či jiných onemocněních."
+ },
+ "myelocyty": {
+  "what": "Myelocyty jsou vývojové stadium zrání neutrofilních granulocytů, předcházející metamyelocytu; v periferní krvi se hodnotí jejich podíl z celkového počtu leukocytů.",
+  "usedFor": "Přítomnost myelocytů v periferní krvi se hodnotí jako součást diferenciálního rozpočtu, obdobně jako u metamyelocytů, při posuzování aktivity kostní dřeně a posunu doleva."
+ },
+ "neutrofilni_tyce": {
+  "what": "Neutrofilní tyče jsou méně vyzrálá forma neutrofilních granulocytů s nesegmentovaným, tyčkovitým jádrem; jejich podíl z celkového počtu leukocytů se stanovuje v diferenciálním rozpočtu.",
+  "usedFor": "Podíl tyčkovitých neutrofilů se sleduje v rámci diferenciálního rozpočtu leukocytů, mimo jiné při hodnocení akutních infekcí a zánětlivých stavů."
+ },
+ "plazmaticke_bunky": {
+  "what": "Plazmatické buňky vznikají diferenciací B-lymfocytů a produkují protilátky; fyziologicky se nacházejí v kostní dřeni a lymfatické tkáni, v periferní krvi se jejich podíl hodnotí v diferenciálním rozpočtu.",
+  "usedFor": "Nález plazmatických buněk v periferní krvi se hodnotí v souvislosti s onemocněními kostní dřeně a imunitního systému, například poruchami plazmatických buněk."
+ },
+ "promyelocyty": {
+  "what": "Promyelocyty jsou vývojové stadium zrání neutrofilních granulocytů mezi myeloblastem a myelocytem; v periferní krvi se hodnotí jejich podíl z celkového počtu leukocytů.",
+  "usedFor": "Přítomnost promyelocytů v periferní krvi se hodnotí jako součást diferenciálního rozpočtu, mimo jiné při posuzování aktivity kostní dřeně a některých onemocnění krvetvorby."
+ },
+ "cd3": {
+  "what": "T-lymfocyty (CD3+) jsou bílé krvinky nesoucí povrchový znak CD3, tedy souhrn všech T-lymfocytů v krvi. Hodnota v procentech vyjadřuje jejich podíl mezi lymfocyty, na rozdíl od absolutního počtu buněk v objemu krve.",
+  "usedFor": "Vyšetření slouží k posouzení buněčné složky imunitního systému, zejména při podezření na poruchu imunity, chronické infekce nebo při sledování stavu po transplantaci či v průběhu léčby ovlivňující imunitu."
+ },
+ "cd3_abs": {
+  "what": "T-lymfocyty (CD3+) absolutní udávají počet T-lymfocytů nesoucích znak CD3 v jednotce objemu krve, na rozdíl od jejich relativního podílu vyjádřeného v procentech.",
+  "usedFor": "Absolutní počet CD3+ T-lymfocytů se používá při imunologickém hodnocení buněčné imunity, obdobně jako relativní podíl, například u poruch imunitního systému."
+ },
+ "cd4": {
+  "what": "Pomocné T-lymfocyty (CD4+) jsou podskupina bílých krvinek nesoucí znak CD4, které koordinují imunitní odpověď. Vyšetření udává jejich procentuální podíl mezi lymfocyty, nikoli absolutní počet.",
+  "usedFor": "Podíl CD4+ lymfocytů se sleduje při posuzování stavu buněčné imunity, například u chronických infekcí, autoimunitních onemocnění nebo při dlouhodobém sledování imunitního systému."
+ },
+ "cd4_abs": {
+  "what": "Pomocné T-lymfocyty (CD4+) absolutní vyjadřuje počet těchto bílých krvinek řídících imunitní odpověď v jednotkovém objemu krve, na rozdíl od jejich procentuálního zastoupení mezi lymfocyty.",
+  "usedFor": "Absolutní počet slouží ke sledování buněčné imunity a používá se tam, kde je důležité znát skutečné množství buněk, ne jen jejich poměr vůči ostatním lymfocytům."
+ },
+ "cd8": {
+  "what": "Cytotoxické T-lymfocyty (CD8+) jsou podskupina bílých krvinek nesoucí znak CD8, které ničí infikované nebo nádorové buňky. Vyšetření udává jejich procentuální podíl mezi lymfocyty, nikoli absolutní počet.",
+  "usedFor": "Podíl CD8+ lymfocytů se sleduje při hodnocení buněčné imunitní odpovědi, například u virových infekcí nebo v rámci širšího imunologického vyšetření."
+ },
+ "cd8_abs": {
+  "what": "Cytotoxické T-lymfocyty (CD8+) absolutní vyjadřuje počet těchto bílých krvinek ničících infikované nebo nádorové buňky v jednotkovém objemu krve, na rozdíl od jejich procentuálního zastoupení mezi lymfocyty.",
+  "usedFor": "Absolutní počet slouží ke sledování buněčné imunity a používá se tam, kde je důležité znát skutečné množství buněk, ne jen jejich poměr vůči ostatním lymfocytům."
+ },
+ "cd19": {
+  "what": "B lymfocyty (CD19+) jsou podskupina bílých krvinek nesoucí povrchový znak CD19, které se podílejí na tvorbě protilátek. Vyšetření udává jejich procentuální podíl mezi lymfocyty, nikoli absolutní počet.",
+  "usedFor": "Podíl B lymfocytů se sleduje při hodnocení humorální složky imunity, například při opakovaných infekcích nebo v rámci imunologického vyšetření."
+ },
+ "cd19_abs": {
+  "what": "B lymfocyty (CD19+) absolutní vyjadřuje počet těchto bílých krvinek tvořících protilátky v jednotkovém objemu krve, na rozdíl od jejich procentuálního zastoupení mezi lymfocyty.",
+  "usedFor": "Absolutní počet slouží ke sledování humorální imunity a používá se tam, kde je důležité znát skutečné množství buněk, ne jen jejich poměr vůči ostatním lymfocytům."
+ },
+ "nk_bunky": {
+  "what": "NK buňky (CD16+CD56+), přirození zabíječi, jsou bílé krvinky, které ničí infikované a nádorové buňky bez předchozího rozpoznání antigenu. Vyšetření udává jejich procentuální podíl mezi lymfocyty, nikoli absolutní počet.",
+  "usedFor": "Podíl NK buněk se sleduje při hodnocení vrozené, nespecifické složky imunity, například při opakovaných infekcích nebo v rámci imunologického vyšetření."
+ },
+ "nk_bunky_abs": {
+  "what": "NK buňky absolutní vyjadřuje počet NK buněk, přirozených zabíječů, v jednotkovém objemu krve, na rozdíl od procentuálního zastoupení mezi lymfocyty.",
+  "usedFor": "Absolutní počet slouží ke sledování vrozené buněčné imunity a používá se tam, kde je důležité znát skutečné množství buněk, ne jen jejich poměr vůči ostatním lymfocytům."
+ },
+ "pomer_cd4_cd8": {
+  "what": "Poměr CD4/CD8 je výpočet vyjadřující vzájemný vztah mezi zastoupením pomocných T-lymfocytů (CD4+) a cytotoxických T-lymfocytů (CD8+) v krvi.",
+  "usedFor": "Poměr CD4/CD8 se používá k hodnocení rovnováhy mezi jednotlivými skupinami T-lymfocytů v rámci imunologického vyšetření."
+ },
+ "ana": {
+  "what": "ANA, antinukleární protilátky, jsou skupina protilátek, které imunitní systém tvoří proti složkám buněčného jádra vlastních buněk.",
+  "usedFor": "Vyšetření ANA se používá při podezření na autoimunitní onemocnění pojiva, jako je systémový lupus erythematodes nebo příbuzná onemocnění."
+ },
+ "anca": {
+  "what": "ANCA, protilátky proti cytoplazmě neutrofilů, jsou skupina protilátek, které imunitní systém tvoří proti složkám cytoplazmy neutrofilních granulocytů, jednoho typu bílých krvinek.",
+  "usedFor": "Vyšetření ANCA se používá při podezření na autoimunitní zánětlivá onemocnění cévní stěny, takzvané vaskulitidy."
+ },
+ "anti_beta2gp1_igg": {
+  "what": "Anti-beta-2-glykoprotein I IgG jsou protilátky třídy IgG proti beta-2-glykoproteinu I, bílkovině krevní plazmy vázající fosfolipidy a podílející se na regulaci srážení krve. Třída IgG se vyšetřuje odděleně od třídy IgM.",
+  "usedFor": "Vyšetření se používá v rámci diagnostiky antifosfolipidového syndromu, stavu spojeného se zvýšeným rizikem trombózy a komplikací v těhotenství."
+ },
+ "anti_beta2gp1_igm": {
+  "what": "Anti-beta-2-glykoprotein I IgM jsou protilátky třídy IgM (na rozdíl od třídy IgG) proti beta-2-glykoproteinu I, bílkovině plazmy, která se váže na fosfolipidy buněčných membrán a účastní se regulace srážení krve.",
+  "usedFor": "Vyšetření patří mezi antifosfolipidové protilátky a stanovuje se společně s IgG formou při objasňování opakovaných trombóz nebo těhotenských ztrát v rámci antifosfolipidového syndromu."
+ },
+ "anti_ccp": {
+  "what": "Anti-CCP (protilátky proti cyklickému citrulinovanému peptidu) jsou protilátky namířené proti citrulinovaným bílkovinám, které vznikají enzymatickou úpravou aminokyseliny argininu na citrulin.",
+  "usedFor": "Vyšetření patří mezi autoprotilátky používané při objasňování kloubních potíží a napomáhá rozlišení revmatoidní artritidy od jiných zánětlivých kloubních onemocnění."
+ },
+ "anti_dgp_iga": {
+  "what": "Protilátky třídy IgA proti deamidovanému gliadinu, tedy lepkové bílkovině gliadinu pozměněné ve střevní sliznici enzymem tkáňovou transglutaminázou.",
+  "usedFor": "Používá se při vyšetřování celiakie; třída IgA odpovídá imunitní odpovědi sliznice střeva, zatímco třída IgG se využívá při nedostatku IgA."
+ },
+ "anti_dgp_igg": {
+  "what": "Anti-DGP IgG jsou protilátky třídy IgG namířené proti deamidovaným peptidům gliadinu, bílkoviny obsažené v lepku, vznikajícím po enzymatické úpravě gliadinu v trávicím traktu.",
+  "usedFor": "Vyšetření patří mezi sérologické testy celiakie a používá se jako doplněk k IgA protilátkám, zejména u jedinců se sníženou tvorbou imunoglobulinů třídy IgA."
+ },
+ "anti_dsdna": {
+  "what": "Anti-dsDNA jsou protilátky namířené proti dvouvláknové (nativní) DNA, genetickému materiálu uloženému v jádru buňky.",
+  "usedFor": "Vyšetření patří mezi autoprotilátky používané při objasňování systémových autoimunitních onemocnění, zejména systémového lupus erythematodes, a při sledování aktivity tohoto onemocnění."
+ },
+ "anti_ema_iga": {
+  "what": "Anti-endomysium IgA (EMA) jsou protilátky třídy IgA namířené proti endomyziu, vazivové tkáni obklopující svalová vlákna hladké svaloviny.",
+  "usedFor": "Vyšetření patří mezi sérologické testy celiakie a používá se při objasňování trávicích potíží souvisejících s nesnášenlivostí lepku, obvykle jako doplněk dalších protilátek."
+ },
+ "anti_gliadin_iga": {
+  "what": "Anti-gliadin IgA (AGA) jsou protilátky třídy IgA namířené proti gliadinu, bílkovinné složce lepku obsaženého v pšenici, žitu a ječmeni; na rozdíl od třídy IgG odrážejí především imunitní odpověď střevní sliznice.",
+  "usedFor": "Vyšetření patří mezi starší sérologické testy nesnášenlivosti lepku a používá se při objasňování trávicích potíží spojených s celiakií nebo citlivostí na lepek."
+ },
+ "anti_gliadin_igg": {
+  "what": "Anti-gliadin IgG (AGA) jsou protilátky třídy IgG namířené proti gliadinu, bílkovinné složce lepku obsaženého v pšenici, žitu a ječmeni.",
+  "usedFor": "Vyšetření patří mezi starší sérologické testy nesnášenlivosti lepku a používá se jako doplněk k IgA protilátkám, zejména u jedinců se sníženou tvorbou imunoglobulinů třídy IgA."
+ },
+ "anti_kardiolipin_igg": {
+  "what": "Anti-kardiolipin IgG jsou protilátky třídy IgG (na rozdíl od třídy IgM) namířené proti kardiolipinu, fosfolipidu buněčných membrán, který se účastní procesů srážení krve.",
+  "usedFor": "Vyšetření patří mezi antifosfolipidové protilátky a používá se při objasňování opakovaných trombóz nebo těhotenských ztrát v rámci antifosfolipidového syndromu."
+ },
+ "anti_kardiolipin_igm": {
+  "what": "Anti-kardiolipin IgM je protilátka třídy IgM namířená proti kardiolipinu, fosfolipidu obsaženému v buněčných membránách a podílejícímu se na procesu srážení krve.",
+  "usedFor": "Vyšetření patří mezi antifosfolipidové protilátky a stanovuje se společně s IgG formou při objasňování opakovaných trombóz nebo těhotenských ztrát v rámci antifosfolipidového syndromu."
+ },
+ "anti_mpo": {
+  "what": "Anti-MPO (p-ANCA) jsou protilátky namířené proti myeloperoxidáze, enzymu uloženému v granulích neutrofilních bílých krvinek, který se podílí na jejich obranné funkci.",
+  "usedFor": "Vyšetření patří mezi protilátky proti cytoplazmě neutrofilů (ANCA) a používá se při objasňování zánětlivých onemocnění cévní stěny (vaskulitid) postihujících drobné cévy, například ledvin nebo plic."
+ },
+ "anti_pr3": {
+  "what": "Anti-PR3 (c-ANCA) jsou protilátky namířené proti proteináze 3, enzymu uloženému v granulích neutrofilních bílých krvinek, který se podílí na jejich obranné funkci.",
+  "usedFor": "Vyšetření patří mezi protilátky proti cytoplazmě neutrofilů (ANCA) a používá se při objasňování zánětlivých onemocnění cévní stěny (vaskulitid) postihujících drobné cévy, zejména dýchacích cest a ledvin."
+ },
+ "anti_ttg_iga": {
+  "what": "Protilátka třídy IgA namířená proti enzymu tkáňová transglutamináza, který se podílí na imunitní reakci na lepek ve střevní sliznici.",
+  "usedFor": "Používá se při vyšetřování podezření na celiakii, obvykle společně s celkovou hladinou IgA, protože její nedostatek výsledek zkresluje."
+ },
+ "anti_ttg_igg": {
+  "what": "Protilátka třídy IgG namířená proti stejnému cíli jako Anti-tTG IgA, enzymu tkáňová transglutamináza, ale patřící do jiné třídy imunoglobulinů.",
+  "usedFor": "Doplňuje vyšetření Anti-tTG IgA u osob se sníženou celkovou hladinou IgA, kde by varianta IgA mohla dát nespolehlivý výsledek."
+ },
+ "aslo": {
+  "what": "ASLO jsou protilátky proti streptolyzinu O, toxinu produkovanému streptokoky skupiny A, vznikající jako reakce imunitního systému na proběhlou infekci.",
+  "usedFor": "Používá se k průkazu předchozí streptokokové infekce, zejména v souvislosti s revmatickou horečkou nebo zánětem ledvin, který na infekci navazuje."
+ },
+ "ena_screen": {
+  "what": "Souhrnné vyšetření protilátek proti skupině extrahovatelných jaderných antigenů (ENA), bílkovinných struktur z buněčného jádra.",
+  "usedFor": "Slouží jako úvodní screening u autoimunitních onemocnění pojiva, například systémového lupusu nebo Sjögrenova syndromu, kdy dále navazuje rozbor jednotlivých protilátek ze skupiny ENA."
+ },
+ "igg1": {
+  "what": "Nejhojnější ze čtyř podtříd imunoglobulinu G, hlavní skupiny protilátek v krvi; tvoří největší podíl celkového IgG a odpovídá především na bílkovinné antigeny.",
+  "usedFor": "Sleduje se při podezření na poruchu tvorby podtříd IgG, což bývá součástí vyšetření opakovaných infekcí nebo imunodeficitu."
+ },
+ "igg2": {
+  "what": "Druhá ze čtyř podtříd imunoglobulinu G, tvořící menší podíl celkového IgG než IgG1 a zaměřená především na odpověď proti polysacharidovým antigenům.",
+  "usedFor": "Sleduje se stejně jako ostatní podtřídy IgG v rámci vyšetřování opakovaných infekcí a podezření na poruchu tvorby protilátek."
+ },
+ "igg3": {
+  "what": "Třetí ze čtyř podtříd imunoglobulinu G, s nejkratším biologickým poločasem a nejsilnější schopností aktivovat komplement, součást imunitní obrany, mezi podtřídami IgG.",
+  "usedFor": "Sleduje se v rámci vyšetření podtříd IgG při podezření na poruchu tvorby protilátek nebo u opakovaných infekcí."
+ },
+ "igg4": {
+  "what": "Čtvrtá ze čtyř podtříd imunoglobulinu G, tvořící nejmenší podíl celkového IgG a spojovaná se specifickou skupinou zánětlivých onemocnění.",
+  "usedFor": "Sleduje se v rámci vyšetření podtříd IgG, mimo jiné u takzvaných onemocnění asociovaných s IgG4 a při podezření na poruchu tvorby protilátek."
+ },
+ "lupus_antikoagulans": {
+  "what": "Koagulační test zjišťující přítomnost protilátek, které v laboratorní zkumavce zasahují do srážení krve závislého na fosfolipidech, ačkoli v těle srážlivost naopak zvyšují.",
+  "usedFor": "Patří mezi vyšetření antifosfolipidového syndromu, prováděné při opakovaných trombózách nebo těhotenských ztrátách."
+ },
+ "anti_xa": {
+  "what": "Anti-Xa aktivita je funkční test měřící schopnost plazmy potlačit aktivitu koagulačního faktoru Xa, jednoho z faktorů podílejících se na srážení krve.",
+  "usedFor": "Používá se ke sledování účinku heparinu, zejména nízkomolekulárního, který běžné testy srážlivosti nezachytí; s příslušnou kalibrací i některých dalších léků tlumících faktor Xa."
+ },
+ "antitrombin": {
+  "what": "Bílkovina tvořená v játrech, která tlumí srážení krve tím, že blokuje trombin a další srážecí faktory.",
+  "usedFor": "Vyšetřuje se při podezření na vrozenou nebo získanou poruchu srážlivosti spojenou se sklonem k trombóze."
+ },
+ "aptt": {
+  "what": "Laboratorní test měřící dobu v sekundách, za kterou se v odebrané krevní plazmě vytvoří sraženina po aktivaci vnitřní cesty srážení; na rozdíl od aPTT poměru jde o přímo naměřený čas.",
+  "usedFor": "Používá se k posouzení srážlivosti krve, sledování léčby heparinem a jako součást vyšetření sklonu ke krvácení nebo trombóze."
+ },
+ "aptt_pomer": {
+  "what": "aPTT poměr (R) je výpočet, který porovnává čas srážení krve v aktivovaném parciálním tromboplastinovém testu (aPTT) s referenčním (normálním) plazmatickým vzorkem. Vyjadřuje se jako podíl obou časů.",
+  "usedFor": "Používá se k hodnocení vnitřní (intrinsické) cesty srážení krve, tedy funkce koagulačních faktorů VIII, IX, XI a XII, a ke sledování léčby heparinem."
+ },
+ "d_dimery": {
+  "what": "D-dimery jsou úlomky bílkoviny fibrinu, které vznikají při rozkladu krevní sraženiny (fibrinolýze) působením enzymu plazminu.",
+  "usedFor": "Vyšetření se používá při podezření na žilní trombózu nebo plicní embolii a jako součást vyšetření krevní srážlivosti (koagulace)."
+ },
+ "faktor_viii": {
+  "what": "Faktor VIII (koagulační) je bílkovina krevní plazmy, která se v kaskádě srážení krve podílí na tvorbě krevní sraženiny; vyšetření měří jeho srážecí aktivitu.",
+  "usedFor": "Vyšetření faktoru VIII se používá při posuzování vrozených i získaných poruch srážlivosti krve, mimo jiné v souvislosti s hemofilií A."
+ },
+ "fibrinogen": {
+  "what": "Fibrinogen je bílkovina krevní plazmy vznikající v játrech, která se při srážení krve přeměňuje na fibrin a tvoří základ krevní sraženiny.",
+  "usedFor": "Vyšetření se používá při hodnocení srážlivosti krve a jako součást posouzení zánětlivé aktivity organismu, neboť fibrinogen patří mezi bílkoviny akutní fáze zánětu."
+ },
+ "inr": {
+  "what": "INR (International Normalized Ratio) je standardizovaný přepočet poměru protrombinového času pacienta k normálnímu vzorku, umožňující srovnávat výsledky mezi laboratořemi.",
+  "usedFor": "Používá se především ke sledování léčby látkami tlumícími srážlivost krve ze skupiny warfarinu (antagonisté vitaminu K) a k hodnocení zevní cesty srážení."
+ },
+ "protein_c": {
+  "what": "Protein C je bílkovina krevní plazmy vznikající v játrech, která spolu s proteinem S tlumí srážení krve a brání nadměrné tvorbě sraženin.",
+  "usedFor": "Vyšetření se používá při posuzování sklonu k žilní trombóze, zejména v rámci vyšetření vrozených a získaných trombofilních stavů."
+ },
+ "protein_s": {
+  "what": "Protein S je bílkovina krevní plazmy vznikající v játrech, která slouží jako kofaktor proteinu C při tlumení srážení krve; v plazmě se vyskytuje ve volné i na bílkovinu vázané formě.",
+  "usedFor": "Vyšetření se používá při posuzování sklonu k žilní trombóze, podobně jako u proteinu C, v rámci vyšetření vrozených a získaných trombofilních stavů."
+ },
+ "pt_cas": {
+  "what": "Protrombinový čas je doba v sekundách, za kterou se plazma srazí po přidání tromboplastinu; jde o přímo naměřenou hodnotu testu zevní cesty srážení krve.",
+  "usedFor": "Používá se k hodnocení funkce koagulačních faktorů zevní cesty srážení (faktory II, V, VII, X) a jaterní syntézy těchto bílkovin."
+ },
+ "pt_pomer": {
+  "what": "Protrombinový test – poměr (R) je výpočet, který porovnává protrombinový čas pacienta s časem referenčního (normálního) vzorku plazmy, vyjádřený jako jejich podíl.",
+  "usedFor": "Používá se ke stejnému účelu jako protrombinový čas, tedy k hodnocení zevní cesty srážení krve; vztažením k normální plazmě je méně závislý na podmínkách konkrétní laboratoře."
+ },
+ "quick": {
+  "what": "Protrombinový test (Quick) vyjadřuje protrombinový čas pacienta v procentech aktivity ve srovnání s kalibrační křivkou sestavenou z ředění normální plazmy.",
+  "usedFor": "Používá se k hodnocení zevní cesty srážení krve a jaterní syntézy koagulačních faktorů, často při sledování léčby ovlivňující srážlivost."
+ },
+ "trombinovy_cas": {
+  "what": "Trombinový čas je doba v sekundách, za kterou se plazma srazí po přidání trombinu; test se zaměřuje přímo na poslední krok srážení, přeměnu fibrinogenu na fibrin.",
+  "usedFor": "Používá se k odhalení poruch přeměny fibrinogenu na fibrin, včetně vlivu látek, které tento krok narušují, jako je heparin."
+ },
+ "vwf_aktivita": {
+  "what": "Von Willebrandův faktor je bílkovina krevní plazmy, která zprostředkovává přichycení krevních destiček k poškozené cévní stěně a váže faktor VIII; vyšetření měří jeho funkční aktivitu, nikoli množství (antigen).",
+  "usedFor": "Vyšetření se používá při posuzování von Willebrandovy choroby, krvácivé poruchy způsobené nedostatkem nebo poruchou funkce tohoto faktoru, a při objasňování sklonu ke krvácení."
+ },
+ "vwf_antigen": {
+  "what": "Von Willebrandův faktor je bílkovina účastnící se srážení krve, kterou tvoří buňky výstelky cév a krevní destičky. Vyšetření antigenu stanovuje jeho množství v krvi, nikoli jeho funkci, kterou měří test aktivity.",
+  "usedFor": "Vyšetření se používá při objasňování sklonu ke krvácení a poruch srážení krve, zejména při podezření na von Willebrandovu chorobu, a spolu s vyšetřením aktivity pomáhá určit její typ."
+ },
+ "krevni_skupina": {
+  "what": "Krevní skupina AB0 + RhD je klasifikace krve podle přítomnosti antigenů A a B na povrchu červených krvinek (erytrocytů) a podle přítomnosti antigenu D ze systému Rh.",
+  "usedFor": "Stanovení krevní skupiny se využívá před podáním transfuze krevních přípravků, při dárcovství krve, v těhotenství kvůli riziku Rh inkompatibility a před některými chirurgickými výkony."
+ },
+ "nat": {
+  "what": "Nepřímý antiglobulinový test (NAT) zjišťuje protilátky proti znakům (antigenům) červených krvinek, které jsou volně přítomné v krevním séru pacienta.",
+  "usedFor": "Používá se jako screening nepravidelných protilátek proti červeným krvinkám před transfuzí a v těhotenství; na rozdíl od přímého testu (PAT) nezjišťuje protilátky navázané na vlastních krvinkách."
+ },
+ "pat": {
+  "what": "Přímý antiglobulinový test (PAT) zjišťuje protilátky nebo složky komplementu navázané přímo na povrchu vlastních červených krvinek pacienta.",
+  "usedFor": "Používá se při podezření na imunitní rozpad červených krvinek, například u novorozenecké žloutenky z Rh nekompatibility nebo po transfuzní reakci; na rozdíl od nepřímého testu (NAT) nezjišťuje volné protilátky v séru."
+ },
+ "rh_faktor": {
+  "what": "Rh faktor (RhD) je antigen na povrchu červených krvinek; jeho přítomnost nebo nepřítomnost určuje Rh pozitivitu nebo negativitu krve, samostatně od skupiny AB0.",
+  "usedFor": "Používá se při určování krevní skupiny pro transfuzi a v těhotenství, kde nesoulad Rh faktoru mezi matkou a plodem může vést k imunitní reakci."
+ },
+ "afp": {
+  "what": "Alfa-fetoprotein (AFP) je bílkovina tvořená především jaterními buňkami plodu a v dospělosti v malém množství i játry a některými nádorovými buňkami.",
+  "usedFor": "Používá se jako nádorový marker při sledování nádorů jater a varlat a jako součást prenatálního screeningu vývojových vad plodu."
+ },
+ "chromogranin_a": {
+  "what": "Chromogranin A je bílkovina uložená v sekrečních granulích neuroendokrinních buněk, odkud se uvolňuje do krve spolu s jejich hormony.",
+  "usedFor": "Používá se jako nádorový marker při sledování neuroendokrinních nádorů, například karcinoidů nebo nádorů nadledvin."
+ },
+ "cyfra_21_1": {
+  "what": "CYFRA 21-1 je fragment cytokeratinu 19, bílkoviny kostry epitelových buněk, který se uvolňuje do krve při jejich rozpadu.",
+  "usedFor": "Používá se jako nádorový marker při sledování nemalobuněčného karcinomu plic a některých dalších nádorů z epitelových buněk."
+ },
+ "he4": {
+  "what": "HE4 (lidský epididymální protein 4) je bílkovina tvořená výstelkou nadvarlete, dýchacích cest a ženských pohlavních orgánů; produkují ji také buňky některých nádorů vaječníků.",
+  "usedFor": "Používá se jako nádorový marker při sledování karcinomu vaječníků, obvykle společně s markerem CA 125."
+ },
+ "nse": {
+  "what": "NSE (neuron-specifická enoláza) je enzym přítomný v nervových buňkách a buňkách neuroendokrinního původu, uvolňující se do krve při jejich poškození.",
+  "usedFor": "Používá se jako nádorový marker při sledování nádorů neuroendokrinního původu, například malobuněčného karcinomu plic nebo neuroblastomu."
+ },
+ "pomer_fpsa_psa": {
+  "what": "Poměr fPSA/PSA je výpočet, kolik procent z celkového prostatického specifického antigenu (PSA) v krvi tvoří jeho volná, na bílkoviny nevázaná část (fPSA).",
+  "usedFor": "Vyšetření doplňuje celkové PSA při jeho hraničních výsledcích a pomáhá rozlišit nezhoubné zvětšení prostaty od nádorového onemocnění prostaty."
+ },
+ "psa": {
+  "what": "PSA celkový (prostatický specifický antigen) je bílkovina tvořená buňkami prostaty; celkové množství v krvi zahrnuje volnou i na bílkoviny vázanou frakci, na rozdíl od PSA volného.",
+  "usedFor": "Používá se při sledování onemocnění prostaty, včetně jejího zvětšení, zánětu a nádorového bujení."
+ },
+ "psa_volny": {
+  "what": "PSA volný (fPSA) je podíl prostatického specifického antigenu (PSA), který v krvi koluje nenavázaný na bílkoviny krevní plazmy, na rozdíl od celkového PSA, jenž zahrnuje i formu vázanou na bílkoviny.",
+  "usedFor": "Poměr volného a celkového PSA se používá jako doplňkový ukazatel při hodnocení nálezu na prostatě, obvykle při rozlišování mezi nezhoubným a zhoubným onemocněním prostaty."
+ },
+ "roma": {
+  "what": "ROMA index (Risk of Ovarian Malignancy Algorithm) je výpočet kombinující hladiny nádorových markerů HE4 a CA 125 spolu s menopauzálním stavem ženy do jednoho číselného skóre.",
+  "usedFor": "Používá se při vyšetřování nálezu na vaječníku k odhadu pravděpodobnosti zhoubného onemocnění před operací."
+ },
+ "s100": {
+  "what": "Protein S100 (přesněji S100B) je bílkovina vyskytující se především v gliových buňkách centrálního nervového systému a v melanocytech.",
+  "usedFor": "Sleduje se po poranění hlavy jako ukazatel poškození mozkové tkáně a používá se také při sledování zhoubného melanomu."
+ },
+ "scc": {
+  "what": "SCC antigen (antigen dlaždicobuněčných karcinomů, squamous cell carcinoma antigen) je bílkovina, kterou produkují buňky dlaždicového epitelu, tedy tkáně pokrývající kůži a sliznice řady orgánů.",
+  "usedFor": "Test se používá při sledování nádorů vycházejících z dlaždicového epitelu, například v oblasti děložního hrdla, plic, jícnu nebo kůže a sliznic hlavy a krku."
+ },
+ "anti_borrelia_igg_wb": {
+  "what": "Vyšetření stanovuje protilátky třídy IgG proti bakterii Borrelia burgdorferi, původci lymeské boreliózy, metodou Western blot (imunoblot), která odděleně zachycuje reakci na jednotlivé bílkoviny bakterie.",
+  "usedFor": "Používá se k potvrzení předchozího nebo probíhajícího kontaktu s boreliemi jako doplňkové vyšetření po pozitivním screeningovém testu; třída IgG odráží déletrvající imunitní odpověď na rozdíl od IgM."
+ },
+ "anti_borrelia_igm_wb": {
+  "what": "Vyšetření stanovuje protilátky třídy IgM proti bakterii Borrelia burgdorferi, původci lymeské boreliózy, metodou Western blot (imunoblot), která odděleně zachycuje reakci na jednotlivé bílkoviny bakterie.",
+  "usedFor": "Používá se k potvrzení nedávného nebo probíhajícího kontaktu s boreliemi, typicky po pozitivním screeningovém testu; třída IgM odráží časnější fázi imunitní odpovědi než IgG."
+ },
+ "anti_chlamydia_pneumoniae_iga": {
+  "what": "Vyšetření měří protilátky třídy IgA proti bakterii Chlamydia pneumoniae, původci nákaz dýchacích cest.",
+  "usedFor": "Používá se při podezření na infekci dýchacích cest touto bakterií; třída IgA se objevuje typicky u probíhající nebo nedávné infekce, na rozdíl od IgG, který odráží starší nebo opakovaný kontakt."
+ },
+ "anti_chlamydia_pneumoniae_igg": {
+  "what": "Vyšetření měří protilátky třídy IgG proti bakterii Chlamydia pneumoniae, původci nákaz dýchacích cest.",
+  "usedFor": "Používá se při vyšetřování proběhlé nebo opakované infekce dýchacích cest touto bakterií; třída IgG přetrvává dlouhodobě po kontaktu s bakterií, na rozdíl od časnějších tříd IgM a IgA."
+ },
+ "anti_chlamydia_pneumoniae_igm": {
+  "what": "Vyšetření měří protilátky třídy IgM proti bakterii Chlamydia pneumoniae, původci nákaz dýchacích cest.",
+  "usedFor": "Používá se při podezření na čerstvou infekci dýchacích cest touto bakterií; třída IgM se tvoří jako první, dříve než IgG a IgA."
+ },
+ "anti_chlamydia_trachomatis_iga": {
+  "what": "Vyšetření měří protilátky třídy IgA proti bakterii Chlamydia trachomatis, původci urogenitálních infekcí přenášených pohlavním stykem.",
+  "usedFor": "Používá se při vyšetřování probíhající nebo přetrvávající urogenitální infekce touto bakterií; třída IgA bývá spojována s aktivní slizniční infekcí, na rozdíl od IgG, který odráží starší kontakt."
+ },
+ "anti_chlamydia_trachomatis_igg": {
+  "what": "Vyšetření měří protilátky třídy IgG proti bakterii Chlamydia trachomatis, původci urogenitálních infekcí přenášených pohlavním stykem.",
+  "usedFor": "Používá se při vyšetřování proběhlé nebo opakované urogenitální infekce touto bakterií, případně v souvislosti s vyšetřováním neplodnosti; třída IgG přetrvává dlouhodobě po kontaktu s bakterií."
+ },
+ "anti_chlamydia_trachomatis_igm": {
+  "what": "Vyšetření měří protilátky třídy IgM proti bakterii Chlamydia trachomatis, původci urogenitálních infekcí přenášených pohlavním stykem.",
+  "usedFor": "Používá se při podezření na čerstvou urogenitální infekci touto bakterií; třída IgM se tvoří jako první, dříve než IgG a IgA."
+ },
+ "anti_cmv_igg": {
+  "what": "Protilátka třídy IgG (imunoglobulin G) namířená proti cytomegaloviru (CMV), tvořená imunitním systémem po kontaktu s virem; na rozdíl od IgM přetrvává v krvi dlouhodobě.",
+  "usedFor": "Vyšetření odráží stav imunity vůči cytomegaloviru a používá se především u těhotenství, transplantací nebo oslabené imunity k posouzení dřívějšího kontaktu s virem."
+ },
+ "anti_cmv_igm": {
+  "what": "Protilátka třídy IgM (imunoglobulin M) namířená proti cytomegaloviru (CMV), tvořená jako první typ odpovědi imunitního systému; na rozdíl od IgG naznačuje čerstvou infekci.",
+  "usedFor": "Vyšetření se používá k odhalení čerstvé nebo probíhající infekce cytomegalovirem, například u těhotenství, transplantací nebo při oslabené imunitě."
+ },
+ "anti_ebv_ea_igg": {
+  "what": "Protilátka třídy IgG namířená proti časnému antigenu (EA) viru Epstein-Barrové (EBV); časný antigen vzniká v raných fázích množení viru, protilátka proti němu proto provází čerstvou nebo znovu aktivovanou infekci.",
+  "usedFor": "Vyšetření se používá při podezření na infekci virem Epstein-Barrové k odlišení aktuální nebo nedávné infekce od infekce prodělané v minulosti."
+ },
+ "anti_hav_igm": {
+  "what": "Protilátka třídy IgM namířená proti viru hepatitidy typu A (HAV), tvořená jako časná odpověď imunitního systému na infekci tímto virem.",
+  "usedFor": "Vyšetření se používá k průkazu čerstvé nebo probíhající infekce virem hepatitidy typu A, obvykle při podezření na akutní virovou hepatitidu."
+ },
+ "anti_hbc": {
+  "what": "Protilátka namířená proti jadernému (core) antigenu viru hepatitidy B (HBc); celkové stanovení zahrnuje třídy IgG i IgM, tvoří se po prodělané infekci, nikoli po očkování, a přetrvává dlouhodobě.",
+  "usedFor": "Vyšetření se používá k průkazu dřívějšího nebo probíhajícího kontaktu s virem hepatitidy B, mimo jiné při diagnostice hepatitidy B nebo screeningu dárců krve."
+ },
+ "anti_hbc_igm": {
+  "what": "Protilátka třídy IgM namířená proti jadernému (core) antigenu viru hepatitidy B (HBc), tvořená v časné fázi infekce; na rozdíl od celkového anti-HBc zachycuje především čerstvou nákazu.",
+  "usedFor": "Vyšetření se používá k odlišení čerstvé nebo nedávné infekce virem hepatitidy B od infekce prodělané v minulosti."
+ },
+ "anti_hbe": {
+  "what": "Protilátka namířená proti e-antigenu viru hepatitidy B (HBeAg); e-antigen souvisí s množením viru a protilátka proti němu se obvykle objevuje po jeho vymizení z krve.",
+  "usedFor": "Vyšetření se používá při sledování průběhu infekce virem hepatitidy B k posouzení fáze onemocnění a míry virového množení."
+ },
+ "anti_hcv": {
+  "what": "Protilátka namířená proti viru hepatitidy typu C (HCV), tvořená imunitním systémem po kontaktu s tímto virem.",
+  "usedFor": "Vyšetření se používá jako základní test na infekci virem hepatitidy C, například při podezření na virovou hepatitidu nebo v rámci preventivních vyšetření."
+ },
+ "anti_morbilli_igg": {
+  "what": "Protilátka třídy IgG namířená proti viru spalniček (morbilli), tvořená po prodělaném onemocnění nebo očkování; na rozdíl od IgM přetrvává v krvi dlouhodobě.",
+  "usedFor": "Vyšetření se používá k ověření imunity vůči spalničkám, například po očkování nebo po prodělaném onemocnění."
+ },
+ "anti_morbilli_igm": {
+  "what": "Protilátka třídy IgM namířená proti viru spalniček (morbilli), tvořená jako časná odpověď imunitního systému; na rozdíl od IgG naznačuje čerstvou infekci.",
+  "usedFor": "Vyšetření se používá k průkazu čerstvé infekce spalničkami, obvykle při podezření na aktuálně probíhající onemocnění."
+ },
+ "anti_mycoplasma_pneumoniae_iga": {
+  "what": "Protilátka třídy IgA namířená proti bakterii Mycoplasma pneumoniae; třída IgA se tvoří zejména na sliznicích dýchacích cest a signalizuje aktuální nebo nedávnou infekci.",
+  "usedFor": "Vyšetření se používá při podezření na infekci dýchacích cest vyvolanou bakterií Mycoplasma pneumoniae, obvykle společně se stanovením IgG."
+ },
+ "anti_mycoplasma_pneumoniae_igg": {
+  "what": "Protilátka třídy IgG namířená proti bakterii Mycoplasma pneumoniae, tvořená imunitním systémem po kontaktu s touto bakterií; na rozdíl od IgA přetrvává v krvi déle.",
+  "usedFor": "Vyšetření se používá při podezření na infekci dýchacích cest vyvolanou bakterií Mycoplasma pneumoniae k posouzení dřívějšího nebo probíhajícího kontaktu."
+ },
+ "anti_mycoplasma_pneumoniae_igm": {
+  "what": "Protilátka třídy IgM (imunoglobulin M) namířená proti bakterii Mycoplasma pneumoniae; vzniká v časné fázi imunitní odpovědi na infekci.",
+  "usedFor": "Vyšetření slouží k průkazu nedávné nebo probíhající infekce dýchacích cest touto bakterií, například při atypickém zápalu plic; na rozdíl od IgG, který přetrvává i dlouho po prodělané infekci."
+ },
+ "anti_parotitis_igg": {
+  "what": "Protilátka třídy IgG (imunoglobulin G) proti viru příušnic (parotitidy); tvoří se po prodělané infekci nebo po očkování.",
+  "usedFor": "Vyšetření slouží k ověření dlouhodobé imunity vůči příušnicím po infekci nebo očkování, na rozdíl od IgM, který ukazuje čerstvou infekci."
+ },
+ "anti_parotitis_igm": {
+  "what": "Protilátka třídy IgM proti viru příušnic (parotitidy); objevuje se jako první reakce imunitního systému na čerstvou infekci.",
+  "usedFor": "Vyšetření se používá k průkazu nedávné nebo aktuálně probíhající infekce příušnicemi, na rozdíl od IgG, který ukazuje dlouhodobější imunitu."
+ },
+ "anti_pertussis_iga": {
+  "what": "Protilátka třídy IgA proti bakterii Bordetella pertussis, původci černého kašle; tvoří se zejména na sliznicích dýchacích cest.",
+  "usedFor": "Vyšetření pomáhá odlišit nedávnou nebo probíhající infekci černým kašlem od stavu po očkování; na rozdíl od IgG se IgA po očkování obvykle netvoří."
+ },
+ "anti_pertussis_igg": {
+  "what": "Protilátka třídy IgG proti bakterii Bordetella pertussis, původci černého kašle; tvoří se po infekci i po očkování a v krvi přetrvává déle než IgA.",
+  "usedFor": "Vyšetření odráží imunitní odpověď na černý kašel po infekci nebo očkování, na rozdíl od IgA, který se tvoří hlavně při aktuální infekci."
+ },
+ "anti_rubeola_igg": {
+  "what": "Protilátka třídy IgG proti viru zarděnek (rubeoly); vzniká po prodělané infekci nebo očkování a přetrvává dlouhodobě.",
+  "usedFor": "Vyšetření ověřuje dlouhodobou imunitu vůči zarděnkám po infekci nebo očkování, na rozdíl od IgM, který svědčí o čerstvé nákaze; relevantní zejména v souvislosti s těhotenstvím."
+ },
+ "anti_rubeola_igm": {
+  "what": "Protilátka třídy IgM proti viru zarděnek (rubeoly); objevuje se v časné fázi imunitní odpovědi na čerstvou infekci.",
+  "usedFor": "Vyšetření slouží k průkazu nedávné nebo probíhající infekce zarděnkami, na rozdíl od IgG, který svědčí o starší infekci nebo očkování."
+ },
+ "anti_sars_cov_2_n": {
+  "what": "Protilátka namířená proti nukleokapsidovému proteinu (N), vnitřní součásti viru SARS-CoV-2, která obaluje jeho genetickou informaci.",
+  "usedFor": "Vyšetření odlišuje protilátky vzniklé po prodělané infekci covidem-19 od protilátek po očkování, protože běžně používané očkovací látky protein N neobsahují."
+ },
+ "anti_sars_cov_2_s": {
+  "what": "Protilátka třídy IgG namířená proti povrchovému spike proteinu (S) viru SARS-CoV-2, kterým virus proniká do buněk.",
+  "usedFor": "Vyšetření odráží imunitní odpověď vzniklou po očkování i po prodělané infekci, protože spike protein je součástí viru i očkovacích látek; na rozdíl od protilátek proti proteinu N vznikají i po očkování."
+ },
+ "anti_tbe_igg": {
+  "what": "Protilátka třídy IgG proti viru klíšťové encefalitidy (TBEV); tvoří se po prodělané infekci nebo očkování a přetrvává dlouhodobě.",
+  "usedFor": "Vyšetření ověřuje dlouhodobou imunitu vůči klíšťové encefalitidě po očkování nebo infekci, na rozdíl od IgM, který ukazuje probíhající nákazu."
+ },
+ "anti_tbe_igm": {
+  "what": "Protilátka třídy IgM proti viru klíšťové encefalitidy (TBEV); objevuje se v časné fázi imunitní odpovědi na čerstvou infekci.",
+  "usedFor": "Vyšetření slouží k průkazu nedávné nebo probíhající infekce klíšťovou encefalitidou, na rozdíl od IgG, který ukazuje dlouhodobější imunitu."
+ },
+ "anti_toxoplasma_igg": {
+  "what": "Protilátka třídy IgG proti parazitovi Toxoplasma gondii; tvoří se po prodělané infekci a přetrvává v těle dlouhodobě.",
+  "usedFor": "Vyšetření ověřuje, zda organismus toxoplazmózou v minulosti prošel, na rozdíl od IgM, který ukazuje čerstvou nákazu; má význam zejména v souvislosti s těhotenstvím."
+ },
+ "anti_toxoplasma_igm": {
+  "what": "Protilátky třídy IgM proti parazitu Toxoplasma gondii, které se v krvi objevují jako časná imunitní odpověď při nedávné nebo probíhající infekci.",
+  "usedFor": "Vyšetření slouží k odhalení čerstvé nebo aktivní toxoplazmózy, typicky v rámci prenatálního screeningu nebo při podezření na akutní infekci."
+ },
+ "anti_vzv_igg": {
+  "what": "Protilátky třídy IgG (imunoglobulin G) proti viru varicella zoster, který způsobuje plané neštovice a pásový opar. Na rozdíl od IgM jde o protilátky přetrvávající dlouhodobě po prodělané infekci nebo očkování.",
+  "usedFor": "Používá se ke zjištění, zda organismus již přišel do kontaktu s virem varicella zoster a vytvořil si proti němu dlouhodobou imunitu, například před očkováním nebo u těhotných žen."
+ },
+ "anti_vzv_igm": {
+  "what": "Protilátky třídy IgM (imunoglobulin M) proti viru varicella zoster, který způsobuje plané neštovice a pásový opar. Na rozdíl od IgG jde o protilátky časné fáze, které se tvoří při čerstvé infekci a postupně mizí.",
+  "usedFor": "Používá se k rozpoznání aktuální nebo nedávno probíhající infekce virem varicella zoster, například při nejasném vyrážkovém onemocnění."
+ },
+ "hbeag": {
+  "what": "Protein viru hepatitidy B, takzvaný e-antigen (HBeAg), který infikované jaterní buňky uvolňují do krve v době, kdy se virus aktivně množí.",
+  "usedFor": "Odráží míru aktivity a nakažlivosti infekce virem hepatitidy B a používá se ke sledování průběhu chronické hepatitidy B."
+ },
+ "hbsag": {
+  "what": "Povrchový protein viru hepatitidy B, takzvaný povrchový antigen (HBsAg), který tvoří obal viru a objevuje se v krvi při infekci.",
+  "usedFor": "Používá se jako základní ukazatel přítomnosti infekce virem hepatitidy B, ať už akutní, nebo chronické."
+ },
+ "hiv": {
+  "what": "Kombinovaný test, který v krvi současně zjišťuje antigen p24 viru HIV a protilátky proti HIV typu 1 a 2, jež imunitní systém tvoří při infekci.",
+  "usedFor": "Test slouží k průkazu infekce virem HIV, včetně časné fáze, kdy je přítomen antigen p24 dříve než protilátky."
+ },
+ "quantiferon": {
+  "what": "Krevní test typu IGRA (interferon-gama release assay), který měří uvolňování interferonu gama z bílých krvinek po stimulaci antigeny bakterie Mycobacterium tuberculosis.",
+  "usedFor": "Slouží k průkazu latentní (skryté) i aktivní infekce původcem tuberkulózy, typicky u osob v kontaktu s nemocným nebo před léčbou tlumící imunitu; na rozdíl od kožního testu ho neovlivňuje očkování BCG."
+ },
+ "rpr": {
+  "what": "Netreponemový sérologický test, který v krvi zachycuje protilátky vznikající jako reakce na poškození tkáně při syfilis, nikoli protilátky namířené přímo proti bakterii Treponema pallidum.",
+  "usedFor": "Používá se jako screeningový test syfilis a ke sledování průběhu léčby této infekce."
+ },
+ "syfilis": {
+  "what": "Treponemový sérologický test (TPHA, test hemaglutinace Treponema pallidum), který na rozdíl od netreponemových testů typu RPR přímo prokazuje protilátky proti bakterii Treponema pallidum, původci syfilis.",
+  "usedFor": "Používá se k průkazu infekce syfilis, obvykle společně s netreponemovým testem, protože sám o sobě zůstává pozitivní i dlouho po vyléčené infekci a nerozliší aktivní onemocnění od prodělaného."
+ },
+ "egfr_mdrd": {
+  "what": "Odhad glomerulární filtrace vypočtený ze sérové koncentrace kreatininu, věku, pohlaví a rasy pomocí vzorce MDRD (Modification of Diet in Renal Disease). Jde o výpočet, nikoli o přímo naměřenou hodnotu.",
+  "usedFor": "Používá se k odhadu funkce ledvin, konkrétně rychlosti, jakou ledviny filtrují krev, jako jedna z několika používaných výpočetních metod vedle vzorce CKD-EPI nebo výpočtu z cystatinu C."
+ },
+ "iga": {
+  "what": "Imunoglobulin A, protilátka tvořená plazmatickými buňkami, která se vyskytuje jak v krevním séru, tak ve slizničních sekretech (sliny, slzy, hlen dýchacích a trávicích cest), kde tvoří první linii obrany.",
+  "usedFor": "Sérová hladina IgA se sleduje při vyšetření imunitního systému, opakovaných infekcích sliznic nebo v souvislosti s některými střevními a jaterními onemocněními."
+ },
+ "igg": {
+  "what": "Imunoglobulin G, nejzastoupenější třída protilátek v krevním séru, vznikající při imunitní odpovědi a zajišťující dlouhodobou ochranu po prodělané infekci nebo očkování.",
+  "usedFor": "Celková hladina IgG v séru se sleduje při vyšetření poruch imunity, u opakovaných infekcí, chronických zánětů či jaterních onemocnění a při podezření na nadměrnou tvorbu protilátek plazmatickými buňkami."
+ },
+ "igm": {
+  "what": "IgM (imunoglobulin M) je třída protilátek, kterou imunitní systém tvoří jako první reakci na nové setkání s infekcí, dříve než nastoupí dlouhodobější IgG.",
+  "usedFor": "Vyšetření stanoví celkové množství IgM v séru a používá se při posuzování humorální imunity, vrozených i získaných poruch tvorby protilátek a některých onemocnění krvetvorby."
+ },
+ "estradiol": {
+  "what": "Estradiol (E2) je hlavní pohlavní hormon ze skupiny estrogenů, tvořený především vaječníky, v menším množství také tukovou tkání a varlaty.",
+  "usedFor": "Vyšetření se týká hormonální osy reprodukčního systému, menstruačního cyklu, plodnosti, nástupu a průběhu přechodu a sledování hormonální léčby."
+ },
+ "progesteron": {
+  "what": "Progesteron (P4) je pohlavní hormon tvořený žlutým tělískem ve vaječníku po ovulaci a v těhotenství placentou.",
+  "usedFor": "Vyšetření se týká druhé poloviny menstruačního cyklu, ověření proběhlé ovulace, plodnosti a průběhu časného těhotenství."
+ },
+ "nt_probnp": {
+  "what": "NT-proBNP je neaktivní N-terminální část prohormonu natriuretického peptidu typu B, která se odštěpí při vzniku účinného hormonu BNP; oba uvolňují srdeční komory při napětí své stěny.",
+  "usedFor": "Vyšetření odráží zátěž a funkci srdečních komor a používá se při posuzování srdečního selhání a dušnosti nejasného původu."
+ },
+ "troponin_i": {
+  "what": "Troponin I je bílkovina kontraktilního aparátu srdečního svalu, jedna ze tří podjednotek troponinového komplexu vedle troponinu T a C, která se do krve uvolňuje při poškození srdečních buněk.",
+  "usedFor": "Vyšetření se soustředí na akutní poškození srdečního svalu a používá se při podezření na infarkt myokardu nebo jiné akutní postižení srdce."
+ },
+ "ck_mb": {
+  "what": "CK-MB mass je izoenzym kreatinkinázy typický pro srdeční sval, stanovovaný přímo jako množství bílkoviny (mass), nikoliv jako enzymová aktivita.",
+  "usedFor": "Vyšetření doplňuje troponin při posuzování akutního poškození srdečního svalu, zejména v časných hodinách po vzniku obtíží nebo při jeho opětovném poškození."
+ },
+ "index_aterogenity": {
+  "what": "Index aterogenity je vypočtený poměr celkového cholesterolu k HDL cholesterolu; vyjadřuje, jak velkou část celkového cholesterolu tvoří HDL frakce, která cholesterol z cév odvádí.",
+  "usedFor": "Používá se jako doplňkový ukazatel při hodnocení tukového metabolismu a rizika aterosklerózy, tedy ukládání tuků ve stěně cév, vedle jednotlivých hodnot cholesterolu."
+ },
+ "osmolalita": {
+  "what": "Osmolalita je celková koncentrace všech rozpuštěných částic v séru, vztažená na kilogram vody, a odráží poměr vody a rozpuštěných látek v krvi.",
+  "usedFor": "Vyšetření se týká vodní a minerálové rovnováhy organismu a používá se při poruchách hospodaření s tekutinami, sodíkem nebo při podezření na přítomnost neobvyklých látek v krvi."
+ },
+ "vapnik_ionizovany": {
+  "what": "Vápník ionizovaný je volná, na bílkoviny nenavázaná forma vápníku v krvi, biologicky aktivní a přímo se podílející na svalové a nervové činnosti a srážení krve.",
+  "usedFor": "Vyšetření se používá k přesnému posouzení vápníkového hospodářství, zejména když hladina bílkovin v krvi může zkreslovat výsledek celkového vápníku."
+ },
+ "vapnik_korigovany": {
+  "what": "Vápník korigovaný je hodnota celkového vápníku v krvi matematicky přepočtená podle hladiny albuminu, na který je část vápníku vázána.",
+  "usedFor": "Vyšetření odhaduje skutečné vápníkové hospodářství tam, kde je hladina albuminu snížená nebo zvýšená a celkový vápník by samotný zkresloval výsledek."
+ },
+ "fw": {
+  "what": "Sedimentace (FW, podle Fåhraeuse a Westergrena), též sedimentace erytrocytů, je rychlost, jakou červené krvinky v nesrážlivé krvi ponechané v klidu klesají ke dnu zkumavky za jednu hodinu.",
+  "usedFor": "Jde o nespecifický ukazatel zánětu a dalších stavů měnících složení bílkovin v krevní plazmě, sledovaný spolu s dalšími zánětlivými markery."
+ },
+ "hemolyza_index": {
+  "what": "Index hemolýzy je laboratorní ukazatel množství volného hemoglobinu uvolněného z rozpadlých červených krvinek v odebraném vzorku krve.",
+  "usedFor": "Používá se k posouzení kvality odebraného vzorku, protože výraznější rozpad krvinek může ovlivnit přesnost některých dalších naměřených hodnot."
+ },
+ "ikterita_index": {
+  "what": "Index ikterity je míra žlutého zabarvení krevního séra nebo plazmy, kterou analyzátor stanoví ze světla prošlého vzorkem. Zabarvení působí především bilirubin, žlučové barvivo vznikající při rozpadu červených krvinek.",
+  "usedFor": "Slouží především k posouzení kvality vzorku: laboratoř podle něj poznává, zda žluté zabarvení nemůže zkreslit jiná měření ze stejného vzorku. Nepřímo odráží množství bilirubinu v krvi."
+ },
+ "chyloza_index": {
+  "what": "Index chylozity je fotometrické měřítko zákalu krevního séra nebo plazmy způsobeného zvýšeným množstvím tukových částic (chylomikronů a lipoproteinů) ve vzorku.",
+  "usedFor": "Index chylozity slouží laboratoři k posouzení, zda zákal vzorku může ovlivnit přesnost jiných biochemických testů, a bývá uváděn jako doplňková informace k výsledkům."
+ },
+ "apolipoprotein_a1": {
+  "what": "Apolipoprotein A-I je bílkovina, která tvoří hlavní strukturní součást lipoproteinů o vysoké hustotě (HDL) v krvi.",
+  "usedFor": "Apolipoprotein A-I se měří jako součást posouzení metabolismu tuků a HDL částic, na rozdíl od apolipoproteinu B, který je hlavní bílkovinou LDL a dalších aterogenních lipoproteinů."
+ },
+ "fib4": {
+  "what": "FIB-4 index (Fibrosis-4 Index) je výpočet z věku, hodnot jaterních enzymů AST a ALT a počtu krevních destiček (trombocytů), který odhaduje míru jaterní fibrózy (zjizvení jater) bez nutnosti biopsie.",
+  "usedFor": "FIB-4 index se používá při posuzování stupně jaterního postižení u chronických onemocnění jater, jako je nealkoholová tuková choroba jater nebo chronická hepatitida."
+ },
+ "lipaza": {
+  "what": "Lipáza je trávicí enzym tvořený především slinivkou břišní, který štěpí tuky (triglyceridy) na mastné kyseliny a glycerol.",
+  "usedFor": "Lipáza se měří při podezření na onemocnění slinivky břišní, zejména akutní nebo chronický zánět."
+ },
+ "amylaza_pankreaticka": {
+  "what": "Amyláza pankreatická je izoenzym amylázy tvořený výhradně slinivkou břišní, který štěpí škrob na jednodušší cukry.",
+  "usedFor": "Amyláza pankreatická se měří při podezření na onemocnění slinivky břišní; na rozdíl od celkové amylázy, která zahrnuje i izoenzym ze slinných žláz, ukazuje činnost slinivky samostatně."
+ },
+ "cystatin_c": {
+  "what": "Cystatin C je bílkovina, kterou v konstantním množství produkují téměř všechny buňky těla a která je z krve odbourávána ledvinami.",
+  "usedFor": "Cystatin C se používá jako ukazatel funkce ledvin a k výpočtu odhadované glomerulární filtrace, často jako doplněk nebo alternativa ke kreatininu."
+ },
+ "ca_125": {
+  "what": "CA 125 (cancer antigen 125) je glykoprotein, bílkovina s cukernou složkou, kterou tvoří buňky výstelky dutiny břišní a pánevní a ženských pohlavních orgánů. Vyšetření měří její množství v krevním séru.",
+  "usedFor": "Používá se především u nádorových onemocnění vaječníků, zejména ke sledování průběhu léčby. Odráží i další stavy v dutině břišní a pánevní, například endometriózu nebo zánět pobřišnice."
+ },
+ "ca_19_9": {
+  "what": "CA 19-9 je cukerná struktura nesená na bílkovinách a tucích povrchu buněk, kterou tvoří zejména buňky vývodů slinivky břišní, žlučových cest a sliznice trávicího ústrojí. Vyšetření měří její množství v krvi.",
+  "usedFor": "Sleduje se především u nádorových onemocnění slinivky břišní a žlučových cest, zejména ke sledování průběhu léčby. Odráží i nenádorová onemocnění těchto orgánů a dalších částí trávicího ústrojí."
+ },
+ "ca_15_3": {
+  "what": "CA 15-3 (carbohydrate antigen 15-3) je bílkovina na povrchu žlázových buněk, zejména buněk mléčné žlázy, která se v malém množství uvolňuje do krve.",
+  "usedFor": "CA 15-3 se sleduje především v souvislosti s nádory prsu, zejména při sledování průběhu a odpovědi na léčbu."
+ },
+ "ca_72_4": {
+  "what": "CA 72-4 je glykoprotein (bílkovina s cukernou složkou) ze skupiny mucinů, který se na zdravých buňkách dospělého vyskytuje jen málo a tvoří jej především buňky některých nádorů žaludku, vaječníků a střeva.",
+  "usedFor": "Sleduje se především u nádorových onemocnění žaludku, zejména ke sledování průběhu léčby, případně u nádorů dalších orgánů trávicího ústrojí a vaječníků."
+ },
+ "cea": {
+  "what": "CEA (karcinoembryonální antigen) je glykoprotein, bílkovina s cukernou složkou, která se běžně tvoří ve tkáních zažívacího ústrojí plodu a u dospělých se za normálních okolností vyskytuje v krvi jen v malém množství.",
+  "usedFor": "Sleduje se především u nádorových onemocnění tlustého střeva a konečníku, zejména ke sledování průběhu léčby, případně u nádorů dalších orgánů trávicího ústrojí, plic nebo prsu."
+ },
+ "t3_celkovy": {
+  "what": "T3 celkový je hormon štítné žlázy trijodtyronin, měřený v celkovém množství v krvi – součet volné i na bílkoviny vázané frakce, na rozdíl od volného T3 (fT3).",
+  "usedFor": "Test se používá při posuzování funkce štítné žlázy, spolu s dalšími tyreoidálními hormony a TSH."
+ },
+ "t4_celkovy": {
+  "what": "T4 celkový je hormon štítné žlázy tyroxin, měřený v celkovém množství v krvi – součet volné i na bílkoviny vázané frakce, na rozdíl od volného T4.",
+  "usedFor": "Test se používá při posuzování funkce štítné žlázy, spolu s TSH a dalšími tyreoidálními parametry."
+ },
+ "prolaktin": {
+  "what": "Prolaktin je hormon, který se tvoří v podvěsku mozkovém (hypofýze) a řídí tvorbu mateřského mléka po porodu.",
+  "usedFor": "Vyšetření se používá při poruchách menstruačního cyklu, neplodnosti, výtoku z prsu mimo kojení nebo podezření na nádor hypofýzy."
+ },
+ "parathormon": {
+  "what": "Parathormon (PTH) je hormon příštítných tělísek, který řídí hladinu vápníku a fosfátu v krvi a jejich uvolňování z kostí.",
+  "usedFor": "Vyšetření se používá při poruchách metabolismu vápníku a onemocnění příštítných tělísek, ledvin nebo kostí."
+ },
+ "revmatoidni_faktor": {
+  "what": "Revmatoidní faktor je protilátka namířená proti vlastnímu imunoglobulinu G, kterou tělo tvoří při některých zánětlivých onemocněních.",
+  "usedFor": "Vyšetření se používá při podezření na revmatoidní artritidu a další autoimunitní zánětlivá onemocnění kloubů a pojiva."
+ },
+ "dao": {
+  "what": "Diaminooxidáza (DAO) je enzym tvořený hlavně střevní sliznicí, který odbourává histamin přijatý ze stravy; v krvi se měří jeho aktivita.",
+  "usedFor": "Vyšetření se používá při podezření na histaminovou intoleranci a při trávicích potížích spojovaných s příjmem potravin bohatých na histamin."
+ },
+ "anti_helicobacter_iga": {
+  "what": "Anti-Helicobacter pylori IgA jsou protilátky třídy IgA namířené proti bakterii Helicobacter pylori, vznikající jako slizniční imunitní odpověď žaludku.",
+  "usedFor": "Vyšetření se používá jako doplněk k protilátkám IgG při posuzování probíhající nebo nedávné infekce Helicobacter pylori v žaludeční sliznici."
+ },
+ "anti_helicobacter_igg": {
+  "what": "Anti-Helicobacter pylori IgG jsou protilátky třídy IgG namířené proti bakterii Helicobacter pylori, které tělo tvoří jako hlavní a déletrvající imunitní odpověď na infekci.",
+  "usedFor": "Vyšetření se používá při podezření na infekci Helicobacter pylori spojenou se zánětem žaludeční sliznice nebo žaludečními a dvanáctníkovými vředy."
+ },
+ "ag_aspergillus": {
+  "what": "Aspergillus fumigatus antigen, označovaný také galaktomanan, je látka z buněčné stěny plísní rodu Aspergillus (především Aspergillus fumigatus), uvolňovaná do krve při invazivní infekci.",
+  "usedFor": "Vyšetření se používá při podezření na invazivní aspergilovou infekci, zejména u osob s oslabenou imunitou."
+ },
+ "anti_candida_igg": {
+  "what": "Anti-Candida albicans IgG jsou protilátky třídy IgG namířené proti kvasince Candida albicans, které tělo tvoří při imunitní odpovědi na tuto kvasinku.",
+  "usedFor": "Vyšetření se používá při podezření na přemnožení kvasinky Candida albicans v těle nebo na invazivní kandidovou infekci."
+ },
+ "anti_tetanus_igg": {
+  "what": "Anti-tetanus toxoid IgG jsou protilátky třídy IgG namířené proti toxinu bakterie Clostridium tetani (původce tetanu), vznikající po očkování tetanovým toxoidem, tedy neškodnou formou toxinu.",
+  "usedFor": "Test se používá při ověřování stavu imunity proti tetanu, například před plánovaným přeočkováním."
+ },
+ "anti_hav_igg": {
+  "what": "Anti-HAV IgG jsou protilátky třídy IgG namířené proti viru hepatitidy A, přetrvávající dlouhodobě po prodělané infekci nebo očkování, na rozdíl od krátkodobých protilátek IgM.",
+  "usedFor": "Test se používá při ověřování dlouhodobé imunity proti hepatitidě A, například před cestou do rizikové oblasti."
+ },
+ "anti_hbs": {
+  "what": "Anti-HBs jsou protilátky, které imunitní systém tvoří proti povrchovému antigenu viru hepatitidy B (HBsAg) po prodělané infekci nebo po očkování.",
+  "usedFor": "Vyšetření se používá k ověření imunity vůči hepatitidě B, například po očkování nebo u osob s rizikem expozice viru."
+ },
+ "anti_hsv_igg": {
+  "what": "Anti-HSV 1+2 IgG jsou protilátky třídy IgG (imunoglobulin G) proti viru herpes simplex typu 1 a 2, které imunitní systém tvoří s odstupem po infekci a přetrvávají dlouhodobě.",
+  "usedFor": "Vyšetření ukazuje, zda se organismus s virem herpes simplex již setkal, a používá se při posuzování proběhlé nebo latentní (skryté) infekce, na rozdíl od IgM, které odrážejí čerstvou infekci."
+ },
+ "anti_hsv_igm": {
+  "what": "Anti-HSV 1+2 IgM jsou protilátky třídy IgM (imunoglobulin M) proti viru herpes simplex typu 1 a 2, které se tvoří jako první reakce imunitního systému na infekci.",
+  "usedFor": "Vyšetření se používá k rozpoznání čerstvé nebo právě probíhající infekce virem herpes simplex, na rozdíl od IgG protilátek, které svědčí o starší nebo proběhlé infekci."
+ },
+ "anti_borrelia_igg": {
+  "what": "Anti-Borrelia IgG jsou protilátky třídy IgG proti bakterii Borrelia burgdorferi, původci lymské boreliózy přenášené klíšťaty; tvoří se s odstupem po infekci a přetrvávají dlouhodobě.",
+  "usedFor": "Vyšetření se používá při podezření na pozdější fázi lymské boreliózy nebo na infekci prodělanou v minulosti a odráží dlouhodobou imunitní odpověď na borelie."
+ },
+ "anti_borrelia_igm": {
+  "what": "Anti-Borrelia IgM jsou protilátky třídy IgM proti bakterii Borrelia burgdorferi, původci lymské boreliózy přenášené klíšťaty; tvoří se jako časná reakce na infekci.",
+  "usedFor": "Vyšetření se používá při podezření na časnou fázi lymské boreliózy, zatímco IgG protilátky odrážejí pozdější nebo proběhlou infekci."
+ },
+ "anti_ebv_ebna_igg": {
+  "what": "Anti-EBV EBNA IgG jsou protilátky třídy IgG proti jadernému antigenu (EBNA) viru Epsteina-Barrové (EBV); tvoří se s odstupem několika týdnů až měsíců po infekci a přetrvávají celoživotně.",
+  "usedFor": "Vyšetření se používá k potvrzení dříve prodělané infekce virem Epsteina-Barrové, protože tyto protilátky se objevují až po odeznění akutní fáze."
+ },
+ "anti_ebv_vca_igg": {
+  "what": "Anti-EBV VCA IgG jsou protilátky třídy IgG proti kapsidovému antigenu (VCA) viru Epsteina-Barrové (EBV); objevují se záhy po nákaze a přetrvávají celoživotně.",
+  "usedFor": "Vyšetření se používá k posouzení, zda k infekci virem Epsteina-Barrové již došlo, a to v akutní i v odeznělé fázi, na rozdíl od EBNA IgG, které se objevují až později."
+ },
+ "anti_ebv_vca_igm": {
+  "what": "Anti-EBV VCA IgM jsou protilátky třídy IgM proti kapsidovému antigenu (VCA) viru Epsteina-Barrové (EBV); tvoří se jako první reakce na infekci a po několika týdnech až měsících mizí.",
+  "usedFor": "Vyšetření se používá k rozpoznání čerstvé infekce virem Epsteina-Barrové, která se může projevit jako infekční mononukleóza, na rozdíl od VCA IgG, které přetrvávají i po jejím odeznění."
+ }
+}

@@ -34,6 +34,13 @@ FONT, FONT_BOLD = czech_fonts()
 REF_RANGES: dict[str, list[float]] = json.loads(
     (Path(__file__).resolve().parent / "reference_ranges.json").read_text("utf-8")
 )["ranges"]
+# What each analyte is and what it is usually used for, two Czech sentences
+# each, behind the "i" in Trendy and Souhrn (docs/plans/multi-user.md Goal 3).
+# Written by one model and reviewed by another; never a word about the
+# person's numbers. seed_registry.py refuses a catalog with an entry missing here.
+ABOUT: dict[str, dict[str, str]] = json.loads(
+    (Path(__file__).resolve().parent / "analyte_about.json").read_text("utf-8")
+)
 sys.path.insert(0, str(ROOT))
 
 from src.matching import Registry, norm_key  # noqa: E402
@@ -350,6 +357,7 @@ def main() -> None:
             "canonicalUnit": a["canonical_unit"],
             "unitConversions": a["unit_conversions"],
             "referenceRange": REF_RANGES.get(a["canonical_id"]),
+            **({"about": ABOUT[a["canonical_id"]]} if a["canonical_id"] in ABOUT else {}),
         } for a in slim], ensure_ascii=False, indent=1))
     for dest in (OUT / "registry.json", ROOT / "apps" / "portal" / "public" / "registry.json"):
         dest.parent.mkdir(parents=True, exist_ok=True)
