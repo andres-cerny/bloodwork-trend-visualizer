@@ -640,7 +640,31 @@ async function deleteReport(env: Env, user: UserRow, id: string): Promise<Respon
 
 /* --------------------------------------------------------------- settings */
 
-const MAX_SETTINGS_BYTES = 64 * 1024;
+/**
+ * What an account's settings may weigh. The learned names and custom
+ * parameters are small; `aiAsked` is not — the mapping model's answer is
+ * filed per printed name at ~200 bytes each, and an unknown lab's few
+ * hundred names passed the 64 kB this used to be, after which every save
+ * failed with the client's generic sentence. 512 kB is ~2 500 names, and
+ * stays well under D1's 1 MB row. Measured in bytes, not characters: the
+ * row is what the cap has to bound, and Czech reasons are not ASCII.
+ */
+const MAX_SETTINGS_BYTES = 512 * 1024;
+
+/** Whole kilobytes, for the refusal: "600 kB", never "614.4". */
+const kB = (bytes: number) => `${Math.round(bytes / 1024)} kB`;
+
+/** Says what is too large, and by how much. The client's banner still
+ *  prints its own sentence (Portal.tsx); this one is in the response for
+ *  the network tab and for the day the banner reads the worker's words. */
+const settingsTooLarge = (bytes: number) =>
+  json(
+    {
+      error: "too_large",
+      message: `Nastavení účtu (přiřazení názvů, vlastní parametry a AI kontext) je příliš velké: ${kB(bytes)}, nejvýše ${kB(MAX_SETTINGS_BYTES)}.`,
+    },
+    413,
+  );
 
 async function getSettings(env: Env, user: UserRow): Promise<Response> {
   const row = await env.DB.prepare(SQL.settingsForUser).bind(user.id).first<{ settings: string | null }>();
@@ -648,8 +672,9 @@ async function getSettings(env: Env, user: UserRow): Promise<Response> {
 }
 
 async function putSettings(request: Request, env: Env, user: UserRow): Promise<Response> {
-  const text = await request.text();
-  if (text.length > MAX_SETTINGS_BYTES) return json({ error: "too_large" }, 413);
+  const bytes = await request.arrayBuffer();
+  if (bytes.byteLength > MAX_SETTINGS_BYTES) return settingsTooLarge(bytes.byteLength);
+  const text = new TextDecoder().decode(bytes);
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
