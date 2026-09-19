@@ -11,7 +11,7 @@
  * pair.
  */
 export const SQL = {
-  inviteByCode: "SELECT code, used_at, expires_at, user_id FROM invites WHERE code = ?1",
+  inviteByCode: "SELECT code, used_at, expires_at, user_id, email, consent_at FROM invites WHERE code = ?1",
   // Spent means used_at is set. used_by is unlinked when an account is
   // deleted (the row it referenced is gone), and a code must not come back to
   // life because of that. The expiry is checked here too, so a link that ran
@@ -24,6 +24,12 @@ export const SQL = {
     "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch FROM users WHERE id = ?1",
   insertUser:
     "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+  // The account a mailed link opens (src/signup.ts): the address is the one
+  // the link went to, so it is verified at birth, and the consent is the one
+  // given on the form that asked for the mail.
+  insertVerifiedUser:
+    "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters, consent_at, email_verified_at) " +
+    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
   setPassword: "UPDATE users SET password_hash = ?2, password_salt = ?3, password_iters = ?4 WHERE id = ?1",
   // End every session of the account: cookies carry the number they were
   // minted under, and requireSession refuses one that is not the row's.
@@ -35,6 +41,20 @@ export const SQL = {
   // is not something they have to hand. NULL puts the account back on
   // PORTAL_USD_LIMIT; tools/scripts/moje-krev-budget.mjs writes both.
   setUserBudget: "UPDATE users SET budget_usd = ?2 WHERE email = ?1",
+
+  // The codes the worker mails (src/signup.ts). Bound to an account when the
+  // address has one — a set-password link, exactly what --email mints — and
+  // otherwise carrying the address and the consent, so using it opens the
+  // account for that address and no other.
+  insertBoundInvite: "INSERT INTO invites (code, note, created_at, expires_at, user_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+  insertPendingInvite:
+    "INSERT INTO invites (code, note, created_at, expires_at, email, consent_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+
+  // Mails asked for per IP hash (src/ratelimit.ts): the same shape as the
+  // login failures, one row per request, pruned as they age out of the day.
+  countSignupAttempts: "SELECT COUNT(*) AS n FROM signup_attempts WHERE ip_hash = ?1 AND at > ?2",
+  insertSignupAttempt: "INSERT INTO signup_attempts (ip_hash, at) VALUES (?1, ?2)",
+  pruneSignupAttempts: "DELETE FROM signup_attempts WHERE at < ?1",
 
   // Login failures per e-mail, whether or not the e-mail has an account:
   // the lockout must not be the one place that says which addresses exist.
@@ -132,6 +152,10 @@ export interface InviteRow {
   expires_at: string | null;
   /** Set on a set-password link; null on a sign-up link. */
   user_id: string | null;
+  /** The address a mailed sign-up code went to; null on an operator's code. */
+  email: string | null;
+  /** When that address consented on the registration form; null otherwise. */
+  consent_at: string | null;
 }
 
 export interface AiShareRow {

@@ -31,6 +31,9 @@ interface InviteT {
   used_at: string | null;
   expires_at: string | null;
   user_id: string | null;
+  /** Both null on every code the operator mints; the mailed ones are signup.test.ts. */
+  email: string | null;
+  consent_at: string | null;
 }
 interface Tables {
   users: UserT[];
@@ -151,6 +154,8 @@ const invite = (code: string, extra: Partial<InviteT> = {}): InviteT => ({
   used_at: null,
   expires_at: inHours(24),
   user_id: null,
+  email: null,
+  consent_at: null,
   ...extra,
 });
 

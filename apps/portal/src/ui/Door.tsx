@@ -4,8 +4,9 @@
  * from App.tsx so the link page and the door can both import it without
  * importing each other.
  */
-import { useState } from "react";
-import { ApiError } from "../lib/api";
+import { useEffect, useState } from "react";
+import { ApiError, signupOpen } from "../lib/api";
+import type { TurnstileGate } from "../lib/turnstile";
 
 export interface Me {
   /** Null in the demo: the address is the owner's login, and no screen
@@ -42,6 +43,50 @@ export function Door({ children }: { children: React.ReactNode }) {
 export function messageOf(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   return "Spojení se nezdařilo. Zkuste to prosím znovu.";
+}
+
+/**
+ * Where the Turnstile widget renders, when there is a site key to render it
+ * with. Without one the box is not drawn at all — an empty frame under a
+ * form would read as something missing. The `.door-turnstile` rule gives it
+ * the widget's height ahead of time, so the button under it does not jump
+ * when the challenge appears.
+ */
+export function TurnstileBox({ gate }: { gate: TurnstileGate }) {
+  if (!gate.available) return null;
+  return <div ref={gate.boxRef} className="door-turnstile" />;
+}
+
+/**
+ * Whether this deployment lets a stranger register. Asked rather than
+ * assumed, like the demo link: most deployments are invite-only and must
+ * show no door that leads to a 404.
+ */
+export function useSignupOpen(): boolean {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    void signupOpen().then(setOpen);
+  }, []);
+  return open;
+}
+
+/**
+ * The two other ways off the login form. Open, they are the registration
+ * page and the forgotten-password page; closed, the one sentence the
+ * invite-only door has always had.
+ */
+export function DoorWays({ open }: { open: boolean }) {
+  if (!open) return <p className="sub">Zapomenuté heslo? Napište mi a pošlu vám odkaz.</p>;
+  return (
+    <div className="door-ways">
+      <a className="btn linkish" href="/registrace">
+        Registrovat
+      </a>
+      <a className="btn linkish" href="/zapomenute-heslo">
+        Zapomenuté heslo
+      </a>
+    </div>
+  );
 }
 
 /**

@@ -1,19 +1,24 @@
 /**
  * Moje krev's door: who are you, or the login form.
  *
- * This file is the door and nothing else. Three paths lead into the app —
- * "/" is the login, "/registrace" and "/heslo" are the two kinds of link the
- * operator sends (ui/InvitePage.tsx) — and "/soukromi" is the one public
- * page beside them. The shell serves index.html for any path, so this is
- * the whole router. Everything behind the door — upload, verification,
- * trends — is ui/Portal.tsx.
+ * This file is the door and nothing else. Five paths lead into the app —
+ * "/" is the login, "/registrace?kod=…" and "/heslo?kod=…" are the two
+ * kinds of link the operator sends (ui/InvitePage.tsx), and "/registrace"
+ * bare and "/zapomenute-heslo" are the open door's two forms that mail a
+ * link (ui/RegisterPage.tsx) — and "/soukromi" is the one public page
+ * beside them. The shell serves index.html for any path, so this is the
+ * whole router. Everything behind the door — upload, verification, trends —
+ * is ui/Portal.tsx.
  */
 import { useEffect, useState } from "react";
+import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
-import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./ui/Door";
+import RegisterPage from "./ui/RegisterPage";
+import { Door, DoorWays, TurnstileBox, fetchMe, messageOf, type Me, useShownPassword, useSignupOpen } from "./ui/Door";
 import { demoOffered, enterDemo, login } from "./lib/api";
+import { useTurnstile } from "./lib/turnstile";
 
 export default function App() {
   // Set once a link has opened the account: from then on this is the portal,
@@ -21,6 +26,12 @@ export default function App() {
   const [entered, setEntered] = useState<Me | null>(null);
   const path = location.pathname;
   if (path === "/soukromi") return <Privacy />;
+  // The open door (ui/RegisterPage.tsx): /registrace without a code asks
+  // for an address and mails the link; with one it is the operator's
+  // sign-up link as before.
+  const hasCode = new URLSearchParams(location.search).has("kod");
+  if (!entered && path === "/registrace" && !hasCode) return <RegisterPage mode="register" />;
+  if (!entered && path === "/zapomenute-heslo") return <RegisterPage mode="forgot" />;
   if (!entered && (path === "/registrace" || path === "/heslo")) {
     return (
       <InvitePage
@@ -64,6 +75,9 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
   // than assumed: a link that leads nowhere is worse than no link, and most
   // deployments name no demo account at all.
   const [demo, setDemo] = useState(false);
+  // The open door's two extras and its bot gate (ui/Door.tsx, lib/turnstile.ts).
+  const open = useSignupOpen();
+  const gate = useTurnstile(PORTAL_TURNSTILE_ACTIONS.login);
 
   useEffect(() => {
     void demoOffered().then(setDemo);
@@ -87,7 +101,13 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    await enter(() => login(email, password));
+    if (gate.available && !gate.token) {
+      setError("Počkejte prosím na ověření, že nejste robot.");
+      return;
+    }
+    await enter(() => login(email, password, gate.token));
+    // A token is single-use: whatever the answer, the next try needs a new one.
+    gate.reset();
   }
 
   return (
@@ -109,12 +129,13 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
           />
         </label>
         {pw.toggle}
+        <TurnstileBox gate={gate} />
         {error && <p className="notice">{error}</p>}
         <button className="btn primary" disabled={busy}>
           Přihlásit se
         </button>
       </form>
-      <p className="sub">Zapomenuté heslo? Napište mi a pošlu vám odkaz.</p>
+      <DoorWays open={open} />
       {demo && (
         <div className="door-demo">
           <button type="button" className="btn linkish" disabled={busy} onClick={() => void enter(enterDemo)}>

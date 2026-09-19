@@ -46,7 +46,18 @@
     // beyond it `prepareFile` truncates and the upload log says so
     // ("Zpracováno prvních … zůstalo nepřečteno"), so nothing is dropped
     // silently. Raise it the day a real report needs it.
-    "MAX_PAGES_PER_REPORT": "6"
+    "MAX_PAGES_PER_REPORT": "6",
+    // The open door (src/signup.ts). "false" — the state of this file — is
+    // the invite-only worker: a stranger can register only with a code, the
+    // login form asks for no Turnstile, and the mail routes answer 404.
+    // Flipping it is Ondřej's step, after RESEND_API_KEY, MAIL_FROM and
+    // TURNSTILE_SECRET_KEY are set (docs/moje-krev-handoff.md). Never set
+    // OPEN_SIGNUP_DEV_BYPASS here — a test refuses this file if it is.
+    "OPEN_SIGNUP": "false",
+    // The hostnames a Turnstile token may have been solved on. The dev
+    // domain for now; the real domain replaces it, and localhost is never
+    // listed (the local app runs without a site key and with the bypass).
+    "TURNSTILE_HOSTNAMES": "moje-krev.andres-cerny.workers.dev"
   },
 
   "observability": { "enabled": true }
@@ -58,6 +69,9 @@
   // an address stays out of git; unset (the default) and the link is not
   // shown and its two routes answer 404. docs/moje-krev-handoff.md says what
   // a visitor can then do, and what they cannot.
-  // RESEND_API_KEY and MAIL_FROM may still be set from the magic-link days;
-  // nothing reads them.
+  // With OPEN_SIGNUP "true" three more are read (src/signup.ts, src/mail.ts):
+  // RESEND_API_KEY and MAIL_FROM, which send the registration and
+  // forgotten-password links — without the key the link is only logged —
+  // and TURNSTILE_SECRET_KEY, which checks the token the three public forms
+  // post; unset, every token is refused.
 }

@@ -102,6 +102,18 @@ function fakeApi(port: number): Promise<Server> {
         return json(res, { kind: "signup" });
       case "GET /api/auth/invite/audit-heslo":
         return json(res, { kind: "password" });
+      // The link the worker mails to an address with no account: it names
+      // the address, so the form asks for the password alone.
+      case "GET /api/auth/invite/audit-email":
+        return json(res, { kind: "signup", email: "audit@example.com" });
+      // The open door: this deployment registers strangers, and the two
+      // forms that mail a link answer as the worker does — the same ok
+      // whether or not the address has an account. No mail goes anywhere.
+      case "GET /api/auth/signup":
+        return json(res, { open: true });
+      case "POST /api/auth/register":
+      case "POST /api/auth/forgot":
+        return json(res, { ok: true });
     }
     if (req.method === "GET" && url.pathname.startsWith("/api/auth/invite/")) {
       return json(res, { error: "invite_invalid", message: "Odkaz už neplatí. Napište mi a pošlu nový." }, 404);

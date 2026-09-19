@@ -103,6 +103,17 @@ async function expectPopoverInView(page: Page) {
   expect(await page.locator(".about-pop p").count()).toBe(2);
 }
 
+/** Cloudflare's widget script never loads: the sweep is of our form, not their iframe. */
+const noWidget = async (page: Page) => {
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+};
+
+/** A stranger at the door: /api/me says nobody is logged in. */
+const loggedOut = async (page: Page) => {
+  await noWidget(page);
+  await page.route("**/api/me", (route) => route.fulfill({ status: 401, json: { error: "unauthorized", message: "Přihlaste se prosím." } }));
+};
+
 interface Screen {
   name: string;
   go: (page: Page) => Promise<void>;
@@ -122,6 +133,29 @@ const SCREENS: Screen[] = [
   { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
   { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
   { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
+  // The open door (docs/plans/multi-user.md, Goal 6). The Turnstile widget
+  // is Cloudflare's iframe and is not swept — its script is refused here so
+  // the screens are the same with and without a site key in .env; what is
+  // audited is the form around it. The login form is reached by answering
+  // /api/me with a 401, the way it is for a stranger.
+  { name: "přihlášení (otevřená registrace)", at: { path: "/", ready: ".door form" }, prepare: loggedOut, go: async () => {} },
+  { name: "registrace (otevřená)", at: { path: "/registrace", ready: ".door form" }, prepare: noWidget, go: async () => {} },
+  {
+    name: "registrace (odkaz odeslán)",
+    at: { path: "/registrace", ready: ".door form" },
+    prepare: noWidget,
+    go: async (page) => {
+      await page.getByLabel("E-mail").fill("audit@example.com");
+      for (const box of await page.locator("label.consent input").all()) await box.check();
+      await page.getByRole("button", { name: "Poslat odkaz" }).click();
+      await page.waitForSelector(".door .sent", { timeout: 10_000 });
+    },
+    check: async (page) => {
+      expect(await page.locator(".door .sent").innerText()).toBe("Poslali jsme odkaz na audit@example.com. Otevřete ho do 24 hodin.");
+    },
+  },
+  { name: "zapomenuté heslo", at: { path: "/zapomenute-heslo", ready: ".door form" }, prepare: noWidget, go: async () => {} },
+  { name: "heslo (odkaz z e-mailu, nový účet)", at: { path: "/heslo?kod=audit-email", ready: ".door form" }, go: async () => {} },
   // Souhrn is the landing tab since Přehled was dropped — its tile wall said
   // what the summary groups and tables already say.
   { name: "souhrn (výchozí)", go: async () => {} },

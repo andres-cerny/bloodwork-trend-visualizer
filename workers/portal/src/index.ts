@@ -2,11 +2,15 @@
  * Moje krev's API worker: accounts, and the reports they own.
  *
  * Auth is deliberately small: e-mail and password, the session a signed
- * cookie. Sign-up is a link the operator sends — a code that lives a week
- * and spends once — and so is a forgotten password: the same kind of code,
- * bound to the account it resets. No route ever confirms whether an e-mail
+ * cookie. Sign-up is a link — a code that lives a day and spends once —
+ * and so is a forgotten password: the same kind of code, bound to the
+ * account it resets. The operator mints them by hand; with OPEN_SIGNUP on,
+ * the worker mints and mails them to whoever asks (src/signup.ts), behind
+ * Turnstile and a per-IP ceiling. No route ever confirms whether an e-mail
  * is registered: a wrong password and an unknown address get one sentence,
- * and a spent, expired or foreign code gets another, whichever it was.
+ * a spent, expired or foreign code gets another, whichever it was, and a
+ * request for a link is answered the same whether the address has an
+ * account or not.
  *
  * Storage is deliberately dumb: the client builds a LabReport with lab-core
  * and this worker keeps it, whole, keyed to the account. Trends, review and
@@ -34,9 +38,11 @@
  * response may say markdown. The old `.md` address redirects to the bare one.
  */
 import { mintSession } from "@bw/gate";
+import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
+import { handleSignupMail, looksLikeEmail, openMailedAccount, requireHuman, signupStatus, type SignupEnv } from "./signup";
 import {
   clearCookieHeader,
   mintCookieToken,
@@ -47,7 +53,11 @@ import {
   verifyCookieToken,
 } from "./session";
 
-export interface Env {
+/**
+ * SignupEnv is the open door's part (src/signup.ts): OPEN_SIGNUP and its dev
+ * bypass, the Turnstile secret and hostnames, RESEND_API_KEY and MAIL_FROM.
+ */
+export interface Env extends SignupEnv {
   DB: D1Database;
   /** Redacted page images, keyed `${uid}/${reportId}/page_${n}`. */
   PAGES: KVNamespace;
@@ -127,10 +137,6 @@ const DEMO_SESSION_TTL_DAYS = 1;
  *  fifteen minutes — whether or not it has an account. */
 const LOCKOUT_FAILURES = 10;
 const LOCKOUT_WINDOW_SECONDS = 15 * 60;
-
-/** Enough to catch typos; the delivered link is the real verification. */
-const looksLikeEmail = (s: unknown): s is string =>
-  typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 const passwordOk = (s: unknown): s is string =>
   typeof s === "string" && s.length >= MIN_PASSWORD && s.length <= MAX_PASSWORD;
@@ -248,21 +254,28 @@ async function inviteKind(env: Env, rawCode: string): Promise<Response> {
   }
   const invite = await liveInvite(env, code);
   if (!invite) return inviteDead(404);
-  return json({ kind: invite.user_id ? "password" : "signup" });
+  // A mailed sign-up code names its address, so the form need not ask.
+  return json({ kind: invite.user_id ? "password" : "signup", ...(invite.email ? { email: invite.email } : {}) });
 }
 
 async function handleRegister(request: Request, env: Env): Promise<Response> {
-  const { code, email, password } = (await request.json().catch(() => ({}))) as {
+  const body = (await request.json().catch(() => ({}))) as {
     code?: string;
     email?: string;
     password?: string;
   };
+  // No code and no password is the open door's form: an address asking for
+  // a link (src/signup.ts). With OPEN_SIGNUP off it answers 404, and a code
+  // is the only way in, as before.
+  if (body.code === undefined && body.password === undefined) return handleSignupMail(request, env, "register", body);
+  const { code, email, password } = body;
   if (!looksLikeEmail(email) || !passwordOk(password)) {
     return json({ error: "bad_request", message: `Vyplňte platný e-mail a heslo o nejméně ${MIN_PASSWORD} znacích.` }, 400);
   }
   const invite = await liveInvite(env, code);
-  // A bound code is a set-password link; it opens no new account.
-  if (!invite || invite.user_id !== null) return inviteDead();
+  // A bound code is a set-password link; it opens no new account. A mailed
+  // code names its own address and is used through /api/auth/password.
+  if (!invite || invite.user_id !== null || invite.email !== null) return inviteDead();
 
   const normEmail = email.trim().toLowerCase();
   // The same refusal as a dead code: a person holding a link must not learn
@@ -284,10 +297,18 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
-  const { email, password } = (await request.json().catch(() => ({}))) as { email?: string; password?: string };
+  const { email, password, turnstile } = (await request.json().catch(() => ({}))) as {
+    email?: string;
+    password?: string;
+    turnstile?: unknown;
+  };
   if (!looksLikeEmail(email) || typeof password !== "string" || password.length > MAX_PASSWORD) {
     return json({ error: "bad_request", message: "Zadejte e-mail a heslo." }, 400);
   }
+  // The bot gate, on an open deployment only; a bot's guess must not even
+  // count towards the lockout.
+  const human = await requireHuman(request, env, PORTAL_TURNSTILE_ACTIONS.login, turnstile);
+  if (human) return human;
   const normEmail = email.trim().toLowerCase();
 
   const since = now() - LOCKOUT_WINDOW_SECONDS;
@@ -359,7 +380,13 @@ async function handleSetPassword(request: Request, env: Env): Promise<Response> 
     return json({ error: "bad_request", message: `Heslo musí mít nejméně ${MIN_PASSWORD} znaků.` }, 400);
   }
   const invite = await liveInvite(env, code);
-  if (!invite || invite.user_id === null) return inviteDead();
+  if (!invite) return inviteDead();
+  // A mailed sign-up code: the address is the code's, the password is this
+  // one, and the account is born here (src/signup.ts).
+  if (invite.user_id === null) {
+    const opened = invite.email ? await openMailedAccount(env, invite, password) : null;
+    return opened ? loggedIn(env, opened.uid, false, opened.epoch) : inviteDead();
+  }
   const user = await env.DB.prepare(SQL.userById).bind(invite.user_id).first<UserRow>();
   if (!user) return inviteDead();
 
@@ -954,6 +981,14 @@ export default {
         return handleSetPassword(request, env);
       case "POST /api/auth/logout":
         return handleLogout(request, env);
+      // The open door (src/signup.ts): whether it is open, and the forgotten
+      // password form, which mails a link. Closed, the form answers 404 and
+      // the GET says so. Register without a code is the same door — see
+      // handleRegister.
+      case "GET /api/auth/signup":
+        return signupStatus(env);
+      case "POST /api/auth/forgot":
+        return handleSignupMail(request, env, "forgot");
       // The public demo patient, on a deployment that names one. The GET is
       // how the door decides whether to show the link at all; both answer
       // 404 where there is no demo, so an ordinary deployment looks exactly

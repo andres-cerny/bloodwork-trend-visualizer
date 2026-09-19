@@ -54,18 +54,36 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-/** Which form a link opens. A dead link is an ApiError with status 404. */
+/**
+ * Which form a link opens. A dead link is an ApiError with status 404. A
+ * sign-up link the worker mailed names its address, so the form need not
+ * ask for it; an operator's sign-up code does not.
+ */
 export const checkInvite = (code: string) =>
-  request<{ kind: "signup" | "password" }>(`/api/auth/invite/${encodeURIComponent(code)}`);
+  request<{ kind: "signup" | "password"; email?: string }>(`/api/auth/invite/${encodeURIComponent(code)}`);
 
 /** Each of the three mints the session cookie on success; the caller then
- *  reads /api/me, which is the only thing that says who is logged in. */
+ *  reads /api/me, which is the only thing that says who is logged in. The
+ *  Turnstile token goes with the login on an open deployment; the worker
+ *  ignores it on a closed one. */
 export const register = (code: string, email: string, password: string) =>
   request<{ ok: true }>("/api/auth/register", jsonInit("POST", { code, email, password }));
-export const login = (email: string, password: string) =>
-  request<{ ok: true }>("/api/auth/login", jsonInit("POST", { email, password }));
+export const login = (email: string, password: string, turnstile?: string | null) =>
+  request<{ ok: true }>("/api/auth/login", jsonInit("POST", { email, password, ...(turnstile ? { turnstile } : {}) }));
 export const setPassword = (code: string, password: string) =>
   request<{ ok: true }>("/api/auth/password", jsonInit("POST", { code, password }));
+
+/**
+ * The open door. `signupOpen` is what the door asks before drawing
+ * „Registrovat" and „Zapomenuté heslo"; the two requests mail a link and
+ * answer {ok:true} whether or not the address has an account — the mailbox
+ * learns which, the screen does not. `consent` is both boxes ticked.
+ */
+export const signupOpen = () => request<{ open: boolean }>("/api/auth/signup").then((r) => r.open, () => false);
+export const requestSignup = (email: string, consent: boolean, turnstile?: string | null) =>
+  request<{ ok: true }>("/api/auth/register", jsonInit("POST", { email, consent, ...(turnstile ? { turnstile } : {}) }));
+export const requestReset = (email: string, turnstile?: string | null) =>
+  request<{ ok: true }>("/api/auth/forgot", jsonInit("POST", { email, ...(turnstile ? { turnstile } : {}) }));
 
 /**
  * The public demo patient — a real account this deployment opens to anyone.

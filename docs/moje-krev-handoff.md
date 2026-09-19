@@ -141,9 +141,73 @@ npm run deploy:moje-krev                      # extract → portal API → shell
 node tools/scripts/moje-krev-invites.mjs 1 "Andres" --apply    # prints the link to send
 ```
 
-The app then lives at `https://moje-krev.<your-account>.workers.dev`. There
-is no mail: every link — sign-up or set-password — is one you mint and send
-yourself, and it lives a week.
+The app then lives at `https://moje-krev.<your-account>.workers.dev`. Until
+the door is opened (next section) there is no mail: every link — sign-up or
+set-password — is one you mint and send yourself, and it lives a week.
+
+## Opening the door — registration by e-mail
+
+With `OPEN_SIGNUP` on, a stranger registers without a code: the front page
+gains **„Registrovat"** and **„Zapomenuté heslo"**, each a form that takes an
+e-mail and mails a link. The link opens `/heslo?kod=…` — the set-password
+screen — and the account is born when the password is set, so nothing exists
+for an address that never opened its mail, and an unverified address can
+spend nothing. An address that already has an account gets a set-password
+link instead, with the same `{"ok":true}` answer: nothing on the screen says
+which addresses are registered. The link lives 24 hours and spends once.
+Turnstile guards the three public forms (register, login, forgot) and nothing
+behind the login; five mails an hour and twenty a day per IP, then a 429 in
+Czech. Invite codes keep working and skip Turnstile — a code is the proof.
+
+**Locally**, nothing is mailed and there is no Turnstile site key, so the
+worker prints the link and accepts the forms without a token — both only
+because `.dev.vars` says so:
+
+```sh
+# workers/portal/.dev.vars — append:
+OPEN_SIGNUP=true
+OPEN_SIGNUP_DEV_BYPASS=true
+```
+
+Then `npm run dev:portal-api` and `npm run dev:portal`, open
+`http://localhost:5173/registrace`, tick the two consents, „Poslat odkaz" —
+and read the link out of the API worker's terminal (`[mail not sent —
+RESEND_API_KEY unset]`, then the mail as it would have gone). Open it, set a
+password, and you are in. The row carries `consent_at` (when the boxes were
+ticked) and `email_verified_at` (when the link was used). A database created
+before 2026-09-19 needs the columns once — locally `--local`, live
+`--remote`, **before** the worker that reads them is deployed
+(`npm run check:schema` says whether they are there):
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migrations/2026-09-19-open-signup.sql
+```
+
+**In production** the door opens in this order, one step at a time, and
+`OPEN_SIGNUP_DEV_BYPASS` is never set — `signup.test.ts` refuses a
+`wrangler.jsonc` that names it:
+
+```sh
+cd workers/portal
+npx wrangler secret put RESEND_API_KEY        # Resend → API Keys; the domain must be verified there first
+npx wrangler secret put MAIL_FROM             # e.g.  Moje krev <noreply@your-domain>
+npx wrangler secret put TURNSTILE_SECRET_KEY  # a Turnstile widget for the app's hostname — never localhost
+# apps/portal: VITE_TURNSTILE_SITE_KEY=<the widget's site key> in the repo-root .env before `npm run build:portal`
+# workers/portal/wrangler.jsonc: TURNSTILE_HOSTNAMES = the hostname(s) the app is served on; OPEN_SIGNUP = "true"
+npm run deploy:moje-krev                      # from the repo root
+```
+
+Then prove it once with your own address: register, read the mail, set a
+password, log in; ask for a forgotten-password link on the same address and
+on one nobody has (the second mailbox is told there is no account, the
+screen is not). Until the domain exists in Resend, mail can reach only the
+address Resend's sandbox allows — your own. With `RESEND_API_KEY` unset in
+production the worker logs the link and answers as if sent, which is a
+deployment that lets nobody in: set the key before the var.
+
+To close the door again, `OPEN_SIGNUP` back to `"false"` and deploy: the
+forms answer 404, the front page shows no „Registrovat", login asks for no
+token, and every account already made keeps working.
 
 ## The public demo patient
 
