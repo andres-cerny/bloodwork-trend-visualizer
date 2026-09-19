@@ -69,6 +69,8 @@ function fakeD1(t: Tables): D1Database {
         t.shares = t.shares.filter((s) => s.user_id !== a[0]);
         return { results: [], changes: before - t.shares.length };
       }
+      case SQL.deleteMessagesForUser:
+        return { results: [], changes: 0 };
       // The rest of the account cascade, so DELETE /api/account runs whole.
       case SQL.pageKeysForUser:
       case SQL.deletePagesForUser:

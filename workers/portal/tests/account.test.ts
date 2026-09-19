@@ -17,6 +17,7 @@ interface Tables {
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string }>;
   shares: Array<{ token_hash: string; user_id: string }>;
+  messages: Array<{ id: string; user_id: string | null; email: string }>;
 }
 
 function fakeD1(t: Tables): D1Database {
@@ -62,6 +63,11 @@ function fakeD1(t: Tables): D1Database {
           n++;
         }
         return { results: [], changes: n };
+      }
+      case SQL.deleteMessagesForUser: {
+        const before = t.messages.length;
+        t.messages = t.messages.filter((m) => m.user_id !== a[0]);
+        return { results: [], changes: before - t.messages.length };
       }
       case SQL.unlinkSynonyms:
         return { results: [], changes: 0 };
@@ -147,6 +153,12 @@ beforeEach(() => {
       { report_id: "r-9", page_num: 1, kv_key: "u-b/r-9/page_1" },
     ],
     shares: [{ token_hash: "ha", user_id: "u-a" }, { token_hash: "hb", user_id: "u-b" }],
+    // A's help-desk message goes with A; B's stays; a stranger's has no account to go with.
+    messages: [
+      { id: "m-a", user_id: "u-a", email: "a@example.com" },
+      { id: "m-b", user_id: "u-b", email: "b@example.com" },
+      { id: "m-x", user_id: null, email: "x@example.com" },
+    ],
   };
   pages = fakeKv(["u-a/r-1/page_1", "u-a/r-2/page_1", "u-b/r-9/page_1"]);
   env = {
@@ -208,6 +220,8 @@ describe("delete account", () => {
     expect(tables.pages.map((p) => p.kv_key)).toEqual(["u-b/r-9/page_1"]);
     expect(tables.shares.map((s) => s.user_id)).toEqual(["u-b"]);
     expect(tables.failures.map((f) => f.email)).toEqual(["b@example.com"]);
+    // The help-desk message carried A's address; it goes with the account.
+    expect(tables.messages.map((m) => m.id)).toEqual(["m-b", "m-x"]);
     expect(tables.invites.find((i) => i.code === "heslo-a")!.user_id).toBeNull();
     expect([...pages._store.keys()]).toEqual(["u-b/r-9/page_1"]);
   });

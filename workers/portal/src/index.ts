@@ -35,6 +35,8 @@
  */
 import { mintSession } from "@bw/gate";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
+import { errorCodeOf, recordEvent, routeLabel } from "./events";
+import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import {
@@ -46,6 +48,8 @@ import {
   sha256Hex,
   verifyCookieToken,
 } from "./session";
+import type { AiBinding } from "./triage";
+import { runWatch } from "./watch";
 
 export interface Env {
   DB: D1Database;
@@ -69,6 +73,21 @@ export interface Env {
   DEMO_EMAIL?: string;
   PORTAL_USD_LIMIT?: string;
   MAX_PAGES_PER_REPORT?: string;
+  /**
+   * Workers AI, for the help desk's triage (src/triage.ts). Optional on
+   * purpose: absent in tests and in a config without `ai`, and then the
+   * raw message goes to Telegram alone.
+   */
+  AI?: AiBinding;
+  /** The bot and its two chats (src/telegram.ts). All three unset: nothing is posted, everything else is the same. */
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_HELPDESK_CHAT?: string;
+  TELEGRAM_OPS_CHAT?: string;
+  /** The shell's public origin, probed by the scheduled check (src/watch.ts). */
+  APP_URL?: string;
+  /** Turnstile on the logged-out help-desk form; unset, the form takes no token. */
+  TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_HOSTNAMES?: string;
 }
 
 const json = (data: unknown, status = 200) =>
@@ -465,6 +484,11 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
       if (ev.type !== "done" && ev.type !== "error") return text;
       const { type: _t, ...data } = ev;
       const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer);
+      // The HTTP status is already 200 on a stream, so the refusal in its
+      // last line is what the events table has to see (src/events.ts).
+      if (ev.type === "error") {
+        await recordEvent(env, { route: "POST /api/extract", status: 502, code: typeof ev.error === "string" ? ev.error : null, uid: user.id, requestId: request.headers.get("cf-ray") });
+      }
       return JSON.stringify({ type: ev.type, ...shaped });
     };
     const through = new TransformStream<Uint8Array, Uint8Array>({
@@ -754,6 +778,7 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   await env.DB.prepare(SQL.deletePagesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteReportsForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteSharesForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteMessagesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
   await env.DB.prepare(SQL.unlinkSynonyms).bind(user.id).run();
@@ -934,8 +959,11 @@ const REPORT = /^\/api\/reports\/([^/]+)$/;
 const INVITE = /^\/api\/auth\/invite\/([^/]+)$/;
 const PAGE = /^\/api\/(?:reports|pages)\/([^/]+)\/(\d{1,3})$/;
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+/** Which account a request turned out to belong to, for the events hook below. */
+const accountOf = new WeakMap<Request, string>();
+
+const routes = {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const route = `${request.method} ${url.pathname}`;
 
@@ -970,6 +998,13 @@ export default {
       // anyone who asks.
       case "GET /api/processors":
         return json({ photoReaders: await extractPhotoReaders(env) });
+      // „Napište nám", logged in or not: the session names the sender when
+      // there is one, and a stranger names themselves (src/helpdesk.ts).
+      case "POST /api/helpdesk": {
+        const who = await requireSession(request, env);
+        if (who) accountOf.set(request, who.user.id);
+        return handleHelpdesk(request, env, who?.user ?? null, ctx);
+      }
     }
     const invite = INVITE.exec(url.pathname);
     if (invite && request.method === "GET") return inviteKind(env, invite[1]);
@@ -978,6 +1013,7 @@ export default {
     const session = await requireSession(request, env);
     if (!session) return unauthorized();
     const { user } = session;
+    accountOf.set(request, user.id);
 
     switch (route) {
       case "GET /api/me":
@@ -1031,5 +1067,31 @@ export default {
       if (request.method === "DELETE") return session.demo ? demoMayNotDelete() : deleteReport(env, user, report[1]);
     }
     return json({ error: "not_found" }, 404);
+  },
+};
+
+export default {
+  /**
+   * Every answer goes through here so a refusal leaves a row (src/events.ts):
+   * the route with its ids stripped, the status, the body's code, and the
+   * account's hash when the request had a session.
+   */
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+    const res = await routes.fetch(request, env, ctx);
+    if (res.status >= 400) {
+      const url = new URL(request.url);
+      await recordEvent(env, {
+        route: routeLabel(request.method, url.pathname),
+        status: res.status,
+        code: await errorCodeOf(res),
+        uid: accountOf.get(request) ?? null,
+        requestId: request.headers.get("cf-ray"),
+      });
+    }
+    return res;
+  },
+  /** The cron trigger in wrangler.jsonc, every 15 minutes (src/watch.ts). */
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runWatch(env));
   },
 } satisfies ExportedHandler<Env>;

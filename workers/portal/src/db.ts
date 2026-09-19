@@ -94,7 +94,31 @@ export const SQL = {
   // The taught spellings outlive the teacher: the fact is the app's, the
   // link to the account is what the deletion removes.
   unlinkSynonyms: "UPDATE synonyms SET taught_by = NULL WHERE taught_by = ?1",
+
+  // „Napište nám" (src/helpdesk.ts): stored whole, read by the operator with
+  // tools/scripts/moje-krev-helpdesk.mjs. The worker never reads one back.
+  insertMessage:
+    "INSERT INTO messages (id, created_at, user_id, email, text, report_id, user_agent) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+  // The account's messages go with it; the fact that someone wrote stays
+  // useless without the address, so the row is deleted, not unlinked.
+  deleteMessagesForUser: "DELETE FROM messages WHERE user_id = ?1",
+
+  // Refusals the worker answered (src/events.ts): a route, a status, a code,
+  // a hash of the account. Read newest-first beside a help-desk message, and
+  // pruned by the scheduled check after 30 days.
+  insertEvent:
+    "INSERT INTO events (id, at, route, status, code, user_hash, request_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+  eventsForUser: "SELECT at, route, status, code FROM events WHERE user_hash = ?1 ORDER BY at DESC LIMIT 20",
+  recentEvents: "SELECT at, route, status, code FROM events ORDER BY at DESC LIMIT 20",
+  pruneEvents: "DELETE FROM events WHERE at < ?1",
 } as const;
+
+export interface EventRow {
+  at: number;
+  route: string;
+  status: number;
+  code: string | null;
+}
 
 export interface ReportRow {
   id: string;
