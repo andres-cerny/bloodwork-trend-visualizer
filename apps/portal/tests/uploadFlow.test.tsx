@@ -119,6 +119,9 @@ function mount(holding: boolean) {
       registry={new Registry([])}
       maxPages={6}
       frozen={false}
+      allowance={null}
+      onAllowance={() => {}}
+      onBuy={() => {}}
       onStored={(r) => {
         stored.push(r.id);
         order.push(`stored ${r.id}`);

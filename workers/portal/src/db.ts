@@ -19,9 +19,9 @@ export const SQL = {
   burnInvite:
     "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_at IS NULL AND (expires_at IS NULL OR expires_at > ?3)",
   userByEmail:
-    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch FROM users WHERE email = ?1",
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch, doc_allowance, doc_used FROM users WHERE email = ?1",
   userById:
-    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch FROM users WHERE id = ?1",
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch, doc_allowance, doc_used FROM users WHERE id = ?1",
   insertUser:
     "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
   // The account a mailed link opens (src/signup.ts): the address is the one
@@ -114,6 +114,35 @@ export const SQL = {
   // The taught spellings outlive the teacher: the fact is the app's, the
   // link to the account is what the deletion removes.
   unlinkSynonyms: "UPDATE synonyms SET taught_by = NULL WHERE taught_by = ?1",
+  deleteDocumentsForUser: "DELETE FROM documents WHERE user_id = ?1",
+  // A payment's record stays; whose it was does not.
+  unlinkPurchases: "UPDATE purchases SET user_id = NULL WHERE user_id = ?1",
+
+  // Documents (src/allowance.ts). Inserting the row is the claim on the id —
+  // OR IGNORE and meta.changes say whether this call was the one that made
+  // it — and the conditional UPDATE on the user row is the claim on the
+  // slot: it moves doc_used only while one is left.
+  insertDocument: "INSERT OR IGNORE INTO documents (id, user_id, created_at) VALUES (?1, ?2, ?3)",
+  documentById: "SELECT id, user_id, pages_sent, pages_read, released_at FROM documents WHERE id = ?1",
+  deleteDocument: "DELETE FROM documents WHERE id = ?1",
+  takeDocument: "UPDATE users SET doc_used = doc_used + 1 WHERE id = ?1 AND doc_used < doc_allowance",
+  // One page more on this document, if it is the owner's, still open, and
+  // under the page cap. Zero changes is any of the three, refused.
+  sendPage:
+    "UPDATE documents SET pages_sent = pages_sent + 1 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL AND pages_sent < ?3",
+  notePageRead: "UPDATE documents SET pages_read = pages_read + 1 WHERE id = ?1",
+  // The slot goes back only for a document nothing was read from; the
+  // conditional UPDATE is what makes a second release, or one after a read,
+  // change nothing.
+  releaseDocument:
+    "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND pages_read = 0 AND released_at IS NULL",
+  giveBackDocument: "UPDATE users SET doc_used = doc_used - 1 WHERE id = ?1 AND doc_used > 0",
+  allowanceForUser: "SELECT doc_allowance, doc_used FROM users WHERE id = ?1",
+
+  // Purchases (src/stripe.ts): the event id is the idempotency key.
+  insertPurchase:
+    "INSERT OR IGNORE INTO purchases (event_id, user_id, package, amount_czk, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+  creditDocuments: "UPDATE users SET doc_allowance = doc_allowance + ?2 WHERE id = ?1",
 } as const;
 
 export interface ReportRow {
@@ -143,6 +172,18 @@ export interface UserRow {
   budget_usd: number | null;
   /** The generation of sessions that is live; a cookie names one. */
   session_epoch: number;
+  /** Documents this account may open in all: 5 free plus what was bought or granted. */
+  doc_allowance: number;
+  /** Documents it has opened for extraction; never lowered by a deletion. */
+  doc_used: number;
+}
+
+export interface DocumentRow {
+  id: string;
+  user_id: string;
+  pages_sent: number;
+  pages_read: number;
+  released_at: string | null;
 }
 
 export interface InviteRow {

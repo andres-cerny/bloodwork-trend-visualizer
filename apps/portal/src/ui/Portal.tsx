@@ -34,7 +34,6 @@ import {
   buildTrends,
   count,
   czDate,
-  czUsd,
   findUnmapped,
   observedStats,
   rematchReport,
@@ -43,7 +42,9 @@ import {
   trendable,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
-import { type AiAsked, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
+import { type AiAsked, type Allowance, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
+import AllowanceChip from "./AllowanceChip";
+import BuySheet from "./BuySheet";
 import { type Judged, askingEntry, persistable, runAiMapping, withoutAsked } from "../lib/aiMapping";
 import { type Batch, holdsSummary } from "../lib/batch";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
@@ -141,6 +142,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // switch to Souhrn waits for its last file (lib/batch.ts).
   const [holding, setHolding] = useState(false);
   const [budget, setBudget] = useState<Budget | null>(null);
+  // Documents, not dollars: what the shell shows and the upload card checks
+  // (ui/AllowanceChip.tsx). Null until /api/status answers.
+  const [allowance, setAllowance] = useState<Allowance | null>(null);
+  const [buyOpen, setBuyOpen] = useState(false);
   // The wrangler default, so the upload screen never promises more pages
   // than the worker accepts in the moment before /api/status answers.
   const [maxPages, setMaxPages] = useState(6);
@@ -203,6 +208,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
         setReports(loaded);
         budgetRef.current = status.budget;
         setBudget(status.budget);
+        setAllowance(status.allowance ?? null);
         setMaxPages(status.maxPages);
         // Then the model, once, for what the catalog still does not know
         // and the account has never asked about. Not awaited: the screen
@@ -622,6 +628,9 @@ export default function Portal({ email, demo, onLogout }: Props) {
         registry={registry}
         maxPages={maxPages}
         frozen={frozen}
+        allowance={allowance}
+        onAllowance={setAllowance}
+        onBuy={() => setBuyOpen(true)}
         onStored={storeAndMap}
         onBudget={noteBudget}
         onBatch={onBatch}
@@ -671,11 +680,11 @@ export default function Portal({ email, demo, onLogout }: Props) {
           ))}
         </ul>
       )}
-      {budget && (
-        <p className="muted" style={{ margin: "10px 0 0" }}>
-          Zpracování tento měsíc: {czUsd(budget.spentUsd)} / {czUsd(budget.budgetUsd)} USD
-        </p>
-      )}
+      {/* Where the month's USD figure used to be: the account is charged
+          in documents, and the dollars are a fuse the person meets only
+          through the frozen sentence on the upload card. */}
+      <AllowanceChip allowance={allowance} onAllowance={setAllowance} onBuy={() => setBuyOpen(true)} />
+      <BuySheet open={buyOpen} onClose={() => setBuyOpen(false)} />
     </div>
   );
 

@@ -445,6 +445,51 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // Under the report list: „Dokumenty: 3 z 5", Přikoupit, and the link.
+    // The chip has to sit on one wrapping line at 360 without pushing the
+    // card sideways, which the overflow invariant sees.
+    name: "reporty (dokumenty)",
+    go: async (page) => {
+      await tab(page, "Reporty");
+      await page.waitForSelector(".allow-line", { timeout: 5_000 });
+      await page.waitForTimeout(200);
+    },
+    check: async (page) => {
+      expect(await page.locator(".allow-line").innerText()).toContain("Dokumenty: 3 z 5");
+      expect(await page.getByRole("link", { name: "Proč přikoupit?" }).first().isVisible()).toBe(true);
+    },
+  },
+  {
+    // Přikoupit, open: a sheet from the bottom edge on a phone, a centred
+    // card above 480. The fake shop is closed, so the sentence that says so
+    // is laid out under both packages after a tap on the first Koupit.
+    name: "reporty (koupit dokumenty otevřené)",
+    go: async (page) => {
+      await tab(page, "Reporty");
+      await page.locator(".allow-line").getByRole("button", { name: "Přikoupit" }).click();
+      await page.waitForSelector(".sheet", { timeout: 5_000 });
+      await page.locator(".pack .btn").first().click();
+      await page.waitForSelector(".sheet .notice", { timeout: 5_000 });
+      await page.waitForTimeout(250);
+    },
+    check: async (page) => {
+      const sheet = page.locator(".sheet");
+      const box = (await sheet.boundingBox())!;
+      const { width, height } = page.viewportSize()!;
+      expect(box.x, "left edge").toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, "right edge").toBeLessThanOrEqual(width + 0.5);
+      expect(box.y + box.height, "bottom edge").toBeLessThanOrEqual(height + 0.5);
+      expect(await sheet.locator(".pack").count()).toBe(2);
+      expect(await sheet.locator(".pack-cmp").count(), "a comparison line under each price").toBe(2);
+      expect(await sheet.locator(".notice").innerText()).toBe("Obchod zatím není otevřený.");
+      // No package outgrows the sheet.
+      const sideways = await sheet.evaluate((el) => el.scrollWidth - el.clientWidth);
+      expect(sideways, "the sheet scrolls sideways").toBe(0);
+    },
+  },
+  // The page behind „Proč přikoupit?", logged out like /soukromi.
+  { name: "proč přikoupit", at: { path: "/proc-prikoupit", ready: ".privacy h1" }, go: async () => {} },
+  {
     name: "AI konzultace (bez odkazu)",
     go: async (page) => {
       await tab(page, "AI konzultace");

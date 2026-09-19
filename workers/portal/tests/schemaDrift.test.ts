@@ -21,8 +21,10 @@ describe("reading schema.sql", () => {
   it("finds every table the worker uses", () => {
     expect([...tables.keys()].sort()).toEqual([
       "ai_shares",
+      "documents",
       "invites",
       "login_failures",
+      "purchases",
       "report_pages",
       "reports",
       "signup_attempts",
@@ -45,6 +47,8 @@ describe("reading schema.sql", () => {
       "session_epoch",
       "consent_at",
       "email_verified_at",
+      "doc_allowance",
+      "doc_used",
     ]);
   });
 
@@ -92,6 +96,43 @@ describe("the migrations and schema.sql agree", () => {
       }
     });
   }
+});
+
+/**
+ * schema.sql and the migration that moves the live database to it are two
+ * statements of one shape; they have drifted before (2026-09-12). So the
+ * documents migration is read with the same parser and held to the schema:
+ * every table it creates is declared with the same columns, and every
+ * column it adds to users is declared there.
+ */
+describe("the documents migration says what schema.sql says", () => {
+  const MIGRATION = readFileSync(join(import.meta.dirname, "../migrations/2026-09-19-documents.sql"), "utf-8");
+  const declared = tablesFromSchema(SCHEMA);
+
+  it("creates documents and purchases exactly as declared", () => {
+    const created = tablesFromSchema(MIGRATION);
+    expect([...created.keys()].sort()).toEqual(["documents", "purchases"]);
+    for (const [table, cols] of created) expect(declared.get(table), table).toEqual(cols);
+  });
+
+  it("adds to users the two columns schema.sql declares, with the same defaults", () => {
+    const added = [...MIGRATION.matchAll(/ALTER TABLE users ADD COLUMN (\w+)\s+([^;]+);/g)].map((m) => [m[1], m[2].replace(/\s+/g, " ")]);
+    expect(added.map(([c]) => c)).toEqual(["doc_allowance", "doc_used"]);
+    for (const [col, def] of added) {
+      expect(declared.get("users")).toContain(col);
+      expect(SCHEMA.replace(/--[^\n]*/g, "").replace(/\s+/g, " ")).toContain(`${col} ${def}`);
+    }
+  });
+
+  it("is the drift the checker would name on a database that has not had it", () => {
+    const live = new Map(
+      [...declared].filter(([t]) => t !== "documents" && t !== "purchases").map(([t, c]) => [t, c.filter((x) => !x.startsWith("doc_"))]),
+    );
+    expect(schemaDrift(declared, live)).toEqual({
+      missingTables: ["documents", "purchases"],
+      missingColumns: ["users.doc_allowance", "users.doc_used"],
+    });
+  });
 });
 
 describe("reporting drift", () => {
@@ -164,7 +205,7 @@ describe("reading wrangler's reply", () => {
   it("refuses a reply it cannot match to its questions", () => {
     // Fewer sets than statements, or no array at all, is a schema that was
     // not read — never a pass.
-    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 8 result sets, got 7/);
+    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 10 result sets, got 9/);
     expect(() => columnsFromResultSets(tables, { error: "SQLITE_AUTH" })).toThrow(/got object/);
   });
 });

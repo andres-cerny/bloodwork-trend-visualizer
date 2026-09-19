@@ -37,8 +37,9 @@
 import { useRef, useState } from "react";
 import { type IdentityHit, type LabReport, type Registry, count } from "@bw/lab-core";
 import { PHOTO_TYPES, PhotoError, isPhotoFile } from "@bw/lab-core/photo";
-import { type Budget, ApiError, isFatalApiError } from "../lib/api";
+import { type Allowance, type Budget, ApiError, isFatalApiError } from "../lib/api";
 import { type Batch, NO_BATCH, pick, settle, waitingLine } from "../lib/batch";
+import { exhaustedCopy } from "./AllowanceChip";
 import {
   type PreparedFile,
   checkRedaction,
@@ -54,6 +55,11 @@ interface Props {
   registry: Registry;
   maxPages: number;
   frozen: boolean;
+  /** Documents left to upload; null before /api/status has answered. */
+  allowance: Allowance | null;
+  onAllowance: (a: Allowance) => void;
+  /** Opens the buy sheet — the refusal at zero offers it. */
+  onBuy: () => void;
   onStored: (report: LabReport) => void;
   onBudget: (b: Budget) => void;
   /** The batch changed: a file came in, or one ended. */
@@ -100,7 +106,7 @@ interface LogEntry {
   error: string | null;
 }
 
-export default function UploadFlow({ registry, maxPages, frozen, onStored, onBudget, onBatch, holding }: Props) {
+export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding }: Props) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [queued, setQueued] = useState<File[]>([]);
   const [running, setRunning] = useState<Running[]>([]);
@@ -202,6 +208,7 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
           if (latest.length > 4) latest.shift();
           updateRunning(id, { rows: seen.size, latest: [...latest] });
         },
+        onAllowance,
       );
       updateRunning(id, { phase: "storing" });
       const stored = await storeReport(report, pages);
@@ -211,6 +218,7 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
       const message = e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${e instanceof Error ? e.message : e}`;
       addLog({ name, status: "failed", notes: [], error: message });
       if (e instanceof ApiError && e.budget) onBudget(e.budget);
+      if (e instanceof ApiError && e.allowance) onAllowance(e.allowance);
       if (isFatalApiError(e)) {
         // Every file still waiting would fail the same way; say so instead
         // of leaving them queued and silent. A file already under review is
@@ -245,6 +253,40 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
         Měsíční limit zpracování je vyčerpán — nahrávání se obnoví začátkem příštího měsíce. Uložené
         výsledky fungují dál.
       </p>
+    );
+
+  // No document left, and nothing in flight: the picker gives way to the
+  // refusal and the way to buy. A file already being read finishes.
+  if (allowance && allowance.remaining === 0 && stage.kind === "idle" && running.length === 0)
+    return (
+      <div className="allow-out">
+        <p className="muted" style={{ margin: 0 }}>{exhaustedCopy(allowance)}</p>
+        <p style={{ margin: "10px 0 0" }}>
+          <button type="button" className="btn small primary" onClick={onBuy}>
+            Přikoupit
+          </button>
+        </p>
+        {log.length > 0 && (
+          <ul className="joblist">
+            {log.map((j, i) => (
+              <li key={i} className={`job ${j.status}`}>
+                <span className="job-head">
+                  <span className="job-mark" aria-hidden="true">
+                    {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
+                  </span>
+                  <span className="job-name" title={j.name}>
+                    {j.name}
+                  </span>
+                  <span className="job-state">
+                    {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : "přeskočeno"}
+                  </span>
+                </span>
+                {j.error && <span className="job-note err">{j.error}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     );
 
   if (stage.kind === "review")

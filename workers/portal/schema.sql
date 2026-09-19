@@ -38,7 +38,16 @@ CREATE TABLE IF NOT EXISTS users (
   -- link the worker mailed to it. Both NULL on accounts an operator's code
   -- opened: they typed the address, nobody mailed it.
   consent_at        TEXT,
-  email_verified_at TEXT
+  email_verified_at TEXT,
+  -- The allowance, counted in documents (src/allowance.ts). A document is
+  -- one upload — a PDF or one set of photos, up to MAX_PAGES_PER_REPORT
+  -- pages. Every account starts with 5, for good; a purchase or the
+  -- operator adds to doc_allowance, and doc_used moves up by one when a
+  -- document is accepted for extraction — never per page, and never back
+  -- down when a report is deleted (a read was paid for). The one way down
+  -- is a document no page of which could be read.
+  doc_allowance  INTEGER NOT NULL DEFAULT 5,
+  doc_used       INTEGER NOT NULL DEFAULT 0
 );
 
 -- Every door into an account is a code the operator mints: unbound (user_id
@@ -140,3 +149,35 @@ CREATE TABLE IF NOT EXISTS synonyms (
   taught_by    TEXT REFERENCES users(id),
   created_at   TEXT NOT NULL
 );
+
+-- One row per document an account opened for extraction, keyed by the report
+-- id the browser minted. The row is the slot: inserting it takes one from
+-- doc_used, atomically, so eight pages arriving at once cannot take eight.
+-- pages_sent caps the pages one document may spend on the extractor;
+-- pages_read is what decides whether a release gives the slot back (only a
+-- document nothing was read from). The row outlives the report — deleting
+-- a report does not free its document, and the row is why.
+CREATE TABLE IF NOT EXISTS documents (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL REFERENCES users(id),
+  created_at  TEXT NOT NULL,
+  pages_sent  INTEGER NOT NULL DEFAULT 0,
+  pages_read  INTEGER NOT NULL DEFAULT 0,
+  released_at TEXT                      -- set when the slot was given back
+);
+
+CREATE INDEX IF NOT EXISTS documents_by_user ON documents (user_id, created_at);
+
+-- What Stripe told us, one row per event (src/stripe.ts). The event id is
+-- the idempotency key: a webhook delivered twice inserts nothing the second
+-- time and credits nothing. user_id has no foreign key on purpose — the
+-- record of a payment outlives the account it paid for; deletion unlinks it.
+CREATE TABLE IF NOT EXISTS purchases (
+  event_id   TEXT PRIMARY KEY,
+  user_id    TEXT,
+  package    TEXT NOT NULL,             -- "5" | "15"
+  amount_czk INTEGER NOT NULL,          -- whole crowns, as Stripe reported
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS purchases_by_user ON purchases (user_id, created_at);

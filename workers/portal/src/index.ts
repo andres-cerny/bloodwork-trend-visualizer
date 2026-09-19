@@ -43,6 +43,8 @@ import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, typ
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import { handleSignupMail, looksLikeEmail, openMailedAccount, requireHuman, signupStatus, type SignupEnv } from "./signup";
+import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageRead, sendPage } from "./allowance";
+import { handleBuy, handleStripeWebhook, type StripeEnv } from "./stripe";
 import {
   clearCookieHeader,
   mintCookieToken,
@@ -57,7 +59,7 @@ import {
  * SignupEnv is the open door's part (src/signup.ts): OPEN_SIGNUP and its dev
  * bypass, the Turnstile secret and hostnames, RESEND_API_KEY and MAIL_FROM.
  */
-export interface Env extends SignupEnv {
+export interface Env extends SignupEnv, StripeEnv {
   DB: D1Database;
   /** Redacted page images, keyed `${uid}/${reportId}/page_${n}`. */
   PAGES: KVNamespace;
@@ -77,6 +79,11 @@ export interface Env extends SignupEnv {
    * the repository.
    */
   DEMO_EMAIL?: string;
+  /**
+   * The per-person monthly USD fuse behind the document count
+   * (src/allowance.ts). Not what anyone is meant to reach: a document is
+   * priced in documents, and this only stops a runaway.
+   */
   PORTAL_USD_LIMIT?: string;
   MAX_PAGES_PER_REPORT?: string;
 }
@@ -88,7 +95,7 @@ const json = (data: unknown, status = 200) =>
   });
 
 const sessionTtlSeconds = (env: Env) => (parseInt(env.SESSION_TTL_DAYS ?? "90", 10) || 90) * 86400;
-const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "5") || 5;
+const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
 
 /**
  * What this person may spend in a month.
@@ -465,6 +472,16 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   const body = await request.text();
   if (body.length > MAX_EXTRACT_BYTES) return json({ error: "too_large", message: "Stránka je příliš velká." }, 413);
 
+  // Which document this page belongs to — one the browser opened with
+  // POST /api/documents, which is where the slot was taken. The page is
+  // counted against that document's cap here; a page of no document, of
+  // someone else's, of a released one or past the cap is refused before
+  // anything is sent. The allowance itself is not touched per page.
+  const docId = request.headers.get("x-document") ?? "";
+  if (!(await sendPage(env.DB, user, docId, maxPages(env)))) {
+    return json({ error: "no_document", message: "Dokument není otevřený — nahrajte soubor znovu." }, 409);
+  }
+
   const session = await mintSession(env.EXTRACT_SESSION_SECRET, EXTRACT_SESSION_TTL, 1);
   const res = await env.EXTRACT.fetch(
     new Request("https://extract/api/extract", {
@@ -491,7 +508,7 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
       }
       if (ev.type !== "done" && ev.type !== "error") return text;
       const { type: _t, ...data } = ev;
-      const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer);
+      const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer, docId);
       return JSON.stringify({ type: ev.type, ...shaped });
     };
     const through = new TransformStream<Uint8Array, Uint8Array>({
@@ -515,7 +532,7 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   }
 
   const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
-  return json(await settle(env, user, res.status, data), res.status);
+  return json(await settle(env, user, res.status, data, docId), res.status);
 }
 
 interface ExtractAnswer {
@@ -526,10 +543,12 @@ interface ExtractAnswer {
 }
 
 /** Book the extractor's cost to the person and answer with their ledger. */
-async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer): Promise<Record<string, unknown>> {
+async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer, docId?: string): Promise<Record<string, unknown>> {
   const limit = limitFor(user, env);
   if (status === 200 && typeof data.costUsd === "number") {
     await recordUserSpendUsd(env.BUDGET, user.id, monthOf(), data.costUsd);
+    // A page read: from here on the document's slot is spent for good.
+    if (docId) await notePageRead(env.DB, docId);
   } else if (status !== 200) {
     // The extractor's reason, in the log as well as in the answer: a page that
     // fails for every member of the family is a deployment problem, and the
@@ -781,6 +800,8 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   await env.DB.prepare(SQL.deletePagesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteReportsForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteSharesForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteDocumentsForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.unlinkPurchases).bind(user.id).run();
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
   await env.DB.prepare(SQL.unlinkSynonyms).bind(user.id).run();
@@ -960,6 +981,7 @@ async function handleMap(request: Request, env: Env, user: UserRow): Promise<Res
 const REPORT = /^\/api\/reports\/([^/]+)$/;
 const INVITE = /^\/api\/auth\/invite\/([^/]+)$/;
 const PAGE = /^\/api\/(?:reports|pages)\/([^/]+)\/(\d{1,3})$/;
+const DOCUMENT = /^\/api\/documents\/([^/]+)$/;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -1005,6 +1027,10 @@ export default {
       // anyone who asks.
       case "GET /api/processors":
         return json({ photoReaders: await extractPhotoReaders(env) });
+      // Stripe posting a paid checkout. Public — Stripe holds no cookie — and
+      // guarded by its signature alone (src/stripe.ts).
+      case "POST /api/stripe/webhook":
+        return handleStripeWebhook(request, env);
     }
     const invite = INVITE.exec(url.pathname);
     if (invite && request.method === "GET") return inviteKind(env, invite[1]);
@@ -1021,7 +1047,19 @@ export default {
         // screens needs it. Their own login still reads it back.
         return json({ email: session.demo ? null : user.email, createdAt: user.created_at, demo: session.demo });
       case "GET /api/status":
-        return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env) });
+        return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env), allowance: allowanceOf(user) });
+      case "GET /api/allowance":
+        return handleAllowance(env.DB, user);
+      // Open a document: where the one slot is taken. A frozen person is
+      // refused here first, so the fuse tripping costs no document.
+      case "POST /api/documents": {
+        const limit = limitFor(user, env);
+        const before = await userBudget(env.BUDGET, user.id, limit);
+        if (before.frozen) return json({ error: "budget_exhausted", message: frozenMessage(limit), budget: before }, 402);
+        return handleOpenDocument(request, env.DB, user);
+      }
+      case "POST /api/buy":
+        return handleBuy(request, env, user, session.demo);
       case "POST /api/extract":
         return handleExtract(request, env, user);
       case "POST /api/map":
@@ -1051,6 +1089,9 @@ export default {
       case "DELETE /api/ai-share":
         return revokeShare(env, user);
     }
+
+    const doc = DOCUMENT.exec(url.pathname);
+    if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1]);
 
     const page = PAGE.exec(url.pathname);
     if (page) {

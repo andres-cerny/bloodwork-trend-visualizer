@@ -36,10 +36,13 @@
     // Session length. Days, not seconds: the portal's session is a login,
     // not a Turnstile page allowance.
     "SESSION_TTL_DAYS": "90",
-    // Per person, per calendar month. The text-layer path costs fractions of
-    // a cent per page, so this is a blast-radius cap, not a quota anyone
-    // should meet.
-    "PORTAL_USD_LIMIT": "5",
+    // Per person, per calendar month — the fuse behind the document count
+    // (src/allowance.ts), not the thing anyone is meant to reach. Sized
+    // above what a paid account can legitimately spend in one month: the
+    // free 5 plus a 15-package is 20 documents, 6 photo pages each at about
+    // 5 ¢ a page is 6 USD; the text path is fractions of a cent. A person
+    // who trips this sees the frozen sentence and waits for the month.
+    "PORTAL_USD_LIMIT": "10",
     // Real Czech reports are one to three pages — the speed bench read 33
     // pages out of 30 files. Six leaves room for a long one and stops a
     // hundred-page PDF from spending a month's ledger in a single upload;
@@ -74,4 +77,9 @@
   // forgotten-password links — without the key the link is only logged —
   // and TURNSTILE_SECRET_KEY, which checks the token the three public forms
   // post; unset, every token is refused.
+  // The shop (src/stripe.ts) opens when all four are set, and not before:
+  // STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_5, STRIPE_PRICE_15
+  // (the price ids of the 5-for-49-Kč and 15-for-99-Kč packages, in CZK).
+  // Unset, POST /api/buy answers 503 shop_closed and the sheet says so;
+  // docs/moje-krev-handoff.md walks the four.
 }

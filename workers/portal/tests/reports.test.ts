@@ -19,9 +19,19 @@ const SECRET = "test-portal-secret";
 const EXTRACT_SECRET = "test-extract-secret";
 
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null; session_epoch: number }>;
+  users: Array<{
+    id: string;
+    email: string;
+    created_at: string;
+    settings: string | null;
+    budget_usd?: number | null;
+    session_epoch: number;
+    doc_allowance: number;
+    doc_used: number;
+  }>;
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string; created_at: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string; width: number | null; height: number | null }>;
+  documents: Array<{ id: string; user_id: string; pages_sent: number; pages_read: number; released_at: string | null }>;
 }
 
 /** Dispatches on the exact SQL constants; a query without a branch throws. */
@@ -76,6 +86,32 @@ function fakeD1(t: Tables): D1Database {
         const u = t.users.find((x) => x.id === a[0]);
         if (u) u.settings = a[1] as string;
         return { results: [], changes: u ? 1 : 0 };
+      }
+      // The document slot — only what the extract proxy needs here; the
+      // allowance's own rules are tests/allowance.test.ts.
+      case SQL.insertDocument: {
+        if (t.documents.some((d) => d.id === a[0])) return { results: [], changes: 0 };
+        t.documents.push({ id: a[0] as string, user_id: a[1] as string, pages_sent: 0, pages_read: 0, released_at: null });
+        return { results: [], changes: 1 };
+      }
+      case SQL.takeDocument: {
+        const u = t.users.find((x) => x.id === a[0]);
+        if (!u || !(u.doc_used < u.doc_allowance)) return { results: [], changes: 0 };
+        u.doc_used += 1;
+        return { results: [], changes: 1 };
+      }
+      case SQL.allowanceForUser:
+        return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ doc_allowance: u.doc_allowance, doc_used: u.doc_used })), changes: 0 };
+      case SQL.sendPage: {
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent < (a[2] as number));
+        if (!d) return { results: [], changes: 0 };
+        d.pages_sent += 1;
+        return { results: [], changes: 1 };
+      }
+      case SQL.notePageRead: {
+        const d = t.documents.find((x) => x.id === a[0]);
+        if (d) d.pages_read += 1;
+        return { results: [], changes: d ? 1 : 0 };
       }
       default:
         throw new Error(`fakeD1: no branch for: ${sql}`);
@@ -150,8 +186,8 @@ function fakeExtractStream(lines: unknown[]) {
   return { fetcher, calls };
 }
 
-const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
-const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
+const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0, doc_allowance: 5, doc_used: 0 };
+const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0, doc_allowance: 5, doc_used: 0 };
 
 const report = (id: string) => ({
   id,
@@ -183,8 +219,18 @@ async function call(user: { id: string }, method: string, path: string, body?: u
   return worker.fetch(new Request(`https://portal${path}`, init), env);
 }
 
+/**
+ * A page to the extractor, the way the browser sends one: under a document
+ * it opened first. The slot is taken at the open (tests/allowance.test.ts
+ * owns that); here the document is the ticket every page must carry.
+ */
+async function extractPage(user: { id: string }, body: unknown, doc = "d-1") {
+  await call(user, "POST", "/api/documents", { id: doc });
+  return call(user, "POST", "/api/extract", body, { "x-document": doc });
+}
+
 beforeEach(() => {
-  tables = { users: [{ ...A }, { ...B }], reports: [], pages: [] };
+  tables = { users: [{ ...A }, { ...B }], reports: [], pages: [], documents: [] };
   extract = fakeExtract({ status: 200, body: { reads: [], mode: "text", costUsd: 0.0123, budget: { spentUsd: 1 } } });
   env = {
     DB: fakeD1(tables),
@@ -208,7 +254,7 @@ describe("the door", () => {
 
 describe("extract proxy", () => {
   it("forwards the page under a session the extractor's secret verifies, and books the cost to the person", async () => {
-    const res = await call(A, "POST", "/api/extract", { rowsText: "0\tS_Glukóza | 5,32" });
+    const res = await extractPage(A, { rowsText: "0\tS_Glukóza | 5,32" });
     expect(res.status).toBe(200);
     expect(extract.calls).toHaveLength(1);
     expect(JSON.parse(extract.calls[0].body)).toEqual({ rowsText: "0\tS_Glukóza | 5,32" });
@@ -227,7 +273,7 @@ describe("extract proxy", () => {
       { type: "done", reads: [], mode: "text", costUsd: 0.0123, budget: { spentUsd: 99 } },
     ]);
     env.EXTRACT = stream.fetcher;
-    const res = await call(A, "POST", "/api/extract", { rowsText: "0\tS_Glukóza | 5,32", stream: true });
+    const res = await extractPage(A, { rowsText: "0\tS_Glukóza | 5,32", stream: true });
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("x-ndjson");
     expect(JSON.parse(stream.calls[0].body).stream).toBe(true);
@@ -242,11 +288,11 @@ describe("extract proxy", () => {
   });
 
   it("freezes the person who spent the month's allowance, and nobody else", async () => {
-    await recordUserSpendUsd(env.BUDGET, A.id, monthOf(), 5);
-    const a = await call(A, "POST", "/api/extract", { rowsText: "x" });
+    await recordUserSpendUsd(env.BUDGET, A.id, monthOf(), 10);
+    const a = await extractPage(A, { rowsText: "x" });
     expect(a.status).toBe(402);
     expect(extract.calls).toHaveLength(0);
-    const b = await call(B, "POST", "/api/extract", { rowsText: "x" });
+    const b = await extractPage(B, { rowsText: "x" }, "d-2");
     expect(b.status).toBe(200);
     expect(extract.calls).toHaveLength(1);
   });
@@ -254,7 +300,7 @@ describe("extract proxy", () => {
   it("passes the extractor's refusal through, in the portal's words", async () => {
     extract = fakeExtract({ status: 402, body: { error: "budget_exhausted", message: "Demo vyčerpalo…", budget: {} } });
     env.EXTRACT = extract.fetcher;
-    const res = await call(A, "POST", "/api/extract", { rowsText: "x" });
+    const res = await extractPage(A, { rowsText: "x" });
     expect(res.status).toBe(402);
     const data = (await res.json()) as { error: string; message: string };
     expect(data.error).toBe("budget_exhausted");
@@ -448,7 +494,7 @@ describe("the extract refusal log", () => {
     });
     env.EXTRACT = extract.fetcher;
 
-    await call(A, "POST", "/api/extract", { rowsText: "x" });
+    await extractPage(A, { rowsText: "x" });
 
     expect(logged.join(" ")).toContain("502");
     expect(logged.join(" ")).toContain("extraction_failed");
@@ -478,6 +524,12 @@ describe("a person's own budget", () => {
     expect((await statusOf(A)).budget.budgetUsd).toBe(5);
   });
 
+  it("carries the document allowance beside the ledger, so the shell loads both in one call", async () => {
+    tables.users[0].doc_used = 3;
+    const status = (await (await call(A, "GET", "/api/status")).json()) as { allowance: unknown };
+    expect(status.allowance).toEqual({ free: 5, purchased: 0, used: 3, remaining: 2 });
+  });
+
   it("uses the account's own number when it has one", async () => {
     tables.users[0].budget_usd = 20;
     const { budget } = await statusOf(A);
@@ -493,7 +545,7 @@ describe("a person's own budget", () => {
 
   it("spends an extract against the raised ceiling", async () => {
     tables.users[0].budget_usd = 20;
-    const res = await call(A, "POST", "/api/extract", { rowsText: "0\tS_Glukóza | 5,32" });
+    const res = await extractPage(A, { rowsText: "0\tS_Glukóza | 5,32" });
     const data = (await res.json()) as { budget: { budgetUsd: number } };
     expect(res.status).toBe(200);
     expect(data.budget.budgetUsd).toBe(20);
@@ -526,7 +578,7 @@ describe("a person's own budget", () => {
     const { budget } = await statusOf(A);
     expect(budget.frozen).toBe(false);
     expect(budget.spentUsd).toBeCloseTo(6, 5);
-    const res = await call(A, "POST", "/api/extract", { rowsText: "x" });
+    const res = await extractPage(A, { rowsText: "x" });
     expect(res.status).toBe(200);
   });
 
@@ -537,7 +589,7 @@ describe("a person's own budget", () => {
     const { budget } = await statusOf(A);
     expect(budget.budgetUsd).toBe(0);
     expect(budget.frozen).toBe(true);
-    const res = await call(A, "POST", "/api/extract", { rowsText: "x" });
+    const res = await extractPage(A, { rowsText: "x" });
     expect(res.status).toBe(402);
   });
 });

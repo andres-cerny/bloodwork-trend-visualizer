@@ -12,6 +12,18 @@ export interface Budget {
   month: string;
 }
 
+/**
+ * The allowance the person sees, in documents (workers/portal/src/allowance.ts):
+ * `free` for good, `purchased` on top, `used` taken at each document's open,
+ * `remaining` what is left to upload.
+ */
+export interface Allowance {
+  free: number;
+  purchased: number;
+  used: number;
+  remaining: number;
+}
+
 export interface Settings {
   /** canonicalId → raw names the reader mapped to it, in acceptance order. */
   learned?: Record<string, string[]>;
@@ -31,20 +43,20 @@ export interface Settings {
 }
 
 export class ApiError extends Error {
-  constructor(message: string, readonly code: string, readonly status: number, readonly budget?: Budget) {
+  constructor(message: string, readonly code: string, readonly status: number, readonly budget?: Budget, readonly allowance?: Allowance) {
     super(message);
   }
 }
 
 /** Errors after which every remaining page would fail the same way. */
-const FATAL = new Set(["budget_exhausted", "unauthorized"]);
+const FATAL = new Set(["budget_exhausted", "unauthorized", "no_document"]);
 export const isFatalApiError = (e: unknown): boolean => e instanceof ApiError && FATAL.has(e.code);
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, init);
   if (res.status === 204) return undefined as T;
-  const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget };
-  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget);
+  const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget; allowance?: Allowance };
+  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget, data.allowance);
   return data as T;
 }
 
@@ -96,7 +108,27 @@ export const requestReset = (email: string, turnstile?: string | null) =>
 export const demoOffered = () => request<{ available: true }>("/api/auth/demo").then(() => true, () => false);
 export const enterDemo = () => request<{ ok: true }>("/api/auth/demo", jsonInit("POST", {}));
 
-export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
+export const getStatus = () => request<{ budget: Budget; maxPages: number; allowance: Allowance }>("/api/status");
+export const getAllowance = () => request<Allowance>("/api/allowance");
+
+/**
+ * Open a document for extraction — the one call that takes a document from
+ * the allowance. The id is the report id the browser minted, so document and
+ * report share a name. Answers 402 `no_documents` (an ApiError with the
+ * allowance on it) when none is left; a retry with the same id takes nothing.
+ */
+export const openDocument = (id: string) =>
+  request<{ ok: true; already: boolean; allowance: Allowance }>("/api/documents", jsonInit("POST", { id }));
+
+/** Give a document back. The worker does so only if no page of it was read. */
+export const releaseDocument = (id: string) =>
+  request<{ ok: true; released: boolean; allowance: Allowance }>(`/api/documents/${id}`, { method: "DELETE" });
+
+/**
+ * The shop: a Checkout URL to send the browser to, or an ApiError — 503
+ * `shop_closed` while the deployment has no Stripe account behind it.
+ */
+export const buyDocuments = (pkg: "5" | "15") => request<{ url: string }>("/api/buy", jsonInit("POST", { package: pkg }));
 
 /** A row as the reader wrote it, before its page is finished. Provisional. */
 export interface ProvisionalRow {
@@ -136,11 +168,16 @@ export const getProcessors = () =>
  */
 export async function extractPage(
   page: { rowsText: string } | { imageBase64: string; mediaType: string },
+  /** The document this page belongs to — opened first with `openDocument`. */
+  documentId: string,
   onRow?: (row: ProvisionalRow, model: string) => void,
 ): Promise<ExtractResult> {
-  if (!onRow) return request<ExtractResult>("/api/extract", jsonInit("POST", page));
+  // The document rides in a header, not the body: the body goes to the
+  // extractor as sent, and the extractor has no idea what a document is.
+  const withDoc = (init: RequestInit): RequestInit => ({ ...init, headers: { ...(init.headers as Record<string, string>), "x-document": documentId } });
+  if (!onRow) return request<ExtractResult>("/api/extract", withDoc(jsonInit("POST", page)));
 
-  const res = await fetch("/api/extract", jsonInit("POST", { ...page, stream: true }));
+  const res = await fetch("/api/extract", withDoc(jsonInit("POST", { ...page, stream: true })));
   const type = res.headers.get("content-type") ?? "";
   if (!res.ok || !type.includes("x-ndjson") || !res.body) {
     const data = (await res.json().catch(() => ({}))) as ExtractResult & { message?: string; error?: string };

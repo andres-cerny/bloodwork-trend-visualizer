@@ -6,7 +6,7 @@
  * and "/heslo?kod=…" are the two kinds of link the operator or the mail
  * sends (ui/InvitePage.tsx); "/registrace" bare and "/zapomenute-heslo" are
  * the open door's two forms that mail a link (ui/RegisterPage.tsx);
- * "/soukromi" and "/podminky" are the public pages
+ * "/soukromi", "/podminky" and "/proc-prikoupit" are the public pages
  * beside them. The shell serves index.html for any path, so this is the
  * whole router. Everything behind the door — upload, verification, trends —
  * is ui/Portal.tsx.
@@ -16,6 +16,7 @@ import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
+import WhyPayPage from "./ui/WhyPayPage";
 import RegisterPage from "./ui/RegisterPage";
 import TermsPage from "./ui/TermsPage";
 import LandingPage, { LOGIN_PATH } from "./ui/LandingPage";
@@ -29,6 +30,7 @@ export default function App() {
   const [entered, setEntered] = useState<Me | null>(null);
   const path = location.pathname;
   if (path === "/soukromi") return <Privacy />;
+  if (path === "/proc-prikoupit") return <WhyPayPage />;
   if (path === "/podminky") return <TermsPage />;
   // The open door (ui/RegisterPage.tsx): /registrace without a code asks
   // for an address and mails the link; with one it is the operator's
