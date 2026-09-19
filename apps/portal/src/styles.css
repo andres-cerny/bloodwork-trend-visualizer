@@ -227,8 +227,15 @@ body {
 .mk-main { max-width: var(--read-max); margin: 0 auto; padding: 14px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 @media (min-width: 820px) { .mk-main { padding: 18px 22px; padding-bottom: calc(18px + env(safe-area-inset-bottom)); } }
 .mk-main > .card { margin-bottom: 14px; }
-.mk-main .reportlist li { display: flex; align-items: center; gap: 8px; }
+/* min-width: 0 on the row, not only on its label: the list is a grid, and a
+   grid item's default min-width is its content's — so the row with the
+   "Smazat / Zrušit" pair open grew past the list at 360 and 414, clipped
+   Zrušit and pushed the next row's ✕ into a sideways scroll. */
+.mk-main .reportlist li { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .mk-main .reportlist .rl-main { flex: 1; min-width: 0; }
+/* A block, or its ellipsis never draws: text-overflow needs a block box, and
+   an inline span under a nowrap button just runs under the next control. */
+.mk-main .reportlist .rl-meta { display: block; }
 
 /* The redaction review: pages full-width, boxes as buttons over them. */
 .review-page { margin: 0 0 14px; }
