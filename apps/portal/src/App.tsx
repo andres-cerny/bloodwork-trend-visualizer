@@ -3,8 +3,8 @@
  *
  * This file is the door and nothing else. Three paths lead into the app —
  * "/" is the login, "/registrace" and "/heslo" are the two kinds of link the
- * operator sends (ui/InvitePage.tsx) — and "/soukromi" is the one public
- * page beside them. The shell serves index.html for any path, so this is
+ * operator sends (ui/InvitePage.tsx) — and "/soukromi" and "/proc-prikoupit"
+ * are the public pages beside them. The shell serves index.html for any path, so this is
  * the whole router. Everything behind the door — upload, verification,
  * trends — is ui/Portal.tsx.
  */
@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
+import WhyPayPage from "./ui/WhyPayPage";
 import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./ui/Door";
 import { demoOffered, enterDemo, login } from "./lib/api";
 
@@ -21,6 +22,7 @@ export default function App() {
   const [entered, setEntered] = useState<Me | null>(null);
   const path = location.pathname;
   if (path === "/soukromi") return <Privacy />;
+  if (path === "/proc-prikoupit") return <WhyPayPage />;
   if (!entered && (path === "/registrace" || path === "/heslo")) {
     return (
       <InvitePage

@@ -36,6 +36,9 @@ function demoReports(): { reports: unknown[]; pages: Map<string, string> } {
   return { reports, pages };
 }
 
+/** Three of five used: the chip has numbers on both sides. */
+const ALLOWANCE = { free: 5, purchased: 0, used: 3, remaining: 2 };
+
 function fakeApi(port: number): Promise<Server> {
   const { reports, pages } = demoReports();
   // Per page load — every scene opens a fresh page, and its load is the first call.
@@ -59,7 +62,21 @@ function fakeApi(port: number): Promise<Server> {
         // screens a family member sees, deletions and address included.
         return json(res, { email: "audit@example.com", createdAt: "2026-01-01T00:00:00Z", demo: false });
       case "GET /api/status":
-        return json(res, { budget: { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" }, maxPages: 30 });
+        return json(res, {
+          budget: { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" },
+          maxPages: 30,
+          allowance: ALLOWANCE,
+        });
+      case "GET /api/allowance":
+        return json(res, ALLOWANCE);
+      // Opening a document takes nothing here: the sweep reads, it does not
+      // spend. The answer has the shape the upload path expects.
+      case "POST /api/documents":
+        return json(res, { ok: true, already: false, allowance: ALLOWANCE });
+      // The shop with no Stripe account behind it: the sheet lays out both
+      // packages and says it is not open yet.
+      case "POST /api/buy":
+        return json(res, { error: "shop_closed", message: "Obchod zatím není otevřený." }, 503);
       case "GET /api/settings":
         return json(res, {});
       case "GET /api/reports":

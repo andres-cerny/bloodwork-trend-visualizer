@@ -186,9 +186,81 @@ So choose the account deliberately:
 The session it mints lasts one day, not ninety — a stranger's browser, often
 a borrowed one, should forget.
 
+## Documents: the allowance, and the shop
+
+What an account is charged in is documents (`docs/plans/multi-user.md`,
+Goal 7): one document is one upload — a PDF or one set of photos, up to
+`MAX_PAGES_PER_REPORT` pages — and every account has **5 for good**. The
+slot is taken when the browser opens the document for extraction (`POST
+/api/documents`, before the first page), given back only if no page of it
+could be read, and never given back for deleting the report. The shell
+shows „Dokumenty: 3 z 5" under the report list with „Přikoupit" and „Proč
+přikoupit?" (`/proc-prikoupit`); at zero the upload card refuses in Czech
+and the worker answers 402 `no_documents`.
+
+A database created before 2026-09-19 needs the columns and the two tables
+once, **before** the worker that reads them is deployed (`npm run
+check:schema` says whether it has them):
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migrations/2026-09-19-documents.sql
+```
+
+Every existing account then has 5 documents and 0 used, whatever it
+uploaded before — those reads were paid for under the USD ledger. To grant
+more by hand (family, a refund):
+
+```sh
+node tools/scripts/moje-krev-budget.mjs kdo@example.com --documents 5 --apply    # +5
+node tools/scripts/moje-krev-budget.mjs kdo@example.com --documents -5 --apply   # a refund; never under what is used
+node tools/scripts/moje-krev-budget.mjs --show --apply                            # budget, used, allowance per account
+```
+
+### Opening the shop, once the Stripe account exists
+
+The shop (`workers/portal/src/stripe.ts`) is off until four secrets are
+set; nothing else changes. In the Stripe dashboard:
+
+1. **Products → Add product**, twice, in **CZK**: „5 dokumentů" as a
+   one-time price of **49 Kč**, „15 dokumentů" as a one-time price of
+   **99 Kč**. Copy each price id (`price_…`). The prices carry the currency —
+   the worker sends only the id, so a price in another currency would sell
+   in that currency.
+2. **Developers → API keys**: the secret key (`sk_live_…`; `sk_test_…`
+   while testing).
+3. **Developers → Webhooks → Add endpoint**: URL
+   `https://moje-krev.<account>.workers.dev/api/stripe/webhook`, events
+   `checkout.session.completed` and
+   `checkout.session.async_payment_succeeded`. Copy the signing secret
+   (`whsec_…`).
+4. Set the four, in `workers/portal`:
+
+```sh
+npx wrangler secret put STRIPE_SECRET_KEY
+npx wrangler secret put STRIPE_WEBHOOK_SECRET
+npx wrangler secret put STRIPE_PRICE_5
+npx wrangler secret put STRIPE_PRICE_15
+```
+
+From the next request on `POST /api/buy` mints Checkout Sessions and the
+sheet redirects; Apple Pay and Google Pay come with Checkout and need no
+code. The return URL (`/?koupeno=1`) proves nothing — the account is
+credited by the signed webhook alone, once per event id, so a delivery
+retried by Stripe credits nothing twice. `purchases` in D1 is the record;
+a row with no matching credit (a worker that died between the two writes)
+is repaired with `--documents`. To close the shop again, delete any one of
+the four secrets: the sheet then says „Obchod zatím není otevřený." and
+still shows the two packages.
+
+Test mode first: `sk_test_…`, test prices, a test webhook endpoint, card
+`4242 4242 4242 4242` — the worker cannot tell the modes apart and does not
+need to.
+
 ## Raising one person's budget
 
-Everyone spends against `PORTAL_USD_LIMIT` (5 USD a month) until they are
+The USD ledger is the fuse behind the document count, not what anyone is
+meant to reach. Everyone spends against `PORTAL_USD_LIMIT` (10 USD a
+month — above what 20 documents of 6 photo pages can cost) until they are
 given a number of their own. That number lives on the account, so it is set
 after the person has registered, not on the link that invited them:
 

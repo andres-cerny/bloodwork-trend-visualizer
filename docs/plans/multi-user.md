@@ -164,6 +164,28 @@ the account (idempotent on the event id), a `purchases` table — all behind
 says the shop is not open yet. Fake Stripe in tests, the signature check
 tested with a real HMAC.
 
+- *Done 2026-09-19*: `workers/portal/src/allowance.ts` (the count; the
+  slot is taken by `POST /api/documents` before the first page, every page
+  carries `x-document`, `DELETE /api/documents/:id` gives it back only
+  while `pages_read` is 0) and `src/stripe.ts` (Checkout over `fetch`, the
+  webhook's t + v1 HMAC with a five-minute tolerance, `purchases` keyed by
+  event id; four secrets, `STRIPE_PRICE_5`/`STRIPE_PRICE_15` beside the two
+  named). Migration `2026-09-19-documents.sql`; existing accounts start at
+  0 used. `PORTAL_USD_LIMIT` raised to 10 USD as the fuse. App:
+  `AllowanceChip.tsx` (the line, the return from Checkout), `BuySheet.tsx`
+  (two packages with Ondřej's comparison lines, „Obchod zatím není
+  otevřený."), `WhyPayPage.tsx` at `/proc-prikoupit`; the refusal at zero
+  on the upload card. Operator: `moje-krev-budget.mjs --documents <n>`;
+  the Stripe steps in `docs/moje-krev-handoff.md`. Tests:
+  `workers/portal/tests/allowance.test.ts` (taken once per document not
+  per page, the seventh page refused, given back on total failure and not
+  after a read or a delete, 402 at zero in Czech, existing accounts' five,
+  buy → Checkout form, demo may not buy, shop closed 503, webhook credits,
+  idempotent on event id, bad signature 400, tolerance ±300 s, unpaid
+  ignored), `schemaDrift.test.ts` (migration ↔ schema.sql),
+  `apps/portal/tests/allowanceCopy.test.ts` (chip states, refusal copy,
+  packages, page, copy rules), three screens in `audit-portal.e2e.ts`.
+
 ## Goal 8 — someone to write to, and someone who is told
 
 **Done when** a logged-in or logged-out person can send a message
