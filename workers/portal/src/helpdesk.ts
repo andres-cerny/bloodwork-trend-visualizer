@@ -54,14 +54,18 @@ const looksLikeEmail = (s: unknown): s is string =>
 /**
  * One counter per key, expiring with the window. Approximate under KV's
  * consistency, which is fine: this stops a script, not a person who writes
- * twice.
+ * twice. Read for every key first, then written for every key — a message
+ * one bucket refuses must not be charged to the other, or five refusals by
+ * the IP would lock an address out before it sent anything.
  */
-async function overLimit(kv: KVNamespace, key: string): Promise<boolean> {
-  const k = `helpdesk_rl_${key}`;
-  const n = parseInt((await kv.get(k)) ?? "0", 10) || 0;
-  if (n >= RATE_LIMIT) return true;
-  await kv.put(k, String(n + 1), { expirationTtl: RATE_WINDOW_SECONDS });
-  return false;
+const rateKey = (key: string) => `helpdesk_rl_${key}`;
+
+async function sentThisHour(kv: KVNamespace, key: string): Promise<number> {
+  return parseInt((await kv.get(rateKey(key))) ?? "0", 10) || 0;
+}
+
+async function countOne(kv: KVNamespace, key: string, seen: number): Promise<void> {
+  await kv.put(rateKey(key), String(seen + 1), { expirationTtl: RATE_WINDOW_SECONDS });
 }
 
 /** The extractor's status and two numbers, for the triage; null when it will not say. */
@@ -127,11 +131,11 @@ export async function handleHelpdesk(request: Request, env: HelpdeskEnv, user: U
   }
 
   const keys = [await sha256Hex(email), ...(ip ? [`ip_${await sha256Hex(ip)}`] : [])];
-  for (const k of keys) {
-    if (await overLimit(env.BUDGET, k)) {
-      return json({ error: "rate_limited", message: "Za poslední hodinu přišlo příliš mnoho zpráv. Zkuste to prosím později." }, 429);
-    }
+  const counts = await Promise.all(keys.map((k) => sentThisHour(env.BUDGET, k)));
+  if (counts.some((n) => n >= RATE_LIMIT)) {
+    return json({ error: "rate_limited", message: "Za poslední hodinu přišlo příliš mnoho zpráv. Zkuste to prosím později." }, 429);
   }
+  await Promise.all(keys.map((k, i) => countOne(env.BUDGET, k, counts[i])));
 
   const id = crypto.randomUUID();
   await env.DB.prepare(SQL.insertMessage)

@@ -43,7 +43,7 @@ interface Tables {
   users: Array<{ id: string; email: string; created_at: string; settings: string | null; session_epoch: number; budget_usd: number | null; doc_allowance: number; doc_used: number }>;
   messages: MessageRow[];
   events: EventRow[];
-  documents: Array<{ id: string; user_id: string; pages_sent: number; pages_read: number; released_at: string | null }>;
+  documents: Array<{ id: string; user_id: string; pages_sent: number; pages_read: number; pages_failed: number; released_at: string | null }>;
 }
 
 function fakeD1(t: Tables): D1Database {
@@ -88,7 +88,7 @@ function fakeD1(t: Tables): D1Database {
       // only what /api/extract needs here; the rules are allowance.test.ts.
       case SQL.insertDocument: {
         if (t.documents.some((d) => d.id === a[0])) return { results: [], changes: 0 };
-        t.documents.push({ id: a[0] as string, user_id: a[1] as string, pages_sent: 0, pages_read: 0, released_at: null });
+        t.documents.push({ id: a[0] as string, user_id: a[1] as string, pages_sent: 0, pages_read: 0, pages_failed: 0, released_at: null });
         return { results: [], changes: 1 };
       }
       case SQL.takeDocument: {
@@ -108,6 +108,11 @@ function fakeD1(t: Tables): D1Database {
       case SQL.notePageRead: {
         const d = t.documents.find((x) => x.id === a[0]);
         if (d) d.pages_read += 1;
+        return { results: [], changes: d ? 1 : 0 };
+      }
+      case SQL.notePageFailed: {
+        const d = t.documents.find((x) => x.id === a[0]);
+        if (d) d.pages_failed += 1;
         return { results: [], changes: d ? 1 : 0 };
       }
       default:
@@ -188,7 +193,7 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-const cookie = async (uid: string) => ({ cookie: `mojekrev_session=${await mintCookieToken(SECRET, uid, 3600)}` });
+const cookie = async (uid: string, demo = false) => ({ cookie: `mojekrev_session=${await mintCookieToken(SECRET, uid, 3600, demo)}` });
 
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   worker.fetch(
@@ -222,6 +227,18 @@ describe("storing a message", () => {
     expect(m.user_id).toBeNull();
     expect(m.email).toBe("host@example.com");
     expect(m.report_id).toBeNull();
+  });
+
+  it("with a demo session: a stranger's message, under the address they typed, not the owner's", async () => {
+    // The demo cookie opens the owner's account for anyone; a message sent
+    // from it must not be filed as the owner's, nor under their address.
+    const res = await post({ text: "Demo mi nejde.", email: "Visitor@Example.com" }, await cookie("u-a", true));
+    expect(res.status).toBe(200);
+    expect(tables.messages).toHaveLength(1);
+    expect(tables.messages[0].user_id).toBeNull();
+    expect(tables.messages[0].email).toBe("visitor@example.com");
+    // And without an address of their own they are asked for one.
+    expect((await post({ text: "Demo mi nejde." }, await cookie("u-a", true))).status).toBe(400);
   });
 
   it("refuses an empty text, a missing address, and a text over the cap", async () => {
@@ -263,6 +280,18 @@ describe("the rate limit", () => {
     }
     expect((await post({ email: "fresh@example.com", text: "zpráva" }, { "cf-connecting-ip": "10.0.0.1" })).status).toBe(429);
   });
+
+  it("does not spend the address's hour on a message the IP refused", async () => {
+    // Five from one IP under five addresses fill the IP's bucket. A sixth
+    // address's message is refused by the IP — and that refusal must not
+    // count against the address, or five refusals lock an address out
+    // before it has sent a single message.
+    for (let i = 0; i < RATE_LIMIT; i++) await post({ email: `h${i}@example.com`, text: "zpráva" }, { "cf-connecting-ip": "10.0.0.1" });
+    for (let i = 0; i < RATE_LIMIT; i++) {
+      expect((await post({ email: "fresh@example.com", text: "zpráva" }, { "cf-connecting-ip": "10.0.0.1" })).status).toBe(429);
+    }
+    expect((await post({ email: "fresh@example.com", text: "zpráva" }, { "cf-connecting-ip": "10.0.0.2" })).status).toBe(200);
+  });
 });
 
 describe("Turnstile on the logged-out form", () => {
@@ -296,6 +325,14 @@ describe("Turnstile on the logged-out form", () => {
     const res = await post({ text: "Ahoj" }, await cookie("u-a"));
     expect(res.status).toBe(200);
     expect(fetched.some((u) => u.includes("siteverify"))).toBe(false);
+  });
+
+  it("is required of a demo visitor, who is a stranger with a cookie", async () => {
+    const res = await post({ email: "visitor@example.com", text: "Ahoj" }, await cookie("u-a", true));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("turnstile_required");
+    expect(tables.messages).toHaveLength(0);
+    expect((await post({ email: "visitor@example.com", text: "Ahoj", turnstileToken: "tok" }, await cookie("u-a", true))).status).toBe(200);
   });
 });
 
@@ -556,6 +593,8 @@ describe("the events table", () => {
     expect(routeLabel("GET", "/api/auth/invite/abc%20def")).toBe("GET /api/auth/invite/:id");
     expect(routeLabel("GET", "/ai/k7QmR2vX9pLw3fk7QmR2vX9pLw3fk7QmR2vX9pLw3fk7Q")).toBe("GET /ai/:token");
     expect(routeLabel("POST", "/api/extract")).toBe("POST /api/extract");
+    // The document id is the report id the browser minted: an id, replaced.
+    expect(routeLabel("DELETE", "/api/documents/r-2026-03-04")).toBe("DELETE /api/documents/:id");
   });
 
   it("a failed insert does not turn the refusal into a 500", async () => {

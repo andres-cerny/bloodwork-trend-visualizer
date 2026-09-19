@@ -202,8 +202,9 @@ password, log in; ask for a forgotten-password link on the same address and
 on one nobody has (the second mailbox is told there is no account, the
 screen is not). Until the domain exists in Resend, mail can reach only the
 address Resend's sandbox allows — your own. With `RESEND_API_KEY` unset in
-production the worker logs the link and answers as if sent, which is a
-deployment that lets nobody in: set the key before the var.
+production both forms answer 503 `mail_unconfigured` („Odesílání e-mailů
+zatím není nastavené.") and mint nothing — the link is logged only under
+`OPEN_SIGNUP_DEV_BYPASS`, never in a deployment: set the key before the var.
 
 To close the door again, `OPEN_SIGNUP` back to `"false"` and deploy: the
 forms answer 404, the front page shows no „Registrovat", login asks for no
@@ -243,6 +244,9 @@ So choose the account deliberately:
   `PORTAL_USD_LIMIT`, or the account's own `budget_usd` if it has one. Set
   it deliberately before publishing the link: `moje-krev-budget.mjs` below.
   A budget of `0` leaves the demo readable and stops its uploads outright.
+  A demo upload costs the fuse, not documents: it opens a document without
+  taking one of the account's five, so five strangers cannot exhaust the
+  account for the sixth — or for you. The USD ceiling is the only brake.
 - **Its e-mail stays private.** `/api/me` withholds the address from a demo
   session and the top bar reads „Demo pacient"; the account's own login
   still shows it.
@@ -442,7 +446,9 @@ cause, where, how sure, what to do, and up to two questions for the
 person. Same host, no new sub-processor; the free tier is 10 000 neurons a
 day and one guess is a few hundred. To switch it off, remove the `ai`
 block and deploy — the raw message still goes. The `events` rows are
-pruned after 30 days by the scheduled check.
+pruned after 30 days by the scheduled check, and so is a message twelve
+months after `--answered` marked it (the privacy page's „do odpovědi a
+12 měsíců po ní"); an unanswered message is never pruned.
 
 A database created before 2026-09-19 needs the two tables once, **before**
 the worker that writes them is deployed (`npm run check:schema`):
@@ -463,11 +469,19 @@ new month by hand:
 
 ```sh
 cd workers/portal-extract
-for i in $(seq 0 7); do npx wrangler kv key delete --binding BUDGET "spend_usd_extract_shard_$i"; done
+for i in $(seq 0 7); do
+  npx wrangler kv key delete --binding BUDGET "spend_usd_extract_shard_$i"
+  npx wrangler kv key delete --binding BUDGET "spend_usd_shard_$i"
+done
 ```
 
-(The per-person ledgers in the same namespace, `user_spend_*`, expire on
-their own after 90 days and are not touched by this.)
+Two families, because `@bw/gate/budget.ts` still adds the pre-split
+`spend_usd_shard_*` keys into the total (nothing writes them any more, but
+a namespace older than the split carries them): deleting only the
+`extract` family leaves the old spend counted and the ledger not at zero.
+A key that does not exist answers „not found", which is fine. (The
+per-person ledgers in the same namespace, `user_spend_*`, expire on their
+own after 90 days and are not touched by this.)
 
 ## The D1 export
 

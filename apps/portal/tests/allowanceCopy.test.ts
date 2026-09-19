@@ -6,9 +6,9 @@
  * (tests/e2e/audit-portal.e2e.ts).
  */
 import { describe, expect, it } from "vitest";
-import { type Allowance } from "../src/lib/api";
+import { type Allowance, ApiError } from "../src/lib/api";
 import { allowanceLabel, allowanceNumbers, exhaustedCopy, PURCHASE_DONE, PURCHASE_LANDED, PURCHASE_PENDING } from "../src/ui/AllowanceChip";
-import { BUY_FAILED, PACKAGES, packageLabel, SHOP_CLOSED } from "../src/ui/BuySheet";
+import { BUY_FAILED, buyNotice, PACKAGES, packageLabel, SHOP_CLOSED } from "../src/ui/BuySheet";
 import { WHY_PAY } from "../src/ui/WhyPayPage";
 
 const a = (used: number, purchased = 0, free = 5): Allowance => ({ free, purchased, used, remaining: Math.max(0, free + purchased - used) });
@@ -79,6 +79,16 @@ describe("the sheet", () => {
 
   it("says the shop is not open yet in the one sentence the door agreed on", () => {
     expect(SHOP_CLOSED).toBe("Obchod zatím není otevřený.");
+    expect(buyNotice(new ApiError("Obchod zatím není otevřený.", "shop_closed", 503))).toBe(SHOP_CLOSED);
+  });
+
+  it("shows the worker's own sentence to a demo visitor, not the generic failure", () => {
+    // The demo may not buy (403 demo_readonly, „V demu nelze nakupovat."):
+    // that is a rule, not a failure, and the person should read the rule.
+    expect(buyNotice(new ApiError("V demu nelze nakupovat.", "demo_readonly", 403))).toBe("V demu nelze nakupovat.");
+    // Anything else — a network error, Stripe refusing — is the generic line.
+    expect(buyNotice(new ApiError("No such price", "stripe_failed", 502))).toBe(BUY_FAILED);
+    expect(buyNotice(new TypeError("Failed to fetch"))).toBe(BUY_FAILED);
   });
 });
 

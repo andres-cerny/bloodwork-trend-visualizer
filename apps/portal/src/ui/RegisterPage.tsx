@@ -8,14 +8,18 @@
  *
  * The consents are the legal texts' (docs/plans/multi-user.md, Goal 9):
  * health data under the privacy page, and the terms. Both are required and
- * the worker refuses without them; the wording is rendered here, the date
- * it was given is stored on the account when the link is used.
+ * the worker refuses without them; the wording is legal.tsx's constants,
+ * rendered here word for word with the document's name as the link — the
+ * privacy page quotes the same constant as the sentence that was ticked —
+ * and the date it was given is stored on the account when the link is used.
  */
 import { useState } from "react";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { requestReset, requestSignup } from "../lib/api";
 import { useTurnstile } from "../lib/turnstile";
 import { Door, TurnstileBox, messageOf } from "./Door";
+import { LOGIN_PATH } from "./LandingPage";
+import { CONSENT_HEALTH, CONSENT_TERMS, linked, PRIVACY_PATH, TERMS_PATH } from "./legal";
 import VerifyMailPage from "./VerifyMailPage";
 
 export type RegisterMode = "register" | "forgot";
@@ -81,15 +85,11 @@ export default function RegisterPage({ mode }: { mode: RegisterMode }) {
           <>
             <label className="check consent">
               <input type="checkbox" checked={health} onChange={(e) => setHealth(e.target.checked)} />
-              <span>
-                Souhlasím se zpracováním svých zdravotních údajů podle <a href="/soukromi">Zásad ochrany soukromí</a>
-              </span>
+              <span>{linked(CONSENT_HEALTH, "Zásady ochrany soukromí", PRIVACY_PATH)}</span>
             </label>
             <label className="check consent">
               <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
-              <span>
-                Souhlasím s <a href="/podminky">Podmínkami užití</a>
-              </span>
+              <span>{linked(CONSENT_TERMS, "Podmínkami užití", TERMS_PATH)}</span>
             </label>
           </>
         )}
@@ -100,9 +100,9 @@ export default function RegisterPage({ mode }: { mode: RegisterMode }) {
         </button>
       </form>
       <p className="door-foot sub">
-        <a href="/">Přihlášení</a>
+        <a href={LOGIN_PATH}>Přihlášení</a>
         {mode === "register" ? <a href="/zapomenute-heslo">Zapomenuté heslo</a> : <a href="/registrace">Registrovat</a>}
-        <a href="/soukromi">Co ukládáme, a co ne</a>
+        <a href={PRIVACY_PATH}>Co ukládáme, a co ne</a>
       </p>
     </Door>
   );

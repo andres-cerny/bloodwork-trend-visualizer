@@ -123,7 +123,7 @@ export const SQL = {
   // it — and the conditional UPDATE on the user row is the claim on the
   // slot: it moves doc_used only while one is left.
   insertDocument: "INSERT OR IGNORE INTO documents (id, user_id, created_at) VALUES (?1, ?2, ?3)",
-  documentById: "SELECT id, user_id, pages_sent, pages_read, released_at FROM documents WHERE id = ?1",
+  documentById: "SELECT id, user_id, pages_sent, pages_read, pages_failed, released_at FROM documents WHERE id = ?1",
   deleteDocument: "DELETE FROM documents WHERE id = ?1",
   takeDocument: "UPDATE users SET doc_used = doc_used + 1 WHERE id = ?1 AND doc_used < doc_allowance",
   // One page more on this document, if it is the owner's, still open, and
@@ -131,11 +131,14 @@ export const SQL = {
   sendPage:
     "UPDATE documents SET pages_sent = pages_sent + 1 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL AND pages_sent < ?3",
   notePageRead: "UPDATE documents SET pages_read = pages_read + 1 WHERE id = ?1",
-  // The slot goes back only for a document nothing was read from; the
-  // conditional UPDATE is what makes a second release, or one after a read,
-  // change nothing.
+  notePageFailed: "UPDATE documents SET pages_failed = pages_failed + 1 WHERE id = ?1",
+  // The slot goes back only for a document nothing was read from, and only
+  // once every page sent has come back failed — a page still out at the
+  // extractor (sent, neither read nor failed) keeps the slot, because its
+  // read may yet land. The conditional UPDATE is what makes a second release,
+  // one after a read, or one fired while pages are in flight change nothing.
   releaseDocument:
-    "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND pages_read = 0 AND released_at IS NULL",
+    "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND pages_read = 0 AND pages_failed = pages_sent AND released_at IS NULL",
   giveBackDocument: "UPDATE users SET doc_used = doc_used - 1 WHERE id = ?1 AND doc_used > 0",
   allowanceForUser: "SELECT doc_allowance, doc_used FROM users WHERE id = ?1",
 
@@ -151,6 +154,9 @@ export const SQL = {
   // The account's messages go with it; the fact that someone wrote stays
   // useless without the address, so the row is deleted, not unlinked.
   deleteMessagesForUser: "DELETE FROM messages WHERE user_id = ?1",
+  // The privacy page's „do odpovědi a 12 měsíců po ní": an answered message
+  // goes a year after the answer (src/watch.ts); an open one stays.
+  pruneAnsweredMessages: "DELETE FROM messages WHERE answered_at IS NOT NULL AND answered_at < ?1",
 
   // Refusals the worker answered (src/events.ts): a route, a status, a code,
   // a hash of the account. Read newest-first beside a help-desk message, and
@@ -207,6 +213,8 @@ export interface DocumentRow {
   user_id: string;
   pages_sent: number;
   pages_read: number;
+  /** Pages the extractor answered with anything but a read; sent − read − failed is in flight. */
+  pages_failed: number;
   released_at: string | null;
 }
 

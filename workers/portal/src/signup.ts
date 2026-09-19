@@ -16,8 +16,13 @@
  * using it (POST /api/auth/password) creates the row — so nothing exists for
  * an address that never opened its mail, and an unverified address can
  * spend nothing. Register on a taken address and forgot on a free one are
- * both answered {ok:true} after the same work: one lookup, one insert, one
- * mail. The only difference is which mail, and only the mailbox learns it.
+ * both answered {ok:true} after one lookup and one mail; register inserts a
+ * code either way, forgot on a free address inserts nothing (there is no
+ * account to bind a code to, and a row for an address that asked for
+ * nothing would be a row to prune). The mail — one HTTP call to Resend —
+ * is what the timing is made of, and the response body is identical, so
+ * the missing insert is not a tell. The only difference is which mail, and
+ * only the mailbox learns it.
  *
  * Turnstile guards the three public forms — register, login, forgot — and
  * nothing behind the login; a logged-in person is the gate there. A token
@@ -148,6 +153,13 @@ const now = () => Math.floor(Date.now() / 1000);
  */
 export async function handleSignupMail(request: Request, env: SignupEnv, kind: MailKind, parsed?: unknown): Promise<Response> {
   if (!signupOpen(env)) return json({ error: "not_found" }, 404);
+  // An open door with no way to send mail is a deployment nobody can enter,
+  // and the local fallback — the link in the log — would put a credential
+  // into production observability. Only the dev bypass, which no deployed
+  // wrangler.jsonc may set, turns that fallback on.
+  if (!env.RESEND_API_KEY && env.OPEN_SIGNUP_DEV_BYPASS !== "true") {
+    return json({ error: "mail_unconfigured", message: "Odesílání e-mailů zatím není nastavené." }, 503);
+  }
   // handleRegister has read the body already to see there was no code in it.
   const body = (parsed ?? (await request.json().catch(() => ({})))) as { email?: unknown; consent?: unknown; turnstile?: unknown };
   if (!looksLikeEmail(body.email)) return json({ error: "bad_request", message: "Zadejte platný e-mail." }, 400);

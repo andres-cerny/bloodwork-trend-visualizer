@@ -6,6 +6,7 @@
  * its own, in whatever tab the mail app chooses.
  */
 import { Door } from "./Door";
+import { LOGIN_PATH } from "./LandingPage";
 
 export const LINK_HOURS = 24;
 
@@ -18,7 +19,7 @@ export default function VerifyMailPage({ email }: { email: string }) {
       </p>
       <p className="hint">Nepřišel? Podívejte se do nevyžádané pošty. Odkaz lze použít jednou.</p>
       <p className="door-foot sub">
-        <a href="/">Přihlášení</a>
+        <a href={LOGIN_PATH}>Přihlášení</a>
       </p>
     </Door>
   );

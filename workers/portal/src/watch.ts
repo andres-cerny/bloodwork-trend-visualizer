@@ -29,6 +29,7 @@
  * how it runs from Ondřej's machine. Without the Telegram secrets every
  * check still runs and logs its result.
  */
+import { SQL } from "./db";
 import { pruneEvents } from "./events";
 import { notify, type TelegramEnv } from "./telegram";
 import { triage, formatTriage, type TriageEnv } from "./triage";
@@ -60,7 +61,20 @@ export interface WatchReport {
   spendPct: number | null;
   /** Every line posted (or logged) this run, in order. */
   posted: string[];
+  /** Events older than thirty days, deleted this run. */
   pruned: number;
+  /** Help-desk messages answered more than twelve months ago, deleted this run. */
+  prunedMessages: number;
+}
+
+/** How long an answered help-desk message is kept — the privacy page's sentence. */
+export const MESSAGE_RETENTION_MONTHS = 12;
+
+/** The ISO instant before which an answered message is forgotten. */
+export function messageCutoff(now: Date): string {
+  const d = new Date(now.getTime());
+  d.setUTCMonth(d.getUTCMonth() - MESSAGE_RETENTION_MONTHS);
+  return d.toISOString();
 }
 
 const czUsd = (n: number) => n.toLocaleString("cs-CZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -96,7 +110,7 @@ async function transition(env: WatchEnv, what: "app" | "extract", now: UpDown, d
 }
 
 export async function runWatch(env: WatchEnv, now = new Date()): Promise<WatchReport> {
-  const report: WatchReport = { app: "skipped", extract: "up", spendPct: null, posted: [], pruned: 0 };
+  const report: WatchReport = { app: "skipped", extract: "up", spendPct: null, posted: [], pruned: 0, prunedMessages: 0 };
 
   // 1. The shell, end to end.
   const origin = env.APP_URL?.trim().replace(/\/+$/, "");
@@ -162,13 +176,22 @@ export async function runWatch(env: WatchEnv, now = new Date()): Promise<WatchRe
     }
   }
 
-  // Housekeeping that rides along: the events table forgets its month.
+  // Housekeeping that rides along: the events table forgets its month, and
+  // the help desk forgets a message a year after it was answered — the
+  // privacy page's „do odpovědi a 12 měsíců po ní". An unanswered message
+  // is never touched: it is still someone waiting.
   try {
     report.pruned = await pruneEvents(env, Math.floor(now.getTime() / 1000));
   } catch (e) {
     console.error(`watch: events not pruned: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200));
   }
+  try {
+    const r = await env.DB.prepare(SQL.pruneAnsweredMessages).bind(messageCutoff(now)).run();
+    report.prunedMessages = r.meta?.changes ?? 0;
+  } catch (e) {
+    console.error(`watch: messages not pruned: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200));
+  }
 
-  console.log(JSON.stringify({ watch: { app: report.app, extract: report.extract, spendPct: report.spendPct, posted: report.posted.length, pruned: report.pruned } }));
+  console.log(JSON.stringify({ watch: { app: report.app, extract: report.extract, spendPct: report.spendPct, posted: report.posted.length, pruned: report.pruned, prunedMessages: report.prunedMessages } }));
   return report;
 }

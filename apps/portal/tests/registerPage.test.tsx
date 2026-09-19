@@ -13,7 +13,11 @@
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import Privacy from "../src/ui/Privacy";
 import RegisterPage from "../src/ui/RegisterPage";
+import VerifyMailPage from "../src/ui/VerifyMailPage";
+import { CONSENT_HEALTH, CONSENT_TERMS, PRIVACY_PATH, TERMS_PATH } from "../src/ui/legal";
+import { LOGIN_PATH } from "../src/ui/LandingPage";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -70,15 +74,39 @@ describe("RegisterPage — registrace", () => {
     render(<RegisterPage mode="register" />);
     expect(q("h2")!.textContent).toBe("Registrace");
     const labels = [...document.querySelectorAll("label.check.consent")].map((l) => l.textContent?.replace(/\s+/g, " ").trim());
-    expect(labels).toEqual([
-      "Souhlasím se zpracováním svých zdravotních údajů podle Zásad ochrany soukromí",
-      "Souhlasím s Podmínkami užití",
-    ]);
-    expect(q('label.check.consent a[href="/soukromi"]')!.textContent).toBe("Zásad ochrany soukromí");
-    expect(q('label.check.consent a[href="/podminky"]')!.textContent).toBe("Podmínkami užití");
+    expect(labels).toEqual([CONSENT_HEALTH, CONSENT_TERMS]);
+    expect(q(`label.check.consent a[href="${PRIVACY_PATH}"]`)!.textContent).toBe("Zásady ochrany soukromí");
+    expect(q(`label.check.consent a[href="${TERMS_PATH}"]`)!.textContent).toBe("Podmínkami užití");
     expect(q("button.primary")!.textContent).toBe("Poslat odkaz");
     // No site key: no widget frame either.
     expect(q(".door-turnstile")).toBeNull();
+  });
+
+  it("ticks the very sentence the privacy page quotes as the čl. 9 basis", async () => {
+    // The privacy page says „souhlas, který dáváte při registraci zaškrtnutím
+    // věty" and quotes CONSENT_HEALTH. The checkbox must show that sentence,
+    // word for word — a shorter paraphrase beside the box is a consent to
+    // something else.
+    render(<RegisterPage mode="register" />);
+    const ticked = q("label.check.consent")!.textContent!.replace(/\s+/g, " ").trim();
+    act(() => root.unmount());
+    root = createRoot(host);
+    render(<Privacy />);
+    await flush();
+    const quoted = q("blockquote.legal-quote")!.textContent!.replace(/^„|"$/g, "");
+    expect(ticked).toBe(quoted);
+    expect(quoted).toBe(CONSENT_HEALTH);
+  });
+
+  it("links Přihlášení to the login form, not to the landing", () => {
+    render(<RegisterPage mode="register" />);
+    expect(q(`.door-foot a[href="${LOGIN_PATH}"]`)!.textContent).toBe("Přihlášení");
+    expect(q('.door-foot a[href="/"]')).toBeNull();
+    act(() => root.unmount());
+    root = createRoot(host);
+    render(<VerifyMailPage email="nova@example.com" />);
+    expect(q(`a[href="${LOGIN_PATH}"]`)!.textContent).toBe("Přihlášení");
+    expect(q('a[href="/"]')).toBeNull();
   });
 
   it("refuses to send without both consents, and posts nothing", async () => {
@@ -101,7 +129,7 @@ describe("RegisterPage — registrace", () => {
     expect(posted).toEqual([{ path: "/api/auth/register", body: { email: "nova@example.com", consent: true } }]);
     expect(q(".sent")!.textContent).toBe("Poslali jsme odkaz na nova@example.com. Otevřete ho do 24 hodin.");
     expect(q("form")).toBeNull();
-    expect(q('a[href="/"]')!.textContent).toBe("Přihlášení");
+    expect(q(`a[href="${LOGIN_PATH}"]`)!.textContent).toBe("Přihlášení");
   });
 
   it("shows the worker's sentence on a refusal and keeps the form", async () => {

@@ -504,10 +504,12 @@ describe("the bot gate", () => {
     expect((await askRegister("nova@example.com", { turnstile: "bad" })).status).toBe(403);
   });
 
-  it("the bypass is in no wrangler.jsonc, and OPEN_SIGNUP is not on there either", () => {
+  it("the bypass is in no wrangler.jsonc", () => {
+    // OPEN_SIGNUP itself may be "true" there — that is how the handoff tells
+    // the operator to open the door. The bypass never may: it is the local
+    // app's way past Turnstile, and a deployed worker with it lets bots in.
     const cfg = readFileSync(join(import.meta.dirname, "../wrangler.jsonc"), "utf-8").replace(/\/\/[^\n]*/g, "");
     expect(cfg).not.toMatch(/OPEN_SIGNUP_DEV_BYPASS/);
-    expect(cfg).not.toMatch(/"OPEN_SIGNUP"\s*:\s*"true"/);
   });
 });
 
@@ -546,8 +548,9 @@ describe("the per-IP ceiling", () => {
 });
 
 describe("mail delivery", () => {
-  it("without RESEND_API_KEY the link is logged and the answer is the same", async () => {
+  it("without RESEND_API_KEY, locally (the dev bypass), the link is logged and the answer is the same", async () => {
     env.RESEND_API_KEY = undefined;
+    env.OPEN_SIGNUP_DEV_BYPASS = "true";
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const res = await askRegister("nova@example.com");
     expect(res.status).toBe(200);
@@ -556,6 +559,23 @@ describe("mail delivery", () => {
     expect(logged).toContain("RESEND_API_KEY unset");
     expect(logged).toContain(`${ORIGIN}/heslo?kod=`);
     expect(logged).toContain(tables.invites[0].code);
+    log.mockRestore();
+  });
+
+  it("without RESEND_API_KEY in production the door answers 503 mail_unconfigured, mints nothing and logs no link", async () => {
+    // The door is open, the bypass is not set: this is a deployment. A link
+    // printed into the worker's log there is a credential in observability,
+    // for an address that will never receive it.
+    env.RESEND_API_KEY = undefined;
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    for (const ask of [askRegister, askForgot]) {
+      const res = await ask("nova@example.com");
+      expect(res.status).toBe(503);
+      expect(await body(res)).toEqual({ error: "mail_unconfigured", message: "Odesílání e-mailů zatím není nastavené." });
+    }
+    expect(outside.mails).toHaveLength(0);
+    expect(tables.invites).toHaveLength(0);
+    expect(log.mock.calls.map((c) => c.join(" ")).join("\n")).not.toContain("/heslo?kod=");
     log.mockRestore();
   });
 

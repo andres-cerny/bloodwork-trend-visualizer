@@ -14,8 +14,12 @@ import { runWatch, SPEND_THRESHOLDS, type WatchEnv } from "../src/watch";
 interface EventRow {
   at: number;
 }
+interface MessageRow {
+  answered_at: string | null;
+}
 
 let events: EventRow[];
+let messages: MessageRow[];
 function fakeD1(): D1Database {
   const run = (sql: string, a: unknown[]): { results: unknown[]; changes: number } => {
     switch (sql) {
@@ -23,6 +27,11 @@ function fakeD1(): D1Database {
         const before = events.length;
         events = events.filter((e) => e.at >= (a[0] as number));
         return { results: [], changes: before - events.length };
+      }
+      case SQL.pruneAnsweredMessages: {
+        const before = messages.length;
+        messages = messages.filter((m) => m.answered_at === null || m.answered_at >= (a[0] as string));
+        return { results: [], changes: before - messages.length };
       }
       case SQL.recentEvents:
         return { results: [], changes: 0 };
@@ -65,6 +74,7 @@ const NOW = new Date("2026-09-19T20:00:00Z");
 
 beforeEach(() => {
   events = [];
+  messages = [];
   shell = { "/": 200, "/api/processors": 200 };
   extractStatus = 200;
   budget = { spentUsd: 3.2, budgetUsd: 30, frozen: false };
@@ -239,6 +249,19 @@ describe("housekeeping", () => {
     const r = await runWatch(env, NOW);
     expect(r.pruned).toBe(1);
     expect(events).toHaveLength(2);
+  });
+
+  it("prunes help-desk messages answered more than twelve months ago, and keeps every unanswered one", async () => {
+    // The privacy page says a message lives „do odpovědi a 12 měsíců po ní".
+    // The scheduled check is what makes that sentence true.
+    messages = [
+      { answered_at: "2025-09-18T20:00:00Z" }, // a year and a day: goes
+      { answered_at: "2025-09-20T20:00:00Z" }, // a day short of a year: stays
+      { answered_at: null }, // open since 2024: stays until answered
+    ];
+    const r = await runWatch(env, NOW);
+    expect(r.prunedMessages).toBe(1);
+    expect(messages).toEqual([{ answered_at: "2025-09-20T20:00:00Z" }, { answered_at: null }]);
   });
 
   it("is what the cron trigger runs", async () => {

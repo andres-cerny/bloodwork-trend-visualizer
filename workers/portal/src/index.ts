@@ -45,7 +45,7 @@ import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import { handleSignupMail, looksLikeEmail, openMailedAccount, requireHuman, signupStatus, type SignupEnv } from "./signup";
-import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageRead, sendPage } from "./allowance";
+import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageFailed, notePageRead, sendPage } from "./allowance";
 import { handleBuy, handleStripeWebhook, type StripeEnv } from "./stripe";
 import {
   clearCookieHeader,
@@ -502,13 +502,22 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   }
 
   const session = await mintSession(env.EXTRACT_SESSION_SECRET, EXTRACT_SESSION_TTL, 1);
-  const res = await env.EXTRACT.fetch(
-    new Request("https://extract/api/extract", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-demo-session": session },
-      body,
-    }),
-  );
+  let res: Response;
+  try {
+    res = await env.EXTRACT.fetch(
+      new Request("https://extract/api/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-demo-session": session },
+        body,
+      }),
+    );
+  } catch (e) {
+    // The binding itself failed: the page was sent and nothing will answer
+    // it. Settled as a failure, so the document is not left with a page in
+    // flight for ever and the slot can still come back.
+    console.error(`extract unreachable: ${e instanceof Error ? e.message : String(e)}`);
+    return json(await settle(env, user, 502, { error: "extraction_failed", message: "Zpracování se nezdařilo — zkuste to znovu." }, docId), 502);
+  }
   // Streamed answer: rows as they are written, then a final "done" line
   // that is the buffered answer. Lines pass through untouched except the
   // last, which is where the cost is booked and the person's budget added —
@@ -574,6 +583,9 @@ async function settle(env: Env, user: UserRow, status: number, data: ExtractAnsw
     // A page read: from here on the document's slot is spent for good.
     if (docId) await notePageRead(env.DB, docId);
   } else if (status !== 200) {
+    // A page failed: no longer in flight, so a release that waits for every
+    // page to come back can now count it.
+    if (docId) await notePageFailed(env.DB, docId);
     // The extractor's reason, in the log as well as in the answer: a page that
     // fails for every member of the family is a deployment problem, and the
     // log is where the operator looks first. Its `message` is deliberately not
@@ -1060,11 +1072,13 @@ const routes = {
       case "POST /api/stripe/webhook":
         return handleStripeWebhook(request, env);
       // „Napište nám", logged in or not: the session names the sender when
-      // there is one, and a stranger names themselves (src/helpdesk.ts).
+      // there is one, and a stranger names themselves (src/helpdesk.ts). A
+      // demo cookie is a stranger's: the message is not the owner's, must not
+      // carry their address, and gets the stranger's Turnstile and limits.
       case "POST /api/helpdesk": {
         const who = await requireSession(request, env);
         if (who) accountOf.set(request, who.user.id);
-        return handleHelpdesk(request, env, who?.user ?? null, ctx);
+        return handleHelpdesk(request, env, who && !who.demo ? who.user : null, ctx);
       }
     }
     const invite = INVITE.exec(url.pathname);
@@ -1092,7 +1106,7 @@ const routes = {
         const limit = limitFor(user, env);
         const before = await userBudget(env.BUDGET, user.id, limit);
         if (before.frozen) return json({ error: "budget_exhausted", message: frozenMessage(limit), budget: before }, 402);
-        return handleOpenDocument(request, env.DB, user);
+        return handleOpenDocument(request, env.DB, user, session.demo);
       }
       case "POST /api/buy":
         return handleBuy(request, env, user, session.demo);
@@ -1127,7 +1141,7 @@ const routes = {
     }
 
     const doc = DOCUMENT.exec(url.pathname);
-    if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1]);
+    if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1], session.demo);
 
     const page = PAGE.exec(url.pathname);
     if (page) {
