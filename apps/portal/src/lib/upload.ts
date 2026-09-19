@@ -279,9 +279,21 @@ export async function extractReport(
  * Persist: the row first (pages attach to a report that exists), then each
  * painted image, then the row again with the images named by route so the
  * data: URLs can be let go of.
+ *
+ * The first row goes without the pixels. `report.pages[].imageUrl` is the
+ * painted page as a data: URL — ~59 kB each — and the worker, which never
+ * stores that field, still counts it against its 2 MiB payload cap: six
+ * pages answered 413 „Report je příliš velký." after the document was taken
+ * and every page read. What the first PUT needs is the page numbers and
+ * sizes; the routes come with the second.
+ *
+ * Nothing here gives the document back. By the time a report is stored its
+ * pages were read and paid for, and the worker would refuse the release
+ * anyway (it checks that nothing was read); a failure here is reported as
+ * what it is — read, not stored — by the caller.
  */
 export async function storeReport(report: LabReport, pages: RedactedPage[]): Promise<LabReport> {
-  await putReport(report);
+  await putReport({ ...report, pages: report.pages.map(({ imageUrl: _pixels, ...p }) => p) });
   const stored = [];
   for (const p of pages) {
     const { imageUrl } = await putPage(report.id, p.pageNum, p.blob, p.imageWidth, p.imageHeight);
