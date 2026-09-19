@@ -7,12 +7,13 @@
  *   npm run test:audit:portal
  *   AUDIT_COLLECT=out.json npm run test:audit:portal   # triage, never fails
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Page } from "playwright";
 import { audit, report, type Flaw } from "./lib/audit";
 import { DESKTOP, MOBILE, SMALL, TABLET, WIDE, errorsOn, setTheme, type Harness } from "./lib/harness";
+import { png } from "./lib/imageFixtures";
 import { startPortal } from "./lib/portalHarness";
 
 let app: Harness;
@@ -345,6 +346,47 @@ const SCREENS: Screen[] = [
       await page.getByRole("button", { name: "Uložit a přidat k odkazu" }).click();
       await page.waitForSelector(".ctx-summary", { timeout: 10_000 });
       await page.waitForTimeout(300);
+    },
+  },
+  {
+    // A new account: no strip, the upload card is the whole screen, and the
+    // report list says there is nothing yet.
+    name: "první přihlášení (bez reportů)",
+    at: { path: "/", ready: "label.drop" },
+    prepare: async (page) => {
+      await page.route("**/api/reports", (route) => (route.request().method() === "GET" ? route.fulfill({ json: [] }) : route.fallback()));
+    },
+    go: async (page) => {
+      await page.waitForTimeout(250);
+    },
+    check: async (page) => {
+      expect(await page.getByRole("tab").count(), "no strip without data").toBe(0);
+      expect(await page.getByText("Zatím nic. Nahrajte první PDF výše.").isVisible()).toBe(true);
+    },
+  },
+  {
+    // The first batch, mid-way: two files confirmed and reading, the line
+    // under the drop target saying Souhrn waits for both. The extractor
+    // never answers, so the screen stays exactly here for the sweep.
+    name: "první nahrání (dávka běží)",
+    at: { path: "/", ready: "label.drop" },
+    prepare: async (page) => {
+      await page.route("**/api/reports", (route) => (route.request().method() === "GET" ? route.fulfill({ json: [] }) : route.fallback()));
+      await page.route("**/api/extract", () => new Promise<void>(() => {}));
+    },
+    go: async (page) => {
+      await page.locator('label.drop input[type="file"]').setInputFiles([{ name: "vysledky.pdf", mimeType: "application/pdf", buffer: readFileSync(FIXTURE) }, { name: "IMG_0042.jpg", mimeType: "image/jpeg", buffer: png(1200, 1600) }]);
+      await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+      await page.getByRole("button", { name: "Ano, nahrát" }).click();
+      await expect.poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 20_000 }).toContain("IMG_0042.jpg");
+      await page.getByRole("button", { name: "Ano, nahrát" }).click();
+      await page.waitForSelector(".batch-wait", { timeout: 20_000 });
+      await expect.poll(() => page.locator("li.job.running").count(), { timeout: 20_000 }).toBe(2);
+      await page.waitForTimeout(300);
+    },
+    check: async (page) => {
+      expect(await page.locator(".batch-wait").textContent()).toBe("Souhrn se otevře až po přečtení všech 2 souborů.");
+      expect(await page.getByRole("tab").count(), "the strip waits for the batch").toBe(0);
     },
   },
   {

@@ -92,6 +92,52 @@ function stub() {
   return { requests, install };
 }
 
+/**
+ * The same stubs over an account with nothing in it, and an extractor the
+ * test holds by the collar: every request after the first waits until
+ * `release()` — so there is a moment, with one report stored and one still
+ * reading, in which the screen can be looked at. `failNext` makes the held
+ * request answer 500 instead.
+ */
+function firstUploadStub() {
+  const base = stub();
+  let held: Array<() => void> = [];
+  let failNext = false;
+  let served = 0;
+  const install = async (page: Page) => {
+    // The base stubs first: Playwright asks the last route registered first,
+    // and this extractor must answer before the base one.
+    await base.install(page);
+    await page.route("**/api/reports", (r: Route) => (r.request().method() === "GET" ? r.fulfill({ json: [] }) : r.fallback()));
+    await page.route("**/api/extract", async (r: Route) => {
+      base.requests.push(JSON.parse(r.request().postData() ?? "{}") as Seen);
+      if (served++ > 0) await new Promise<void>((resolve) => held.push(resolve));
+      if (failNext) {
+        failNext = false;
+        await r.fulfill({ status: 500, json: { error: "reader_failed", message: "Čtečka neodpověděla." } });
+        return;
+      }
+      await r.fulfill({ json: { reads: [read("sonnet"), read("gemini")], mode: "vision", readersAttempted: 2, costUsd: 0.004, budget: BUDGET } });
+    });
+  };
+  return {
+    requests: base.requests,
+    install,
+    release: () => {
+      for (const go of held) go();
+      held = [];
+    },
+    failTheHeld: () => {
+      failNext = true;
+    },
+  };
+}
+
+/** Land on an empty account: no strip, the upload card is the screen. */
+async function openEmpty(s: { install: (p: Page) => Promise<void> }) {
+  return app.open(MOBILE, { prepare: s.install, context: { hasTouch: true, isMobile: true }, at: { path: "/", ready: "label.drop" } });
+}
+
 /** The upload card lives on Reporty; the review replaces it in place. */
 async function openUpload(viewport: { width: number; height: number }, s: ReturnType<typeof stub>, touch = false) {
   const page = await app.open(viewport, { prepare: s.install, context: touch ? { hasTouch: true, isMobile: true } : undefined });
@@ -250,6 +296,90 @@ describe("a selection of both kinds at once", () => {
     expect(s.requests).toHaveLength(2);
     expect(s.requests.filter((r) => r.rowsText)).toHaveLength(1);
     expect(s.requests.filter((r) => r.imageBase64)).toHaveLength(1);
+
+    expect(errorsOn(page)).toEqual([]);
+    await page.close();
+  });
+});
+
+describe("the first upload, several files at once", () => {
+  /**
+   * What a first login looks like: an empty account, every sheet picked in
+   * one go. Souhrn used to open on the first report and rearrange itself as
+   * the rest landed; now the switch waits for the batch (lib/batch.ts). The
+   * moment that matters is the one between the first report stored and the
+   * second still reading, and the stub holds the second so it can be seen.
+   */
+  it("keeps the upload screen until both are stored, then opens Souhrn once with both", async () => {
+    const s = firstUploadStub();
+    const page = await openEmpty(s);
+    expect(await page.getByRole("tab").count(), "an empty account has no strip").toBe(0);
+
+    await pick(page, [shot("IMG_0042.jpg"), shot("IMG_0043.jpg")]);
+    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    await page.getByRole("button", { name: "Ano, nahrát" }).click();
+    await expect
+      .poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 20_000 })
+      .toContain("IMG_0043.jpg");
+    await page.getByRole("button", { name: "Ano, nahrát" }).click();
+
+    // One in, one held: the account has a report, and the screen has not moved.
+    // The second's request must have reached the stub before anything is
+    // looked at — confirming is a click, painting and sending take a moment.
+    await expect.poll(() => s.requests.length, { timeout: 30_000 }).toBe(2);
+    await expect.poll(() => page.locator("li.job.done").count(), { timeout: 30_000 }).toBe(1);
+    expect(await page.locator(".reportlist li").count(), "the stored one is listed").toBe(1);
+    expect(await page.getByRole("tab").count(), "no strip yet").toBe(0);
+    expect(await page.locator("#tabpanel-summary").isVisible(), "no Souhrn yet").toBe(false);
+    expect(await page.locator("li.job.running").count(), "the second is still reading").toBe(1);
+    expect(await page.locator(".batch-wait").textContent()).toBe("Souhrn se otevře až po přečtení všech 2 souborů.");
+
+    // The second lands: the strip appears, Souhrn is the tab, the wait line is gone.
+    s.release();
+    await page.waitForSelector("[role=tab][aria-selected=true]", { timeout: 30_000 });
+    expect(await page.getByRole("tab", { selected: true }).textContent()).toBe("Souhrn");
+    expect(await page.locator("#tabpanel-summary").isVisible()).toBe(true);
+    expect(await page.locator(".batch-wait").count()).toBe(0);
+    expect(s.requests).toHaveLength(2);
+
+    // And the queue's log survived the switch: both files, under Reporty.
+    await page.getByRole("tab", { name: "Reporty", exact: true }).click();
+    expect(await page.locator("li.job.done").count()).toBe(2);
+    expect(await page.locator(".reportlist li").count()).toBe(2);
+
+    expect(errorsOn(page)).toEqual([]);
+    await page.close();
+  });
+
+  it("does not wait on a failure: the switch comes when the last one ends, and the failed file stays listed with its message", async () => {
+    const s = firstUploadStub();
+    const page = await openEmpty(s);
+
+    await pick(page, [shot("IMG_0042.jpg"), shot("IMG_0043.jpg")]);
+    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    await page.getByRole("button", { name: "Ano, nahrát" }).click();
+    await expect
+      .poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 20_000 })
+      .toContain("IMG_0043.jpg");
+    await page.getByRole("button", { name: "Ano, nahrát" }).click();
+
+    await expect.poll(() => s.requests.length, { timeout: 30_000 }).toBe(2);
+    await expect.poll(() => page.locator("li.job.done").count(), { timeout: 30_000 }).toBe(1);
+    expect(await page.getByRole("tab").count()).toBe(0);
+
+    s.failTheHeld();
+    s.release();
+    await page.waitForSelector("[role=tab][aria-selected=true]", { timeout: 30_000 });
+    expect(await page.getByRole("tab", { selected: true }).textContent()).toBe("Souhrn");
+
+    await page.getByRole("tab", { name: "Reporty", exact: true }).click();
+    const failed = page.locator("li.job.failed");
+    expect(await failed.count()).toBe(1);
+    const text = (await failed.textContent()) ?? "";
+    expect(text).toContain("IMG_0043.jpg");
+    expect(text).toContain("Čtečka neodpověděla.");
+    expect(await page.locator("li.job.done").count()).toBe(1);
+    expect(await page.locator(".reportlist li").count()).toBe(1);
 
     expect(errorsOn(page)).toEqual([]);
     await page.close();
