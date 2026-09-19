@@ -15,9 +15,12 @@ export default defineConfig({
   server: {
     fs: { allow: [repoRoot] },
     // The portal API worker runs on 8789 (`npm run dev:portal-api`), so the
-    // dev server is the whole app, cookies included.
+    // dev server is the whole app, cookies included. /ai/ is the public share
+    // page the worker serves; without it here a link minted locally opened
+    // the SPA instead of the page an assistant would read.
     proxy: {
       "/api": { target: process.env.PORTAL_API ?? "http://127.0.0.1:8789", changeOrigin: false },
+      "/ai": { target: process.env.PORTAL_API ?? "http://127.0.0.1:8789", changeOrigin: false },
     },
   },
   // `vite preview` proxies the same way, which is how the layout audit serves
