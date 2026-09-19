@@ -5,9 +5,11 @@
  * the adapter is one function and one shape. Without RESEND_API_KEY the mail
  * is written to the worker's log instead and the call succeeds as if it had
  * gone: that is the local path, where the operator copies the link out of
- * `wrangler dev`'s output and opens it themselves. With the key and no
- * MAIL_FROM there is nothing valid to send as, and the call fails rather
- * than guess a sender Resend would refuse anyway.
+ * `wrangler dev`'s output and opens it themselves — and src/signup.ts lets a
+ * request reach this fallback only under OPEN_SIGNUP_DEV_BYPASS, because in
+ * production a link in the log is a credential in observability. With the
+ * key and no MAIL_FROM there is nothing valid to send as, and the call fails
+ * rather than guess a sender Resend would refuse anyway.
  *
  * Tests never reach Resend: the call goes through the global fetch, which
  * the plain-node tests stub — the same seam the extractor's tests use for

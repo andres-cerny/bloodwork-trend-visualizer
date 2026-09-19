@@ -153,6 +153,13 @@ const now = () => Math.floor(Date.now() / 1000);
  */
 export async function handleSignupMail(request: Request, env: SignupEnv, kind: MailKind, parsed?: unknown): Promise<Response> {
   if (!signupOpen(env)) return json({ error: "not_found" }, 404);
+  // An open door with no way to send mail is a deployment nobody can enter,
+  // and the local fallback — the link in the log — would put a credential
+  // into production observability. Only the dev bypass, which no deployed
+  // wrangler.jsonc may set, turns that fallback on.
+  if (!env.RESEND_API_KEY && env.OPEN_SIGNUP_DEV_BYPASS !== "true") {
+    return json({ error: "mail_unconfigured", message: "Odesílání e-mailů zatím není nastavené." }, 503);
+  }
   // handleRegister has read the body already to see there was no code in it.
   const body = (parsed ?? (await request.json().catch(() => ({})))) as { email?: unknown; consent?: unknown; turnstile?: unknown };
   if (!looksLikeEmail(body.email)) return json({ error: "bad_request", message: "Zadejte platný e-mail." }, 400);

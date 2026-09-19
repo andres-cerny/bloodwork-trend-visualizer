@@ -202,8 +202,9 @@ password, log in; ask for a forgotten-password link on the same address and
 on one nobody has (the second mailbox is told there is no account, the
 screen is not). Until the domain exists in Resend, mail can reach only the
 address Resend's sandbox allows — your own. With `RESEND_API_KEY` unset in
-production the worker logs the link and answers as if sent, which is a
-deployment that lets nobody in: set the key before the var.
+production both forms answer 503 `mail_unconfigured` („Odesílání e-mailů
+zatím není nastavené.") and mint nothing — the link is logged only under
+`OPEN_SIGNUP_DEV_BYPASS`, never in a deployment: set the key before the var.
 
 To close the door again, `OPEN_SIGNUP` back to `"false"` and deploy: the
 forms answer 404, the front page shows no „Registrovat", login asks for no

@@ -89,7 +89,8 @@
   // a visitor can then do, and what they cannot.
   // With OPEN_SIGNUP "true" three more are read (src/signup.ts, src/mail.ts):
   // RESEND_API_KEY and MAIL_FROM, which send the registration and
-  // forgotten-password links — without the key the link is only logged —
+  // forgotten-password links — without the key both forms answer 503, and
+  // the link is logged only under the local dev bypass —
   // and TURNSTILE_SECRET_KEY, which checks the token the three public forms
   // post; unset, every token is refused.
   // The shop (src/stripe.ts) opens when all four are set, and not before:
