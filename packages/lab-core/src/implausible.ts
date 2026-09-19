@@ -101,11 +101,15 @@ export function checkImplausible(
     return {
       level: "impossible",
       decimalShift,
+      // The fact only; `review.ts` adds what the reader is asked to do. Plain
+      // words for a lay reader: "není možná" rather than "mimo fyziologicky
+      // možný rozsah" — the check clears real extremes by a factor of 100,
+      // so the claim is defensible.
       reason: decimalShift
-        ? `Hodnota ${m.valueRaw} je mimo fyziologicky možný rozsah. Vypadá to na ` +
-          `posunutou desetinnou čárku — očekávali bychom ${decimalShift.suggestion}.`
-        : `Hodnota ${m.valueRaw} je mimo fyziologicky možný rozsah pro tento parametr ` +
-          `(typicky ${czNum(low)}–${czNum(high)}). Zkontrolujte ji prosím proti dokumentu.`,
+        ? `Hodnota ${m.valueRaw} u tohoto parametru není možná — vypadá to na ` +
+          `posunutou desetinnou čárku a na stránce je nejspíš ${decimalShift.suggestion}.`
+        : `Hodnota ${m.valueRaw} u tohoto parametru není možná ` +
+          `(typicky ${czNum(low)}–${czNum(high)}).`,
     };
   }
 
@@ -127,8 +131,8 @@ export function checkImplausible(
         // and showing two different-looking ranges on one screen without
         // distinguishing them is what makes a reader doubt both.
         `Hodnota ${m.valueRaw} je mimo typický rozsah pro tento parametr ` +
-        `(${czNum(low)}–${czNum(high)}) a liší se přesně o jedno desetinné místo ` +
-        `od ${likelyShift.suggestion}. Ověřte prosím proti dokumentu vedle.`,
+        `(${czNum(low)}–${czNum(high)}) a od ${likelyShift.suggestion} se liší jen ` +
+        `posunutou desetinnou čárkou.`,
     };
   }
 

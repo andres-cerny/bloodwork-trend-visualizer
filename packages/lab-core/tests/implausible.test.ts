@@ -48,7 +48,10 @@ describe("misread values are caught", () => {
     expect(r).not.toBeNull();
     expect(r!.level).toBe("suspect-decimal");
     expect(r!.decimalShift?.suggestion).toBe("4,45");
-    expect(r!.reason).toContain("Ověřte");
+    // The fact, with the number to look for on the page; the ask is added by
+    // review.ts, once, for every kind of doubt.
+    expect(r!.reason).toContain("od 4,45 se liší jen posunutou desetinnou čárkou");
+    expect(r!.reason).not.toMatch(/Ověřte|Zkontrolujte/);
   });
 
   it("phrases a possible-but-suspect value as a question, not an accusation", () => {
@@ -71,7 +74,7 @@ describe("misread values are caught", () => {
     expect(r).not.toBeNull();
     expect(r!.decimalShift).toBeNull();
     expect(r!.level).toBe("impossible");
-    expect(r!.reason).toContain("fyziologicky možný rozsah");
+    expect(r!.reason).toContain("není možná");
   });
 
   it("names the value it is complaining about", () => {
