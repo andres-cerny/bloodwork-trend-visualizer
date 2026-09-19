@@ -215,3 +215,19 @@ describe("material", () => {
     expect(r.matchRow("Kreatinin", [], 2)).toBe("kreatinin");
   });
 });
+
+describe("about", () => {
+  // The "i" in Trendy and Souhrn reads `about` off the registry entry. The
+  // Registry rewrites `material` on every entry it holds and must leave the
+  // texts alone — and an entry without them is the ordinary case for a
+  // founded parameter and for one the texts have not reached.
+  it("passes an entry's about texts through untouched, and an entry without them is fine", () => {
+    const about = { what: "Cukr v krvi.", usedFor: "Sleduje se při cukrovce." };
+    const r = new Registry([{ ...def("glukoza", "Glukóza"), about }, def("urea", "Urea")]);
+    expect(r.get("glukoza")?.about).toEqual(about);
+    expect(r.get("urea")?.about).toBeUndefined();
+    r.addSynonym("glukoza", "S_Glukosa");
+    r.removeSynonym("glukoza", "S_Glukosa");
+    expect(r.get("glukoza")?.about).toEqual(about);
+  });
+});

@@ -128,6 +128,16 @@ export interface AnalyteDef {
    * `Registry.match` treats as compatible with anything.
    */
   material?: string | null;
+  /**
+   * What the analyte is and what it is usually used for, in Czech, for the
+   * "i" beside its name in Trendy and Souhrn. Two short paragraphs about the
+   * analyte in general — never about the person's numbers, their flags or
+   * their ranges, and never a disclaimer or a diagnosis. Written into
+   * registry.json by the generator; absent on a parameter the reader
+   * founded, and on an entry the texts have not reached yet, and the UI
+   * shows no "i" for either. The Registry passes it through untouched.
+   */
+  about?: { what: string; usedFor: string };
 }
 
 /** A measurement with only the raw fields filled — what an extractor returns. */

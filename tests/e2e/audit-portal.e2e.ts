@@ -56,12 +56,63 @@ const tab = async (page: Page, name: string) => {
 };
 const IGNORE = ["iframe"];
 
+/**
+ * The "i" after a parameter's name needs `about` texts on the catalog entry,
+ * and the shipped registry.json may not carry them yet — the texts arrive
+ * through the generator. So the sweep seeds its own: the fetch of
+ * /registry.json is answered with the real file plus two sentences on every
+ * entry that has none. What is audited is the button and the popover, not
+ * the prose; the prose is the catalog's business.
+ */
+const withAbout = async (page: Page) => {
+  await page.route("**/registry.json", async (route) => {
+    const res = await route.fetch();
+    const defs = (await res.json()) as Array<Record<string, unknown>>;
+    for (const d of defs) {
+      d.about ??= {
+        what: `${d.displayNameCs} je látka, jejíž množství v krvi laboratoř měří.`,
+        usedFor: "Používá se při posuzování funkce orgánu, který ji tvoří nebo odstraňuje.",
+      };
+    }
+    await route.fulfill({ response: res, json: defs });
+  });
+};
+
+/**
+ * The popover must sit inside the viewport at every width, whole: 16px from
+ * either side above 480px, and never past the right edge — the auditor
+ * exempts a fixed element from its offscreen rule, so this is checked here.
+ */
+async function expectPopoverInView(page: Page) {
+  const box = await page.locator(".about-pop").boundingBox();
+  expect(box, "the popover is open").not.toBeNull();
+  const { width, height } = page.viewportSize()!;
+  const r = box!;
+  expect(r.x, "left edge").toBeGreaterThanOrEqual(0);
+  expect(r.x + r.width, "right edge").toBeLessThanOrEqual(width + 0.5);
+  expect(r.y, "top edge").toBeGreaterThanOrEqual(0);
+  expect(r.y + r.height, "bottom edge").toBeLessThanOrEqual(height + 0.5);
+  // Its text, too: a box inside the viewport with a paragraph running past it
+  // would pass the four lines above.
+  const overflow = await page.locator(".about-pop").evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow, "no horizontal overflow inside the popover").toBeLessThanOrEqual(0);
+  // What it holds: the name the button announced, and the two paragraphs —
+  // nothing of the person's row.
+  const name = (await page.locator(".about-btn[aria-expanded='true']").getAttribute("aria-label"))?.replace(/^O parametru /, "");
+  expect(await page.locator(".about-pop h4").innerText()).toBe(name);
+  expect(await page.locator(".about-pop p").count()).toBe(2);
+}
+
 interface Screen {
   name: string;
   go: (page: Page) => Promise<void>;
   skip?: string[];
   /** A screen outside the logged-in shell: where to open, and what says it is up. */
   at?: { path: string; ready: string };
+  /** Installed before the page navigates — a route stub the screen needs. */
+  prepare?: (page: Page) => Promise<void>;
+  /** Assertions of the screen's own, after the audit's invariants. */
+  check?: (page: Page) => Promise<void>;
 }
 
 const SCREENS: Screen[] = [
@@ -94,6 +145,34 @@ const SCREENS: Screen[] = [
       await page.locator(".tc-table summary").first().click();
       await page.waitForTimeout(300);
     },
+  },
+  {
+    // The "i" after a parameter's name in Souhrn, open: a popover beside the
+    // name above 480px, a sheet from the bottom edge under it. The first
+    // "i" on the screen is in the Zhoršilo se group, the row a reader
+    // reaches first.
+    name: "souhrn (o parametru otevřené)",
+    prepare: withAbout,
+    go: async (page) => {
+      await page.locator(".about-btn").first().click();
+      await page.waitForSelector(".about-pop", { timeout: 5_000 });
+      await page.waitForTimeout(250);
+    },
+    check: expectPopoverInView,
+  },
+  {
+    // The same "i" in the chart card's heading, over the chart: the popover
+    // stacks above the plot and its hover readout.
+    name: "trendy (o parametru otevřené)",
+    prepare: withAbout,
+    go: async (page) => {
+      await page.locator(".sum-table .sum-name").first().click();
+      await page.waitForSelector(".tc svg", { timeout: 10_000 });
+      await page.locator(".trend-card .about-btn").first().click();
+      await page.waitForSelector(".about-pop", { timeout: 5_000 });
+      await page.waitForTimeout(250);
+    },
+    check: expectPopoverInView,
   },
   {
     name: "trendy (picker open)",
@@ -253,13 +332,14 @@ for (const [vpName, viewport] of VIEWPORTS) {
     describe(`${vpName} · ${theme}`, () => {
       for (const screen of SCREENS) {
         it(`${screen.name} has no layout flaws`, async () => {
-          const page = await app.open(viewport, { at: screen.at });
+          const page = await app.open(viewport, { at: screen.at, prepare: screen.prepare });
           await setTheme(page, theme);
           try {
             await screen.go(page);
             const flaws = await audit(page, { ignore: IGNORE, skip: screen.skip });
             expect(errorsOn(page), `page errors on ${screen.name}`).toEqual([]);
             judge(`${vpName} ${theme} — ${screen.name}`, flaws);
+            await screen.check?.(page);
           } finally {
             await page.close();
           }

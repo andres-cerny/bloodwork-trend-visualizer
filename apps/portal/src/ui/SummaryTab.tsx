@@ -57,6 +57,7 @@ import {
   watchList,
 } from "@bw/lab-core";
 import { Sparkline } from "@bw/ui-kit";
+import AboutParam, { type About } from "./AboutParam";
 import { type PickerOption } from "./AnalytePicker";
 import SearchParam from "./SearchParam";
 import FlagChip from "./Flag";
@@ -68,6 +69,8 @@ interface Props {
   onOpenTrend?: (canonicalId: string) => void;
   /** Switch to the verification tab (the review banner's target). */
   onOpenVerify?: () => void;
+  /** The catalog's two sentences about a parameter, for the "i" after its name. */
+  aboutOf?: (canonicalId: string) => About | undefined;
 }
 
 const rangeOf = (r: SummaryRecord) =>
@@ -162,6 +165,7 @@ function Group({
   trends,
   watchFacts,
   onOpenTrend,
+  aboutOf,
 }: {
   kind: "better" | "worse";
   title: string;
@@ -169,6 +173,7 @@ function Group({
   trends: Map<string, Trend>;
   watchFacts: Map<string, string>;
   onOpenTrend?: Props["onOpenTrend"];
+  aboutOf?: Props["aboutOf"];
 }) {
   const [open, setOpen] = useState(false);
   if (records.length === 0) return null;
@@ -192,7 +197,8 @@ function Group({
                 title="Otevřít graf"
               >
                 {r.displayName}
-              </button>{" "}
+              </button>
+              <AboutParam name={r.displayName} about={aboutOf?.(r.canonicalId)} />{" "}
               <strong className={isOut(r.newer.flag) ? "out" : undefined}>
                 {czExact(r.newer.value, r.newer.valueRaw)} {prettyUnit(trends.get(r.canonicalId)?.unit)}
               </strong>
@@ -213,7 +219,7 @@ function Group({
   );
 }
 
-function Table({ records, trends, onOpenTrend, caption, id }: { records: SummaryRecord[]; trends: Map<string, Trend>; onOpenTrend?: Props["onOpenTrend"]; caption: string; id: string }) {
+function Table({ records, trends, onOpenTrend, aboutOf, caption, id }: { records: SummaryRecord[]; trends: Map<string, Trend>; onOpenTrend?: Props["onOpenTrend"]; aboutOf?: Props["aboutOf"]; caption: string; id: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -243,6 +249,7 @@ function Table({ records, trends, onOpenTrend, caption, id }: { records: Summary
                     <button type="button" className="btn linkish sum-open sum-name" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
                       {r.displayName}
                     </button>
+                    <AboutParam name={r.displayName} about={aboutOf?.(r.canonicalId)} />
                     <span className="muted sum-wide" style={{ display: "block" }}>
                       {czDate(r.older.date)} → {czDate(r.newer.date)}
                     </span>
@@ -304,7 +311,7 @@ function searchOptions(trends: Map<string, Trend>): PickerOption[] {
     .sort((a, b) => Number(b.outOfRange ?? false) - Number(a.outOfRange ?? false) || a.label.localeCompare(b.label, "cs"));
 }
 
-export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify }: Props) {
+export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify, aboutOf }: Props) {
   const records = useMemo(() => summarizeChanges(trends), [trends]);
   const overview = useMemo(() => patientOverview(reports, trends), [reports, trends]);
   const watch = useMemo(() => watchList(trends), [trends]);
@@ -375,8 +382,8 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify 
           <p className="prose">Žádný přesun vůči referenčnímu rozmezí od minulého odběru.</p>
         ) : (
           <div className="sum-groups">
-            <Group kind="worse" title="Zhoršilo se" records={worse} trends={trends} watchFacts={watchFacts} onOpenTrend={onOpenTrend} />
-            <Group kind="better" title="Zlepšilo se" records={better} trends={trends} watchFacts={new Map()} onOpenTrend={onOpenTrend} />
+            <Group kind="worse" title="Zhoršilo se" records={worse} trends={trends} watchFacts={watchFacts} onOpenTrend={onOpenTrend} aboutOf={aboutOf} />
+            <Group kind="better" title="Zlepšilo se" records={better} trends={trends} watchFacts={new Map()} onOpenTrend={onOpenTrend} aboutOf={aboutOf} />
           </div>
         )}
       </section>
@@ -396,7 +403,7 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify 
               </div>
               {onOpenTrend && <SearchParam options={options} onPick={onOpenTrend} label="Hledat parametr a otevřít graf" />}
             </div>
-            {out.length === 0 ? <p className="muted">Nic — všechny porovnatelné parametry jsou v rozmezí.</p> : <Table records={out} trends={trends} onOpenTrend={onOpenTrend} caption="Parametry mimo referenční rozmezí" id="sum-table-out" />}
+            {out.length === 0 ? <p className="muted">Nic — všechny porovnatelné parametry jsou v rozmezí.</p> : <Table records={out} trends={trends} onOpenTrend={onOpenTrend} aboutOf={aboutOf} caption="Parametry mimo referenční rozmezí" id="sum-table-out" />}
           </section>
           <section className="card">
             <div className="card-head">
@@ -407,7 +414,7 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify 
               </div>
               {onOpenTrend && <SearchParam options={options} onPick={onOpenTrend} label="Hledat parametr a otevřít graf" />}
             </div>
-            {inRange.length === 0 ? <p className="muted">Nic.</p> : <Table records={inRange} trends={trends} onOpenTrend={onOpenTrend} caption="Parametry v referenčním rozmezí" id="sum-table-in" />}
+            {inRange.length === 0 ? <p className="muted">Nic.</p> : <Table records={inRange} trends={trends} onOpenTrend={onOpenTrend} aboutOf={aboutOf} caption="Parametry v referenčním rozmezí" id="sum-table-in" />}
           </section>
         </>
       )}
