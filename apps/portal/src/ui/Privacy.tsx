@@ -79,8 +79,15 @@ export default function Privacy() {
           oprávněný zájem na bezpečnosti účtů.
         </li>
         <li>
-          <strong>Zprávy z Napište nám</strong> — vaše adresa, text a případně id reportu, abychom
-          mohli odpovědět. Základ: oprávněný zájem na vyřízení vaší žádosti.
+          <strong>Zprávy z Napište nám</strong> — vaše adresa, text, případně id reportu a označení
+          prohlížeče (nejvýše 200 znaků), abychom mohli odpovědět a poznat, v čem se to stalo.
+          Základ: oprávněný zájem na vyřízení vaší žádosti.
+        </li>
+        <li>
+          <strong>Záznamy o odmítnutích</strong> — když server něco odmítne (chyba, odmítnuté
+          nahrání), uloží se cesta, stav, kód chyby, otisk účtu a id požadavku; nikdy hodnota,
+          stránka, název parametru ani e-mail. Ukazují nám u vaší zprávy, co se stalo. Základ:
+          oprávněný zájem na vyřízení vaší žádosti a na provozu služby.
         </li>
         <li>
           <strong>Nákup balíčku</strong> — e-mail, částka, datum a identifikátor platby od Stripe.
@@ -118,7 +125,10 @@ export default function Privacy() {
         <li>
           <strong>Cloudflare</strong> — běh aplikace, databáze a úložiště začerněných stránek.
           Datová centra Cloudflare: databáze leží v jedné oblasti, úložiště stránek je
-          rozprostřené po síti Cloudflare, takže kopie mohou být i mimo EU.
+          rozprostřené po síti Cloudflare, takže kopie mohou být i mimo EU. Model běžící u
+          Cloudflare (Workers AI) přečte zprávu z Napište nám spolu se záznamy o odmítnutích
+          vašeho účtu a připraví provozovateli první odhad příčiny; nedostane žádnou hodnotu ani
+          stránku.
         </li>
         <li>
           <strong>Anthropic</strong> — začerněný text stránky, u skenů a fotek začerněný obrázek
@@ -166,6 +176,7 @@ export default function Privacy() {
         <li>Odkaz pro AI konzultaci — 24 hodin, nebo dokud ho nezrušíte.</li>
         <li>Měsíční součet útraty za zpracování — 90 dní.</li>
         <li>Zpráva z Napište nám — do odpovědi a 12 měsíců po ní.</li>
+        <li>Záznam o odmítnutí — 30 dní, pak ho pravidelná kontrola maže.</li>
         <li>Záznam o platbě — po dobu, kterou ukládají účetní a daňové předpisy.</li>
       </ul>
 
@@ -203,7 +214,8 @@ export default function Privacy() {
       <p>
         Jedna, přihlašovací, na 90 dní, nedostupná skriptům. Žádná analytika, žádné sledování,
         žádné třetí strany — proto ani lišta se souhlasem. Ověření, že formulář vyplňuje člověk
-        (Cloudflare Turnstile), běží na registraci a přihlášení; není to analytika.
+        (Cloudflare Turnstile), běží na registraci, přihlášení, zapomenutém heslu a na formuláři
+        Napište nám bez přihlášení; není to analytika.
       </p>
 
       <h2>9. Věk</h2>

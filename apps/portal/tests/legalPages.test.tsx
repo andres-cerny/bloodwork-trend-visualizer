@@ -172,6 +172,50 @@ describe("the consent sentences", () => {
   });
 });
 
+describe("the privacy page says what the code does", () => {
+  // Each sentence here has a counterpart in the worker: messages.user_agent
+  // (helpdesk.ts, 200 chars), the events table (events.ts, 30 days, pruned
+  // by watch.ts), the triage model at Workers AI (triage.ts), the four
+  // Turnstile surfaces (signup.ts, index.ts, helpdesk.ts), and the answered
+  // message's twelve months (watch.ts). A sentence that stops being true is
+  // the bug report; a truth the page leaves out is one too.
+  it("names the browser string kept with a help-desk message", async () => {
+    vi.stubGlobal("fetch", fakeFetch({}));
+    await render(<Privacy />);
+    expect(text()).toContain("označení prohlížeče (nejvýše 200 znaků)");
+  });
+
+  it("names the refusals table in what is stored and in how long", async () => {
+    vi.stubGlobal("fetch", fakeFetch({}));
+    await render(<Privacy />);
+    const t = text();
+    expect(t).toContain("Záznamy o odmítnutích");
+    for (const field of ["cesta", "stav", "kód chyby", "otisk účtu", "id požadavku"]) expect(t, field).toContain(field);
+    expect(t).toContain("Záznam o odmítnutí — 30 dní, pak ho pravidelná kontrola maže.");
+  });
+
+  it("says a model at Cloudflare reads a help-desk message beside the account's refusals, and gets no value and no page", async () => {
+    vi.stubGlobal("fetch", fakeFetch({}));
+    await render(<Privacy />);
+    const t = text();
+    expect(t).toContain("Workers AI");
+    expect(t).toContain("spolu se záznamy o odmítnutích vašeho účtu");
+    expect(t).toContain("nedostane žádnou hodnotu ani stránku");
+  });
+
+  it("names every surface Turnstile runs on", async () => {
+    vi.stubGlobal("fetch", fakeFetch({}));
+    await render(<Privacy />);
+    expect(text()).toContain("běží na registraci, přihlášení, zapomenutém heslu a na formuláři Napište nám bez přihlášení");
+  });
+
+  it("keeps the twelve months after an answer, which the scheduled check now enforces", async () => {
+    vi.stubGlobal("fetch", fakeFetch({}));
+    await render(<Privacy />);
+    expect(text()).toContain("Zpráva z Napište nám — do odpovědi a 12 měsíců po ní.");
+  });
+});
+
 describe("the landing", () => {
   it("says what it is, what it is not, what is stored, who reads, what it costs — and the three ways in", async () => {
     vi.stubGlobal("fetch", fakeFetch({}));
