@@ -263,7 +263,8 @@ describe("Souhrn with one report", () => {
 
   it("says the block is the one report's values, and that changes wait for a second draw", () => {
     expect(one).toContain("jediný odběr · 23. 9. 2024");
-    expect(one).toContain("Jediný odběr — přesuny vůči rozmezí od druhého odběru.");
+    expect(one).toContain("Zatím jeden odběr. Změny vůči rozmezí se ukážou po druhém.");
+    expect(one).not.toContain("Jediný odběr —");
     expect(one).not.toContain("Žádný přesun vůči referenčnímu rozmezí");
   });
 

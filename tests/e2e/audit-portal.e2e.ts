@@ -321,6 +321,9 @@ const SCREENS: Screen[] = [
       expect(await out.count(), "the latest report's out-of-range rows").toBe(4);
       expect(await page.locator("#sum-table-in tbody tr").count(), "and its in-range rows").toBeGreaterThan(0);
       expect(await page.getByText(/jediný odběr · /).first().isVisible(), "the head names the one draw").toBe(true);
+      // Where the change groups would be: one plain sentence, not the
+      // elliptical „Jediný odběr — přesuny vůči rozmezí od druhého odběru."
+      expect(await page.getByText("Zatím jeden odběr. Změny vůči rozmezí se ukážou po druhém.").count()).toBe(1);
       expect(await page.getByText("Změna od minule").count(), "no change column with one draw").toBe(0);
       expect(await page.getByText("Zatím není dost měření").count()).toBe(0);
       // Every name keeps its "i" — the same count of names and buttons.
