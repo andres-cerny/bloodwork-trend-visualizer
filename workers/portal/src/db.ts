@@ -154,6 +154,9 @@ export const SQL = {
   // The account's messages go with it; the fact that someone wrote stays
   // useless without the address, so the row is deleted, not unlinked.
   deleteMessagesForUser: "DELETE FROM messages WHERE user_id = ?1",
+  // The privacy page's „do odpovědi a 12 měsíců po ní": an answered message
+  // goes a year after the answer (src/watch.ts); an open one stays.
+  pruneAnsweredMessages: "DELETE FROM messages WHERE answered_at IS NOT NULL AND answered_at < ?1",
 
   // Refusals the worker answered (src/events.ts): a route, a status, a code,
   // a hash of the account. Read newest-first beside a help-desk message, and

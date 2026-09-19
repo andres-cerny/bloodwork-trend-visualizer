@@ -189,7 +189,9 @@ CREATE INDEX IF NOT EXISTS purchases_by_user ON purchases (user_id, created_at);
 -- the one they typed (or their login's), the text is theirs verbatim, the
 -- report id is a pointer they may add — never a value out of the report.
 -- Answered by hand, by e-mail; answered_at is set with
--- tools/scripts/moje-krev-helpdesk.mjs so the list of open messages shrinks.
+-- tools/scripts/moje-krev-helpdesk.mjs so the list of open messages shrinks,
+-- and twelve months after it the row is deleted by the scheduled check
+-- (src/watch.ts) — an unanswered message stays until it is answered.
 CREATE TABLE IF NOT EXISTS messages (
   id          TEXT PRIMARY KEY,           -- crypto.randomUUID()
   created_at  TEXT NOT NULL,              -- ISO 8601

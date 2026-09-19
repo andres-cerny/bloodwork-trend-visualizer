@@ -445,7 +445,9 @@ cause, where, how sure, what to do, and up to two questions for the
 person. Same host, no new sub-processor; the free tier is 10 000 neurons a
 day and one guess is a few hundred. To switch it off, remove the `ai`
 block and deploy — the raw message still goes. The `events` rows are
-pruned after 30 days by the scheduled check.
+pruned after 30 days by the scheduled check, and so is a message twelve
+months after `--answered` marked it (the privacy page's „do odpovědi a
+12 měsíců po ní"); an unanswered message is never pruned.
 
 A database created before 2026-09-19 needs the two tables once, **before**
 the worker that writes them is deployed (`npm run check:schema`):
