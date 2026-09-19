@@ -370,9 +370,12 @@ describe("settings", () => {
       `S_Parametr_${String(i).padStart(5, "0")}`,
       { decision: "unknown", canonicalId: null, confidence: "low", reason: "Nazev nelze bez dalsiho kontextu priradit k polozce katalogu.", model: "claude-haiku-4-5", at: "2026-09-19T10:00:00.000Z" },
     ];
+    // Sized from one entry's bytes, not by re-serialising the whole object
+    // per name: that was quadratic and timed out under a loaded machine.
+    const perEntry = JSON.stringify(Object.fromEntries([asked(0)])).length;
     const settingsOf = (kb: number) => {
       const out: Record<string, unknown> = {};
-      for (let i = 0; JSON.stringify(out).length < kb * 1024; i++) {
+      for (let i = 0; i < Math.ceil((kb * 1024) / perEntry) + 24; i++) {
         const [name, record] = asked(i);
         out[name as string] = record;
       }
