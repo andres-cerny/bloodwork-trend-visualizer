@@ -6,8 +6,9 @@
  * (src/stripe.ts) or the operator (tools/scripts/moje-krev-budget.mjs
  * --documents) adds more. One is taken at the moment the browser opens the
  * document for extraction — before the first page is sent, once, whatever
- * the page count — and given back only if no page of it was ever read.
- * Deleting the report afterwards gives nothing back: the read was paid for.
+ * the page count — and given back only if no page of it was ever read and
+ * none is still out at the extractor. Deleting the report afterwards gives
+ * nothing back: the read was paid for.
  *
  * The per-person USD ledger (src/ledger.ts) stays underneath as a fuse: a
  * document that somehow costs far more than a document should still trips
@@ -100,10 +101,23 @@ export async function notePageRead(db: D1Database, id: string): Promise<void> {
 }
 
 /**
- * Give the slot back, if nothing was read. The browser calls this when every
- * page of a document failed; the conditional UPDATE on the document row is
- * the guard, so a release after a successful page — or a second release —
- * moves nothing. True means doc_used went down by one.
+ * A page of this document came back failed — the extractor refused it, or
+ * could not be reached. Together with pages_read it says when nothing is in
+ * flight any more: a release before that would give the slot back while a
+ * read is still on its way to being paid for.
+ */
+export async function notePageFailed(db: D1Database, id: string): Promise<void> {
+  await db.prepare(SQL.notePageFailed).bind(id).run();
+}
+
+/**
+ * Give the slot back, if nothing was read and nothing is still out. The
+ * browser calls this when every page of a document failed; the conditional
+ * UPDATE on the document row is the guard, so a release after a successful
+ * page, one fired while a page is still at the extractor, or a second
+ * release moves nothing. True means doc_used went down by one. A page whose
+ * answer never arrives keeps the slot for good — the safe direction, since a
+ * read the person got must not be one they did not pay for.
  */
 export async function releaseDocument(db: D1Database, user: UserRow, id: string, nowIso: string): Promise<boolean> {
   const r = await db.prepare(SQL.releaseDocument).bind(id, user.id, nowIso).run();

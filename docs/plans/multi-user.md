@@ -192,7 +192,10 @@ tested with a real HMAC.
 - *Done 2026-09-19*: `workers/portal/src/allowance.ts` (the count; the
   slot is taken by `POST /api/documents` before the first page, every page
   carries `x-document`, `DELETE /api/documents/:id` gives it back only
-  while `pages_read` is 0) and `src/stripe.ts` (Checkout over `fetch`, the
+  while `pages_read` is 0 and no page is still out at the extractor —
+  `pages_failed = pages_sent`, added 2026-09-19 after the invariant review
+  found that a release fired with pages in flight got the slot back and the
+  reads both) and `src/stripe.ts` (Checkout over `fetch`, the
   webhook's t + v1 HMAC with a five-minute tolerance, `purchases` keyed by
   event id; four secrets, `STRIPE_PRICE_5`/`STRIPE_PRICE_15` beside the two
   named). Migration `2026-09-19-documents.sql`; existing accounts start at

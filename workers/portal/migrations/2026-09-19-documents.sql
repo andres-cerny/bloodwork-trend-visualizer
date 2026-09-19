@@ -15,14 +15,16 @@ ALTER TABLE users ADD COLUMN doc_allowance INTEGER NOT NULL DEFAULT 5;
 ALTER TABLE users ADD COLUMN doc_used INTEGER NOT NULL DEFAULT 0;
 
 -- One row per document the account opened for extraction: the slot is taken
--- when the row is inserted, and given back only if no page was ever read.
+-- when the row is inserted, and given back only if no page was ever read and
+-- no page is still out at the extractor (pages_failed = pages_sent).
 CREATE TABLE IF NOT EXISTS documents (
-  id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES users(id),
-  created_at  TEXT NOT NULL,
-  pages_sent  INTEGER NOT NULL DEFAULT 0,
-  pages_read  INTEGER NOT NULL DEFAULT 0,
-  released_at TEXT
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id),
+  created_at   TEXT NOT NULL,
+  pages_sent   INTEGER NOT NULL DEFAULT 0,
+  pages_read   INTEGER NOT NULL DEFAULT 0,
+  pages_failed INTEGER NOT NULL DEFAULT 0,
+  released_at  TEXT
 );
 
 CREATE INDEX IF NOT EXISTS documents_by_user ON documents (user_id, created_at);

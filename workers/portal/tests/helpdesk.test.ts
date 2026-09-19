@@ -43,7 +43,7 @@ interface Tables {
   users: Array<{ id: string; email: string; created_at: string; settings: string | null; session_epoch: number; budget_usd: number | null; doc_allowance: number; doc_used: number }>;
   messages: MessageRow[];
   events: EventRow[];
-  documents: Array<{ id: string; user_id: string; pages_sent: number; pages_read: number; released_at: string | null }>;
+  documents: Array<{ id: string; user_id: string; pages_sent: number; pages_read: number; pages_failed: number; released_at: string | null }>;
 }
 
 function fakeD1(t: Tables): D1Database {
@@ -88,7 +88,7 @@ function fakeD1(t: Tables): D1Database {
       // only what /api/extract needs here; the rules are allowance.test.ts.
       case SQL.insertDocument: {
         if (t.documents.some((d) => d.id === a[0])) return { results: [], changes: 0 };
-        t.documents.push({ id: a[0] as string, user_id: a[1] as string, pages_sent: 0, pages_read: 0, released_at: null });
+        t.documents.push({ id: a[0] as string, user_id: a[1] as string, pages_sent: 0, pages_read: 0, pages_failed: 0, released_at: null });
         return { results: [], changes: 1 };
       }
       case SQL.takeDocument: {
@@ -108,6 +108,11 @@ function fakeD1(t: Tables): D1Database {
       case SQL.notePageRead: {
         const d = t.documents.find((x) => x.id === a[0]);
         if (d) d.pages_read += 1;
+        return { results: [], changes: d ? 1 : 0 };
+      }
+      case SQL.notePageFailed: {
+        const d = t.documents.find((x) => x.id === a[0]);
+        if (d) d.pages_failed += 1;
         return { results: [], changes: d ? 1 : 0 };
       }
       default:

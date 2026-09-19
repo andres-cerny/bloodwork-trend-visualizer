@@ -45,7 +45,7 @@ import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import { handleSignupMail, looksLikeEmail, openMailedAccount, requireHuman, signupStatus, type SignupEnv } from "./signup";
-import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageRead, sendPage } from "./allowance";
+import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageFailed, notePageRead, sendPage } from "./allowance";
 import { handleBuy, handleStripeWebhook, type StripeEnv } from "./stripe";
 import {
   clearCookieHeader,
@@ -502,13 +502,22 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   }
 
   const session = await mintSession(env.EXTRACT_SESSION_SECRET, EXTRACT_SESSION_TTL, 1);
-  const res = await env.EXTRACT.fetch(
-    new Request("https://extract/api/extract", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-demo-session": session },
-      body,
-    }),
-  );
+  let res: Response;
+  try {
+    res = await env.EXTRACT.fetch(
+      new Request("https://extract/api/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-demo-session": session },
+        body,
+      }),
+    );
+  } catch (e) {
+    // The binding itself failed: the page was sent and nothing will answer
+    // it. Settled as a failure, so the document is not left with a page in
+    // flight for ever and the slot can still come back.
+    console.error(`extract unreachable: ${e instanceof Error ? e.message : String(e)}`);
+    return json(await settle(env, user, 502, { error: "extraction_failed", message: "Zpracování se nezdařilo — zkuste to znovu." }, docId), 502);
+  }
   // Streamed answer: rows as they are written, then a final "done" line
   // that is the buffered answer. Lines pass through untouched except the
   // last, which is where the cost is booked and the person's budget added —
@@ -574,6 +583,9 @@ async function settle(env: Env, user: UserRow, status: number, data: ExtractAnsw
     // A page read: from here on the document's slot is spent for good.
     if (docId) await notePageRead(env.DB, docId);
   } else if (status !== 200) {
+    // A page failed: no longer in flight, so a release that waits for every
+    // page to come back can now count it.
+    if (docId) await notePageFailed(env.DB, docId);
     // The extractor's reason, in the log as well as in the answer: a page that
     // fails for every member of the family is a deployment problem, and the
     // log is where the operator looks first. Its `message` is deliberately not

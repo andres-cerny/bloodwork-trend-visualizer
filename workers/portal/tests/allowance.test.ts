@@ -39,6 +39,7 @@ interface Doc {
   created_at: string;
   pages_sent: number;
   pages_read: number;
+  pages_failed: number;
   released_at: string | null;
 }
 interface Purchase {
@@ -65,7 +66,7 @@ function fakeD1(t: Tables): D1Database {
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ doc_allowance: u.doc_allowance, doc_used: u.doc_used })), changes: 0 };
       case SQL.insertDocument: {
         if (t.documents.some((d) => d.id === a[0])) return { results: [], changes: 0 };
-        t.documents.push({ id: a[0] as string, user_id: a[1] as string, created_at: a[2] as string, pages_sent: 0, pages_read: 0, released_at: null });
+        t.documents.push({ id: a[0] as string, user_id: a[1] as string, created_at: a[2] as string, pages_sent: 0, pages_read: 0, pages_failed: 0, released_at: null });
         return { results: [], changes: 1 };
       }
       case SQL.documentById:
@@ -92,8 +93,15 @@ function fakeD1(t: Tables): D1Database {
         if (d) d.pages_read += 1;
         return { results: [], changes: d ? 1 : 0 };
       }
+      case SQL.notePageFailed: {
+        const d = t.documents.find((x) => x.id === a[0]);
+        if (d) d.pages_failed += 1;
+        return { results: [], changes: d ? 1 : 0 };
+      }
       case SQL.releaseDocument: {
-        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.pages_read === 0 && x.released_at === null);
+        // The slot goes back only when nothing was read and nothing is still
+        // out at the extractor: every page sent has come back failed.
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.pages_read === 0 && x.pages_failed === x.pages_sent && x.released_at === null);
         if (!d) return { results: [], changes: 0 };
         d.released_at = a[2] as string;
         return { results: [], changes: 1 };
@@ -168,6 +176,25 @@ function fakeExtract(status: () => number) {
     },
   } as unknown as Fetcher;
   return { fetcher, calls: () => calls };
+}
+
+/**
+ * An extractor that holds every page until told to answer: what the wire
+ * looks like while six pages are out and the browser has already given up.
+ * `answer(status)` lets the pages go, in the order they arrived.
+ */
+function heldExtract() {
+  const waiting: Array<(s: number) => void> = [];
+  const fetcher = {
+    fetch: () =>
+      new Promise<Response>((resolve) => {
+        waiting.push((s) => {
+          const body = s === 200 ? { reads: [], mode: "text", costUsd: 0.01, budget: {} } : { error: "extraction_failed", message: "no" };
+          resolve(new Response(JSON.stringify(body), { status: s, headers: { "content-type": "application/json" } }));
+        });
+      }),
+  } as unknown as Fetcher;
+  return { fetcher, held: () => waiting.length, answer: (s: number) => waiting.shift()?.(s) };
 }
 
 const A: User = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0, doc_allowance: 5, doc_used: 0 };
@@ -333,6 +360,57 @@ describe("giving a document back", () => {
     const res = await release(A, "d-1");
     expect(((await res.json()) as { released: boolean }).released).toBe(false);
     expect(await allowance(A)).toMatchObject({ used: 1 });
+  });
+
+  it("does not happen while a page is still out at the extractor", async () => {
+    // The hole: the slot is decided by pages_read, which moves only when the
+    // extractor answers. A browser that opens, sends two pages and deletes
+    // the document at once would get the slot back and the two reads both.
+    const held = heldExtract();
+    env.EXTRACT = held.fetcher;
+    await open(A, "d-1");
+    const first = page(A, "d-1");
+    const second = page(A, "d-1");
+    await vi.waitFor(() => expect(held.held()).toBe(2));
+    const early = await release(A, "d-1");
+    expect(((await early.json()) as { released: boolean }).released).toBe(false);
+    expect(await allowance(A)).toMatchObject({ used: 1 });
+    // Both fail: now, and only now, the slot comes back.
+    held.answer(502);
+    held.answer(502);
+    expect((await first).status).toBe(502);
+    expect((await second).status).toBe(502);
+    expect(tables.documents[0]).toMatchObject({ pages_sent: 2, pages_read: 0, pages_failed: 2 });
+    const late = await release(A, "d-1");
+    expect(((await late.json()) as { released: boolean }).released).toBe(true);
+    expect(await allowance(A)).toMatchObject({ used: 0 });
+  });
+
+  it("never happens once one of the pages in flight was read", async () => {
+    const held = heldExtract();
+    env.EXTRACT = held.fetcher;
+    await open(A, "d-1");
+    const first = page(A, "d-1");
+    const second = page(A, "d-1");
+    await vi.waitFor(() => expect(held.held()).toBe(2));
+    expect(((await (await release(A, "d-1")).json()) as { released: boolean }).released).toBe(false);
+    held.answer(200);
+    held.answer(502);
+    await Promise.all([first, second]);
+    expect(tables.documents[0]).toMatchObject({ pages_sent: 2, pages_read: 1, pages_failed: 1 });
+    expect(((await (await release(A, "d-1")).json()) as { released: boolean }).released).toBe(false);
+    expect(await allowance(A)).toMatchObject({ used: 1 });
+  });
+
+  it("counts a page the extractor could not be reached for as failed, not as in flight", async () => {
+    env.EXTRACT = { fetch: async () => { throw new Error("service binding down"); } } as unknown as Fetcher;
+    await open(A, "d-1");
+    const res = await page(A, "d-1");
+    expect(res.status).toBe(502);
+    expect(((await res.json()) as { error: string }).error).toBe("extraction_failed");
+    expect(tables.documents[0]).toMatchObject({ pages_sent: 1, pages_read: 0, pages_failed: 1 });
+    expect(((await (await release(A, "d-1")).json()) as { released: boolean }).released).toBe(true);
+    expect(await allowance(A)).toMatchObject({ used: 0 });
   });
 
   it("happens once: a second release changes nothing", async () => {

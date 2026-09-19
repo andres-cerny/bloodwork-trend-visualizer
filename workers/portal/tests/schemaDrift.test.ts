@@ -117,6 +117,18 @@ describe("the documents migration says what schema.sql says", () => {
     for (const [table, cols] of created) expect(declared.get(table), table).toEqual(cols);
   });
 
+  it("gives documents the three page counters, each starting at zero, in both files", () => {
+    // pages_failed is what lets a release tell "every page came back failed"
+    // from "a page is still out at the extractor"; without the default an
+    // existing row would compare NULL and never release.
+    const bare = (sql: string) => sql.replace(/--[^\n]*/g, "").replace(/\s+/g, " ");
+    expect(tablesFromSchema(SCHEMA).get("documents")).toEqual(["id", "user_id", "created_at", "pages_sent", "pages_read", "pages_failed", "released_at"]);
+    for (const col of ["pages_sent", "pages_read", "pages_failed"]) {
+      expect(bare(SCHEMA), `schema.sql ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);
+      expect(bare(MIGRATION), `migration ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);
+    }
+  });
+
   it("adds to users the two columns schema.sql declares, with the same defaults", () => {
     const added = [...MIGRATION.matchAll(/ALTER TABLE users ADD COLUMN (\w+)\s+([^;]+);/g)].map((m) => [m[1], m[2].replace(/\s+/g, " ")]);
     expect(added.map(([c]) => c)).toEqual(["doc_allowance", "doc_used"]);

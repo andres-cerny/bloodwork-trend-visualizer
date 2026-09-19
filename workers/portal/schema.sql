@@ -154,16 +154,19 @@ CREATE TABLE IF NOT EXISTS synonyms (
 -- id the browser minted. The row is the slot: inserting it takes one from
 -- doc_used, atomically, so eight pages arriving at once cannot take eight.
 -- pages_sent caps the pages one document may spend on the extractor;
--- pages_read is what decides whether a release gives the slot back (only a
--- document nothing was read from). The row outlives the report — deleting
--- a report does not free its document, and the row is why.
+-- pages_read and pages_failed are what decide whether a release gives the
+-- slot back: only a document nothing was read from, and only once every page
+-- sent has come back failed — a page still out at the extractor keeps the
+-- slot, because its read may yet land and be paid for. The row outlives the
+-- report — deleting a report does not free its document, and the row is why.
 CREATE TABLE IF NOT EXISTS documents (
-  id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES users(id),
-  created_at  TEXT NOT NULL,
-  pages_sent  INTEGER NOT NULL DEFAULT 0,
-  pages_read  INTEGER NOT NULL DEFAULT 0,
-  released_at TEXT                      -- set when the slot was given back
+  id           TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL REFERENCES users(id),
+  created_at   TEXT NOT NULL,
+  pages_sent   INTEGER NOT NULL DEFAULT 0,
+  pages_read   INTEGER NOT NULL DEFAULT 0,
+  pages_failed INTEGER NOT NULL DEFAULT 0,
+  released_at  TEXT                     -- set when the slot was given back
 );
 
 CREATE INDEX IF NOT EXISTS documents_by_user ON documents (user_id, created_at);
