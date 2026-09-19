@@ -4,7 +4,7 @@
  * still the name it was asked about.
  */
 import { describe, expect, it } from "vitest";
-import { mapPrompt, resolveAskedName, toSuggestions } from "../src/map";
+import { SYSTEM_MAP, mapPrompt, resolveAskedName, toSuggestions } from "../src/map";
 
 const names = [
   { rawName: "S_Na", unit: "mmol/l", refRange: "134 - 148", material: "s" },
@@ -79,5 +79,29 @@ describe("mapPrompt", () => {
     const p = mapPrompt(names, catalog);
     expect(p).toContain('název: "S_Na" — jednotka: mmol/l; rozmezí: 134 - 148; materiál: s');
     expect(p).toContain("sodik | Sodík | mmol/l");
+  });
+});
+
+describe("SYSTEM_MAP", () => {
+  // The mapping runs on its own since 2026-09-19 (docs/plans/multi-user.md,
+  // Goal 1) and "high" is what gets applied without a click, so the prompt
+  // has to say what "high" costs and when to answer "unknown" instead. The
+  // exact sentences, because a paraphrase that drops one of the three cases
+  // is the regression this pins.
+  it("tells the model what high means and the three cases that must be unknown", () => {
+    expect(SYSTEM_MAP).toContain(
+      'Když si nejsi jistý, odpověz "unknown", nebo použij confidence "low" či "medium". "high" znamená, že bys na to vsadil klinické rozhodnutí.',
+    );
+    expect(SYSTEM_MAP).toContain("Tři případy, kdy je odpověď vždy \"unknown\":");
+    expect(SYSTEM_MAP).toContain("- název, který může být dvěma položkami katalogu;");
+    expect(SYSTEM_MAP).toContain(
+      "- jednotka, kterou nedokážeš sladit s jednotkou položky (mg/dl a mmol/l je JINÁ jednotka, ne totéž vyšetření; nepřepočítávej);",
+    );
+    expect(SYSTEM_MAP).toContain("- název, který vůbec nepoznáváš.");
+  });
+
+  it("stays Czech and asks for names, units and intervals only — never values", () => {
+    expect(SYSTEM_MAP).toContain("Jsi klinický biochemik.");
+    expect(SYSTEM_MAP).not.toMatch(/naměřen|\bhodnot[ay]\b/);
   });
 });

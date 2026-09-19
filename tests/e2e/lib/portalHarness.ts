@@ -38,6 +38,8 @@ function demoReports(): { reports: unknown[]; pages: Map<string, string> } {
 
 function fakeApi(port: number): Promise<Server> {
   const { reports, pages } = demoReports();
+  // Per page load — every scene opens a fresh page, and its load is the first call.
+  let mapCalls = 0;
   const json = (res: import("node:http").ServerResponse, data: unknown, status = 200) => {
     res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
     res.end(JSON.stringify(data));
@@ -61,17 +63,24 @@ function fakeApi(port: number): Promise<Server> {
       case "GET /api/settings":
         return json(res, {});
       case "GET /api/reports":
+        mapCalls = 0;
         return json(res, reports);
       // Nobody has taught anything: the shipped catalog is what the sweep sees.
       case "GET /api/synonyms":
         return json(res, []);
       // The mapping model, answering for the one blood name the demo leaves
-      // unmapped: a catalog id whose unit and interval agree, so the screen
-      // applies it and shows the applied banner.
+      // unmapped. It runs on its own at load, so the load's call (the first
+      // after GET /api/reports) answers "medium": the name stays on its card
+      // with the model's suggestion under it, which is what the mapping
+      // scenes lay out. "Zeptat se znovu" asks a second time and gets "high"
+      // with a unit and interval that agree, so the screen files it and shows
+      // the applied banner with its way back.
       case "POST /api/map":
+        mapCalls += 1;
         return json(res, {
+          model: "claude-haiku-4-5",
           suggestions: [
-            { rawName: "S_Homocystein tot.", decision: "catalog", canonicalId: "homocystein", proposed: null, reason: "Zkratka tot. znamená celkový homocystein.", confidence: "high" },
+            { rawName: "S_Homocystein tot.", decision: "catalog", canonicalId: "homocystein", proposed: null, reason: "Zkratka tot. znamená celkový homocystein.", confidence: mapCalls === 1 ? "medium" : "high" },
           ],
           costUsd: 0.004,
           budget: { spentUsd: 0.124, budgetUsd: 5, frozen: false, remainingUsd: 4.876, month: "2026-08" },

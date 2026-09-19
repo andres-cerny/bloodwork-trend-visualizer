@@ -37,6 +37,12 @@ four synthetic labs of Goal 2 and reports **0 wrong**, with the model's
   confirming run through the API. The near-miss traps in Goal 2 are the
   point: free vs total T4, conjugated vs total bilirubin, serum vs urine,
   mg/dl vs mmol/l.
+- *Product code done 2026-09-19*: the run is
+  [apps/portal/src/lib/aiMapping.ts](../../apps/portal/src/lib/aiMapping.ts)
+  (who is asked, what is filed, what is stored; never rejects), Portal
+  owns it, the tab renders the record. Tests: `aiMapping.test.ts`,
+  `mappingTabAi.test.ts`, the prompt sentences in
+  `packages/extraction/tests/map.test.ts`. The eval is still open.
 
 ## Goal 2 — four synthetic labs the catalog has never seen
 

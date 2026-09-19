@@ -70,7 +70,14 @@ Pravidla:
 - Jednotka a referenční rozmezí musí odpovídat položce katalogu (µmol/l a μmol/l je totéž; 1, - a prázdná jednotka znamenají bezrozměrné číslo). Když neodpovídají, není to totéž vyšetření.
 - Materiál musí souhlasit: U_ je moč a do krevního katalogu nepatří.
 - Nevymýšlej id, které v katalogu není. Pro "catalog" použij jen id ze seznamu.
-- Odpovídej nástrojem, ke každému názvu právě jednou.`;
+- Odpovídej nástrojem, ke každému názvu právě jednou.
+
+Jistota:
+- Když si nejsi jistý, odpověz "unknown", nebo použij confidence "low" či "medium". "high" znamená, že bys na to vsadil klinické rozhodnutí. Co označíš "high" a "catalog", aplikace přiřadí bez kontroly člověkem; všechno ostatní člověku předloží.
+- Tři případy, kdy je odpověď vždy "unknown":
+  - název, který může být dvěma položkami katalogu;
+  - jednotka, kterou nedokážeš sladit s jednotkou položky (mg/dl a mmol/l je JINÁ jednotka, ne totéž vyšetření; nepřepočítávej);
+  - název, který vůbec nepoznáváš.`;
 
 export const TOOL_MAP = {
   name: "file_names",

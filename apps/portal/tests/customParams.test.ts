@@ -124,6 +124,9 @@ const render = (reports: LabReport[], customAnalytes: CustomAnalyte[], registry:
       onCreateParameter: () => {},
       onDeleteParameter: () => {},
       onShowSource: () => {},
+      aiAsked: {},
+      aiError: null,
+      onAskAgain: () => {},
     }),
   );
 

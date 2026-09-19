@@ -29,18 +29,21 @@ import {
   type CustomAnalyte,
   type LabReport,
   type Measurement,
+  type UnmappedAnalyte,
   Registry,
   buildTrends,
   count,
   czDate,
   findUnmapped,
+  observedStats,
   rematchReport,
   reviewOf,
   toAnalyteDef,
   trendable,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
-import { type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, listReports, listSynonyms, logout, putReport, putSettings, teachSynonym } from "../lib/api";
+import { type AiAsked, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
+import { type Judged, askingEntry, persistable, runAiMapping, withoutAsked } from "../lib/aiMapping";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
 import { mergeSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
@@ -100,9 +103,21 @@ interface Props {
 export default function Portal({ email, demo, onLogout }: Props) {
   const [reports, setReports] = useState<LabReport[]>([]);
   const [registry, setRegistry] = useState<Registry | null>(null);
-  const [learned, setLearned] = useState<Record<string, string[]>>({});
   /** Parameters the reader founded in Přiřazení, from the account. */
   const [customAnalytes, setCustomAnalytes] = useState<CustomAnalyte[]>([]);
+  // The mapping model's run outlives the render it started in — an upload's
+  // ends minutes after the click, the load's before the registry is in
+  // state — so what it reads and writes lives in refs, mirrored to state for
+  // the screen. `learned` is a ref alone — nothing renders it, and five
+  // names filed in one answer used to spread the same stale closure five
+  // times, so the account kept only the last.
+  const registryRef = useRef<Registry | null>(null);
+  const reportsRef = useRef<LabReport[]>([]);
+  const learnedRef = useRef<Record<string, string[]>>({});
+  const budgetRef = useRef<Budget | null>(null);
+  const aiAskedRef = useRef<AiAsked>({});
+  const [aiAsked, setAiAsked] = useState<AiAsked>({});
+  const [aiError, setAiError] = useState<string | null>(null);
   // The whole settings blob, because PUT /api/settings replaces it: a save
   // of one field must carry the others (lib/settings.ts).
   const settingsRef = useRef<Settings>({});
@@ -153,10 +168,13 @@ export default function Portal({ email, demo, onLogout }: Props) {
         // they stay its own to withdraw; another account's cannot be unlearned
         // here, the same as a name from the shipped table.
         for (const t of taught) reg.addSynonym(t.canonicalId, t.rawName, false);
+        registryRef.current = reg;
         setRegistry(reg);
-        setLearned(l);
+        learnedRef.current = l;
         setCustomAnalytes(custom);
         setAiContext(settingsRef.current.aiContext ?? null);
+        aiAskedRef.current = settingsRef.current.aiAsked ?? {};
+        setAiAsked(aiAskedRef.current);
         // A catalog that grew since a report was uploaded reaches that
         // report here: the stored canonicalId was computed at upload and
         // would otherwise stay null forever. Only null rows are touched — a
@@ -167,9 +185,15 @@ export default function Portal({ email, demo, onLogout }: Props) {
           if (matched) putReport(matched).catch(() => undefined);
           return matched ?? r;
         });
+        reportsRef.current = loaded;
         setReports(loaded);
+        budgetRef.current = status.budget;
         setBudget(status.budget);
         setMaxPages(status.maxPages);
+        // Then the model, once, for what the catalog still does not know
+        // and the account has never asked about. Not awaited: the screen
+        // is up, the names arrive on the card when they arrive.
+        void runMapping(findUnmapped(loaded));
       } catch (e) {
         setLoadError(e instanceof Error && e.message === "Přihlaste se prosím." ? e.message : "Data se nepodařilo načíst. Zkuste stránku obnovit.");
       }
@@ -216,9 +240,15 @@ export default function Portal({ email, demo, onLogout }: Props) {
     [reports, registry, registryVersion, curatedRange],
   );
 
+  /** Every change to the reports: through the ref, so a run that started a render ago sees the current ones. */
+  const commitReports = useCallback((fn: (prev: LabReport[]) => LabReport[]) => {
+    reportsRef.current = fn(reportsRef.current);
+    setReports(reportsRef.current);
+  }, []);
+
   const correct = useCallback(
     (reportId: string, index: number, next: Measurement) => {
-      setReports((prev) =>
+      commitReports((prev) =>
         prev.map((r) => {
           if (r.id !== reportId) return r;
           const updated = { ...r, measurements: r.measurements.map((m, i) => (i === index ? next : m)) };
@@ -227,24 +257,37 @@ export default function Portal({ email, demo, onLogout }: Props) {
         }),
       );
     },
-    [persist],
+    [persist, commitReports],
   );
 
-  /** Re-map every report carrying a raw name, and keep the ones that changed. */
-  const remap = useCallback(
-    (rawName: string, canonicalId: string | null) => {
-      setReports((prev) =>
-        prev.map((r) => {
-          if (!r.measurements.some((m) => m.rawAnalyteName === rawName)) return r;
-          const updated = { ...r, measurements: r.measurements.map((m) => (m.rawAnalyteName === rawName ? { ...m, canonicalId } : m)) };
-          persist(updated);
-          return updated;
-        }),
-      );
+  /**
+   * Re-map every report carrying any of the raw names, and keep the ones
+   * that changed. One pass, so a model answer that files five names writes
+   * each touched report once, not five times.
+   */
+  const remapMany = useCallback(
+    (pairs: Array<{ rawName: string; canonicalId: string | null }>) => {
+      if (pairs.length === 0) return;
+      const to = new Map(pairs.map((p) => [p.rawName, p.canonicalId]));
+      const next = reportsRef.current.map((r) => {
+        if (!r.measurements.some((m) => to.has(m.rawAnalyteName))) return r;
+        const updated = { ...r, measurements: r.measurements.map((m) => (to.has(m.rawAnalyteName) ? { ...m, canonicalId: to.get(m.rawAnalyteName)! } : m)) };
+        persist(updated);
+        return updated;
+      });
+      commitReports(() => next);
       setRegistryVersion((v) => v + 1);
     },
-    [persist],
+    [persist, commitReports],
   );
+  const remap = useCallback((rawName: string, canonicalId: string | null) => remapMany([{ rawName, canonicalId }]), [remapMany]);
+
+  /** Every change to the learned names goes through the ref, so two in one tick both land. */
+  const updateLearned = useCallback((fn: (cur: Record<string, string[]>) => Record<string, string[]>) => {
+    learnedRef.current = fn(learnedRef.current);
+    return learnedRef.current;
+  }, []);
+  const setLearned = useCallback((next: Record<string, string[]>) => updateLearned(() => next), [updateLearned]);
 
   /** Every settings write: merge into what the account holds, then PUT the whole. */
   const saveSettings = useCallback((patch: Partial<Settings>) => {
@@ -260,7 +303,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
       setLearned(next);
       saveSettings({ learned: next }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
     },
-    [saveSettings],
+    [setLearned, saveSettings],
   );
 
   const saveAiContext = useCallback(
@@ -278,21 +321,141 @@ export default function Portal({ email, demo, onLogout }: Props) {
     [registry, customAnalytes],
   );
 
+  /** The learned map with these names filed, each under its id, in acceptance order. */
+  const withFiled = (cur: Record<string, string[]>, pairs: Array<{ rawName: string; canonicalId: string }>) => {
+    const next = { ...cur };
+    for (const { rawName, canonicalId } of pairs) next[canonicalId] = [...(next[canonicalId] ?? []).filter((n) => n !== rawName), rawName];
+    return next;
+  };
+
   const acceptMapping = useCallback(
-    (rawName: string, canonicalId: string, opts: { byModel?: boolean } = {}) => {
+    (rawName: string, canonicalId: string) => {
       if (!registry) return;
       registry.addSynonym(canonicalId, rawName);
       remap(rawName, canonicalId);
-      saveLearned({ ...learned, [canonicalId]: [...(learned[canonicalId] ?? []).filter((n) => n !== rawName), rawName] });
+      saveLearned(withFiled(learnedRef.current, [{ rawName, canonicalId }]));
       // Filed under a shipped analyte by a person, the spelling is taught to
       // every account: the next one from this laboratory needs no click. What
-      // the mapping model filed stays this account's — nobody has looked at
-      // it yet, and a lesson for everyone takes a person. A founded parameter
-      // exists in this account alone, so its names stay here too. Best
-      // effort — the account's own mapping is already saved.
-      if (!opts.byModel && isShipped(canonicalId)) teachSynonym(rawName, canonicalId).catch(() => undefined);
+      // the mapping model filed stays this account's (`commitAi`) — nobody
+      // has looked at it yet, and a lesson for everyone takes a person. A
+      // founded parameter exists in this account alone, so its names stay
+      // here too. Best effort — the account's own mapping is already saved.
+      if (isShipped(canonicalId)) teachSynonym(rawName, canonicalId).catch(() => undefined);
     },
-    [registry, remap, learned, saveLearned, isShipped],
+    [registry, remap, saveLearned, isShipped],
+  );
+
+  /** The ledger as the last answer left it — the run reads it before spending. */
+  const noteBudget = useCallback((b: Budget) => {
+    budgetRef.current = b;
+    setBudget(b);
+  }, []);
+
+  /** The model's record, in memory and on screen; saved by `commitAi`, never with a call in flight. */
+  const updateAsked = useCallback((fn: (cur: AiAsked) => AiAsked) => {
+    aiAskedRef.current = fn(aiAskedRef.current);
+    setAiAsked(aiAskedRef.current);
+  }, []);
+
+  /**
+   * The model's answer lands: the names it filed go into the registry, the
+   * reports and the learned map — this account's only, no lesson for every
+   * account — and the record and the learned map are saved in one write.
+   */
+  const commitAi = useCallback(
+    (judged: Judged) => {
+      const reg = registryRef.current;
+      if (!reg) return;
+      for (const { rawName, canonicalId } of judged.applied) reg.addSynonym(canonicalId, rawName);
+      remapMany(judged.applied);
+      const nextLearned = updateLearned((cur) => withFiled(cur, judged.applied));
+      updateAsked((cur) => ({ ...cur, ...judged.entries }));
+      saveSettings({ learned: nextLearned, aiAsked: persistable(aiAskedRef.current) }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
+    },
+    [remapMany, updateLearned, updateAsked, saveSettings],
+  );
+
+  /**
+   * The mapping model over `candidates` — the names it has never been asked
+   * about among them, if the account is not frozen. Refs only, so the call
+   * made at load and the one made when an upload ends both see the current
+   * account; never rejects (lib/aiMapping.ts).
+   */
+  const runMapping = useCallback(
+    async (candidates: UnmappedAnalyte[]) => {
+      const reg = registryRef.current;
+      if (!reg || budgetRef.current?.frozen) return;
+      const out = await runAiMapping(
+        {
+          candidates,
+          asked: () => aiAskedRef.current,
+          registry: reg,
+          stats: observedStats(reportsRef.current),
+          ask: async (names, catalog) => {
+            // The answer carries the ledger after the spend; so does a refusal.
+            try {
+              const a = await suggestWithAi(names, catalog);
+              noteBudget(a.budget);
+              return a;
+            } catch (e) {
+              if (e instanceof ApiError && e.budget) noteBudget(e.budget);
+              throw e;
+            }
+          },
+        },
+        {
+          mark: (names) => {
+            setAiError(null);
+            const at = new Date().toISOString().slice(0, 10);
+            updateAsked((cur) => {
+              const next = { ...cur };
+              for (const n of names) next[n] = askingEntry(at);
+              return next;
+            });
+          },
+          unmark: (names) => updateAsked((cur) => withoutAsked(cur, names)),
+          commit: commitAi,
+        },
+      );
+      if (out.error) {
+        setAiError(
+          out.error instanceof Error && isFatalApiError(out.error)
+            ? out.error.message
+            : "Model se nepodařilo oslovit. Názvy čekají zde; zkuste to prosím za chvíli znovu.",
+        );
+      }
+    },
+    [updateAsked, commitAi, noteBudget],
+  );
+
+  /** "Zeptat se znovu": forget what the model said about these names, and ask. */
+  const askAgain = useCallback(
+    (rawNames: string[]) => {
+      updateAsked((cur) => withoutAsked(cur, rawNames));
+      const wanted = new Set(rawNames);
+      void runMapping(findUnmapped(reportsRef.current).filter((a) => wanted.has(a.rawName)));
+    },
+    [updateAsked, runMapping],
+  );
+
+  /**
+   * An upload ended and its report is stored. Only then the model, for the
+   * new report's names — a call that fails leaves the report exactly where
+   * it is and the names waiting in the tab.
+   */
+  const storeAndMap = useCallback(
+    (r: LabReport) => {
+      commitReports((prev) => {
+        const at = prev.findIndex((p) => p.id === r.id);
+        if (at < 0) return [...prev, r];
+        const next = [...prev];
+        next[at] = r;
+        return next;
+      });
+      const mine = new Set(r.measurements.map((m) => m.rawAnalyteName));
+      void runMapping(findUnmapped(reportsRef.current).filter((a) => mine.has(a.rawName)));
+    },
+    [commitReports, runMapping],
   );
 
   const undoMapping = useCallback(
@@ -300,15 +463,15 @@ export default function Portal({ email, demo, onLogout }: Props) {
       if (!registry) return;
       registry.removeSynonym(canonicalId, rawName);
       remap(rawName, null);
-      const rest = (learned[canonicalId] ?? []).filter((n) => n !== rawName);
-      const next = { ...learned };
+      const rest = (learnedRef.current[canonicalId] ?? []).filter((n) => n !== rawName);
+      const next = { ...learnedRef.current };
       if (rest.length) next[canonicalId] = rest;
       else delete next[canonicalId];
       saveLearned(next);
       // The worker withdraws it only if this account taught it.
       forgetSynonym(rawName).catch(() => undefined);
     },
-    [registry, remap, learned, saveLearned],
+    [registry, remap, saveLearned],
   );
 
   /**
@@ -325,14 +488,14 @@ export default function Portal({ email, demo, onLogout }: Props) {
       registry.addAnalyte(toAnalyteDef(c));
       registry.addSynonym(c.canonicalId, rawName);
       remap(rawName, c.canonicalId);
-      const next = withNewParameter({ learned, customAnalytes }, c, rawName);
+      const next = withNewParameter({ learned: learnedRef.current, customAnalytes }, c, rawName);
       setLearned(next.learned);
       setCustomAnalytes(next.customAnalytes);
       saveSettings({ learned: next.learned, customAnalytes: next.customAnalytes }).catch(() =>
         setSaveError("Nový parametr se nepodařilo uložit."),
       );
     },
-    [registry, remap, learned, customAnalytes, saveSettings],
+    [registry, remap, customAnalytes, saveSettings],
   );
 
   /**
@@ -342,18 +505,18 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const deleteParameter = useCallback(
     (canonicalId: string) => {
       if (!registry) return;
-      const names = namesUnder({ learned, customAnalytes }, canonicalId);
+      const names = namesUnder({ learned: learnedRef.current, customAnalytes }, canonicalId);
       for (const n of names) registry.removeSynonym(canonicalId, n);
       registry.removeAnalyte(canonicalId);
       for (const n of names) remap(n, null);
-      const next = withoutParameter({ learned, customAnalytes }, canonicalId);
+      const next = withoutParameter({ learned: learnedRef.current, customAnalytes }, canonicalId);
       setLearned(next.learned);
       setCustomAnalytes(next.customAnalytes);
       saveSettings({ learned: next.learned, customAnalytes: next.customAnalytes }).catch(() =>
         setSaveError("Parametr se nepodařilo smazat."),
       );
     },
-    [registry, remap, learned, customAnalytes, saveSettings],
+    [registry, remap, customAnalytes, saveSettings],
   );
 
   const goTab = useCallback((id: TabId) => {
@@ -382,7 +545,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
     setConfirmDelete(null);
     try {
       await deleteReport(id);
-      setReports((prev) => prev.filter((r) => r.id !== id));
+      commitReports((prev) => prev.filter((r) => r.id !== id));
       if (focus?.reportId === id) setFocus(null);
     } catch {
       setSaveError("Report se nepodařilo smazat.");
@@ -420,16 +583,8 @@ export default function Portal({ email, demo, onLogout }: Props) {
         registry={registry}
         maxPages={maxPages}
         frozen={frozen}
-        onStored={(r) =>
-          setReports((prev) => {
-            const at = prev.findIndex((p) => p.id === r.id);
-            if (at < 0) return [...prev, r];
-            const next = [...prev];
-            next[at] = r;
-            return next;
-          })
-        }
-        onBudget={setBudget}
+        onStored={storeAndMap}
+        onBudget={noteBudget}
       />
     </div>
   );
@@ -591,6 +746,9 @@ export default function Portal({ email, demo, onLogout }: Props) {
                 onCreateParameter={createParameter}
                 onDeleteParameter={deleteParameter}
                 onShowSource={showSource}
+                aiAsked={aiAsked}
+                aiError={aiError}
+                onAskAgain={askAgain}
                 frozen={frozen}
               />
             </Panel>
