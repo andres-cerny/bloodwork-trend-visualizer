@@ -42,7 +42,26 @@ four synthetic labs of Goal 2 and reports **0 wrong**, with the model's
   (who is asked, what is filed, what is stored; never rejects), Portal
   owns it, the tab renders the record. Tests: `aiMapping.test.ts`,
   `mappingTabAi.test.ts`, the prompt sentences in
-  `packages/extraction/tests/map.test.ts`. The eval is still open.
+  `packages/extraction/tests/map.test.ts`.
+- *Eval done 2026-09-19* — `tests/bench/map_eval.ts` and its three steps
+  (`bench:map:dump` → answers → `bench:map:score`, plus `bench:map:api`):
+  the names the catalog leaves null on all five fixtures (84 per pass),
+  the exact `SYSTEM_MAP` + `mapPrompt()`, the exact portal `judge()`.
+
+  | arm | names | applied wrong | applied right | shown right | shown wrong | left alone | parked/new right | traps taken |
+  |---|---|---|---|---|---|---|---|---|
+  | Haiku 4.5, API ($0.10) | 84 | **0** | 60 | 9 | 0 | 7 | 8 | 0 |
+  | Haiku subagent × 2 | 168 | **0** | 119 | 9 | 0 | 17 | 23 | 0 |
+  | Sonnet subagent | 84 | **0** | 59 | 3 | 0 | 12 | 10 | 0 |
+
+  "Shown right" is the mg/dl, g/dl, U/l and pg/ml rows: the model said
+  `medium`/`low` or named the right id and the unit gate refused it — both
+  the intended answer. "Left alone" is `unknown` on tests the catalog lacks
+  (Q10, iodine, riboflavin) and on BMI — conservative, the person decides.
+  The scorer was proven to fail: a planted `K (Potassium)` → `glukoza` at
+  `high` (same unit, overlapping interval) is the one fault the evidence
+  gate cannot catch, and it throws; four planted traps with a disagreeing
+  interval were all caught by the gate and counted as "shown wrong".
 
 ## Goal 2 — four synthetic labs the catalog has never seen
 
@@ -117,4 +136,5 @@ whole diff. Then Ondřej reviews the branch. Deploy is his call.
 | Goal 4 agent | A uploads `identity.pdf` (text path, Sonnet + Haiku) | 1 page | 0.0244 |
 | Goal 4 agent | B uploads `slovak_grouped.pdf` (text path) | 1 page | 0.0250 |
 | Goal 4 agent | B's „Nechat AI navrhnout přiřazení" (Haiku, 1 name) | 1 call | 0.0048 |
-| | **total** | | **0.0542** |
+| orchestrator | `bench:map:api` — Haiku over 6 batches, 84 names | 6 calls | 0.1045 |
+| | **total** | | **0.1587** |
