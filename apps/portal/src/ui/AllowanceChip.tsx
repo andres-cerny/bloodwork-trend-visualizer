@@ -48,16 +48,20 @@ export function exhaustedCopy(a: Allowance): string {
   return `${spent} Přikupte další, nebo pokračujte s tím, co už máte uložené — trendy, souhrn i ověření fungují dál.`;
 }
 
-/** The thank-you while the webhook lands, and after. */
+/** The thank-you while the webhook lands, when it was seen landing, and
+ *  when it had landed before the page even asked — the numbers beside it
+ *  are the truth in every case. */
 export const PURCHASE_PENDING = "Děkujeme. Dokumenty se připíší během chvíle.";
 export const PURCHASE_LANDED = "Děkujeme. Dokumenty jsou připsané.";
+export const PURCHASE_DONE = "Děkujeme za nákup.";
 
 /** How the return from Checkout is recognised in the address. */
 export const RETURN_PARAM = "koupeno";
 
 export default function AllowanceChip({ allowance, onAllowance, onBuy }: Props) {
   const [thanks, setThanks] = useState<string | null>(null);
-  const before = useRef<number | null>(null);
+  // The total as the page loaded it, the baseline a credit has to pass.
+  const before = useRef<number | null>(allowance ? allowance.free + allowance.purchased : null);
 
   useEffect(() => {
     const url = new URL(location.href);
@@ -86,6 +90,10 @@ export default function AllowanceChip({ allowance, onAllowance, onBuy }: Props) 
         // The next look asks again; five misses leave the pending sentence.
       }
       if (tries < 5) timer = setTimeout(look, 2000);
+      // Nothing rose in ten seconds: either the webhook is slow, or the
+      // credit had landed before /api/status was first asked and was in
+      // the baseline all along. The neutral sentence is true either way.
+      else setThanks(PURCHASE_DONE);
     };
     let timer = setTimeout(look, 0);
     return () => {

@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { type Allowance } from "../src/lib/api";
-import { allowanceLabel, allowanceNumbers, exhaustedCopy, PURCHASE_LANDED, PURCHASE_PENDING } from "../src/ui/AllowanceChip";
+import { allowanceLabel, allowanceNumbers, exhaustedCopy, PURCHASE_DONE, PURCHASE_LANDED, PURCHASE_PENDING } from "../src/ui/AllowanceChip";
 import { BUY_FAILED, PACKAGES, packageLabel, SHOP_CLOSED } from "../src/ui/BuySheet";
 import { WHY_PAY } from "../src/ui/WhyPayPage";
 
@@ -20,6 +20,7 @@ const ALL_COPY = [
   exhaustedCopy(a(20, 15)),
   PURCHASE_PENDING,
   PURCHASE_LANDED,
+  PURCHASE_DONE,
   SHOP_CLOSED,
   BUY_FAILED,
   ...PACKAGES.map((p) => p.compare),
