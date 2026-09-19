@@ -100,8 +100,9 @@ describe("RegisterPage — registrace", () => {
 
   it("ends on the same nav the login and the contact page end on: each link a box, a dot between", () => {
     // Inline links in a <p> are 21px tall and wrap into ragged lines at 360;
-    // the login's foot is a flex nav with aria-hidden separators, and the
-    // three other doors must be the same nav, not three spellings of it.
+    // the door's foot is one nav, a column of link boxes with no dots — the
+    // card never fits three in a row — and every door must be that nav, not
+    // three spellings of it.
     const foot = () => q<HTMLElement>("nav.door-foot.legal-foot")!;
     const shape = () => ({
       label: foot().getAttribute("aria-label"),
@@ -110,12 +111,12 @@ describe("RegisterPage — registrace", () => {
     });
     render(<RegisterPage mode="register" />);
     expect(q("p.door-foot")).toBeNull();
-    expect(shape()).toEqual({ label: "Další cesty", links: ["Přihlášení", "Zapomenuté heslo", "Co ukládáme, a co ne"], dots: ["·", "·"] });
+    expect(shape()).toEqual({ label: "Další cesty", links: ["Přihlášení", "Zapomenuté heslo", "Co ukládáme, a co ne"], dots: [] });
 
     act(() => root.unmount());
     root = createRoot(host);
     render(<RegisterPage mode="forgot" />);
-    expect(shape()).toEqual({ label: "Další cesty", links: ["Přihlášení", "Registrovat", "Co ukládáme, a co ne"], dots: ["·", "·"] });
+    expect(shape()).toEqual({ label: "Další cesty", links: ["Přihlášení", "Registrovat", "Co ukládáme, a co ne"], dots: [] });
 
     act(() => root.unmount());
     root = createRoot(host);

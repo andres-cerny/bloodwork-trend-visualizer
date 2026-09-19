@@ -869,6 +869,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .legal-foot {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem 0.6rem;
   margin-top: 2.2rem;
   padding-top: 0.9rem;
@@ -883,8 +884,12 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 /* The way back at the top of a prose page: the same link box, no rule
    above it and no space for one. */
 .legal-foot.legal-head { margin-top: 0; padding-top: 0; border-top: none; }
-/* The same footer inside the door's card keeps the card's spacing. */
-.door .legal-foot { margin-top: 0.3rem; }
+/* The same footer inside the door's card keeps the card's spacing — as a
+   column. The card is 23.5rem at every width, ~316px inside, and three
+   links with dots between do not fit one row at any of them: the wrap left
+   a dot dangling at the line's end at 360 and at 1440 alike. One link box
+   per row, the row's full width, no dots. */
+.door .legal-foot { margin-top: 0.3rem; flex-direction: column; align-items: stretch; gap: 0; }
 
 /* Dokumenty: the allowance line under the report list, and the buy sheet -- */
 /* One line, wrapping: the numbers, the button, the link. The link takes the

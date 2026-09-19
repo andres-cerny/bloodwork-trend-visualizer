@@ -4,7 +4,7 @@
  * from App.tsx so the link page and the door can both import it without
  * importing each other.
  */
-import { Children, Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, signupOpen } from "../lib/api";
 import { TURNSTILE_FAILED, type TurnstileGate } from "../lib/turnstile";
 
@@ -40,22 +40,17 @@ export function Door({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The links a door card ends on, one nav for every card. Each link is its
- * own flex box with a dot between — not inline text in a paragraph, where
- * an anchor is 21px tall (under the 24px floor the sweep holds every link
- * to) and a row of three wraps into ragged lines at 360. The dots are
- * hidden from a screen reader; the nav's label is what it announces.
+ * The links a door card ends on, one nav for every card. Each link is a
+ * box of its own, one per row (styles.css `.door .legal-foot`) — not inline
+ * text in a paragraph, where an anchor is 21px tall (under the 24px floor
+ * the sweep holds every link to), and not a dotted row either: the card is
+ * ~316px inside at every width, three links never fit one row, and the
+ * wrap left a dot dangling at the line's end.
  */
 export function DoorFoot({ children }: { children: React.ReactNode }) {
-  const links = Children.toArray(children).filter(Boolean);
   return (
     <nav className="door-foot legal-foot" aria-label="Další cesty">
-      {links.map((link, i) => (
-        <Fragment key={i}>
-          {i > 0 && <span aria-hidden="true">·</span>}
-          {link}
-        </Fragment>
-      ))}
+      {children}
     </nav>
   );
 }
