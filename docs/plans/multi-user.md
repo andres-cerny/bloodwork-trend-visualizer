@@ -92,7 +92,11 @@ password reset link, the ten-failures lockout, and the budget freeze.
 Every button on every screen is pressed; every screen is swept at 360,
 414, 768, 1024 and 1440 px in both palettes. What breaks is fixed when
 it is a class of defect (and guarded), listed when it is cosmetic. The
-list lives in `docs/plans/multi-user-findings.md`.
+list lives in [multi-user-findings.md](multi-user-findings.md) — written
+2026-09-19: every proof above holds; two classes fixed and guarded (money
+with a decimal point in Czech copy, a report row outgrowing its list on a
+phone); the one open thing that matters is Souhrn saying nothing about
+out-of-range values while an account has a single draw.
 
 ## Goal 5 — the gate
 
@@ -104,4 +108,7 @@ whole diff. Then Ondřej reviews the branch. Deploy is his call.
 
 | who | what | pages / calls | spent |
 |---|---|---|---|
-| — | — | — | 0.00 |
+| Goal 4 agent | A uploads `identity.pdf` (text path, Sonnet + Haiku) | 1 page | 0.0244 |
+| Goal 4 agent | B uploads `slovak_grouped.pdf` (text path) | 1 page | 0.0250 |
+| Goal 4 agent | B's „Nechat AI navrhnout přiřazení" (Haiku, 1 name) | 1 call | 0.0048 |
+| | **total** | | **0.0542** |
