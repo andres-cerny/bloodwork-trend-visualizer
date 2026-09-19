@@ -1,0 +1,468 @@
+{
+  "_about": "Synthetic lab printing conventional units (make_lab_fixtures.py): mg/dl, g/dl, U/l, ng/ml, pg/ml under S-/B- dash prefixes. Every printed name → catalog id, NEW:<id>, NOT_BLOOD or IGNORE; the catalog's canonical unit disagrees with most rows here, which is the point — the gate must not apply them unasked.",
+  "S-Glukosa": {
+    "answer": "glukoza",
+    "unit": "mg/dl",
+    "note": "older Czech spelling with s; mg/dl"
+  },
+  "S-Močovina": {
+    "answer": "urea",
+    "unit": "mg/dl",
+    "note": "mg/dl, the catalog says mmol/l"
+  },
+  "S-Kreatinin (enzymaticky)": {
+    "answer": "kreatinin",
+    "unit": "mg/dl",
+    "note": "mg/dl"
+  },
+  "S-Kyselina močová": {
+    "answer": "kyselina_mocova",
+    "unit": "mg/dl",
+    "note": ""
+  },
+  "S-Bilirubin celk.": {
+    "answer": "bilirubin_celkovy",
+    "wrong": [
+      "bilirubin_konjugovany"
+    ],
+    "unit": "mg/dl",
+    "note": "total"
+  },
+  "S-Bilirubin přímý": {
+    "answer": "bilirubin_konjugovany",
+    "wrong": [
+      "bilirubin_celkovy"
+    ],
+    "unit": "mg/dl",
+    "note": "direct = conjugated"
+  },
+  "S-Bilirubin nepřímý": {
+    "answer": "NEW:bilirubin_nekonjugovany",
+    "wrong": [
+      "bilirubin_celkovy",
+      "bilirubin_konjugovany"
+    ],
+    "unit": "mg/dl",
+    "note": "indirect = unconjugated; the catalog lacks it"
+  },
+  "S-ALT (alaninaminotransferasa)": {
+    "answer": "alt",
+    "unit": "U/l",
+    "note": "U/l, not µkat/l"
+  },
+  "S-AST (aspartátaminotransferasa)": {
+    "answer": "ast",
+    "unit": "U/l",
+    "note": ""
+  },
+  "S-GMT": {
+    "answer": "ggt",
+    "unit": "U/l",
+    "note": ""
+  },
+  "S-ALP (alkalická fosfatasa)": {
+    "answer": "alp",
+    "unit": "U/l",
+    "note": ""
+  },
+  "S-CK (kreatinkinasa)": {
+    "answer": "ck",
+    "wrong": [
+      "ck_mb"
+    ],
+    "unit": "U/l",
+    "note": ""
+  },
+  "S-Amylasa": {
+    "answer": "NEW:amylaza",
+    "wrong": [
+      "amylaza_pankreaticka"
+    ],
+    "unit": "U/l",
+    "note": "total amylase"
+  },
+  "S-Bílkovina celk.": {
+    "answer": "celkova_bilkovina",
+    "unit": "g/dl",
+    "note": "g/dl"
+  },
+  "S-Albumin": {
+    "answer": "albumin",
+    "unit": "g/dl",
+    "note": "g/dl"
+  },
+  "S-CRP": {
+    "answer": "crp",
+    "unit": "mg/l",
+    "note": ""
+  },
+  "S-Vápník celk.": {
+    "answer": "vapnik",
+    "wrong": [
+      "vapnik_ionizovany"
+    ],
+    "unit": "mg/dl",
+    "note": "total, mg/dl"
+  },
+  "S-Vápník ionizovaný": {
+    "answer": "vapnik_ionizovany",
+    "wrong": [
+      "vapnik"
+    ],
+    "unit": "mg/dl",
+    "note": "ionised, mg/dl"
+  },
+  "S-Hořčík": {
+    "answer": "horcik",
+    "wrong": [
+      "horcik_ery"
+    ],
+    "unit": "mg/dl",
+    "note": "serum, mg/dl"
+  },
+  "S-Cholesterol celk.": {
+    "answer": "cholesterol",
+    "wrong": [
+      "hdl",
+      "ldl"
+    ],
+    "unit": "mg/dl",
+    "note": ""
+  },
+  "S-HDL-cholesterol": {
+    "answer": "hdl",
+    "wrong": [
+      "non_hdl"
+    ],
+    "unit": "mg/dl",
+    "note": ""
+  },
+  "S-LDL-cholesterol (Friedewald)": {
+    "answer": "ldl",
+    "wrong": [
+      "non_hdl"
+    ],
+    "unit": "mg/dl",
+    "note": "calculated LDL; the catalog has one ldl"
+  },
+  "S-Non-HDL-cholesterol": {
+    "answer": "non_hdl",
+    "wrong": [
+      "hdl",
+      "ldl"
+    ],
+    "unit": "mg/dl",
+    "note": ""
+  },
+  "S-Triglyceridy": {
+    "answer": "triacylglyceroly",
+    "unit": "mg/dl",
+    "note": "'triglyceridy', the catalog says triacylglyceroly"
+  },
+  "S-Apolipoprotein B": {
+    "answer": "NEW:apolipoprotein_b",
+    "wrong": [
+      "apolipoprotein_a1"
+    ],
+    "unit": "mg/dl",
+    "note": "apo B, not apo A-I"
+  },
+  "S-Lipoprotein(a)": {
+    "answer": "NEW:lipoprotein_a",
+    "wrong": [
+      "ldl"
+    ],
+    "unit": "mg/dl",
+    "note": ""
+  },
+  "S-Železo": {
+    "answer": "zelezo",
+    "wrong": [
+      "ferritin"
+    ],
+    "unit": "µg/dl",
+    "note": "µg/dl"
+  },
+  "S-Ferritin": {
+    "answer": "ferritin",
+    "wrong": [
+      "zelezo"
+    ],
+    "unit": "ng/ml",
+    "note": "ng/ml"
+  },
+  "S-Transferin": {
+    "answer": "transferrin",
+    "wrong": [
+      "saturace_trf"
+    ],
+    "unit": "mg/dl",
+    "note": "mg/dl"
+  },
+  "S-Saturace transferinu": {
+    "answer": "saturace_trf",
+    "wrong": [
+      "transferrin"
+    ],
+    "unit": "%",
+    "note": ""
+  },
+  "S-Vitamin B12": {
+    "answer": "vitamin_b12",
+    "wrong": [
+      "aktivni_b12"
+    ],
+    "unit": "pg/ml",
+    "note": "pg/ml"
+  },
+  "S-Holotranskobalamin (aktivní B12)": {
+    "answer": "aktivni_b12",
+    "wrong": [
+      "vitamin_b12"
+    ],
+    "unit": "pmol/l",
+    "note": ""
+  },
+  "S-Folát": {
+    "answer": "kyselina_listova",
+    "wrong": [
+      "kyselina_listova_ery"
+    ],
+    "unit": "ng/ml",
+    "note": "serum folate, ng/ml"
+  },
+  "B-Folát v erytrocytech": {
+    "answer": "kyselina_listova_ery",
+    "wrong": [
+      "kyselina_listova"
+    ],
+    "unit": "ng/ml",
+    "note": "erythrocyte folate"
+  },
+  "S-25-OH vitamin D": {
+    "answer": "vitamin_d",
+    "wrong": [
+      "vitamin_d_1_25"
+    ],
+    "unit": "ng/ml",
+    "note": "ng/ml; the S- prefix is not stripped because a digit follows the hyphen"
+  },
+  "S-1,25-dihydroxyvitamin D": {
+    "answer": "NEW:vitamin_d_1_25",
+    "wrong": [
+      "vitamin_d"
+    ],
+    "unit": "pg/ml",
+    "note": "calcitriol, not 25-OH"
+  },
+  "B-Hořčík v erytrocytech": {
+    "answer": "horcik_ery",
+    "wrong": [
+      "horcik"
+    ],
+    "unit": "mg/dl",
+    "note": "erythrocyte magnesium"
+  },
+  "S-TSH": {
+    "answer": "tsh",
+    "unit": "µIU/ml",
+    "note": "µIU/ml = mU/l"
+  },
+  "S-fT4": {
+    "answer": "ft4",
+    "wrong": [
+      "t4_celkovy"
+    ],
+    "unit": "ng/dl",
+    "note": "free, ng/dl"
+  },
+  "S-T4 celkový": {
+    "answer": "t4_celkovy",
+    "wrong": [
+      "ft4"
+    ],
+    "unit": "µg/dl",
+    "note": "total, µg/dl"
+  },
+  "S-fT3": {
+    "answer": "ft3",
+    "wrong": [
+      "t3_celkovy"
+    ],
+    "unit": "pg/ml",
+    "note": "free, pg/ml"
+  },
+  "S-Kortizol (ráno)": {
+    "answer": "kortizol",
+    "unit": "µg/dl",
+    "note": "µg/dl"
+  },
+  "S-Testosteron celkový": {
+    "answer": "testosteron",
+    "wrong": [
+      "testosteron_volny"
+    ],
+    "unit": "ng/dl",
+    "note": "total, ng/dl"
+  },
+  "S-Testosteron volný": {
+    "answer": "testosteron_volny",
+    "wrong": [
+      "testosteron"
+    ],
+    "unit": "pg/ml",
+    "note": "free, pg/ml"
+  },
+  "B-HbA1c": {
+    "answer": "NEW:hba1c",
+    "wrong": [
+      "hemoglobin"
+    ],
+    "unit": "%",
+    "note": "DCCT percent, not hemoglobin"
+  },
+  "S-PSA celkový": {
+    "answer": "NEW:psa",
+    "wrong": [
+      "psa_volny"
+    ],
+    "unit": "ng/ml",
+    "note": ""
+  },
+  "S-PSA volný": {
+    "answer": "NEW:psa_volny",
+    "wrong": [
+      "psa"
+    ],
+    "unit": "ng/ml",
+    "note": ""
+  },
+  "S-CEA": {
+    "answer": "cea",
+    "unit": "ng/ml",
+    "note": ""
+  },
+  "B-Leukocyty": {
+    "answer": "leukocyty",
+    "unit": "10^3/µl",
+    "note": "10^3/µl"
+  },
+  "B-Erytrocyty": {
+    "answer": "erytrocyty",
+    "unit": "10^6/µl",
+    "note": ""
+  },
+  "B-Hemoglobin": {
+    "answer": "hemoglobin",
+    "wrong": [
+      "hba1c"
+    ],
+    "unit": "g/dl",
+    "note": "g/dl"
+  },
+  "B-Hematokrit": {
+    "answer": "hematokrit",
+    "unit": "%",
+    "note": ""
+  },
+  "B-MCV": {
+    "answer": "mcv",
+    "unit": "fl",
+    "note": ""
+  },
+  "B-MCH": {
+    "answer": "mch",
+    "wrong": [
+      "mchc"
+    ],
+    "unit": "pg",
+    "note": ""
+  },
+  "B-MCHC": {
+    "answer": "mchc",
+    "wrong": [
+      "mch"
+    ],
+    "unit": "g/dl",
+    "note": "g/dl"
+  },
+  "B-Trombocyty": {
+    "answer": "trombocyty",
+    "unit": "10^3/µl",
+    "note": ""
+  },
+  "B-Neutrofily relat.": {
+    "answer": "neutrofily",
+    "wrong": [
+      "neutrofily_abs"
+    ],
+    "unit": "%",
+    "note": "relative"
+  },
+  "B-Neutrofily abs.": {
+    "answer": "neutrofily_abs",
+    "wrong": [
+      "neutrofily"
+    ],
+    "unit": "10^3/µl",
+    "note": "absolute"
+  },
+  "U-pH": {
+    "answer": "NOT_BLOOD",
+    "unit": "",
+    "note": ""
+  },
+  "U-Bílkovina": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "celkova_bilkovina"
+    ],
+    "unit": "",
+    "note": ""
+  },
+  "U-Glukóza": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "glukoza"
+    ],
+    "unit": "",
+    "note": "urine strip glucose"
+  },
+  "U-Ketolátky": {
+    "answer": "NOT_BLOOD",
+    "unit": "",
+    "note": ""
+  },
+  "U-Krev": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "hemoglobin",
+      "erytrocyty"
+    ],
+    "unit": "",
+    "note": ""
+  },
+  "U-Leukocyty": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "leukocyty"
+    ],
+    "unit": "",
+    "note": "urine strip leukocytes"
+  },
+  "BMI": {
+    "answer": "IGNORE",
+    "unit": "kg/m2",
+    "note": "not a measurement"
+  },
+  "Povrch těla (DuBois)": {
+    "answer": "IGNORE",
+    "unit": "m2",
+    "note": "computed, not a measurement"
+  },
+  "Poznámka": {
+    "answer": "IGNORE",
+    "unit": "",
+    "note": "free-text comment; the parser reads it as a qualitative row"
+  }
+}

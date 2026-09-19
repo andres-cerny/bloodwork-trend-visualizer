@@ -1,0 +1,447 @@
+{
+  "_about": "Synthetic hospital LIS (make_lab_fixtures.py): abbreviation-only names with English echoes, H/L in a Hodnocení column, the lab's own '*' on the value, the interval split into two columns. Every printed name → catalog id, NEW:<id>, NOT_BLOOD or IGNORE; `wrong` names the id a careless mapper would pick.",
+  "NA (Sodium)": {
+    "answer": "sodik",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "K (Potassium)": {
+    "answer": "draslik",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "CL (Chloride)": {
+    "answer": "chloridy",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "CA (Calcium)": {
+    "answer": "vapnik",
+    "wrong": [
+      "vapnik_ionizovany"
+    ],
+    "unit": "mmol/l",
+    "note": "total"
+  },
+  "CA-ION (Ionized calcium)": {
+    "answer": "vapnik_ionizovany",
+    "wrong": [
+      "vapnik"
+    ],
+    "unit": "mmol/l",
+    "note": "ionised"
+  },
+  "GLU (Glucose)": {
+    "answer": "glukoza",
+    "unit": "mmol/l",
+    "note": "serum; U-GLU is the strip"
+  },
+  "UREA": {
+    "answer": "urea",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "CREA (Creatinine)": {
+    "answer": "kreatinin",
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "EGFR-EPI (eGFR CKD-EPI)": {
+    "answer": "egfr",
+    "wrong": [
+      "egfr_mdrd"
+    ],
+    "unit": "ml/s/1,73m2",
+    "note": ""
+  },
+  "EGFR-MDRD": {
+    "answer": "egfr_mdrd",
+    "wrong": [
+      "egfr"
+    ],
+    "unit": "ml/s/1,73m2",
+    "note": ""
+  },
+  "UA (Uric acid)": {
+    "answer": "kyselina_mocova",
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "BILI-T (Bilirubin total)": {
+    "answer": "bilirubin_celkovy",
+    "wrong": [
+      "bilirubin_konjugovany"
+    ],
+    "unit": "µmol/l",
+    "note": "total"
+  },
+  "BILI-D (Bilirubin direct)": {
+    "answer": "bilirubin_konjugovany",
+    "wrong": [
+      "bilirubin_celkovy"
+    ],
+    "unit": "µmol/l",
+    "note": "direct = conjugated"
+  },
+  "ALT": {
+    "answer": "alt",
+    "unit": "µkat/l",
+    "note": ""
+  },
+  "AST": {
+    "answer": "ast",
+    "unit": "µkat/l",
+    "note": ""
+  },
+  "GGT": {
+    "answer": "ggt",
+    "unit": "µkat/l",
+    "note": ""
+  },
+  "ALP": {
+    "answer": "alp",
+    "unit": "µkat/l",
+    "note": ""
+  },
+  "AMS (Amylase)": {
+    "answer": "NEW:amylaza",
+    "wrong": [
+      "amylaza_pankreaticka"
+    ],
+    "unit": "µkat/l",
+    "note": "total amylase"
+  },
+  "TP (Total protein)": {
+    "answer": "celkova_bilkovina",
+    "unit": "g/l",
+    "note": ""
+  },
+  "ALB (Albumin)": {
+    "answer": "albumin",
+    "unit": "g/l",
+    "note": ""
+  },
+  "CRP": {
+    "answer": "crp",
+    "unit": "mg/l",
+    "note": ""
+  },
+  "PCT (Procalcitonin)": {
+    "answer": "NEW:prokalcitonin",
+    "wrong": [
+      "trombokrit"
+    ],
+    "unit": "µg/l",
+    "note": "the catalog's PCT is plateletcrit; this is procalcitonin"
+  },
+  "CHOL": {
+    "answer": "cholesterol",
+    "wrong": [
+      "hdl",
+      "ldl"
+    ],
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "TRIG": {
+    "answer": "triacylglyceroly",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "HDL": {
+    "answer": "hdl",
+    "wrong": [
+      "non_hdl"
+    ],
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "LDL-C (LDL cholesterol, calc.)": {
+    "answer": "ldl",
+    "wrong": [
+      "non_hdl"
+    ],
+    "unit": "mmol/l",
+    "note": "calculated LDL; the catalog has one ldl"
+  },
+  "NON-HDL": {
+    "answer": "non_hdl",
+    "wrong": [
+      "hdl",
+      "ldl"
+    ],
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "FE (Iron)": {
+    "answer": "zelezo",
+    "wrong": [
+      "ferritin"
+    ],
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "FERR (Ferritin)": {
+    "answer": "ferritin",
+    "wrong": [
+      "zelezo"
+    ],
+    "unit": "µg/l",
+    "note": ""
+  },
+  "TRF (Transferrin)": {
+    "answer": "transferrin",
+    "wrong": [
+      "saturace_trf"
+    ],
+    "unit": "g/l",
+    "note": ""
+  },
+  "TSAT (Transferrin saturation)": {
+    "answer": "saturace_trf",
+    "wrong": [
+      "transferrin"
+    ],
+    "unit": "%",
+    "note": ""
+  },
+  "B12 (Cobalamin)": {
+    "answer": "vitamin_b12",
+    "wrong": [
+      "aktivni_b12"
+    ],
+    "unit": "pmol/l",
+    "note": ""
+  },
+  "HOLO-TC (Active B12)": {
+    "answer": "aktivni_b12",
+    "wrong": [
+      "vitamin_b12"
+    ],
+    "unit": "pmol/l",
+    "note": "holotranscobalamin"
+  },
+  "FOL (Folate)": {
+    "answer": "kyselina_listova",
+    "wrong": [
+      "kyselina_listova_ery"
+    ],
+    "unit": "nmol/l",
+    "note": "serum"
+  },
+  "VIT-D (25-OH vitamin D)": {
+    "answer": "vitamin_d",
+    "wrong": [
+      "vitamin_d_1_25"
+    ],
+    "unit": "nmol/l",
+    "note": ""
+  },
+  "TSH": {
+    "answer": "tsh",
+    "unit": "mIU/l",
+    "note": ""
+  },
+  "FT4 (Free T4)": {
+    "answer": "ft4",
+    "wrong": [
+      "t4_celkovy"
+    ],
+    "unit": "pmol/l",
+    "note": "free"
+  },
+  "TT4 (Total T4)": {
+    "answer": "t4_celkovy",
+    "wrong": [
+      "ft4"
+    ],
+    "unit": "nmol/l",
+    "note": "total"
+  },
+  "FT3 (Free T3)": {
+    "answer": "ft3",
+    "wrong": [
+      "t3_celkovy"
+    ],
+    "unit": "pmol/l",
+    "note": "free"
+  },
+  "HBA1C (Glycated hemoglobin)": {
+    "answer": "NEW:hba1c",
+    "wrong": [
+      "hemoglobin"
+    ],
+    "unit": "mmol/mol",
+    "note": ""
+  },
+  "TNT-HS (Troponin T hs)": {
+    "answer": "NEW:troponin_t",
+    "wrong": [
+      "troponin_i"
+    ],
+    "unit": "ng/l",
+    "note": "troponin T, not I"
+  },
+  "CK": {
+    "answer": "ck",
+    "wrong": [
+      "ck_mb"
+    ],
+    "unit": "µkat/l",
+    "note": ""
+  },
+  "CKMB (CK-MB mass)": {
+    "answer": "ck_mb",
+    "wrong": [
+      "ck"
+    ],
+    "unit": "µg/l",
+    "note": ""
+  },
+  "WBC (Leukocytes)": {
+    "answer": "leukocyty",
+    "unit": "10^9/l",
+    "note": "blood; U-LEU is the strip"
+  },
+  "RBC (Erythrocytes)": {
+    "answer": "erytrocyty",
+    "unit": "10^12/l",
+    "note": ""
+  },
+  "HGB (Hemoglobin)": {
+    "answer": "hemoglobin",
+    "wrong": [
+      "hba1c"
+    ],
+    "unit": "g/l",
+    "note": ""
+  },
+  "HCT (Hematocrit)": {
+    "answer": "hematokrit",
+    "unit": "l/l",
+    "note": ""
+  },
+  "MCV": {
+    "answer": "mcv",
+    "unit": "fl",
+    "note": ""
+  },
+  "MCH": {
+    "answer": "mch",
+    "wrong": [
+      "mchc"
+    ],
+    "unit": "pg",
+    "note": ""
+  },
+  "MCHC": {
+    "answer": "mchc",
+    "wrong": [
+      "mch"
+    ],
+    "unit": "g/l",
+    "note": ""
+  },
+  "RDW-CV": {
+    "answer": "rdw",
+    "unit": "%",
+    "note": ""
+  },
+  "PLT (Platelets)": {
+    "answer": "trombocyty",
+    "unit": "10^9/l",
+    "note": ""
+  },
+  "MPV": {
+    "answer": "mpv",
+    "unit": "fl",
+    "note": ""
+  },
+  "PCT (Plateletcrit)": {
+    "answer": "trombokrit",
+    "wrong": [
+      "prokalcitonin"
+    ],
+    "unit": "%",
+    "note": "plateletcrit; the biochemistry PCT above is procalcitonin"
+  },
+  "NEUT#": {
+    "answer": "neutrofily_abs",
+    "wrong": [
+      "neutrofily"
+    ],
+    "unit": "10^9/l",
+    "note": "absolute"
+  },
+  "NEUT%": {
+    "answer": "neutrofily",
+    "wrong": [
+      "neutrofily_abs"
+    ],
+    "unit": "%",
+    "note": "relative"
+  },
+  "LYMPH#": {
+    "answer": "lymfocyty_abs",
+    "wrong": [
+      "lymfocyty"
+    ],
+    "unit": "10^9/l",
+    "note": ""
+  },
+  "LYMPH%": {
+    "answer": "lymfocyty",
+    "wrong": [
+      "lymfocyty_abs"
+    ],
+    "unit": "%",
+    "note": ""
+  },
+  "FIB (Fibrinogen)": {
+    "answer": "NEW:fibrinogen",
+    "unit": "g/l",
+    "note": ""
+  },
+  "U-PRO (Protein)": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "celkova_bilkovina"
+    ],
+    "unit": "",
+    "note": ""
+  },
+  "U-GLU (Glucose)": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "glukoza"
+    ],
+    "unit": "",
+    "note": "urine strip glucose"
+  },
+  "U-KET (Ketones)": {
+    "answer": "NOT_BLOOD",
+    "unit": "",
+    "note": ""
+  },
+  "U-BLD (Blood)": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "hemoglobin"
+    ],
+    "unit": "",
+    "note": ""
+  },
+  "U-LEU (Leukocytes)": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "leukocyty"
+    ],
+    "unit": "",
+    "note": "urine strip leukocytes"
+  },
+  "KOMENTÁŘ": {
+    "answer": "IGNORE",
+    "unit": "",
+    "note": "free-text comment; the parser reads it as a qualitative row"
+  }
+}
