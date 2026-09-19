@@ -510,7 +510,7 @@ const SCREENS: Screen[] = [
       await page.locator(".allow-line").getByRole("button", { name: "Přikoupit" }).click();
       await page.waitForSelector(".sheet", { timeout: 5_000 });
       await page.locator(".pack .btn").first().click();
-      await page.waitForSelector(".sheet .notice", { timeout: 5_000 });
+      await page.waitForSelector(".sheet .sheet-state", { timeout: 5_000 });
       await page.waitForTimeout(250);
     },
     check: async (page) => {
@@ -522,7 +522,20 @@ const SCREENS: Screen[] = [
       expect(box.y + box.height, "bottom edge").toBeLessThanOrEqual(height + 0.5);
       expect(await sheet.locator(".pack").count()).toBe(2);
       expect(await sheet.locator(".pack-cmp").count(), "a comparison line under each price").toBe(2);
-      expect(await sheet.locator(".notice").innerText()).toBe("Obchod zatím není otevřený.");
+      // A closed shop is a rule, not a failure: one muted state line, both
+      // buttons disabled, and no .notice in signal red.
+      expect(await sheet.locator(".sheet-state").innerText()).toBe("Obchod zatím není otevřený.");
+      expect(await sheet.locator(".notice").count(), "no alert for a closed shop").toBe(0);
+      for (const buy of await sheet.locator(".pack .btn").all()) {
+        expect(await buy.isDisabled(), "Koupit after shop_closed").toBe(true);
+        const b = (await buy.boundingBox())!;
+        expect(b.height, "Koupit is the sheet's primary action, 44px tall").toBeGreaterThanOrEqual(44);
+        // The package's full width: the button's box is the card's, less its padding.
+        const pack = (await buy.locator("xpath=..").boundingBox())!;
+        expect(pack.width - b.width, "Koupit spans the package").toBeLessThanOrEqual(30);
+      }
+      // The dialog holds focus: it opened on Zavřít.
+      expect(await page.evaluate(() => document.activeElement?.textContent)).toBe("Zavřít");
       // No package outgrows the sheet.
       const sideways = await sheet.evaluate((el) => el.scrollWidth - el.clientWidth);
       expect(sideways, "the sheet scrolls sideways").toBe(0);
