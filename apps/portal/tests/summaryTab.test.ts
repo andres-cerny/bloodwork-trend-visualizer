@@ -257,6 +257,23 @@ describe("Souhrn with one report", () => {
     expect((one.match(/class="about-btn"/g) ?? []).length).toBe(8);
   });
 
+  it("qualifies the all-clear when the out-of-range readings are the withheld ones", () => {
+    // Every reading past its limit is one the app will not stand behind, so
+    // the block is empty — and an empty block is not "all in range"
+    // (docs/constraints.md: a filtered value is not a normal one).
+    const out = new Set(["Bilirubin", "AST", "ALT", "GGT", "ALP"]);
+    const withheldOne = renderToStaticMarkup(
+      createElement(SummaryTab, {
+        reports: single,
+        trends: buildTrends(single, (cid) => cid ?? "", (mm) => (out.has(mm.canonicalId ?? "") ? "ověřit" : null), () => null),
+      }),
+    );
+    expect(withheldOne).toContain('Mimo rozmezí <span class="n">0</span>');
+    expect(withheldOne).toContain("všechny ověřené parametry jsou v rozmezí");
+    expect(withheldOne).not.toContain("všechny parametry jsou v rozmezí");
+    expect(withheldOne).toContain("na ověření");
+  });
+
   it("changes nothing for two reports", () => {
     expect(html).toContain("Změna od minule");
     expect(html).not.toContain("jediný odběr");

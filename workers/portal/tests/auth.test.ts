@@ -418,6 +418,16 @@ describe("a session ends when it should", () => {
     expect((await me(second)).status).toBe(401);
   });
 
+  it("logout with a cookie already ended moves nobody's epoch — an old copy cannot log the owner out again", async () => {
+    const stale = await signup();
+    await worker.fetch(post("/api/auth/logout", {}, { cookie: stale }), env);
+    const live = (await login("andres@example.com", PASSWORD)).headers.get("set-cookie")!.split(";")[0];
+    expect((await me(live)).status).toBe(200);
+    const out = await worker.fetch(post("/api/auth/logout", {}, { cookie: stale }), env);
+    expect(out.status).toBe(204);
+    expect((await me(live)).status).toBe(200);
+  });
+
   it("logout without a valid cookie still answers 204 and moves nobody's epoch", async () => {
     const cookie = await signup();
     const out = await worker.fetch(post("/api/auth/logout", {}, { cookie: "mojekrev_session=nonsense" }), env);

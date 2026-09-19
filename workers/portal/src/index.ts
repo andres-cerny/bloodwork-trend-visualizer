@@ -179,8 +179,12 @@ async function endSessions(env: Env, uid: string): Promise<number | null> {
  * the owner's account, and their leaving must not log the owner out.
  */
 async function handleLogout(request: Request, env: Env): Promise<Response> {
-  const claims = await verifyCookieToken(env.SESSION_SECRET, readCookie(request));
-  if (claims && !claims.demo) await endSessions(env, claims.uid);
+  // Through requireSession, not the bare signature: a cookie whose epoch
+  // the row has already left is not a session, and must not be allowed to
+  // end the owner's live ones — that would let a copy ended weeks ago log
+  // them out of every device, again and again, until it expired.
+  const session = await requireSession(request, env);
+  if (session && !session.demo) await endSessions(env, session.user.id);
   return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
 }
 

@@ -517,7 +517,7 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
               </div>
               {onOpenTrend && <SearchParam options={options} onPick={onOpenTrend} label="Hledat parametr a otevřít graf" />}
             </div>
-            {latestOut.length === 0 ? <p className="muted">Nic — všechny parametry jsou v rozmezí.</p> : <LatestTable rows={latestOut} onOpenTrend={onOpenTrend} aboutOf={aboutOf} caption="Parametry mimo referenční rozmezí" id="sum-table-out" />}
+            {latestOut.length === 0 ? <p className="muted">Nic — všechny ověřené parametry jsou v rozmezí.</p> : <LatestTable rows={latestOut} onOpenTrend={onOpenTrend} aboutOf={aboutOf} caption="Parametry mimo referenční rozmezí" id="sum-table-out" />}
           </section>
           <section className="card">
             <div className="card-head">

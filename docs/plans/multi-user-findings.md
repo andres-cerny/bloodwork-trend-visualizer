@@ -10,8 +10,8 @@ fresh local D1 from `schema.sql`. Two accounts, `a@example.test` (A) and
 `tools/scripts/moje-krev-invites.mjs`. Spend: **0,05 USD** of the 8 allowed
 — three model calls, all in the ledger of [multi-user.md](multi-user.md).
 
-Screenshots live under the session scratchpad,
-`/private/tmp/claude-501/-Users-ondrejcerny-dev-bloodwork-app/9788c846-2834-4b4f-8924-4d9c7254e514/scratchpad/shots/`:
+Screenshots were taken into the testing session's scratchpad (a temporary
+directory on Ondřej's machine, not in the repo; `shots/`):
 `steps/` for the eight walkthrough shots named below, `sweep/` for the 250
 full-page shots of the width sweep (`<screen>-<width>-<palette>.png`), and
 `sweep*.json` for the machine record of every run.
