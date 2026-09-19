@@ -104,9 +104,23 @@ async function expectPopoverInView(page: Page) {
   expect(await page.locator(".about-pop p").count()).toBe(2);
 }
 
-/** Cloudflare's widget script never loads: the sweep is of our form, not their iframe. */
+/**
+ * Cloudflare's widget never loads: the sweep is of our form, not their
+ * iframe. The script URL answers with a stand-in that hands the form a token
+ * at once, so a build with VITE_TURNSTILE_SITE_KEY in .env (the operator's
+ * machine) sweeps the same screens as one without: the gate is "available"
+ * either way and the form must get past it to show the sent sentence.
+ */
 const noWidget = async (page: Page) => {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await page.route("https://challenges.cloudflare.com/**", (route) =>
+    route.request().resourceType() === "script"
+      ? route.fulfill({
+          contentType: "application/javascript",
+          body: `window.turnstile = { render(el, o) { el.appendChild(document.createElement("div")); setTimeout(() => o.callback("e2e-token"), 0); return "w"; }, reset() {}, remove() {} };
+window.onTurnstileLoad && window.onTurnstileLoad();`,
+        })
+      : route.abort(),
+  );
 };
 
 /**
