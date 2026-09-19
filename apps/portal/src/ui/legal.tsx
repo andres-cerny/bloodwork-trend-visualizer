@@ -48,6 +48,25 @@ export const CONSENT_HEALTH =
 export const CONSENT_TERMS = "Souhlasím s Podmínkami užití.";
 
 /**
+ * A consent sentence with its document's name turned into a link, the rest
+ * of the sentence untouched — so the text a person ticks is the constant,
+ * character for character, and the privacy page can quote the same constant
+ * as what was ticked. Throws when the name is not in the sentence: a link on
+ * nothing would be a sentence that drifted from its document.
+ */
+export function linked(sentence: string, name: string, href: string) {
+  const at = sentence.indexOf(name);
+  if (at < 0) throw new Error(`consent sentence does not name "${name}"`);
+  return (
+    <>
+      {sentence.slice(0, at)}
+      <a href={href}>{name}</a>
+      {sentence.slice(at + name.length)}
+    </>
+  );
+}
+
+/**
  * The allowance as the landing and the terms state it. Goal 7 counts it in
  * the worker; the numbers here are the ones a stranger reads before they
  * register, and the two must agree — the terms are a promise.
