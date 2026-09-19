@@ -206,3 +206,60 @@ describe("the opening card, split on a phone", () => {
     expect(one).toContain("<dt>Počet odběrů:</dt><dd>1</dd>");
   });
 });
+
+/**
+ * The first impression: an account with one report. `summarizeChanges`
+ * needs two draws per parameter, so `records` is empty — and until
+ * 2026-09-19 the whole „Mimo rozmezí / V rozmezí" block was skipped with
+ * it, while the one report's Cholesterol sat out of range and Trendy said
+ * so. One draw has no change to show; it has values, flags and ranges.
+ */
+describe("Souhrn with one report", () => {
+  const ABOUT = { what: "Látka, kterou laboratoř měří.", usedFor: "Sleduje se při posouzení jater." };
+  const single = [report("r1", "2024-09-23", 2)];
+  const one = renderToStaticMarkup(
+    createElement(SummaryTab, {
+      reports: single,
+      trends: buildTrends(single, (cid) => cid ?? "", () => null, () => null),
+      aboutOf: () => ABOUT,
+    }),
+  );
+  const namesIn = (block: string) => [...block.matchAll(/class="btn linkish sum-open sum-name"[^>]*>([^<]+)</g)].map((m) => m[1]);
+
+  it("lists the report's rows, out of range first, in range after", () => {
+    expect(one).not.toContain("Zatím není dost měření");
+    expect(one).toContain('Mimo rozmezí <span class="n">5</span>');
+    expect(one).toContain('V rozmezí <span class="n">3</span>');
+    const outAt = one.indexOf('id="sum-table-out"');
+    const inAt = one.indexOf('id="sum-table-in"');
+    expect(outAt).toBeGreaterThan(-1);
+    expect(inAt).toBeGreaterThan(outAt);
+    // Furthest past its limit first — the order Trendy's shortcuts use.
+    expect(namesIn(one.slice(outAt, inAt))).toEqual(["Bilirubin", "AST", "ALT", "GGT", "ALP"]);
+    expect(namesIn(one.slice(inAt))).toEqual(["Kreatinin", "Sodík", "Urea"]);
+  });
+
+  it("shows each row's value, flag and printed range, and no change column", () => {
+    expect(one).toContain("↑ nad rozmezím");
+    expect(one).toContain("0,3–1,2");
+    expect(one).toContain(">1,90<");
+    expect(one).not.toContain("Změna od minule");
+    expect(one).not.toContain("předchozí měření");
+  });
+
+  it("says the block is the one report's values, and that changes wait for a second draw", () => {
+    expect(one).toContain("jediný odběr · 23. 9. 2024");
+    expect(one).toContain("Jediný odběr — přesuny vůči rozmezí od druhého odběru.");
+    expect(one).not.toContain("Žádný přesun vůči referenčnímu rozmezí");
+  });
+
+  it("keeps the i after every parameter name", () => {
+    expect((one.match(/class="about-btn"/g) ?? []).length).toBe(8);
+  });
+
+  it("changes nothing for two reports", () => {
+    expect(html).toContain("Změna od minule");
+    expect(html).not.toContain("jediný odběr");
+    expect(html).not.toContain("Jediný odběr");
+  });
+});

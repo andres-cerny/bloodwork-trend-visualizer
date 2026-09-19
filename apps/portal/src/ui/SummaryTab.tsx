@@ -28,6 +28,13 @@
  * limit and the signed delta are on the desktop only, and both are one tap
  * away in Trendy, where the row's own name leads.
  *
+ * One report — every new account's first screen — has no change to show
+ * and still has values: `summarizeChanges` needs two draws per parameter,
+ * and while it has none the tables list the latest draw's rows instead
+ * (`latestRows`), out of range first, with the flag and the printed range
+ * and no change column. The card says whose values they are. Two draws
+ * with a parameter in common, and the tables are the change tables again.
+ *
  * Every list here folds to its first two rows on a phone, behind "Více".
  * Four lists of everything measured is a scroll nobody finishes; the count
  * beside each heading says how much is folded away.
@@ -45,6 +52,8 @@ import {
   type LabReport,
   type SummaryRecord,
   type Trend,
+  type TrendPoint,
+  beyondLimit,
   count,
   czDate,
   czExact,
@@ -298,6 +307,98 @@ function Table({ records, trends, onOpenTrend, aboutOf, caption, id }: { records
   );
 }
 
+/** A row of the latest draw, when there is nothing to compare it with. */
+interface LatestRow {
+  canonicalId: string;
+  displayName: string;
+  unit: string;
+  point: TrendPoint;
+  outOfRange: boolean;
+}
+
+/**
+ * The latest draw's numeric readings, out of range first — furthest past
+ * its limit at the top, the same order as Trendy's shortcuts — then in
+ * range by name. "Latest draw" is one date for the whole set, the rule
+ * `watchList` and `patientOverview` apply: a parameter last measured at an
+ * earlier draw is not a value of this one.
+ */
+function latestRows(trends: Map<string, Trend>): LatestRow[] {
+  let lastDraw: string | null = null;
+  for (const t of trends.values()) for (const p of t.points) if (!lastDraw || p.date > lastDraw) lastDraw = p.date;
+  if (!lastDraw) return [];
+  const rows: LatestRow[] = [];
+  for (const t of trends.values()) {
+    const pts = numericPoints(t);
+    const last = pts[pts.length - 1];
+    if (!last || last.date !== lastDraw) continue;
+    rows.push({ canonicalId: t.canonicalId, displayName: t.displayName, unit: t.unit, point: last, outOfRange: isOut(last.flag) });
+  }
+  return rows.sort(
+    (a, b) =>
+      Number(b.outOfRange) - Number(a.outOfRange) ||
+      (beyondLimit(b.point) ?? -1) - (beyondLimit(a.point) ?? -1) ||
+      a.displayName.localeCompare(b.displayName, "cs"),
+  );
+}
+
+/**
+ * The one-draw table: name, value with its flag, printed range, the door to
+ * Trendy. No change column and no sparkline — one point is neither. The
+ * flag chip is a desktop detail, as in the change table: on a phone the
+ * red value and the card's heading say "outside", and the chip's width is
+ * what made the card scroll sideways at 360 (styles.css, `.sum-wide`).
+ */
+function LatestTable({ rows, onOpenTrend, aboutOf, caption, id }: { rows: LatestRow[]; onOpenTrend?: Props["onOpenTrend"]; aboutOf?: Props["aboutOf"]; caption: string; id: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="scroll-x">
+        <table className={`sum-table${foldClass(open, rows.length)}`} aria-label={caption} id={id}>
+          <thead>
+            <tr>
+              <th>Parametr</th>
+              <th className="num">Hodnota</th>
+              <th className="num">Rozmezí</th>
+              <th className="sum-more" aria-label="Graf" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const p = r.point;
+              const rng = p.refLow !== null || p.refHigh !== null ? czRange(p.refLow, p.refHigh) : "—";
+              return (
+                <tr key={r.canonicalId}>
+                  <td>
+                    <button type="button" className="btn linkish sum-open sum-name" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
+                      {r.displayName}
+                    </button>
+                    <AboutParam name={r.displayName} about={aboutOf?.(r.canonicalId)} />
+                  </td>
+                  <td className="num">
+                    <strong className={r.outOfRange ? "out" : undefined}>{czExact(p.value, p.valueRaw)}</strong>{" "}
+                    <span className="muted unit-line">{prettyUnit(r.unit)}</span>
+                    <span className="sum-wide" style={{ display: "block" }}>
+                      <FlagChip flag={p.flag} />
+                    </span>
+                  </td>
+                  <td className="muted num">{rng}</td>
+                  <td className="sum-more">
+                    <button className="btn linkish sum-go" onClick={() => onOpenTrend?.(r.canonicalId)} title="Otevřít graf">
+                      graf →
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <Fold open={open} rest={rows.length - 2} onToggle={() => setOpen((v) => !v)} controls={id} />
+    </>
+  );
+}
+
 /** Every parameter with a chart to open, out-of-range ones marked. */
 function searchOptions(trends: Map<string, Trend>): PickerOption[] {
   return [...trends.values()]
@@ -320,6 +421,14 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
   const inRange = records.filter((r) => !r.outOfRange);
   const worse = records.filter((r) => verdictOf(r) === "worse");
   const better = records.filter((r) => verdictOf(r) === "better");
+  // Nothing to compare — one report, or none measuring the same parameter
+  // twice: the tables show the latest draw's values instead of nothing.
+  const latest = useMemo(() => (records.length === 0 ? latestRows(trends) : []), [records, trends]);
+  const latestOut = latest.filter((r) => r.outOfRange);
+  const latestIn = latest.filter((r) => !r.outOfRange);
+  const latestNote = overview.lastDraw
+    ? `${overview.draws > 1 ? "poslední odběr" : "jediný odběr"} · ${czDate(overview.lastDraw)}`
+    : null;
   // The strongest fact watchList computed for an out-of-range parameter —
   // "66 % nad horní mezí 0,83 µkat/l" says more than the flag transition.
   const watchFacts = useMemo(
@@ -378,7 +487,15 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
             </p>
           )}
         </div>
-        {worse.length === 0 && better.length === 0 ? (
+        {records.length === 0 && latest.length > 0 ? (
+          // No "minulý odběr" to move from: the groups start with the second
+          // draw, the same promise Trendy makes under a single point.
+          <p className="prose">
+            {overview.draws > 1
+              ? "Zatím žádný parametr změřený dvakrát — přesuny vůči rozmezí od druhého měření."
+              : "Jediný odběr — přesuny vůči rozmezí od druhého odběru."}
+          </p>
+        ) : worse.length === 0 && better.length === 0 ? (
           <p className="prose">Žádný přesun vůči referenčnímu rozmezí od minulého odběru.</p>
         ) : (
           <div className="sum-groups">
@@ -388,7 +505,34 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
         )}
       </section>
 
-      {records.length === 0 ? (
+      {records.length === 0 && latest.length > 0 ? (
+        <>
+          <section className="card">
+            <div className="card-head">
+              <div>
+                <h2>
+                  Mimo rozmezí <span className="n">{latestOut.length}</span>
+                </h2>
+                {latestNote && <p className="sub" style={{ marginBottom: 0 }}>{latestNote}</p>}
+              </div>
+              {onOpenTrend && <SearchParam options={options} onPick={onOpenTrend} label="Hledat parametr a otevřít graf" />}
+            </div>
+            {latestOut.length === 0 ? <p className="muted">Nic — všechny parametry jsou v rozmezí.</p> : <LatestTable rows={latestOut} onOpenTrend={onOpenTrend} aboutOf={aboutOf} caption="Parametry mimo referenční rozmezí" id="sum-table-out" />}
+          </section>
+          <section className="card">
+            <div className="card-head">
+              <div>
+                <h2>
+                  V rozmezí <span className="n">{latestIn.length}</span>
+                </h2>
+                {latestNote && <p className="sub" style={{ marginBottom: 0 }}>{latestNote}</p>}
+              </div>
+              {onOpenTrend && <SearchParam options={options} onPick={onOpenTrend} label="Hledat parametr a otevřít graf" />}
+            </div>
+            {latestIn.length === 0 ? <p className="muted">Nic.</p> : <LatestTable rows={latestIn} onOpenTrend={onOpenTrend} aboutOf={aboutOf} caption="Parametry v referenčním rozmezí" id="sum-table-in" />}
+          </section>
+        </>
+      ) : records.length === 0 ? (
         <section className="card">
           <p className="muted">Zatím není dost měření na porovnání (potřebujeme alespoň dvě u jednoho parametru).</p>
         </section>

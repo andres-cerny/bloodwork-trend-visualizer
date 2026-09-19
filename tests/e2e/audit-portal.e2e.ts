@@ -126,6 +126,45 @@ const SCREENS: Screen[] = [
   // what the summary groups and tables already say.
   { name: "souhrn (výchozí)", go: async () => {} },
   {
+    // A new account's first screen: one report, nothing to compare it with.
+    // The account's reports are cut to the demo's latest — four rows out of
+    // range — and Souhrn must list them rather than say it needs two draws
+    // (it did, until 2026-09-19). The change columns are absent, the "i"
+    // follows every name, and the head says whose values these are.
+    name: "souhrn (jediný report)",
+    prepare: async (page) => {
+      await withAbout(page);
+      await page.route("**/api/reports", async (route) => {
+        const res = await route.fetch();
+        const all = (await res.json()) as Array<{ reportDate: string | null }>;
+        const latest = [...all].sort((a, b) => (a.reportDate ?? "").localeCompare(b.reportDate ?? "")).at(-1);
+        await route.fulfill({ response: res, json: latest ? [latest] : [] });
+      });
+    },
+    go: async (page) => {
+      await page.waitForSelector("#sum-table-out", { timeout: 10_000 });
+      await page.waitForTimeout(250);
+    },
+    check: async (page) => {
+      const out = page.locator("#sum-table-out tbody tr");
+      expect(await out.count(), "the latest report's out-of-range rows").toBe(4);
+      expect(await page.locator("#sum-table-in tbody tr").count(), "and its in-range rows").toBeGreaterThan(0);
+      expect(await page.getByText(/jediný odběr · /).first().isVisible(), "the head names the one draw").toBe(true);
+      expect(await page.getByText("Změna od minule").count(), "no change column with one draw").toBe(0);
+      expect(await page.getByText("Zatím není dost měření").count()).toBe(0);
+      // Every name keeps its "i" — the same count of names and buttons.
+      const names = await page.locator(".sum-table .sum-name").count();
+      expect(await page.locator(".sum-table .about-btn").count(), "an i after every name").toBe(names);
+      expect(names).toBeGreaterThan(4);
+      // The tables sit in a scroll box, which the overflow invariant does not
+      // see into; the flag chip at every width scrolled it 29 px at 360.
+      for (const id of ["sum-table-out", "sum-table-in"]) {
+        const sideways = await page.locator(`#${id}`).evaluate((t) => t.parentElement!.scrollWidth - t.parentElement!.clientWidth);
+        expect(sideways, `${id} scrolls sideways`).toBe(0);
+      }
+    },
+  },
+  {
     name: "trendy (chart opened from a parameter name)",
     go: async (page) => {
       // The name is the door at every width; the sparkline only on a desktop.
