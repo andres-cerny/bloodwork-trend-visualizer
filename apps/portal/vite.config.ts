@@ -29,6 +29,7 @@ export default defineConfig({
   preview: {
     proxy: {
       "/api": { target: process.env.PORTAL_API ?? "http://127.0.0.1:8789", changeOrigin: false },
+      "/ai": { target: process.env.PORTAL_API ?? "http://127.0.0.1:8789", changeOrigin: false },
     },
   },
 });
