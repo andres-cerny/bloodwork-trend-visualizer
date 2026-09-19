@@ -2,21 +2,26 @@
  * Moje krev's door: who are you, or the login form.
  *
  * This file is the door and nothing else. Logged out, "/" is the landing
- * page (ui/LandingPage.tsx) and "/prihlaseni" the login form; "/registrace"
- * and "/heslo" are the two kinds of link the operator sends
- * (ui/InvitePage.tsx); "/soukromi" and "/podminky" are the public pages
+ * page (ui/LandingPage.tsx) and "/prihlaseni" the login form; "/registrace?kod=…"
+ * and "/heslo?kod=…" are the two kinds of link the operator or the mail
+ * sends (ui/InvitePage.tsx); "/registrace" bare and "/zapomenute-heslo" are
+ * the open door's two forms that mail a link (ui/RegisterPage.tsx);
+ * "/soukromi" and "/podminky" are the public pages
  * beside them. The shell serves index.html for any path, so this is the
  * whole router. Everything behind the door — upload, verification, trends —
  * is ui/Portal.tsx.
  */
 import { useEffect, useState } from "react";
+import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
+import RegisterPage from "./ui/RegisterPage";
 import TermsPage from "./ui/TermsPage";
 import LandingPage, { LOGIN_PATH } from "./ui/LandingPage";
-import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./ui/Door";
+import { Door, DoorWays, TurnstileBox, fetchMe, messageOf, type Me, useShownPassword, useSignupOpen } from "./ui/Door";
 import { login } from "./lib/api";
+import { useTurnstile } from "./lib/turnstile";
 
 export default function App() {
   // Set once a link has opened the account: from then on this is the portal,
@@ -25,6 +30,12 @@ export default function App() {
   const path = location.pathname;
   if (path === "/soukromi") return <Privacy />;
   if (path === "/podminky") return <TermsPage />;
+  // The open door (ui/RegisterPage.tsx): /registrace without a code asks
+  // for an address and mails the link; with one it is the operator's
+  // sign-up link as before.
+  const hasCode = new URLSearchParams(location.search).has("kod");
+  if (!entered && path === "/registrace" && !hasCode) return <RegisterPage mode="register" />;
+  if (!entered && path === "/zapomenute-heslo") return <RegisterPage mode="forgot" />;
   if (!entered && (path === "/registrace" || path === "/heslo")) {
     return (
       <InvitePage
@@ -72,6 +83,10 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
   const pw = useShownPassword();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The open door's two extras and its bot gate (ui/Door.tsx, lib/turnstile.ts).
+  // The demo patient is offered on the landing page, not here.
+  const open = useSignupOpen();
+  const gate = useTurnstile(PORTAL_TURNSTILE_ACTIONS.login);
 
   /** One call, then the same question the three password doors ask. */
   async function enter(open: () => Promise<unknown>) {
@@ -91,7 +106,13 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    await enter(() => login(email, password));
+    if (gate.available && !gate.token) {
+      setError("Počkejte prosím na ověření, že nejste robot.");
+      return;
+    }
+    await enter(() => login(email, password, gate.token));
+    // A token is single-use: whatever the answer, the next try needs a new one.
+    gate.reset();
   }
 
   return (
@@ -113,18 +134,17 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
           />
         </label>
         {pw.toggle}
+        <TurnstileBox gate={gate} />
         {error && <p className="notice">{error}</p>}
         <button className="btn primary" disabled={busy}>
           Přihlásit se
         </button>
       </form>
-      <p className="sub">Zapomenuté heslo? Napište mi a pošlu vám odkaz.</p>
+      <DoorWays open={open} />
       {/* Each link its own box (flex, not inline text): at 360 the row wraps,
           and an inline anchor that wraps covers the whole line. */}
       <nav className="door-foot legal-foot" aria-label="Další cesty">
         <a href="/">← Úvod</a>
-        <span aria-hidden="true">·</span>
-        <a href="/registrace">Registrovat</a>
         <span aria-hidden="true">·</span>
         <a href="/soukromi">Co ukládáme, a co ne</a>
       </nav>

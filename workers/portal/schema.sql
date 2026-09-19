@@ -30,7 +30,15 @@ CREATE TABLE IF NOT EXISTS users (
   -- number is not the row's is refused. Logout and a set-password link add
   -- one, which is how a copied cookie stops working when the person meant
   -- it to (src/session.ts).
-  session_epoch  INTEGER NOT NULL DEFAULT 0
+  session_epoch  INTEGER NOT NULL DEFAULT 0,
+  -- Open registration (src/signup.ts). consent_at is when the person ticked
+  -- the two boxes — health data under the privacy page, the terms — on the
+  -- registration form; the row cannot be created through that door without
+  -- it. email_verified_at is when the address proved itself by opening the
+  -- link the worker mailed to it. Both NULL on accounts an operator's code
+  -- opened: they typed the address, nobody mailed it.
+  consent_at        TEXT,
+  email_verified_at TEXT
 );
 
 -- Every door into an account is a code the operator mints: unbound (user_id
@@ -45,7 +53,14 @@ CREATE TABLE IF NOT EXISTS invites (
   used_by    TEXT REFERENCES users(id),
   used_at    TEXT,
   expires_at TEXT,                      -- ISO 8601
-  user_id    TEXT REFERENCES users(id)  -- set on a set-password link
+  user_id    TEXT REFERENCES users(id), -- set on a set-password link
+  -- A code the worker mailed to an address with no account yet: the address
+  -- it went to, and when the person consented on the form that asked for it.
+  -- Using the code opens the account for exactly this address — the e-mail
+  -- field is not asked again — and copies consent_at onto the row. NULL on
+  -- operator-minted codes, which take whatever address is typed.
+  email      TEXT,
+  consent_at TEXT
 );
 
 -- Failed logins per e-mail, whether or not the e-mail has an account: ten in
@@ -57,6 +72,19 @@ CREATE TABLE IF NOT EXISTS login_failures (
 );
 
 CREATE INDEX IF NOT EXISTS login_failures_by_email ON login_failures (email, at);
+
+-- Registration and forgotten-password mails asked for, per address: five an
+-- hour and twenty a day from one IP, and the address waits (src/ratelimit.ts).
+-- The IP is stored as a salted hash, never as itself. D1 rather than KV:
+-- the count must be read-after-write exact — KV is eventually consistent, so
+-- a burst of requests would each read "4" and all pass — and the table
+-- follows login_failures, whose fake every test already has.
+CREATE TABLE IF NOT EXISTS signup_attempts (
+  ip_hash TEXT NOT NULL,
+  at      INTEGER NOT NULL              -- epoch seconds
+);
+
+CREATE INDEX IF NOT EXISTS signup_attempts_by_ip ON signup_attempts (ip_hash, at);
 
 -- The lossless truth: one LabReport JSON per upload, exactly the shape
 -- lab-core produced it in. Trends, review, derived values are computed from

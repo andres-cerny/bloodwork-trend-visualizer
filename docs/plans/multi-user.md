@@ -150,6 +150,31 @@ plain-node tests; the real flow proven once against Ondřej's own address.
 Rate limit: 5 registrations per IP per hour, 20 per day; the lockout on
 login stays.
 
+- *Done 2026-09-19* (the code; the real mail to Ondřej's address waits on
+  the domain and the secrets). Worker: `workers/portal/src/signup.ts`
+  (register / forgot / opening the account), `mail.ts` (Resend, plain
+  text, logs the link without a key), `ratelimit.ts` (D1, not KV — the
+  count must be read-after-write exact); `index.ts` gained the route lines
+  and `Env extends SignupEnv`. `POST /api/auth/register {email, consent,
+  turnstile}` mails a `/heslo?kod=…` link; `POST /api/auth/forgot {email,
+  turnstile}` the same path; `GET /api/auth/signup` says whether the door
+  is open; a mailed code carries `invites.email` + `consent_at` and
+  `POST /api/auth/password` creates the row from it with `consent_at` and
+  `email_verified_at`. Migration `2026-09-19-open-signup.sql`. App:
+  `RegisterPage.tsx` (both moods), `VerifyMailPage.tsx`, `lib/turnstile.ts`;
+  `Door.tsx` draws „Registrovat" / „Zapomenuté heslo" and the widget;
+  `InvitePage.tsx` reads the mailed code's address. Tests:
+  `workers/portal/tests/signup.test.ts` (26: the mail and its link, no row
+  before the link, the link opens the account and logs in once, a taken
+  address answered word for word like a free one, the two forms' actions,
+  siteverify refusals, no secret fails closed, the dev bypass and its
+  absence from wrangler.jsonc, 5/hour and 20/day per IP hash, Resend unset
+  and Resend refusing, everything 404 and Turnstile-free with the var off),
+  `schemaDrift.test.ts` „the migrations and schema.sql agree",
+  `apps/portal/tests/registerPage.test.tsx` (7: the consents' wording and
+  links, refusal without both, what is posted, the sent sentence, the
+  widget's action and reset), five screens in `audit-portal.e2e.ts`.
+
 ## Goal 7 — documents, not dollars
 
 **Done when** the account's allowance is counted in documents: `5` free

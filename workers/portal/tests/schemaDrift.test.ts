@@ -8,7 +8,7 @@
  * but the checker: that it reads schema.sql correctly, and that it reports the
  * one shape of drift that caused the outage.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { columnsFromResultSets, schemaDrift, tablesFromSchema } from "../../../tools/scripts/check-schema.mjs";
@@ -25,6 +25,7 @@ describe("reading schema.sql", () => {
       "login_failures",
       "report_pages",
       "reports",
+      "signup_attempts",
       "synonyms",
       "users",
     ]);
@@ -42,6 +43,8 @@ describe("reading schema.sql", () => {
       "password_iters",
       "budget_usd",
       "session_epoch",
+      "consent_at",
+      "email_verified_at",
     ]);
   });
 
@@ -58,6 +61,37 @@ describe("reading schema.sql", () => {
     );
     expect(t.get("t")).toEqual(["id", "uniqueness"]);
   });
+});
+
+/**
+ * The live database is moved by migrations/ and a fresh one by schema.sql, and
+ * the checker compares the live one to schema.sql alone — so a column added
+ * to a migration and forgotten in schema.sql would pass check:schema and be
+ * missing from every fresh database, and the reverse would pass here and
+ * take login down live. Every ALTER and every CREATE in every migration
+ * must therefore name something schema.sql declares.
+ */
+describe("the migrations and schema.sql agree", () => {
+  const declared = tablesFromSchema(SCHEMA);
+  const dir = join(import.meta.dirname, "../migrations");
+  const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+
+  it("has the open-signup migration", () => {
+    expect(files).toContain("2026-09-19-open-signup.sql");
+  });
+
+  for (const file of files) {
+    it(`${file} adds only columns and tables schema.sql declares`, () => {
+      const sql = readFileSync(join(dir, file), "utf-8").replace(/--[^\n]*/g, "");
+      for (const [, table, column] of sql.matchAll(/ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)/gi)) {
+        expect(declared.get(table), `${file}: table ${table}`).toBeDefined();
+        expect(declared.get(table), `${file}: ${table}.${column}`).toContain(column);
+      }
+      for (const [table, cols] of tablesFromSchema(sql)) {
+        expect(declared.get(table), `${file}: table ${table}`).toEqual(cols);
+      }
+    });
+  }
 });
 
 describe("reporting drift", () => {
@@ -130,7 +164,7 @@ describe("reading wrangler's reply", () => {
   it("refuses a reply it cannot match to its questions", () => {
     // Fewer sets than statements, or no array at all, is a schema that was
     // not read — never a pass.
-    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 7 result sets, got 6/);
+    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 8 result sets, got 7/);
     expect(() => columnsFromResultSets(tables, { error: "SQLITE_AUTH" })).toThrow(/got object/);
   });
 });

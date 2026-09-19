@@ -7,3 +7,11 @@ SESSION_SECRET=local-dev-secret-change-me
 # Leave it out and the link is not shown. Locally this is whatever address
 # you registered with; in production it is a wrangler secret, never a var.
 # DEMO_EMAIL=ja@example.com
+
+# Optional: the open door, locally. OPEN_SIGNUP lets an address register
+# with no code; without RESEND_API_KEY the link is printed in this terminal
+# instead of mailed. The bypass lets the local app — which has no Turnstile
+# site key — post the forms without a token. Both are for .dev.vars only:
+# production sets OPEN_SIGNUP in wrangler.jsonc and never sets the bypass.
+# OPEN_SIGNUP=true
+# OPEN_SIGNUP_DEV_BYPASS=true
