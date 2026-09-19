@@ -109,7 +109,11 @@ describe("a page read by one reader when two were asked", () => {
     const [m] = reconcile([sonnet([row("S_Glukóza", "5,32")])], { expected: 2 });
     const review = reviewOf(m, noCuratedRange);
     expect(review.level).toBe("unconfirmed");
-    expect(review.reason).toContain(SECOND_READ_FAILED);
+    // The stored fact stays in the measurement for the bench and the logs;
+    // the reader is told what to do, not that a second read failed.
+    expect(m.disagreement).toBe(SECOND_READ_FAILED);
+    expect(review.reason).toMatch(/^Touto hodnotou si nejsme jistí\./);
+    expect(review.reason).not.toContain("čtení");
   });
 
   it("says nothing when both readers answered", () => {

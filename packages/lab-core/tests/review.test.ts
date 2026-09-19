@@ -44,20 +44,45 @@ describe("tiers", () => {
   it("puts the two readings in the chip, not just the word 'neshoda'", () => {
     // "neshoda" alone reads as housekeeping and hides the fact that matters.
     const r = reviewOf(m({ disagreement: "dvě nezávislá čtení se liší: 0,61 / 0,67" }), noRange);
-    expect(r.chip).toBe("0,61 vs 0,67 — nepotvrzeno");
+    expect(r.chip).toBe("0,61 nebo 0,67 — ověřit");
   });
 
-  it("asks for the correction in the reason, and keeps the two readings", () => {
+  it("opens the reason with the doubt, offers both numbers, and names the two ways out", () => {
     // Shown bare above the input, the stored fact said what the program had
     // noticed and not what was wanted of the reader.
     const r = reviewOf(m({ disagreement: "dvě nezávislá čtení se liší: 0,61 / 0,67" }), noRange);
-    expect(r.reason).toMatch(/^Opravte prosím nejistou hodnotu/);
-    expect(r.reason).toContain("0,61 / 0,67");
-    expect(r.reason).toContain("Potvrdit");
+    expect(r.reason).toBe(
+      "Touto hodnotou si nejsme jistí — mohlo by tam být 0,61 nebo 0,67. " +
+        "Porovnejte ji s vyznačeným řádkem na stránce níže a potvrďte ji, nebo ji opravte.",
+    );
   });
 
-  it("marks a low-confidence transcription as unconfirmed", () => {
-    expect(reviewOf(m({ confidence: "low" }), noRange).level).toBe("unconfirmed");
+  it("gives a page read once, a row seen once and a low-confidence row the same plain sentence", () => {
+    // The cause differs only inside the app; what the reader must do is the
+    // same, so the sentence is the same and says nothing about readings.
+    const plain =
+      "Touto hodnotou si nejsme jistí. " +
+      "Porovnejte ji s vyznačeným řádkem na stránce níže a potvrďte ji, nebo ji opravte.";
+    for (const over of [
+      { disagreement: "druhé čtení se nezdařilo" },
+      { disagreement: "řádek našlo jen jedno ze dvou čtení" },
+      { confidence: "low" as const },
+    ]) {
+      const r = reviewOf(m(over), noRange);
+      expect(r.level).toBe("unconfirmed");
+      expect(r.chip).toBe("ověřit hodnotu");
+      expect(r.reason).toBe(plain);
+    }
+  });
+
+  it("names the correction first when the value is believed wrong", () => {
+    const r = reviewOf(m({ valueRaw: "532" }), GLUCOSE);
+    expect(r.level).toBe("withheld");
+    expect(r.reason).toBe(
+      "Hodnota 532 u tohoto parametru není možná — vypadá to na posunutou desetinnou " +
+        "čárku a na stránce je nejspíš 5,32. " +
+        "Porovnejte ji s vyznačeným řádkem na stránce níže a opravte ji, nebo ji potvrďte.",
+    );
   });
 
   it("treats a censored result as ordinary, with no chip at all", () => {
@@ -74,6 +99,47 @@ describe("tiers", () => {
       GLUCOSE,
     );
     expect(r.level).toBe("withheld");
+  });
+});
+
+describe("the sentences are for a person who does not know the page is read twice", () => {
+  // Ondrej, 2026-09-19: a lay reader does not know there are two readings
+  // and does not care. Every variant — and the chips beside them — must say
+  // what the reader needs and nothing about how the app got there.
+  const variants = [
+    m({ disagreement: "dvě nezávislá čtení se liší: 0,61 / 0,67" }),
+    m({ disagreement: "dvě nezávislá čtení se liší: 1 / 2 / 3" }),
+    m({ disagreement: "druhé čtení se nezdařilo" }),
+    m({ disagreement: "řádek našlo jen jedno ze dvou čtení" }),
+    m({ confidence: "low" }),
+    m({ valueRaw: "532" }),
+    m({ valueRaw: "99999" }),
+    m({ valueRaw: "44,5" }),
+  ];
+
+  it("never mentions readings, models, confidence or 'nepotvrzeno'", () => {
+    for (const x of variants) {
+      const r = reviewOf(x, GLUCOSE);
+      expect(r.level).not.toBe("ok");
+      for (const text of [r.chip, r.reason]) {
+        expect(text).not.toMatch(/čtení|model|nepotvrzen|přepis|jistot|nejist[ýé] čtení/i);
+        expect(text).not.toContain("!");
+      }
+    }
+  });
+
+  it("ends every reason with the same two ways out", () => {
+    for (const x of variants) {
+      expect(reviewOf(x, GLUCOSE).reason).toMatch(
+        /Porovnejte ji s vyznačeným řádkem na stránce níže a (potvrďte ji, nebo ji opravte|opravte ji, nebo ji potvrďte)\.$/,
+      );
+    }
+  });
+
+  it("lists three readings as 'a, b nebo c'", () => {
+    const r = reviewOf(m({ disagreement: "dvě nezávislá čtení se liší: 1 / 2 / 3" }), noRange);
+    expect(r.chip).toBe("1, 2 nebo 3 — ověřit");
+    expect(r.reason).toContain("mohlo by tam být 1, 2 nebo 3.");
   });
 });
 

@@ -241,6 +241,25 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // „Potvrdit všechny řádky k ověření", pressed: the button has to be on
+    // screen and reachable beside — or, on a phone, under — the checkbox at
+    // every width, and afterwards the sentence with its Zpět joins the same
+    // toolbar. The demo's first report carries two doubted rows, so the
+    // button is live when the tab opens and disabled once pressed.
+    name: "ověření (vše potvrzeno)",
+    go: async (page) => {
+      await tab(page, "Ověření");
+      await page.waitForTimeout(300);
+      const all = page.getByRole("button", { name: "Potvrdit všechny řádky k ověření" });
+      if (!(await all.isVisible())) throw new Error("the confirm-all button is not visible on the Ověření tab");
+      if (await all.isDisabled()) throw new Error("the confirm-all button is disabled although the first demo report has doubted rows");
+      await all.click();
+      await page.getByRole("button", { name: "Zpět", exact: true }).waitFor({ timeout: 5_000 });
+      if (!(await all.isDisabled())) throw new Error("the confirm-all button stayed enabled after confirming every row");
+      await page.waitForTimeout(200);
+    },
+  },
+  {
     // The search beside "Přepsané řádky", open: on a desktop the table pane
     // is its own scroll box, and the picker must hang over it, not inside it.
     name: "ověření (hledání otevřené)",

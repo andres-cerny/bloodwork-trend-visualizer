@@ -381,6 +381,9 @@ button.btn.linkish:hover:not(:disabled) { background: none; opacity: 0.8; }
   color: var(--ink-2); cursor: pointer; user-select: none;
 }
 .switch input { accent-color: var(--accent); width: 18px; height: 18px; margin: 4px; }
+/* After „Potvrdit všechny řádky k ověření": how many, and the one Zpět for
+   all of them, in the checkbox's own type so the toolbar stays one voice. */
+.batch-done { display: inline-flex; gap: 8px; align-items: center; font-size: 0.86rem; color: var(--ink-2); }
 
 /* Wide content scrolls inside its own container; the page never scrolls sideways. */
 .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }

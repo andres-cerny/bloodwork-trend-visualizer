@@ -21,13 +21,22 @@ import {
   needsReview,
   reviewOf,
   checkCorrection,
+  count,
   czDate,
+  plural,
   prettyUnit,
 } from "@bw/lab-core";
 
+/** A row of a report, replaced. */
+export interface RowChange {
+  index: number;
+  next: Measurement;
+}
+
 interface Props {
   reports: LabReport[];
-  onCorrect: (reportId: string, index: number, next: Measurement) => void;
+  /** One row or many, of one report, saved as one change. */
+  onCorrect: (reportId: string, changes: ReadonlyArray<RowChange>) => void;
   /**
    * Arriving from another tab: open this report with this row selected. `seq`
    * distinguishes two jumps to the same row, so asking for it twice works.
@@ -46,11 +55,42 @@ interface Props {
 const ROW_BLEED_X = 26;
 const ROW_BLEED_Y = 3;
 
+/**
+ * The measurement as a confirmation stores it: "this exact value is what the
+ * page says." A stored fact rather than a same-value correction, because the
+ * implausibility chip is recomputed from the value on every render — only a
+ * persistent flag can settle it. The snapshot makes the confirmation undoable
+ * through the same channel as a correction. Potvrdit on one row and
+ * „Potvrdit všechny řádky k ověření" both build their rows here, so a batch
+ * can never store a confirmation a single click would not.
+ */
+export function confirmedRow(base: Measurement): Measurement {
+  return {
+    ...base,
+    confirmed: true,
+    original: base.original ?? {
+      valueRaw: base.valueRaw,
+      disagreement: base.disagreement,
+      confidence: base.confidence,
+    },
+  };
+}
+
+/** „Potvrzena 1 hodnota", „Potvrzeny 3 hodnoty", „Potvrzeno 5 hodnot". */
+export function confirmedSentence(n: number): string {
+  return `${plural(n, "Potvrzena", "Potvrzeny", "Potvrzeno")} ${count(n, "hodnota", "hodnoty", "hodnot")}.`;
+}
+
 export default function VerifyTab({ reports, onCorrect, focus, displayName, curatedRange }: Props) {
   const [reportId, setReportId] = useState(focus?.reportId ?? reports[0]?.id ?? "");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
   const [draft, setDraft] = useState<string>("");
+  // The last „Potvrdit všechny řádky k ověření": the rows as they were, so
+  // one Zpět restores the whole batch. Any other change to the report —
+  // a single correction, confirmation or undo, or switching reports — ends
+  // it, because Zpět must never overwrite a row the reader has since edited.
+  const [batch, setBatch] = useState<{ reportId: string; before: RowChange[] } | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const hlRef = useRef<HTMLDivElement>(null);
   // A row picked from the search has to be seen in the table too, not only
@@ -210,7 +250,8 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
         confidence: base.confidence,
       },
     });
-    onCorrect(report.id, picked, next);
+    setBatch(null);
+    onCorrect(report.id, [{ index: picked, next }]);
   }
 
   function undo() {
@@ -228,26 +269,35 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
       original: null,
     });
     setDraft(orig.valueRaw);
-    onCorrect(report.id, picked, { ...next, disagreement: orig.disagreement, confidence: orig.confidence });
+    setBatch(null);
+    onCorrect(report.id, [
+      { index: picked, next: { ...next, disagreement: orig.disagreement, confidence: orig.confidence } },
+    ]);
   }
 
-  // "This exact value is what the page says." Stored as a fact rather than a
-  // same-value correction, because the implausibility chip is recomputed from
-  // the value on every render — only a persistent flag can settle it. The
-  // snapshot makes the confirmation undoable through the same channel as a
-  // correction.
   function confirmValue() {
     if (picked === null) return;
-    const base = report.measurements[picked];
-    onCorrect(report.id, picked, {
-      ...base,
-      confirmed: true,
-      original: base.original ?? {
-        valueRaw: base.valueRaw,
-        disagreement: base.disagreement,
-        confidence: base.confidence,
-      },
-    });
+    setBatch(null);
+    onCorrect(report.id, [{ index: picked, next: confirmedRow(report.measurements[picked]) }]);
+  }
+
+  // Every row still asking to be looked at — exactly the set „jen řádky k
+  // ověření" lists, so the button and the checkbox count the same rows —
+  // confirmed with the value the table shows, in one change and one save.
+  // The rows are kept as they were, for the one Zpět beside the sentence.
+  function confirmAll() {
+    const pending = report.measurements
+      .map((m, i) => ({ m, i }))
+      .filter(({ m }) => needsReview(review(m)));
+    if (pending.length === 0) return;
+    setBatch({ reportId: report.id, before: pending.map(({ m, i }) => ({ index: i, next: m })) });
+    onCorrect(report.id, pending.map(({ m, i }) => ({ index: i, next: confirmedRow(m) })));
+  }
+
+  function undoBatch() {
+    if (!batch) return;
+    setBatch(null);
+    onCorrect(batch.reportId, batch.before);
   }
 
   return (
@@ -258,7 +308,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
           <select
             id="report"
             value={report.id}
-            onChange={(e) => { setReportId(e.target.value); setPicked(null); }}
+            onChange={(e) => { setReportId(e.target.value); setPicked(null); setBatch(null); }}
           >
             {reports.map((r) => (
               <option key={r.id} value={r.id}>
@@ -270,6 +320,19 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
             <input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />
             jen řádky k ověření ({flaggedCount})
           </label>
+          {/* The same noun as the checkbox, so the button reads as acting on
+              the rows the checkbox lists — not on every row of the report
+              and not on other reports. Disabled, not hidden, when nothing is
+              pending: the reader sees that there is nothing left to confirm. */}
+          <button className="btn small" onClick={confirmAll} disabled={flaggedCount === 0}>
+            Potvrdit všechny řádky k ověření
+          </button>
+          {batch && batch.reportId === report.id && (
+            <span className="batch-done" role="status">
+              {confirmedSentence(batch.before.length)}{" "}
+              <button className="btn small" onClick={undoBatch}>Zpět</button>
+            </span>
+          )}
           <span className="spacer" />
           <span className="muted">
             Klepněte na řádek — ukáže se, kde přesně stojí na zdrojové stránce.
