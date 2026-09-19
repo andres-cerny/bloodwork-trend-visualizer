@@ -268,6 +268,43 @@ describe("runAiMapping", () => {
     expect(h.calls.ask).toBe(1);
     expect(h.calls.committed).toHaveLength(1);
   });
+
+  it("two documents of one batch sharing a name ask it once — the second run asks only what is its own", async () => {
+    // Portal's storeAndMap runs the model per stored report, for that
+    // report's names; two sheets from one laboratory print the same names.
+    // The first report's call is still out when the second report lands.
+    const first = report("r1", [m("S_Na", "140", "mmol/l", "134 - 148", null), m("S_K", "4,2", "mmol/l", "3,5 - 5,1", null)]);
+    const second = report("r2", [m("S_Na", "141", "mmol/l", "134 - 148", null), m("S_Glukosa", "95", "mg/dl", "70 - 100", null)]);
+    const h = harness();
+    const sent: string[][] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const firstRun = run(
+      h,
+      async (names) => {
+        sent.push((names as Array<{ rawName: string }>).map((n) => n.rawName));
+        await gate;
+        return answer([sug({ rawName: "S_Na", canonicalId: "sodik" })]);
+      },
+      findUnmapped([first]),
+    );
+    const secondRun = await run(
+      h,
+      async (names) => {
+        sent.push((names as Array<{ rawName: string }>).map((n) => n.rawName));
+        return answer([]);
+      },
+      findUnmapped([first, second]).filter((a) => ["S_Na", "S_Glukosa"].includes(a.rawName)),
+    );
+    expect(secondRun.asked, "the shared name is in flight; only the new one goes").toBe(1);
+    release();
+    await firstRun;
+    expect(sent).toEqual([["S_Na", "S_K"], ["S_Glukosa"]]);
+    expect(h.calls.ask).toBe(2);
+    // Every name has one entry and S_Na's is the first run's answer.
+    expect(Object.keys(h.ref.current).sort()).toEqual(["S_Glukosa", "S_K", "S_Na"]);
+    expect(h.ref.current.S_Na).toMatchObject({ canonicalId: "sodik", applied: true });
+  });
 });
 
 describe("persistable", () => {
