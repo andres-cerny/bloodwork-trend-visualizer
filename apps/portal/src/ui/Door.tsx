@@ -6,7 +6,7 @@
  */
 import { Children, Fragment, useEffect, useState } from "react";
 import { ApiError, signupOpen } from "../lib/api";
-import type { TurnstileGate } from "../lib/turnstile";
+import { TURNSTILE_FAILED, type TurnstileGate } from "../lib/turnstile";
 
 export interface Me {
   /** Null in the demo: the address is the owner's login, and no screen
@@ -69,13 +69,23 @@ export function messageOf(e: unknown): string {
 /**
  * Where the Turnstile widget renders, when there is a site key to render it
  * with. Without one the box is not drawn at all — an empty frame under a
- * form would read as something missing. The `.door-turnstile` rule gives it
- * the widget's height ahead of time, so the button under it does not jump
- * when the challenge appears.
+ * form would read as something missing. The box has no height of its own:
+ * the widget sets its own when it renders, and a fixed 65px reserved ahead
+ * of it was 65px of nothing whenever the script did not arrive. When it
+ * did not arrive in time (lib/turnstile.ts), one muted sentence says so.
  */
 export function TurnstileBox({ gate }: { gate: TurnstileGate }) {
   if (!gate.available) return null;
-  return <div ref={gate.boxRef} className="door-turnstile" />;
+  return (
+    <>
+      <div ref={gate.boxRef} className="door-turnstile" />
+      {gate.failed && (
+        <p className="hint door-turnstile-failed" role="status">
+          {TURNSTILE_FAILED}
+        </p>
+      )}
+    </>
+  );
 }
 
 /**

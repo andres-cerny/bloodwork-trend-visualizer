@@ -207,12 +207,17 @@ body {
   flex: 0 0 auto;
 }
 
-/* The bot gate's frame: the widget's own height, reserved before it
-   renders, so the button under it does not jump. Cloudflare draws the
-   widget; only its place is ours. */
+/* The bot gate's frame. Cloudflare draws the widget and sets its own height;
+   the box reserves none, because a fixed 65px was 65px of nothing whenever
+   the script did not arrive. The widget is 300px wide by Cloudflare's design;
+   below that the card scrolls it rather than clipping it. The sentence under
+   it, when the widget never came, is a hint in muted ink: nothing the reader
+   did was wrong. */
 .door .door-turnstile {
-  min-height: 65px;
+  max-width: 100%;
+  overflow-x: auto;
 }
+.door .door-turnstile-failed { margin: 0; }
 
 /* The two other ways off the login: registration and a forgotten password,
    side by side where there is room, each a tap target of its own. */
@@ -951,13 +956,6 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .door .contact-count {
   align-self: flex-end;
   font-variant-numeric: tabular-nums;
-}
-/* The widget is 300 px wide by Cloudflare's design; below that the card
-   scrolls it rather than clipping it. */
-.door .contact-turnstile {
-  min-height: 65px;
-  max-width: 100%;
-  overflow-x: auto;
 }
 .door .contact-sent strong {
   color: var(--ink-1);

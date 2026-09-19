@@ -15,6 +15,7 @@
  * because a third party accepted a copy.
  */
 import { verifyTurnstile } from "@bw/gate";
+import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { SQL, type UserRow } from "./db";
 import { userHash } from "./events";
 import { sha256Hex } from "./session";
@@ -41,7 +42,7 @@ const RATE_WINDOW_SECONDS = 3600;
 /** How much of the text the Telegram line carries; the rest is read from D1. */
 const PREVIEW_CHARS = 500;
 /** The widget's `data-action`; the token must have been minted for this surface. */
-export const TURNSTILE_ACTION_HELPDESK = "helpdesk";
+export const TURNSTILE_ACTION_HELPDESK = PORTAL_TURNSTILE_ACTIONS.helpdesk;
 
 const REPORT_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
