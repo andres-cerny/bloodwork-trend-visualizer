@@ -150,13 +150,38 @@ interface Session {
 /**
  * The uid is re-read from the database on every authed request, not trusted
  * from the cookie alone: it is what makes account deletion effective — a
- * signed cookie for a deleted row is a 401, not a ghost login.
+ * signed cookie for a deleted row is a 401, not a ghost login. The row's
+ * session_epoch is compared the same way: a cookie minted before the last
+ * logout or set-password link names an earlier number and is a 401 too.
  */
 async function requireSession(request: Request, env: Env): Promise<Session | null> {
   const claims = await verifyCookieToken(env.SESSION_SECRET, readCookie(request));
   if (!claims) return null;
   const user = await env.DB.prepare(SQL.userById).bind(claims.uid).first<UserRow>();
-  return user ? { user, demo: claims.demo === true } : null;
+  if (!user || claims.epoch !== user.session_epoch) return null;
+  return { user, demo: claims.demo === true };
+}
+
+/**
+ * End every session of the account and say which generation is live now.
+ * Null when the row is gone — nothing to end, nothing to mint.
+ */
+async function endSessions(env: Env, uid: string): Promise<number | null> {
+  const row = await env.DB.prepare(SQL.bumpSessionEpoch).bind(uid).first<{ session_epoch: number }>();
+  return row?.session_epoch ?? null;
+}
+
+/**
+ * Logout. The browser drops the cookie whatever happens; the account's
+ * epoch moves so a copy of it is a 401 too — every session of the account,
+ * not only the one that clicked, which is what „Odhlásit se" on a shared
+ * computer has to mean. A demo session moves nothing: it is a stranger on
+ * the owner's account, and their leaving must not log the owner out.
+ */
+async function handleLogout(request: Request, env: Env): Promise<Response> {
+  const claims = await verifyCookieToken(env.SESSION_SECRET, readCookie(request));
+  if (claims && !claims.demo) await endSessions(env, claims.uid);
+  return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
 }
 
 const unauthorized = () => json({ error: "unauthorized", message: "Přihlaste se prosím." }, 401);
@@ -182,10 +207,11 @@ const inviteDead = (status = 403) =>
 const badLogin = () => json({ error: "invalid_login", message: "E-mail nebo heslo nesouhlasí." }, 401);
 
 /** A 200 with the session cookie set — the end of register, login, reset,
- *  and of the demo link, whose session is shorter and carries the claim. */
-async function loggedIn(env: Env, uid: string, demo = false): Promise<Response> {
+ *  and of the demo link, whose session is shorter and carries the claim.
+ *  The cookie names the account's live epoch; a fresh account's is 0. */
+async function loggedIn(env: Env, uid: string, demo = false, epoch = 0): Promise<Response> {
   const ttl = demo ? DEMO_SESSION_TTL_DAYS * 86400 : sessionTtlSeconds(env);
-  const cookie = await mintCookieToken(env.SESSION_SECRET, uid, ttl, demo);
+  const cookie = await mintCookieToken(env.SESSION_SECRET, uid, ttl, demo, epoch);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { "content-type": "application/json; charset=utf-8", "set-cookie": setCookieHeader(cookie, ttl) },
@@ -280,7 +306,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return badLogin();
   }
   await env.DB.prepare(SQL.clearLoginFailures).bind(normEmail).run();
-  return loggedIn(env, user.id);
+  return loggedIn(env, user.id, false, user.session_epoch);
 }
 
 /* ------------------------------------------------------------------- demo */
@@ -317,11 +343,12 @@ async function handleDemoLogin(request: Request, env: Env): Promise<Response> {
   if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return noDemo();
   const user = await demoAccount(env);
   if (!user) return noDemo();
-  return loggedIn(env, user.id, true);
+  return loggedIn(env, user.id, true, user.session_epoch);
 }
 
 /** A set-password link: the code names the account, the password replaces
- *  whatever it had — including nothing. Reports are not touched. */
+ *  whatever it had — including nothing — and every session the old password
+ *  opened ends with it. Reports are not touched. */
 async function handleSetPassword(request: Request, env: Env): Promise<Response> {
   const { code, password } = (await request.json().catch(() => ({}))) as { code?: string; password?: string };
   if (!passwordOk(password)) {
@@ -337,7 +364,11 @@ async function handleSetPassword(request: Request, env: Env): Promise<Response> 
   const record = await hashPassword(password);
   await env.DB.prepare(SQL.setPassword).bind(user.id, record.hash, record.salt, record.iters).run();
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
-  return loggedIn(env, user.id);
+  // Whoever held the old password — or a cookie from it — is out; the one
+  // session that goes on is the one this link opens, under the new number.
+  const epoch = await endSessions(env, user.id);
+  if (epoch === null) return inviteDead();
+  return loggedIn(env, user.id, false, epoch);
 }
 
 /* --------------------------------------------------------------- synonyms */
@@ -893,7 +924,7 @@ export default {
       case "POST /api/auth/password":
         return handleSetPassword(request, env);
       case "POST /api/auth/logout":
-        return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
+        return handleLogout(request, env);
       // The public demo patient, on a deployment that names one. The GET is
       // how the door decides whether to show the link at all; both answer
       // 404 where there is no demo, so an ordinary deployment looks exactly

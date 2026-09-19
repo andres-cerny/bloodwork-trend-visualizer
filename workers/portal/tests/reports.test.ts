@@ -19,7 +19,7 @@ const SECRET = "test-portal-secret";
 const EXTRACT_SECRET = "test-extract-secret";
 
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null }>;
+  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null; session_epoch: number }>;
   reports: Array<{ id: string; user_id: string; report_date: string | null; lab_name: string | null; payload: string; created_at: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string; width: number | null; height: number | null }>;
 }
@@ -150,8 +150,8 @@ function fakeExtractStream(lines: unknown[]) {
   return { fetcher, calls };
 }
 
-const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
-const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
+const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
+const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
 
 const report = (id: string) => ({
   id,

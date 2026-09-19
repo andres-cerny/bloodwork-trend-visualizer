@@ -1,15 +1,20 @@
 /**
- * The login cookie: an HMAC-signed {uid, exp} — plus {demo} on a session the
- * public demo link opened — verified statelessly.
+ * The login cookie: an HMAC-signed {uid, exp, epoch} — plus {demo} on a
+ * session the public demo link opened — verified statelessly.
  *
  * Deliberately not @bw/gate's mintSession. That token is a Turnstile page
  * allowance — its claims are {pages, sid}, its TTL is minutes, and widening it
  * to carry a user id would hand every demo deployment a shape it must never
  * accept. Same construction, different claims, different secret.
  *
- * Stateless costs one thing: a cookie cannot be revoked server-side. The
- * balancing check is in requireSession — the uid is looked up on every request,
- * so a deleted account's cookies die with the row.
+ * Stateless costs one thing: a cookie cannot be revoked server-side by
+ * itself. The balancing check is in requireSession — the uid is looked up
+ * on every request, so a deleted account's cookies die with the row, and
+ * the row carries `session_epoch`, the generation of sessions that is live.
+ * A cookie names the generation it was minted under; logout and a
+ * set-password link add one to the row, and every cookie minted before is
+ * a 401 from then on. Until 2026-09-19 a copied cookie kept answering for
+ * ninety days after „Odhlásit se", because nothing on the server moved.
  */
 
 const enc = new TextEncoder();
@@ -36,6 +41,8 @@ export interface CookieClaims {
   uid: string;
   /** Expiry, epoch seconds. */
   exp: number;
+  /** users.session_epoch at minting; must still be the row's to count. */
+  epoch: number;
   /**
    * Set only on a session the public demo link opened. The account is the
    * same row either way — this claim is what lets the worker tell a stranger
@@ -45,8 +52,8 @@ export interface CookieClaims {
   demo?: true;
 }
 
-export async function mintCookieToken(secret: string, uid: string, ttlSeconds: number, demo = false): Promise<string> {
-  const claims: CookieClaims = { uid, exp: Math.floor(Date.now() / 1000) + ttlSeconds, ...(demo ? { demo: true as const } : {}) };
+export async function mintCookieToken(secret: string, uid: string, ttlSeconds: number, demo = false, epoch = 0): Promise<string> {
+  const claims: CookieClaims = { uid, exp: Math.floor(Date.now() / 1000) + ttlSeconds, epoch, ...(demo ? { demo: true as const } : {}) };
   const payload = b64urlEncode(enc.encode(JSON.stringify(claims)));
   const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret), enc.encode(payload));
   return `${payload}.${b64urlEncode(new Uint8Array(sig))}`;
@@ -66,7 +73,9 @@ export async function verifyCookieToken(secret: string, token: string | null): P
   if (!ok) return null;
   try {
     const claims = JSON.parse(new TextDecoder().decode(b64urlDecode(payload))) as CookieClaims;
-    if (typeof claims.uid !== "string" || typeof claims.exp !== "number") return null;
+    // A cookie without an epoch is one minted before epochs existed — one the
+    // account could never end, so it ends here.
+    if (typeof claims.uid !== "string" || typeof claims.exp !== "number" || typeof claims.epoch !== "number") return null;
     // Anything but the two shapes this file mints is a cookie nobody here
     // signed the way they meant to: a falsy `demo` must not read as absent.
     if (claims.demo !== undefined && claims.demo !== true) return null;
