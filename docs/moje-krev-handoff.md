@@ -469,11 +469,19 @@ new month by hand:
 
 ```sh
 cd workers/portal-extract
-for i in $(seq 0 7); do npx wrangler kv key delete --binding BUDGET "spend_usd_extract_shard_$i"; done
+for i in $(seq 0 7); do
+  npx wrangler kv key delete --binding BUDGET "spend_usd_extract_shard_$i"
+  npx wrangler kv key delete --binding BUDGET "spend_usd_shard_$i"
+done
 ```
 
-(The per-person ledgers in the same namespace, `user_spend_*`, expire on
-their own after 90 days and are not touched by this.)
+Two families, because `@bw/gate/budget.ts` still adds the pre-split
+`spend_usd_shard_*` keys into the total (nothing writes them any more, but
+a namespace older than the split carries them): deleting only the
+`extract` family leaves the old spend counted and the ledger not at zero.
+A key that does not exist answers „not found", which is fine. (The
+per-person ledgers in the same namespace, `user_spend_*`, expire on their
+own after 90 days and are not touched by this.)
 
 ## The D1 export
 
