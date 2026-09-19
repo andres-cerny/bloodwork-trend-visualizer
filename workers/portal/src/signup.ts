@@ -16,8 +16,13 @@
  * using it (POST /api/auth/password) creates the row — so nothing exists for
  * an address that never opened its mail, and an unverified address can
  * spend nothing. Register on a taken address and forgot on a free one are
- * both answered {ok:true} after the same work: one lookup, one insert, one
- * mail. The only difference is which mail, and only the mailbox learns it.
+ * both answered {ok:true} after one lookup and one mail; register inserts a
+ * code either way, forgot on a free address inserts nothing (there is no
+ * account to bind a code to, and a row for an address that asked for
+ * nothing would be a row to prune). The mail — one HTTP call to Resend —
+ * is what the timing is made of, and the response body is identical, so
+ * the missing insert is not a tell. The only difference is which mail, and
+ * only the mailbox learns it.
  *
  * Turnstile guards the three public forms — register, login, forgot — and
  * nothing behind the login; a logged-in person is the gate there. A token
