@@ -243,6 +243,9 @@ So choose the account deliberately:
   `PORTAL_USD_LIMIT`, or the account's own `budget_usd` if it has one. Set
   it deliberately before publishing the link: `moje-krev-budget.mjs` below.
   A budget of `0` leaves the demo readable and stops its uploads outright.
+  A demo upload costs the fuse, not documents: it opens a document without
+  taking one of the account's five, so five strangers cannot exhaust the
+  account for the sixth — or for you. The USD ceiling is the only brake.
 - **Its e-mail stays private.** `/api/me` withholds the address from a demo
   session and the top bar reads „Demo pacient"; the account's own login
   still shows it.

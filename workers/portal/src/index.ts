@@ -1106,7 +1106,7 @@ const routes = {
         const limit = limitFor(user, env);
         const before = await userBudget(env.BUDGET, user.id, limit);
         if (before.frozen) return json({ error: "budget_exhausted", message: frozenMessage(limit), budget: before }, 402);
-        return handleOpenDocument(request, env.DB, user);
+        return handleOpenDocument(request, env.DB, user, session.demo);
       }
       case "POST /api/buy":
         return handleBuy(request, env, user, session.demo);
@@ -1141,7 +1141,7 @@ const routes = {
     }
 
     const doc = DOCUMENT.exec(url.pathname);
-    if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1]);
+    if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1], session.demo);
 
     const page = PAGE.exec(url.pathname);
     if (page) {

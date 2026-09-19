@@ -71,12 +71,16 @@ export type OpenOutcome =
  * purchase. Two different ids opened at once each run their own conditional
  * UPDATE, and at most `remaining` of them succeed.
  */
-export async function openDocument(db: D1Database, user: UserRow, id: string, nowIso: string): Promise<OpenOutcome> {
+export async function openDocument(db: D1Database, user: UserRow, id: string, nowIso: string, takeSlot = true): Promise<OpenOutcome> {
   const made = await db.prepare(SQL.insertDocument).bind(id, user.id, nowIso).run();
   if (!made.meta || made.meta.changes !== 1) {
     const row = await db.prepare(SQL.documentById).bind(id).first<DocumentRow>();
     return row && row.user_id === user.id ? { kind: "already" } : { kind: "foreign" };
   }
+  // The demo: the row exists so pages can name it and be capped, but the
+  // slot is nobody's to take — the account is the owner's, and the visitor
+  // is a stranger. The USD fuse underneath still counts every page.
+  if (!takeSlot) return { kind: "opened" };
   const taken = await db.prepare(SQL.takeDocument).bind(user.id).run();
   if (taken.meta && taken.meta.changes === 1) return { kind: "opened" };
   await db.prepare(SQL.deleteDocument).bind(id).run();
@@ -160,13 +164,14 @@ export async function handleAllowance(db: D1Database, user: UserRow): Promise<Re
  * becomes share a name. 402 `no_documents` when none is left, with the
  * allowance so the card can say the numbers; 200 with the allowance after
  * the take otherwise. A retry with an id already open is a 200 too, and
- * takes nothing.
+ * takes nothing. A demo session opens without taking: the account is the
+ * owner's, and five strangers must not exhaust it for the sixth.
  */
-export async function handleOpenDocument(request: Request, db: D1Database, user: UserRow): Promise<Response> {
+export async function handleOpenDocument(request: Request, db: D1Database, user: UserRow, demo = false): Promise<Response> {
   const body = (await request.json().catch(() => null)) as { id?: unknown } | null;
   const id = typeof body?.id === "string" ? body.id : "";
   if (!REPORT_ID.test(id)) return json({ error: "bad_request", message: "Neplatný dokument." }, 400);
-  const outcome = await openDocument(db, user, id, new Date().toISOString());
+  const outcome = await openDocument(db, user, id, new Date().toISOString(), !demo);
   const allowance = await readAllowance(db, user.id);
   switch (outcome.kind) {
     case "opened":
@@ -185,7 +190,9 @@ export async function handleOpenDocument(request: Request, db: D1Database, user:
  * way. Not a deletion of anything the person sees: the report, if one was
  * stored, stays.
  */
-export async function handleReleaseDocument(db: D1Database, user: UserRow, id: string): Promise<Response> {
-  const released = await releaseDocument(db, user, id, new Date().toISOString());
+export async function handleReleaseDocument(db: D1Database, user: UserRow, id: string, demo = false): Promise<Response> {
+  // Nothing was taken for a demo document, so nothing is given back — and
+  // the owner's own documents are not touched by a visitor's release.
+  const released = demo ? false : await releaseDocument(db, user, id, new Date().toISOString());
   return json({ ok: true, released, allowance: await readAllowance(db, user.id) });
 }
