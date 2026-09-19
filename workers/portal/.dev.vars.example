@@ -7,3 +7,10 @@ SESSION_SECRET=local-dev-secret-change-me
 # Leave it out and the link is not shown. Locally this is whatever address
 # you registered with; in production it is a wrangler secret, never a var.
 # DEMO_EMAIL=ja@example.com
+
+# Optional: the help desk's and the scheduled check's Telegram bot
+# (docs/moje-krev-handoff.md, „Help desk a hlídač"). Unset, messages are
+# stored and checks are logged; nothing is posted.
+# TELEGRAM_BOT_TOKEN=123456:ABC-…
+# TELEGRAM_HELPDESK_CHAT=-1001234567890
+# TELEGRAM_OPS_CHAT=-1001234567890
