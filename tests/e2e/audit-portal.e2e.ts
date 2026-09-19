@@ -157,14 +157,16 @@ const SCREENS: Screen[] = [
     },
   },
   {
-    // The mapping model's turn: the fake API answers with a catalog id the
-    // evidence lets through, so this lays out the applied banner with its
-    // way back, and the heading that replaces "není co řešit".
-    name: "přiřazení (návrh AI)",
+    // The mapping model's turn. It ran on its own at load — the fake API
+    // answers with a catalog id the evidence lets through, so the applied
+    // banner with its way back is already there — and "Zeptat se znovu" asks
+    // about the names still waiting, which lays out the in-flight state and
+    // the answers on the cards.
+    name: "přiřazení (návrh modelu)",
     go: async (page) => {
       await tab(page, "Přiřazení");
       await page.waitForTimeout(400);
-      await page.locator("#tabpanel-mapping").getByRole("button", { name: "Nechat AI navrhnout přiřazení" }).click();
+      await page.locator("#tabpanel-mapping").getByRole("button", { name: "Zeptat se znovu" }).click();
       await page.waitForTimeout(600);
     },
   },
