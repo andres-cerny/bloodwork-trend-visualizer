@@ -119,6 +119,13 @@ Only for names the deterministic path left null, and only on a click.
   way back. Teaching every account (Phase 3) takes a person's click.
 - Evaluated on the fixture first, through a subagent, against `truth.json`.
 
+**2026-09-19, branch `claude/multi-user-hardening`: the click went.** The
+model runs on its own after every upload and once on load, files only
+`catalog` + `high` + `canApplyUnasked`, stores every answer per name in
+`settings.aiAsked` so a reload does not ask again, and the button became
+"Zeptat se znovu". The gate above is unchanged; the prompt now says what
+`high` costs. Goal 1 of [multi-user.md](multi-user.md) has the contract.
+
 ### Phase 5 — gate
 
 `npm run test:all`, the bench, a `portal-auditor` sweep of the mapping and
