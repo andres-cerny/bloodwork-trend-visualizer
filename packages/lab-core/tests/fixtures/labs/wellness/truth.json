@@ -1,0 +1,460 @@
+{
+  "_about": "Synthetic sports/wellness panel (make_lab_fixtures.py): long descriptive Czech names, a heading per panel, no prefixes, '< 0,5' and 'negat.' results. Every printed name → catalog id, NEW:<id>, NOT_BLOOD or IGNORE; `wrong` names the id a careless mapper would pick.",
+  "Sodný kation v séru": {
+    "answer": "sodik",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "Draselný kation v séru": {
+    "answer": "draslik",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "Vápník celkový v séru": {
+    "answer": "vapnik",
+    "wrong": [
+      "vapnik_ionizovany"
+    ],
+    "unit": "mmol/l",
+    "note": "total"
+  },
+  "Vápník ionizovaný": {
+    "answer": "vapnik_ionizovany",
+    "wrong": [
+      "vapnik"
+    ],
+    "unit": "mmol/l",
+    "note": "ionised"
+  },
+  "Magnezium v séru": {
+    "answer": "horcik",
+    "wrong": [
+      "horcik_ery"
+    ],
+    "unit": "mmol/l",
+    "note": "serum"
+  },
+  "Magnezium v erytrocytech": {
+    "answer": "horcik_ery",
+    "wrong": [
+      "horcik"
+    ],
+    "unit": "mmol/l",
+    "note": "erythrocyte"
+  },
+  "Zinek v séru": {
+    "answer": "zinek",
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "Selen": {
+    "answer": "NEW:selen",
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "Kreatinin v séru": {
+    "answer": "kreatinin",
+    "unit": "µmol/l",
+    "note": "serum"
+  },
+  "Kreatinin v moči": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "kreatinin"
+    ],
+    "unit": "mmol/l",
+    "note": "urine creatinine under a serum-looking panel; the name says v moči"
+  },
+  "Odhad glomerulární filtrace (CKD-EPI 2021)": {
+    "answer": "egfr",
+    "wrong": [
+      "egfr_mdrd"
+    ],
+    "unit": "ml/s/1,73 m2",
+    "note": ""
+  },
+  "Kyselina močová v séru": {
+    "answer": "kyselina_mocova",
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "Alaninaminotransferáza (ALT)": {
+    "answer": "alt",
+    "unit": "µkat/l",
+    "note": ""
+  },
+  "Aspartátaminotransferáza (AST)": {
+    "answer": "ast",
+    "unit": "µkat/l",
+    "note": ""
+  },
+  "Kreatinkináza celková": {
+    "answer": "ck",
+    "wrong": [
+      "ck_mb"
+    ],
+    "unit": "µkat/l",
+    "note": "total CK, high after training"
+  },
+  "Bilirubin celkový v séru": {
+    "answer": "bilirubin_celkovy",
+    "wrong": [
+      "bilirubin_konjugovany"
+    ],
+    "unit": "µmol/l",
+    "note": "total"
+  },
+  "Bilirubin konjugovaný (přímý)": {
+    "answer": "bilirubin_konjugovany",
+    "wrong": [
+      "bilirubin_celkovy"
+    ],
+    "unit": "µmol/l",
+    "note": "conjugated"
+  },
+  "Albumin v séru": {
+    "answer": "albumin",
+    "unit": "g/l",
+    "note": ""
+  },
+  "Celkový cholesterol": {
+    "answer": "cholesterol",
+    "wrong": [
+      "hdl",
+      "ldl"
+    ],
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "Cholesterol HDL": {
+    "answer": "hdl",
+    "wrong": [
+      "non_hdl"
+    ],
+    "unit": "mmol/l",
+    "note": "a spelling the catalog already knows; kept as the one familiar lipid row"
+  },
+  "Cholesterol LDL (přímé stanovení)": {
+    "answer": "ldl",
+    "wrong": [
+      "non_hdl"
+    ],
+    "unit": "mmol/l",
+    "note": "directly measured LDL"
+  },
+  "Cholesterol non-HDL": {
+    "answer": "non_hdl",
+    "wrong": [
+      "hdl",
+      "ldl"
+    ],
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "Triacylglyceroly nalačno": {
+    "answer": "triacylglyceroly",
+    "unit": "mmol/l",
+    "note": ""
+  },
+  "Omega-3 index": {
+    "answer": "NEW:omega_3_index",
+    "unit": "%",
+    "note": ""
+  },
+  "Apolipoprotein B": {
+    "answer": "NEW:apolipoprotein_b",
+    "wrong": [
+      "apolipoprotein_a1"
+    ],
+    "unit": "g/l",
+    "note": "apo B, not apo A-I"
+  },
+  "Lipoprotein (a)": {
+    "answer": "NEW:lipoprotein_a",
+    "wrong": [
+      "ldl"
+    ],
+    "unit": "nmol/l",
+    "note": "a below-detection value"
+  },
+  "Feritin": {
+    "answer": "ferritin",
+    "wrong": [
+      "zelezo"
+    ],
+    "unit": "µg/l",
+    "note": ""
+  },
+  "Železo v séru": {
+    "answer": "zelezo",
+    "wrong": [
+      "ferritin"
+    ],
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "Transferin": {
+    "answer": "transferrin",
+    "wrong": [
+      "saturace_trf",
+      "str"
+    ],
+    "unit": "g/l",
+    "note": ""
+  },
+  "Saturace transferinu": {
+    "answer": "saturace_trf",
+    "wrong": [
+      "transferrin"
+    ],
+    "unit": "%",
+    "note": ""
+  },
+  "Solubilní transferinový receptor (sTfR)": {
+    "answer": "str",
+    "wrong": [
+      "transferrin",
+      "saturace_trf"
+    ],
+    "unit": "mg/l",
+    "note": ""
+  },
+  "Vitamin B12 (kobalamin)": {
+    "answer": "vitamin_b12",
+    "wrong": [
+      "aktivni_b12"
+    ],
+    "unit": "pmol/l",
+    "note": ""
+  },
+  "Aktivní vitamin B12 (holotranskobalamin)": {
+    "answer": "aktivni_b12",
+    "wrong": [
+      "vitamin_b12"
+    ],
+    "unit": "pmol/l",
+    "note": ""
+  },
+  "Kyselina listová v séru": {
+    "answer": "kyselina_listova",
+    "wrong": [
+      "kyselina_listova_ery"
+    ],
+    "unit": "nmol/l",
+    "note": "serum"
+  },
+  "Kyselina listová v erytrocytech": {
+    "answer": "kyselina_listova_ery",
+    "wrong": [
+      "kyselina_listova"
+    ],
+    "unit": "nmol/l",
+    "note": "erythrocyte"
+  },
+  "Vitamin D (25-hydroxy)": {
+    "answer": "vitamin_d",
+    "wrong": [
+      "vitamin_d_1_25"
+    ],
+    "unit": "nmol/l",
+    "note": "25-OH"
+  },
+  "Vitamin D aktivní (1,25-dihydroxy)": {
+    "answer": "NEW:vitamin_d_1_25",
+    "wrong": [
+      "vitamin_d"
+    ],
+    "unit": "pmol/l",
+    "note": "calcitriol"
+  },
+  "Vitamin B6 (pyridoxal-5-fosfát)": {
+    "answer": "NEW:vitamin_b6",
+    "unit": "nmol/l",
+    "note": ""
+  },
+  "Homocystein": {
+    "answer": "homocystein",
+    "unit": "µmol/l",
+    "note": ""
+  },
+  "Testosteron celkový": {
+    "answer": "testosteron",
+    "wrong": [
+      "testosteron_volny"
+    ],
+    "unit": "nmol/l",
+    "note": "total"
+  },
+  "Volný testosteron": {
+    "answer": "testosteron_volny",
+    "wrong": [
+      "testosteron"
+    ],
+    "unit": "pmol/l",
+    "note": "free"
+  },
+  "SHBG (globulin vázající pohlavní hormony)": {
+    "answer": "shbg",
+    "unit": "nmol/l",
+    "note": ""
+  },
+  "Index volných androgenů (FAI)": {
+    "answer": "fai",
+    "unit": "%",
+    "note": ""
+  },
+  "Kortizol ranní": {
+    "answer": "kortizol",
+    "unit": "nmol/l",
+    "note": ""
+  },
+  "TSH (tyreotropin)": {
+    "answer": "tsh",
+    "unit": "mIU/l",
+    "note": ""
+  },
+  "Volný tyroxin (fT4)": {
+    "answer": "ft4",
+    "wrong": [
+      "t4_celkovy"
+    ],
+    "unit": "pmol/l",
+    "note": "free"
+  },
+  "Volný trijodtyronin (fT3)": {
+    "answer": "ft3",
+    "wrong": [
+      "t3_celkovy"
+    ],
+    "unit": "pmol/l",
+    "note": "free"
+  },
+  "Protilátky proti tyreoidální peroxidáze (anti-TPO)": {
+    "answer": "NEW:anti_tpo",
+    "unit": "kIU/l",
+    "note": ""
+  },
+  "hs-CRP": {
+    "answer": "crp",
+    "unit": "mg/l",
+    "note": "high-sensitivity assay of the same analyte; a below-detection value"
+  },
+  "Glukóza nalačno": {
+    "answer": "glukoza",
+    "unit": "mmol/l",
+    "note": "serum; the strip Glukóza is under Moč chemicky"
+  },
+  "Index HOMA-IR": {
+    "answer": "NEW:homa_ir",
+    "unit": "",
+    "note": ""
+  },
+  "Glykovaný hemoglobin (HbA1c)": {
+    "answer": "NEW:hba1c",
+    "wrong": [
+      "hemoglobin"
+    ],
+    "unit": "mmol/mol",
+    "note": ""
+  },
+  "Hemoglobin": {
+    "answer": "hemoglobin",
+    "wrong": [
+      "hba1c"
+    ],
+    "unit": "g/l",
+    "note": ""
+  },
+  "Střední objem erytrocytu": {
+    "answer": "mcv",
+    "unit": "fl",
+    "note": ""
+  },
+  "Leukocyty celkem": {
+    "answer": "leukocyty",
+    "unit": "10^9/l",
+    "note": "blood; the strip Leukocyty is under Moč chemicky"
+  },
+  "Neutrofilní granulocyty (relativní)": {
+    "answer": "neutrofily",
+    "wrong": [
+      "neutrofily_abs"
+    ],
+    "unit": "%",
+    "note": "relative"
+  },
+  "Neutrofilní granulocyty (absolutní počet)": {
+    "answer": "neutrofily_abs",
+    "wrong": [
+      "neutrofily"
+    ],
+    "unit": "10^9/l",
+    "note": "absolute"
+  },
+  "Trombocyty": {
+    "answer": "trombocyty",
+    "unit": "10^9/l",
+    "note": ""
+  },
+  "Retikulocyty absolutně": {
+    "answer": "retikulocyty_abs",
+    "wrong": [
+      "retikulocyty"
+    ],
+    "unit": "10^9/l",
+    "note": "absolute count"
+  },
+  "pH": {
+    "answer": "NOT_BLOOD",
+    "unit": "",
+    "note": ""
+  },
+  "Bílkovina": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "celkova_bilkovina"
+    ],
+    "unit": "",
+    "note": "urine strip"
+  },
+  "Glukóza": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "glukoza"
+    ],
+    "unit": "",
+    "note": "urine strip glucose, bare name under the Moč chemicky heading"
+  },
+  "Ketolátky": {
+    "answer": "NOT_BLOOD",
+    "unit": "",
+    "note": ""
+  },
+  "Krev": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "hemoglobin",
+      "erytrocyty"
+    ],
+    "unit": "",
+    "note": "urine strip blood"
+  },
+  "Leukocyty": {
+    "answer": "NOT_BLOOD",
+    "wrong": [
+      "leukocyty"
+    ],
+    "unit": "",
+    "note": "urine strip leukocytes, bare name under the Moč chemicky heading"
+  },
+  "BMI": {
+    "answer": "IGNORE",
+    "unit": "kg/m2",
+    "note": "not a measurement"
+  },
+  "Komentář laboratoře": {
+    "answer": "IGNORE",
+    "unit": "",
+    "note": "free-text comment; the parser reads it as a qualitative row"
+  }
+}
