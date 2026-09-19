@@ -35,7 +35,7 @@ export async function userHash(uid: string): Promise<string> {
 /** Path segments that are ids, replaced so the table never holds one. */
 const ID_ROUTES: Array<[RegExp, string]> = [
   [/^\/api\/(reports|pages)\/[^/]+\/\d+$/, "/api/$1/:id/:n"],
-  [/^\/api\/reports\/[^/]+$/, "/api/reports/:id"],
+  [/^\/api\/(reports|documents)\/[^/]+$/, "/api/$1/:id"],
   [/^\/api\/auth\/invite\/[^/]+$/, "/api/auth/invite/:id"],
   [/^\/ai\/.+$/, "/ai/:token"],
 ];

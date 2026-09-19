@@ -593,6 +593,8 @@ describe("the events table", () => {
     expect(routeLabel("GET", "/api/auth/invite/abc%20def")).toBe("GET /api/auth/invite/:id");
     expect(routeLabel("GET", "/ai/k7QmR2vX9pLw3fk7QmR2vX9pLw3fk7QmR2vX9pLw3fk7Q")).toBe("GET /ai/:token");
     expect(routeLabel("POST", "/api/extract")).toBe("POST /api/extract");
+    // The document id is the report id the browser minted: an id, replaced.
+    expect(routeLabel("DELETE", "/api/documents/r-2026-03-04")).toBe("DELETE /api/documents/:id");
   });
 
   it("a failed insert does not turn the refusal into a 500", async () => {
