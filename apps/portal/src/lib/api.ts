@@ -156,6 +156,15 @@ export const getProcessors = () =>
   request<{ photoReaders: string | null }>("/api/processors");
 
 /**
+ * „Napište nám". Logged in, the worker takes the address from the session and
+ * `email` is ignored; logged out it is required, and so is the Turnstile
+ * token on a deployment that asks for one. The 200 means the message is in
+ * the database — not that anyone has been told yet.
+ */
+export const sendHelpdesk = (m: { email?: string; text: string; reportId?: string; turnstileToken?: string }) =>
+  request<{ ok: true }>("/api/helpdesk", jsonInit("POST", m));
+
+/**
  * One page to the extractor: the printed rows of a digital page, or the
  * painted image of a scan. Never both, and never an image of a page that has
  * rows — the text path is what keeps the pixels at home.

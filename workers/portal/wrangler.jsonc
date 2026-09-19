@@ -32,6 +32,17 @@
   // string as moje-krev-extract's SESSION_SECRET.
   "services": [{ "binding": "EXTRACT", "service": "moje-krev-extract" }],
 
+  // Workers AI, for the help desk's triage only (src/triage.ts): GLM 5.3
+  // Flash reads a message beside the account's last refusals and posts a
+  // guess under it in Telegram, marked as a guess. Same host, free tier, no
+  // new sub-processor. Remove this block and the guess is simply not made.
+  "ai": { "binding": "AI" },
+
+  // The scheduled check (src/watch.ts): is the shell up, is the extractor
+  // up, how much has it spent. Every 15 minutes; posts to TELEGRAM_OPS_CHAT
+  // only when something changes, and logs whether or not the bot exists.
+  "triggers": { "crons": ["*/15 * * * *"] },
+
   "vars": {
     // Session length. Days, not seconds: the portal's session is a login,
     // not a Turnstile page allowance.
@@ -60,7 +71,11 @@
     // The hostnames a Turnstile token may have been solved on. The dev
     // domain for now; the real domain replaces it, and localhost is never
     // listed (the local app runs without a site key and with the bypass).
-    "TURNSTILE_HOSTNAMES": "moje-krev.andres-cerny.workers.dev"
+    "TURNSTILE_HOSTNAMES": "moje-krev.andres-cerny.workers.dev",
+    // The shell's public origin, which the scheduled check probes end to
+    // end (GET / and GET /api/processors). A var, not a secret: it is the
+    // address on the door. A real domain changes it here.
+    "APP_URL": "https://moje-krev.andres-cerny.workers.dev"
   },
 
   "observability": { "enabled": true }
@@ -82,4 +97,10 @@
   // (the price ids of the 5-for-49-Kč and 15-for-99-Kč packages, in CZK).
   // Unset, POST /api/buy answers 503 shop_closed and the sheet says so;
   // docs/moje-krev-handoff.md walks the four.
+  //
+  // TELEGRAM_BOT_TOKEN, TELEGRAM_HELPDESK_CHAT and TELEGRAM_OPS_CHAT switch
+  // the help desk's forwarding and the scheduled check's alerts on
+  // (src/telegram.ts); unset, messages are stored and checks are logged.
+  // TURNSTILE_SECRET_KEY with TURNSTILE_HOSTNAMES guards the logged-out
+  // help-desk form. docs/moje-krev-handoff.md, „Help desk a hlídač".
 }

@@ -88,7 +88,8 @@ body {
   font-size: 0.9rem;
 }
 
-.door input {
+.door input,
+.door textarea {
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -122,7 +123,8 @@ body {
   accent-color: var(--accent);
 }
 
-.door input:focus-visible {
+.door input:focus-visible,
+.door textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);
@@ -920,3 +922,33 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 /* The comparison: muted, one line where it fits, wrapping at 360. */
 .pack-cmp { grid-column: 1 / -1; color: var(--ink-muted); font-size: 0.86rem; line-height: 1.45; overflow-wrap: anywhere; }
 .pack .btn { grid-column: 1 / -1; justify-self: start; margin-top: 6px; }
+
+/* „Napište nám": the door card with a message in it. The textarea grows
+   downward only — a sideways drag would push it past the card at 360. The
+   read-only address is the login's, shown as a fact rather than a field. */
+.door textarea {
+  min-height: 7.5rem;
+  max-width: 100%;
+  resize: vertical;
+  line-height: 1.45;
+}
+.door input[readonly] {
+  color: var(--ink-2);
+  background: var(--surface-2);
+}
+.door .contact-count {
+  align-self: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+/* The widget is 300 px wide by Cloudflare's design; below that the card
+   scrolls it rather than clipping it. */
+.door .contact-turnstile {
+  min-height: 65px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.door .contact-sent strong {
+  color: var(--ink-1);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}

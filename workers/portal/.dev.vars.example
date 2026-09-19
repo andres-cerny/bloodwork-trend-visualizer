@@ -15,3 +15,10 @@ SESSION_SECRET=local-dev-secret-change-me
 # production sets OPEN_SIGNUP in wrangler.jsonc and never sets the bypass.
 # OPEN_SIGNUP=true
 # OPEN_SIGNUP_DEV_BYPASS=true
+
+# Optional: the help desk's and the scheduled check's Telegram bot
+# (docs/moje-krev-handoff.md, „Help desk a hlídač"). Unset, messages are
+# stored and checks are logged; nothing is posted.
+# TELEGRAM_BOT_TOKEN=123456:ABC-…
+# TELEGRAM_HELPDESK_CHAT=-1001234567890
+# TELEGRAM_OPS_CHAT=-1001234567890

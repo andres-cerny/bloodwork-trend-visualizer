@@ -313,8 +313,9 @@ The unit economics are not the problem. At `moje-krev-extract`'s two-reader
 text path (5.1 ¢/page, `docs/extraction-speed.md`) a typical three-page report
 costs ~15 ¢ ≈ 3.4 Kč, and five reports ≈ 0.77 $ ≈ 17 Kč — already under the
 "less than a dollar a person" bar. The real bound is the fuse:
-`BUDGET_USD_LIMIT: 15` on the extract deployment is a ceiling of ~330 Kč a
-month, and `PORTAL_USD_LIMIT: 5` per person per month sits under it. Budget
+`BUDGET_USD_LIMIT: 30` on the extract deployment (15 until 2026-09-19, when
+the door opened) is a ceiling of ~660 Kč a month, and `PORTAL_USD_LIMIT: 5`
+per person per month sits under it. Budget
 ~0.8 $ per invited person in their first month, or the global fuse trips and
 freezes extraction for everyone.
 

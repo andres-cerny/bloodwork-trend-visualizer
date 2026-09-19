@@ -105,6 +105,9 @@ function fakeApi(port: number): Promise<Server> {
       case "POST /api/auth/logout":
         res.writeHead(204);
         return res.end();
+      // „Napište nám": the message is acknowledged and kept nowhere.
+      case "POST /api/helpdesk":
+        return json(res, { ok: true });
       // AI konzultace: no link on arrival; minting answers a link-shaped URL
       // with a 24-hour expiry. Nothing is stored, nothing is fetched.
       case "GET /api/ai-share":

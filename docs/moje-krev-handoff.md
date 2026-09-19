@@ -369,6 +369,129 @@ cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migration
 Every cookie minted before that deploy lacks the number and is refused, so
 everyone logs in once more. Nothing else moves.
 
+## Help desk a hlídač — Telegram
+
+Two things talk to you from the deployment, both through one Telegram bot
+and both off until its secrets exist: **„Napište nám"**
+(`/napiste-nam`, linked from the login door and the shell's footer), whose
+messages land in the `messages` table and are forwarded to a help-desk
+chat; and the **scheduled check** (`workers/portal/src/watch.ts`, cron
+`*/15 * * * *` in `workers/portal/wrangler.jsonc`), which posts to an ops
+chat when the shell or the extractor stops answering 200, when the
+extractor's spend passes 80 % and again at 100 % of `BUDGET_USD_LIMIT`,
+and once more when either comes back. One line per change of state, never
+a storm. Without the secrets: messages are stored and answered 200 exactly
+the same, the check runs and writes its result to the Worker log.
+
+**The bot, once:**
+
+1. In Telegram, open `@BotFather` → `/newbot` → a name and a username
+   ending in `bot`. It answers with the token (`123456:ABC-…`). Keep it as
+   a secret, never in a file.
+2. Two chats: create a private group for help-desk messages and one for
+   ops (or one group for both — then the two secrets carry the same id),
+   add the bot to each. To read a group's id, post any message in it and
+   open `https://api.telegram.org/bot<token>/getUpdates` in a browser:
+   `"chat":{"id":-100…}` is the number, minus sign included. (A private
+   chat with the bot works too: write to it first, its id is positive.)
+3. The three secrets, on the API worker:
+
+```sh
+cd workers/portal
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put TELEGRAM_HELPDESK_CHAT     # e.g. -1001234567890
+npx wrangler secret put TELEGRAM_OPS_CHAT
+npm run deploy:portal-api                          # from the repo root
+```
+
+The cron trigger and the `AI` binding are in `wrangler.jsonc` and deploy
+with the worker; `APP_URL` there is the shell the check probes. The first
+alert can be proven from the dashboard: Workers → moje-krev-portal →
+Settings → Triggers → the cron's „Run now", with the extractor's ledger
+seeded past 80 % — or wait for the quarter hour and read the log line
+`{"watch":{…}}`.
+
+**What the help-desk line carries:** the sender's address, whether they
+were logged in, the report they named (a date or id, their choice), the
+first 500 characters, and the `wrangler d1 execute` that reads the whole
+text. Never a value from a report, never a page — Telegram is not a
+processor of health data and `/soukromi` does not name it as one.
+
+**Answering** is by e-mail, by hand. The script lists and marks:
+
+```sh
+node tools/scripts/moje-krev-helpdesk.mjs --list --unanswered --apply   # what is open
+node tools/scripts/moje-krev-helpdesk.mjs --read <id> --apply           # one message, whole
+node tools/scripts/moje-krev-helpdesk.mjs --answered <id> --apply       # after you replied
+```
+
+`--answered` is the line under each Telegram notice; `rows written: 0`
+means the id was not found or was already marked. Logged-out messages
+need a solved Turnstile when `TURNSTILE_SECRET_KEY` and
+`TURNSTILE_HOSTNAMES` are set on the API worker (the same pair the
+registration forms use; the widget's action is `helpdesk`). The limit is
+five messages an hour per address and per IP, the text 4 000 characters.
+
+**The guess under the message.** With the `AI` binding in
+`wrangler.jsonc` (`"ai": { "binding": "AI" }`), Workers AI's
+`@cf/zai-org/glm-5.3-flash` reads each message beside the account's last
+twenty refusals from the `events` table (route, status, code — hashed to
+the account, never the address, never a value) and the extractor's status,
+and posts a second Telegram line beginning „Odhad (GLM): " — a probable
+cause, where, how sure, what to do, and up to two questions for the
+person. Same host, no new sub-processor; the free tier is 10 000 neurons a
+day and one guess is a few hundred. To switch it off, remove the `ai`
+block and deploy — the raw message still goes. The `events` rows are
+pruned after 30 days by the scheduled check.
+
+A database created before 2026-09-19 needs the two tables once, **before**
+the worker that writes them is deployed (`npm run check:schema`):
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migrations/2026-09-19-helpdesk.sql
+```
+
+## Ledger extraktoru
+
+`BUDGET_USD_LIMIT` on `moje-krev-extract` is **30 USD** — a free account
+can spend at most 5 documents × 6 pages × ~5 ¢ = 1,50 USD, so this is
+twenty new accounts' worst case in a month. It counts for the life of the
+KV namespace, not per month: nothing resets it on the first, and at 100 %
+every upload for everyone answers „společný limit je vyčerpán". The check
+tells you at 80 % and at 100 %, once each per calendar month. To start a
+new month by hand:
+
+```sh
+cd workers/portal-extract
+for i in $(seq 0 7); do npx wrangler kv key delete --binding BUDGET "spend_usd_extract_shard_$i"; done
+```
+
+(The per-person ledgers in the same namespace, `user_spend_*`, expire on
+their own after 90 days and are not touched by this.)
+
+## The D1 export
+
+A Worker cannot export its own database, so the check does not watch
+for it; it is a cron on your machine. `wrangler d1 export` writes the
+whole database as SQL:
+
+```sh
+# ~/bin/moje-krev-export.sh — daily, from a checkout with `npx wrangler login` done
+cd /path/to/bloodwork-trend-visualizer/workers/portal || exit 1
+out="$HOME/moje-krev-backups/moje-krev-$(date +%F).sql"
+mkdir -p "$(dirname "$out")"
+npx wrangler d1 export moje-krev --remote --output "$out" || exit 1
+find "$HOME/moje-krev-backups" -name 'moje-krev-*.sql' -mtime +30 -delete
+```
+
+`crontab -e` → `15 3 * * * ~/bin/moje-krev-export.sh >> ~/moje-krev-backups/export.log 2>&1`
+(on a Mac that sleeps at night, a launchd agent or `caffeinate` does the
+same job). The file holds every table — the payloads, the e-mails, the
+messages — so the directory is as private as the database: your disk,
+never the repo, and the 30-day sweep at the end is what keeps it small.
+Nothing alerts when a night is missed; `ls ~/moje-krev-backups | tail -3`
+is the check, and the log says why if one failed.
+
 **To let the cloud session deploy instead:** in claude.ai/code environment
 settings, allow `api.cloudflare.com` in the network policy and add
 `CLOUDFLARE_API_TOKEN` (custom token: Workers Scripts:Edit, D1:Edit,

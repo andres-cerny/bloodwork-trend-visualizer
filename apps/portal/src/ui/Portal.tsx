@@ -870,6 +870,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
             </Panel>
           </>
         )}
+
+        <p className="muted mk-foot">
+          Něco nefunguje? <a href="/napiste-nam">Napište nám</a>.
+        </p>
       </main>
     </div>
   );

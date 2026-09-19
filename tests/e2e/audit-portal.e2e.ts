@@ -246,6 +246,33 @@ const SCREENS: Screen[] = [
   },
   { name: "zapomenuté heslo", at: { path: "/zapomenute-heslo", ready: ".door form" }, prepare: noWidget, go: async () => {} },
   { name: "heslo (odkaz z e-mailu, nový účet)", at: { path: "/heslo?kod=audit-email", ready: ".door form" }, go: async () => {} },
+  // „Napište nám", as a logged-in person sees it: the address is the login's
+  // and read-only, the message field is empty. The fake API answers /api/me,
+  // so the logged-out form (address typed, widget) is the same card with one
+  // more input and is not reached here.
+  {
+    name: "napište nám",
+    at: { path: "/napiste-nam", ready: ".door form textarea" },
+    go: async () => {},
+    check: async (page) => {
+      expect(await page.locator(".door input[readonly]").inputValue()).toBe("audit@example.com");
+      expect(await page.getByRole("button", { name: "Odeslat" }).isDisabled(), "nothing to send yet").toBe(true);
+    },
+  },
+  {
+    // The sentence after sending, with the address it names.
+    name: "napište nám (odesláno)",
+    at: { path: "/napiste-nam", ready: ".door form textarea" },
+    go: async (page) => {
+      await page.locator(".door textarea").fill("Nahrávání se zastaví u druhé strany a nic neřekne.");
+      await page.getByRole("button", { name: "Odeslat" }).click();
+      await page.waitForSelector(".contact-sent", { timeout: 5_000 });
+      await page.waitForTimeout(200);
+    },
+    check: async (page) => {
+      expect(await page.locator(".contact-sent").innerText()).toContain("Odpovíme na audit@example.com, obvykle do dvou dnů.");
+    },
+  },
   SOUHRN,
   {
     // A new account's first screen: one report, nothing to compare it with.

@@ -181,3 +181,40 @@ CREATE TABLE IF NOT EXISTS purchases (
 );
 
 CREATE INDEX IF NOT EXISTS purchases_by_user ON purchases (user_id, created_at);
+
+-- „Napište nám": a message a person sent, logged in or not. The e-mail is
+-- the one they typed (or their login's), the text is theirs verbatim, the
+-- report id is a pointer they may add — never a value out of the report.
+-- Answered by hand, by e-mail; answered_at is set with
+-- tools/scripts/moje-krev-helpdesk.mjs so the list of open messages shrinks.
+CREATE TABLE IF NOT EXISTS messages (
+  id          TEXT PRIMARY KEY,           -- crypto.randomUUID()
+  created_at  TEXT NOT NULL,              -- ISO 8601
+  user_id     TEXT REFERENCES users(id),  -- NULL when sent logged out
+  email       TEXT NOT NULL,
+  text        TEXT NOT NULL,              -- at most 4 000 characters
+  report_id   TEXT,                       -- optional, the person's own report
+  user_agent  TEXT,
+  answered_at TEXT                        -- ISO 8601, set by the operator
+);
+
+CREATE INDEX IF NOT EXISTS messages_open ON messages (answered_at, created_at);
+
+-- Every refusal the worker answered (4xx/5xx) and every upload the extractor
+-- turned down, as a route, a status and a code — so a help-desk message can
+-- be read beside what the server said to that account in the days before.
+-- user_hash is the first 12 hex of SHA-256(user id): enough to group one
+-- account's rows, never the e-mail, and never a value, a page or a printed
+-- name. Rows older than 30 days are deleted by the scheduled check.
+CREATE TABLE IF NOT EXISTS events (
+  id         TEXT PRIMARY KEY,            -- crypto.randomUUID()
+  at         INTEGER NOT NULL,            -- epoch seconds
+  route      TEXT NOT NULL,               -- "POST /api/extract"; ids replaced by :id
+  status     INTEGER NOT NULL,
+  code       TEXT,                        -- the JSON body's `error`, when it had one
+  user_hash  TEXT,                        -- NULL for a request without a session
+  request_id TEXT                         -- cf-ray, for the Cloudflare log
+);
+
+CREATE INDEX IF NOT EXISTS events_by_user ON events (user_hash, at);
+CREATE INDEX IF NOT EXISTS events_by_time ON events (at);

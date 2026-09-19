@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from "react";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
+import ContactPage from "./ui/ContactPage";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
@@ -30,6 +31,7 @@ export default function App() {
   const [entered, setEntered] = useState<Me | null>(null);
   const path = location.pathname;
   if (path === "/soukromi") return <Privacy />;
+  if (path === "/napiste-nam") return <ContactPage />;
   if (path === "/proc-prikoupit") return <WhyPayPage />;
   if (path === "/podminky") return <TermsPage />;
   // The open door (ui/RegisterPage.tsx): /registrace without a code asks
@@ -149,6 +151,8 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
         <a href="/">← Úvod</a>
         <span aria-hidden="true">·</span>
         <a href="/soukromi">Co ukládáme, a co ne</a>
+        <span aria-hidden="true">·</span>
+        <a href="/napiste-nam">Napište nám</a>
       </nav>
     </Door>
   );

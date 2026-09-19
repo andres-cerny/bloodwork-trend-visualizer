@@ -24,7 +24,13 @@
     // replaces the demo's Turnstile), so hostnames stay unset here on
     // purpose: /api/session refuses everything, and only /api/extract with a
     // portal-minted token works.
-    "BUDGET_USD_LIMIT": "15",
+    // The shared fuse, sized to the price (docs/plans/multi-user.md, Goal 8).
+    // A free account can spend at most 5 documents × 6 pages × ~5 ¢ =
+    // 1,50 USD; 30 USD is twenty new accounts' worst case in a month. The
+    // scheduled check on moje-krev-portal posts at 80 % and at 100 %. The
+    // ledger counts for the life of the KV namespace, not per month — the
+    // reset is in the handoff.
+    "BUDGET_USD_LIMIT": "30",
     // TEXT_READERS is deliberately unset: both readers on every page. Haiku
     // alone measured equal on the text path (docs/extraction-speed.md,
     // 2026-09-02), and the switch is kept for the day cost matters more than
