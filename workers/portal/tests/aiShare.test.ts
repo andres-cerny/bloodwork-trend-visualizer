@@ -82,6 +82,8 @@ function fakeD1(t: Tables): D1Database {
         return { results: [], changes: before - t.users.length };
       }
       case SQL.unlinkSynonyms:
+      case SQL.deleteDocumentsForUser:
+      case SQL.unlinkPurchases:
         return { results: [], changes: 0 };
       default:
         throw new Error(`fakeD1: no branch for: ${sql}`);

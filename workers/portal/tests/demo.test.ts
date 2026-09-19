@@ -85,6 +85,8 @@ function fakeD1(t: Tables): D1Database {
       }
       case SQL.unlinkInvites:
       case SQL.unlinkSynonyms:
+      case SQL.deleteDocumentsForUser:
+      case SQL.unlinkPurchases:
         return { results: [], changes: 0 };
       case SQL.deleteUser: {
         const before = t.users.length;
