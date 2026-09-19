@@ -109,9 +109,9 @@ function ContactForm({ me }: { me: Me | null }) {
         <p className="sub contact-sent">
           Děkujeme, zpráva došla. Odpovíme na <strong>{sent}</strong>, obvykle do dvou dnů.
         </p>
-        <p className="door-foot sub">
+        <nav className="door-foot legal-foot" aria-label="Další cesty">
           <a href="/">← Zpět do aplikace</a>
-        </p>
+        </nav>
       </Door>
     );
   }
@@ -151,9 +151,13 @@ function ContactForm({ me }: { me: Me | null }) {
           Odeslat
         </button>
       </form>
-      <p className="door-foot sub">
-        <a href="/">← Zpět</a> · <a href="/soukromi">Co ukládáme, a co ne</a>
-      </p>
+      {/* Each link its own box (flex, not inline text): an inline anchor is
+          21px tall and fails the 24px floor the sweep holds every link to. */}
+      <nav className="door-foot legal-foot" aria-label="Další cesty">
+        <a href="/">← Zpět</a>
+        <span aria-hidden="true">·</span>
+        <a href="/soukromi">Co ukládáme, a co ne</a>
+      </nav>
     </Door>
   );
 }
