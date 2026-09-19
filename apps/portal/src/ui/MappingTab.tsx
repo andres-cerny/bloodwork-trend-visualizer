@@ -18,18 +18,24 @@
  *   - every acceptance can be undone, so the destructive step is reversible.
  *
  * The evidence itself is computed in lib/mapping.ts — locally, from name
- * similarity, unit, reference interval, material and value plausibility. No
- * model is involved, and each signal is shown rather than folded into a score.
+ * similarity, unit, reference interval, material and value plausibility.
+ * Each signal is shown rather than folded into a score.
+ *
+ * The mapping model has its say before the reader gets here: it runs on its
+ * own after every upload and once on load (lib/aiMapping.ts, owned by
+ * Portal), files what it is sure of and the evidence lets through, and its
+ * answer for everything else is on the card under "Návrh modelu". This
+ * screen only renders that record; the one button it keeps asks again.
  */
 import { useMemo, useState } from "react";
 import {
   type LabReport,
+  type Observed,
   findUnmapped,
   materialCs,
   materialPrefix,
   observedStats,
   signalsOf,
-  canApplyUnasked,
   scoreCandidate,
   suggestMappings,
   trendable,
@@ -51,27 +57,30 @@ import {
   parseCzechNumber,
 } from "@bw/lab-core";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
-import { type MapSuggestion, isFatalApiError, suggestWithAi } from "../lib/api";
+import type { AiAsked, AiAskedEntry } from "../lib/api";
 
 interface Props {
   reports: LabReport[];
   registry: Registry;
   /** Parameters the reader founded here, newest last. */
   customAnalytes: CustomAnalyte[];
-  /**
-   * `byModel`: the mapping model filed it and the evidence let it through —
-   * this account's mapping, not a lesson for every account; that takes a
-   * person's click.
-   */
-  onMap: (rawName: string, canonicalId: string, opts?: { byModel?: boolean }) => void;
+  onMap: (rawName: string, canonicalId: string) => void;
   onUndoMap: (rawName: string, canonicalId: string) => void;
   onCreateParameter: (rawName: string, c: CustomAnalyte) => void;
   onDeleteParameter: (canonicalId: string) => void;
   /** Jump to the verification tab focused on one occurrence. */
   onShowSource: (reportId: string, rawName: string) => void;
-  /** The account's monthly ledger is spent; the AI button says so instead of trying. */
+  /** What the mapping model answered, per printed name — settings.aiAsked, with the calls in flight marked. */
+  aiAsked: AiAsked;
+  /** The last run could not reach the model; the names wait here. */
+  aiError: string | null;
+  /** "Zeptat se znovu": forget these names' answers and ask again. */
+  onAskAgain: (rawNames: string[]) => void;
+  /** The account's monthly ledger is spent; nothing runs, and the tab says so. */
   frozen?: boolean;
 }
+
+const CONFIDENCE_CS: Record<AiAskedEntry["confidence"], string> = { high: "vysoká", medium: "střední", low: "nízká" };
 
 const GLYPH: Record<Signal["state"], string> = { ok: "✔", bad: "✘", unknown: "–" };
 
@@ -378,6 +387,7 @@ function UnmappedCard({
   cands,
   registry,
   customAnalytes,
+  stats,
   ai,
   onMap,
   onCreate,
@@ -388,8 +398,9 @@ function UnmappedCard({
   cands: Candidate[];
   registry: Registry;
   customAnalytes: CustomAnalyte[];
-  /** The mapping model's answer for this name, when it has been asked and the answer was not applied. */
-  ai?: { suggestion: MapSuggestion; candidate: Candidate | null };
+  stats: Map<string, Observed>;
+  /** The mapping model's answer for this name, when it has one and it is still pending here. */
+  ai?: AiAskedEntry;
   onMap: (rawName: string, canonicalId: string) => void;
   onCreate: (rawName: string, c: CustomAnalyte) => void;
   onShowSource: Props["onShowSource"];
@@ -403,6 +414,16 @@ function UnmappedCard({
   // contradicted candidate is how a wrong mapping gets one accepting click.
   const lead = cands.length > 0 && verdictOf(cands[0]) !== "contradicted" ? cands[0] : null;
   const rest = lead ? cands.slice(1) : cands;
+
+  // The catalog entry the model named, scored against the same evidence as
+  // any other candidate — at render, from the stored id, so what it said
+  // survives a reload without a second call.
+  const aiCandidate = useMemo(() => {
+    if (ai?.decision !== "catalog" || !ai.canonicalId) return null;
+    const def = registry.get(ai.canonicalId);
+    return def ? scoreCandidate(a, def, stats) : null;
+  }, [ai, a, registry, stats]);
+  const aiReason = ai ? `${ai.reason}${ai.reason ? " " : ""}(jistota: ${CONFIDENCE_CS[ai.confidence]})` : "";
 
   const values = a.occurrences.map((o) => o.value).filter((v): v is number => v !== null);
   const dates = a.occurrences.map((o) => o.date).filter(Boolean) as string[];
@@ -474,36 +495,37 @@ function UnmappedCard({
         </p>
       )}
 
-      {ai && (
+      {ai && !ai.asking && (
         <div className="ai-block">
-          <p className="section-title">Návrh AI</p>
-          {ai.suggestion.decision === "catalog" && ai.candidate && (
+          <p className="section-title">Návrh modelu</p>
+          {ai.decision === "catalog" && aiCandidate && (
             <CandidateBlock
-              c={ai.candidate}
+              c={aiCandidate}
               incoming={a}
               featured={false}
-              nameByModel={ai.suggestion.reason}
-              onAssign={() => onMap(a.rawName, ai.candidate!.canonicalId)}
+              nameByModel={aiReason}
+              onAssign={() => onMap(a.rawName, aiCandidate.canonicalId)}
             />
           )}
-          {ai.suggestion.decision === "catalog" && !ai.candidate && (
-            <p className="muted ai-reason">AI navrhla parametr, který tato aplikace už nezná. {ai.suggestion.reason}</p>
+          {ai.decision === "catalog" && !aiCandidate && (
+            <p className="muted ai-reason">Model navrhl parametr, který tato aplikace už nezná. {aiReason}</p>
           )}
-          {ai.suggestion.decision === "new" && ai.suggestion.proposed && (
+          {ai.decision === "new" && ai.proposed && (
             <p className="ai-reason">
-              Vyšetření, které aplikace ještě nezná: <strong>{ai.suggestion.proposed.displayNameCs}</strong>
-              {ai.suggestion.proposed.unit && <> ({prettyUnit(ai.suggestion.proposed.unit)})</>}.{" "}
-              <span className="muted">{ai.suggestion.reason}</span>{" "}
+              Vyšetření, které aplikace ještě nezná: <strong>{ai.proposed.displayNameCs}</strong>
+              {ai.proposed.unit && <> ({prettyUnit(ai.proposed.unit)})</>}.{" "}
+              <span className="muted">{aiReason}</span>{" "}
               <button className="btn small" onClick={() => setFounding(true)}>
                 Založit s tímto názvem
               </button>
             </p>
           )}
-          {ai.suggestion.decision === "unknown" && (
-            <p className="muted ai-reason">AI si není jistá. {ai.suggestion.reason}</p>
-          )}
+          {ai.decision === "new" && !ai.proposed && <p className="muted ai-reason">Model navrhl nový parametr bez názvu. {aiReason}</p>}
+          {ai.decision === "unknown" && <p className="muted ai-reason">Model si není jistý. {aiReason}</p>}
+          {ai.decision === "not_blood" && <p className="muted ai-reason">Model označil jako jiný materiál než krev. {aiReason}</p>}
         </div>
       )}
+      {ai?.asking && <p className="muted ai-reason">Model název zařazuje…</p>}
 
       <div className="map-actions">
         {rest.length > 0 && (
@@ -538,7 +560,7 @@ function UnmappedCard({
         <NewParameterForm
           a={a}
           registry={registry}
-          proposed={ai?.suggestion.decision === "new" ? ai.suggestion.proposed : null}
+          proposed={ai?.decision === "new" ? ai.proposed : null}
           onCreate={(c) => {
             setFounding(false);
             onCreate(a.rawName, c);
@@ -657,20 +679,17 @@ export default function MappingTab({
   onCreateParameter,
   onDeleteParameter,
   onShowSource,
+  aiAsked,
+  aiError,
+  onAskAgain,
   frozen = false,
 }: Props) {
   const unmapped = useMemo(() => findUnmapped(reports).filter(trendable), [reports]);
   const stats = useMemo(() => observedStats(reports), [reports]);
   /** Names the reader chose to leave alone, kept out of the way but findable. */
   const [deferred, setDeferred] = useState<string[]>([]);
-  /** The model's answers that were not applied, by printed name. */
-  const [ai, setAi] = useState<Record<string, { suggestion: MapSuggestion; candidate: Candidate | null }>>({});
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiError, setAiError] = useState<string | null>(null);
-  /** What the last run applied on its own, so each can be taken back. */
-  const [aiApplied, setAiApplied] = useState<Array<{ rawName: string; canonicalId: string }>>([]);
-  /** What the last run called "not blood" and parked, so the parking is not silent. */
-  const [aiParked, setAiParked] = useState<string[]>([]);
+  /** Names the model parked as "not blood" that the reader took back to decide. */
+  const [unparked, setUnparked] = useState<string[]>([]);
   /** The last acceptance, offered back for one click. */
   const [lastMap, setLastMap] = useState<{
     rawName: string;
@@ -679,8 +698,27 @@ export default function MappingTab({
     founded: boolean;
   } | null>(null);
 
-  const pending = unmapped.filter((a) => !deferred.includes(a.rawName));
-  const held = unmapped.filter((a) => deferred.includes(a.rawName));
+  // The model's "not blood" parks a name the way the reader's own "Nechat
+  // nepřiřazené" does — out of the way, findable, and not silent: the banner
+  // below names them. Read off the record, so it survives a reload.
+  const parkedByModel = (rawName: string) => aiAsked[rawName]?.decision === "not_blood" && !unparked.includes(rawName);
+  const isHeld = (a: UnmappedAnalyte) => deferred.includes(a.rawName) || parkedByModel(a.rawName);
+  const pending = unmapped.filter((a) => !isHeld(a));
+  const held = unmapped.filter(isHeld);
+  const aiParked = unmapped.filter((a) => parkedByModel(a.rawName)).map((a) => a.rawName);
+  const aiBusy = pending.some((a) => aiAsked[a.rawName]?.asking);
+
+  // What the model filed on its own and is still filed that way — the
+  // reports are the truth of that, not the record: an undo, or a hand
+  // mapping elsewhere, takes the name off this list without touching what
+  // the model said.
+  const aiApplied = useMemo(
+    () =>
+      Object.entries(aiAsked)
+        .filter(([rawName, e]) => e.applied && e.canonicalId && reports.some((r) => r.measurements.some((m) => m.rawAnalyteName === rawName && m.canonicalId === e.canonicalId)))
+        .map(([rawName, e]) => ({ rawName, canonicalId: e.canonicalId! })),
+    [aiAsked, reports],
+  );
 
   const assign = (rawName: string, canonicalId: string) => {
     onMap(rawName, canonicalId);
@@ -699,62 +737,11 @@ export default function MappingTab({
     setLastMap(null);
   };
 
-  /**
-   * Every pending name to the mapping model, once. What it names is applied
-   * only when the unit is known to agree and neither interval, material nor
-   * magnitude disagrees (`canApplyUnasked`) — the same checks a hand-picked
-   * candidate faces, minus name similarity, which is the model's to judge.
-   * Everything else is shown on the card with the model's reason and waits
-   * for a click. A "not blood" answer parks the name and says so; "unknown"
-   * is said as such.
-   */
-  const askAi = async () => {
+  /** "Zeptat se znovu": every pending name, the answered ones forgotten first. */
+  const askAgain = () => {
     if (aiBusy || pending.length === 0) return;
-    setAiBusy(true);
-    setAiError(null);
-    try {
-      const names = pending.map((a) => ({ rawName: a.rawName, unit: a.unitRaw, refRange: a.refRangeRaw, material: a.material }));
-      const catalog = [...registry.analytes.values()].map((d) => ({ id: d.canonicalId, name: d.displayNameCs, unit: d.canonicalUnit }));
-      const answer = await suggestWithAi(names, catalog);
-      const byName = new Map(pending.map((a) => [a.rawName, a]));
-      const applied: Array<{ rawName: string; canonicalId: string }> = [];
-      const kept: typeof ai = {};
-      const parked: string[] = [];
-      for (const s of answer.suggestions) {
-        const a = byName.get(s.rawName);
-        if (!a) continue;
-        if (s.decision === "catalog" && s.canonicalId) {
-          const def = registry.get(s.canonicalId);
-          const candidate = def ? scoreCandidate(a, def, stats) : null;
-          // The name is the model's; the unit must be known to agree and
-          // nothing else may disagree (canApplyUnasked). Filed for this
-          // account only — teaching every account takes a person's click.
-          if (candidate && canApplyUnasked(candidate)) {
-            onMap(a.rawName, candidate.canonicalId, { byModel: true });
-            applied.push({ rawName: a.rawName, canonicalId: candidate.canonicalId });
-          } else {
-            kept[a.rawName] = { suggestion: s, candidate };
-          }
-        } else if (s.decision === "not_blood") {
-          parked.push(a.rawName);
-        } else {
-          kept[a.rawName] = { suggestion: s, candidate: null };
-        }
-      }
-      setAi(kept);
-      setAiApplied(applied);
-      setAiParked(parked);
-      if (parked.length) setDeferred((d) => [...d, ...parked.filter((n) => !d.includes(n))]);
-      setLastMap(null);
-    } catch (e) {
-      setAiError(
-        e instanceof Error && isFatalApiError(e)
-          ? e.message
-          : "Návrh se nepodařilo získat. Zkuste to prosím za chvíli znovu.",
-      );
-    } finally {
-      setAiBusy(false);
-    }
+    setLastMap(null);
+    onAskAgain(pending.map((a) => a.rawName));
   };
 
   return (
@@ -766,7 +753,7 @@ export default function MappingTab({
             <p className="sub" style={{ marginBottom: 0 }}>
               {unmapped.length === 0
                 ? aiApplied.length > 0
-                  ? "Všechny názvy jsou přiřazené. Ty, které přiřadila AI, jsou níže ke kontrole."
+                  ? "Všechny názvy jsou přiřazené. Ty, které přiřadil model, jsou níže ke kontrole."
                   : "Všechny názvy z dokumentů odpovídají známým parametrům — není co řešit."
                 : `Tyto názvy zatím neznáme, takže se neobjeví v trendech. U každého vidíte, ` +
                   `co pro navržený parametr mluví a co proti — jednotka, referenční rozmezí, ` +
@@ -784,26 +771,26 @@ export default function MappingTab({
 
         {pending.length > 0 && (
           <div className="ai-ask">
-            <button className="btn" onClick={askAi} disabled={aiBusy || frozen} aria-busy={aiBusy}>
-              {aiBusy ? "AI zařazuje názvy…" : "Nechat AI navrhnout přiřazení"}
+            <button className="btn" onClick={askAgain} disabled={aiBusy || frozen} aria-busy={aiBusy}>
+              {aiBusy ? "Model zařazuje názvy…" : "Zeptat se znovu"}
             </button>
             <span className="muted">
               {frozen
                 ? "Měsíční limit zpracování je vyčerpán."
-                : "AI vidí jen názvy, jednotky a rozmezí, nikdy hodnoty. Přiřadí sama jen to, čemu nic neodporuje; zbytek navrhne."}
+                : "Názvy, kterými si je model jistý a u kterých souhlasí jednotka, přiřazuje sám; ostatní čekají tady i s jeho návrhem. Vidí jen názvy, jednotky a rozmezí, nikdy hodnoty."}
             </span>
           </div>
         )}
         {aiError && <p className="banner error">{aiError}</p>}
         {aiParked.length > 0 && (
           <p className="banner ai-applied">
-            AI označila jako jiný materiál než krev a ponechala bez přiřazení: {aiParked.join(", ")}.
+            Model označil jako jiný materiál než krev a ponechal bez přiřazení: {aiParked.join(", ")}.
           </p>
         )}
         {aiApplied.length > 0 && (
           <div className="banner ai-applied">
             <p>
-              AI přiřadila {count(aiApplied.length, "název", "názvy", "názvů")}: jednotka souhlasí a rozmezí, materiál ani naměřené hodnoty tomu neodporují. Platí jen pro tento účet. Zkontrolujte je v Trendech, nebo je zde vraťte:
+              Model přiřadil {count(aiApplied.length, "název", "názvy", "názvů")}: jednotka souhlasí a rozmezí, materiál ani naměřené hodnoty tomu neodporují. Platí jen pro tento účet. Zkontrolujte je v Trendech, nebo je zde vraťte:
             </p>
             <ul className="held-list">
               {aiApplied.map((x) => (
@@ -811,13 +798,7 @@ export default function MappingTab({
                   <span>
                     {x.rawName} → <strong>{registry.displayName(x.canonicalId)}</strong>
                   </span>
-                  <button
-                    className="btn small"
-                    onClick={() => {
-                      onUndoMap(x.rawName, x.canonicalId);
-                      setAiApplied((l) => l.filter((y) => y.rawName !== x.rawName));
-                    }}
-                  >
+                  <button className="btn small" onClick={() => onUndoMap(x.rawName, x.canonicalId)}>
                     Vrátit zpět
                   </button>
                 </li>
@@ -847,7 +828,8 @@ export default function MappingTab({
           cands={suggestMappings(a, registry, stats)}
           registry={registry}
           customAnalytes={customAnalytes}
-          ai={ai[a.rawName]}
+          stats={stats}
+          ai={aiAsked[a.rawName]}
           onMap={assign}
           onCreate={found}
           onShowSource={onShowSource}
@@ -871,7 +853,10 @@ export default function MappingTab({
                   <span>{a.rawName}</span>
                   <button
                     className="btn small"
-                    onClick={() => setDeferred((d) => d.filter((n) => n !== a.rawName))}
+                    onClick={() => {
+                      setDeferred((d) => d.filter((n) => n !== a.rawName));
+                      if (parkedByModel(a.rawName)) setUnparked((u) => [...u, a.rawName]);
+                    }}
                   >
                     Vrátit k rozhodnutí
                   </button>
