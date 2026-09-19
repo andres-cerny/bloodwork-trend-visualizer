@@ -70,3 +70,6 @@ tests/evals/output/*
 
 # The results dir may be a symlink in a worktree; the slash form above matches directories only.
 tests/bench/results
+
+# HyperFrames output of the /brag skill: rendered video, never source
+brag-output/

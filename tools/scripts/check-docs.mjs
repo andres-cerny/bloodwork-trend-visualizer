@@ -52,6 +52,9 @@ function walk(dir, out = []) {
     // page image beside it, which no checkout has. Link-checking it makes a
     // local bench run fail pre-push over a file that can never be committed.
     if (rel.startsWith("tests/bench/results/")) continue;
+    // The /brag skill renders a video into brag-output/ with its own
+    // CLAUDE.md; it is git-ignored output, not a doc of this repo.
+    if (rel.startsWith("brag-output/")) continue;
     if (e.isDirectory()) walk(rel, out);
     else if (e.name.endsWith(".md")) out.push(rel);
   }
@@ -159,6 +162,9 @@ function scanSource(dir) {
     // page image beside it, which no checkout has. Link-checking it makes a
     // local bench run fail pre-push over a file that can never be committed.
     if (rel.startsWith("tests/bench/results/")) continue;
+    // The /brag skill renders a video into brag-output/ with its own
+    // CLAUDE.md; it is git-ignored output, not a doc of this repo.
+    if (rel.startsWith("brag-output/")) continue;
     if (e.isDirectory()) scanSource(rel);
     else if (/\.(ts|tsx|py|mjs|json|jsonc|yml)$/.test(e.name)) {
       for (const m of read(rel).matchAll(/[\w./-]+\.md/g)) citedInCode.add(m[0]);
