@@ -48,7 +48,7 @@
     "note": ""
   },
   "Selen": {
-    "answer": "NEW:selen",
+    "answer": "selen",
     "unit": "µmol/l",
     "note": ""
   },
@@ -157,12 +157,12 @@
     "note": ""
   },
   "Omega-3 index": {
-    "answer": "NEW:omega_3_index",
+    "answer": "omega3_index",
     "unit": "%",
     "note": ""
   },
   "Apolipoprotein B": {
-    "answer": "NEW:apolipoprotein_b",
+    "answer": "apolipoprotein_b",
     "wrong": [
       "apolipoprotein_a1"
     ],
@@ -170,7 +170,7 @@
     "note": "apo B, not apo A-I"
   },
   "Lipoprotein (a)": {
-    "answer": "NEW:lipoprotein_a",
+    "answer": "lipoprotein_a",
     "wrong": [
       "ldl"
     ],
@@ -235,6 +235,16 @@
     "unit": "pmol/l",
     "note": ""
   },
+  "Koenzym Q10 (ubichinon)": {
+    "answer": "NEW:koenzym_q10",
+    "unit": "mg/l",
+    "note": "not in the catalog"
+  },
+  "Jód v séru": {
+    "answer": "NEW:jod",
+    "unit": "µg/l",
+    "note": "not in the catalog"
+  },
   "Kyselina listová v séru": {
     "answer": "kyselina_listova",
     "wrong": [
@@ -260,7 +270,7 @@
     "note": "25-OH"
   },
   "Vitamin D aktivní (1,25-dihydroxy)": {
-    "answer": "NEW:vitamin_d_1_25",
+    "answer": "vitamin_d_1_25",
     "wrong": [
       "vitamin_d"
     ],
@@ -268,7 +278,7 @@
     "note": "calcitriol"
   },
   "Vitamin B6 (pyridoxal-5-fosfát)": {
-    "answer": "NEW:vitamin_b6",
+    "answer": "vitamin_b6",
     "unit": "nmol/l",
     "note": ""
   },
@@ -330,12 +340,12 @@
     "note": "free"
   },
   "Protilátky proti tyreoidální peroxidáze (anti-TPO)": {
-    "answer": "NEW:anti_tpo",
+    "answer": "anti_tpo",
     "unit": "kIU/l",
     "note": ""
   },
   "hs-CRP": {
-    "answer": "crp",
+    "answer": "crp_hs",
     "unit": "mg/l",
     "note": "high-sensitivity assay of the same analyte; a below-detection value"
   },
@@ -345,12 +355,12 @@
     "note": "serum; the strip Glukóza is under Moč chemicky"
   },
   "Index HOMA-IR": {
-    "answer": "NEW:homa_ir",
+    "answer": "homa_ir",
     "unit": "",
     "note": ""
   },
   "Glykovaný hemoglobin (HbA1c)": {
-    "answer": "NEW:hba1c",
+    "answer": "hba1c",
     "wrong": [
       "hemoglobin"
     ],

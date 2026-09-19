@@ -37,7 +37,7 @@
     "note": "direct = conjugated"
   },
   "S-Bilirubin nepřímý": {
-    "answer": "NEW:bilirubin_nekonjugovany",
+    "answer": "bilirubin_nekonjugovany",
     "wrong": [
       "bilirubin_celkovy",
       "bilirubin_konjugovany"
@@ -74,7 +74,7 @@
     "note": ""
   },
   "S-Amylasa": {
-    "answer": "NEW:amylaza",
+    "answer": "amylaza",
     "wrong": [
       "amylaza_pankreaticka"
     ],
@@ -160,7 +160,7 @@
     "note": "'triglyceridy', the catalog says triacylglyceroly"
   },
   "S-Apolipoprotein B": {
-    "answer": "NEW:apolipoprotein_b",
+    "answer": "apolipoprotein_b",
     "wrong": [
       "apolipoprotein_a1"
     ],
@@ -168,7 +168,7 @@
     "note": "apo B, not apo A-I"
   },
   "S-Lipoprotein(a)": {
-    "answer": "NEW:lipoprotein_a",
+    "answer": "lipoprotein_a",
     "wrong": [
       "ldl"
     ],
@@ -223,6 +223,16 @@
     "unit": "pmol/l",
     "note": ""
   },
+  "S-Vitamin B2 (riboflavin)": {
+    "answer": "NEW:vitamin_b2",
+    "unit": "µg/l",
+    "note": "not in the catalog"
+  },
+  "S-Leptin": {
+    "answer": "NEW:leptin",
+    "unit": "ng/ml",
+    "note": "not in the catalog"
+  },
   "S-Folát": {
     "answer": "kyselina_listova",
     "wrong": [
@@ -248,7 +258,7 @@
     "note": "ng/ml; the S- prefix is not stripped because a digit follows the hyphen"
   },
   "S-1,25-dihydroxyvitamin D": {
-    "answer": "NEW:vitamin_d_1_25",
+    "answer": "vitamin_d_1_25",
     "wrong": [
       "vitamin_d"
     ],
@@ -314,7 +324,7 @@
     "note": "free, pg/ml"
   },
   "B-HbA1c": {
-    "answer": "NEW:hba1c",
+    "answer": "hba1c",
     "wrong": [
       "hemoglobin"
     ],
@@ -322,7 +332,7 @@
     "note": "DCCT percent, not hemoglobin"
   },
   "S-PSA celkový": {
-    "answer": "NEW:psa",
+    "answer": "psa",
     "wrong": [
       "psa_volny"
     ],
@@ -330,7 +340,7 @@
     "note": ""
   },
   "S-PSA volný": {
-    "answer": "NEW:psa_volny",
+    "answer": "psa_volny",
     "wrong": [
       "psa"
     ],

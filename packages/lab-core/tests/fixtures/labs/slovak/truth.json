@@ -128,7 +128,7 @@
     "note": ""
   },
   "Amyláza celková": {
-    "answer": "NEW:amylaza",
+    "answer": "amylaza",
     "wrong": [
       "amylaza_pankreaticka"
     ],
@@ -195,7 +195,7 @@
     "note": ""
   },
   "Lipoproteín (a)": {
-    "answer": "NEW:lipoprotein_a",
+    "answer": "lipoprotein_a",
     "wrong": [
       "ldl"
     ],
@@ -243,6 +243,16 @@
     ],
     "unit": "pmol/l",
     "note": ""
+  },
+  "Koenzým Q10": {
+    "answer": "NEW:koenzym_q10",
+    "unit": "mg/l",
+    "note": "not in the catalog"
+  },
+  "Lítium": {
+    "answer": "NEW:lithium",
+    "unit": "mmol/l",
+    "note": "drug level; not in the catalog"
   },
   "Kyselina listová": {
     "answer": "kyselina_listova",
@@ -314,7 +324,7 @@
     "note": "free, pmol/l"
   },
   "PSA celkový": {
-    "answer": "NEW:psa",
+    "answer": "psa",
     "wrong": [
       "psa_volny"
     ],
@@ -322,7 +332,7 @@
     "note": ""
   },
   "PSA voľný": {
-    "answer": "NEW:psa_volny",
+    "answer": "psa_volny",
     "wrong": [
       "psa"
     ],
@@ -330,7 +340,7 @@
     "note": ""
   },
   "Glykovaný hemoglobín (HbA1c)": {
-    "answer": "NEW:hba1c",
+    "answer": "hba1c",
     "wrong": [
       "hemoglobin"
     ],

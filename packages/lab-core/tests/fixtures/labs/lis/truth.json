@@ -104,7 +104,7 @@
     "note": ""
   },
   "AMS (Amylase)": {
-    "answer": "NEW:amylaza",
+    "answer": "amylaza",
     "wrong": [
       "amylaza_pankreaticka"
     ],
@@ -127,7 +127,7 @@
     "note": ""
   },
   "PCT (Procalcitonin)": {
-    "answer": "NEW:prokalcitonin",
+    "answer": "prokalcitonin",
     "wrong": [
       "trombokrit"
     ],
@@ -221,6 +221,16 @@
     "unit": "pmol/l",
     "note": "holotranscobalamin"
   },
+  "PB (Lead)": {
+    "answer": "NEW:olovo",
+    "unit": "µg/l",
+    "note": "trace metal; not in the catalog"
+  },
+  "VPA (Valproate)": {
+    "answer": "NEW:kyselina_valproova",
+    "unit": "mg/l",
+    "note": "drug level; not in the catalog"
+  },
   "FOL (Folate)": {
     "answer": "kyselina_listova",
     "wrong": [
@@ -267,7 +277,7 @@
     "note": "free"
   },
   "HBA1C (Glycated hemoglobin)": {
-    "answer": "NEW:hba1c",
+    "answer": "hba1c",
     "wrong": [
       "hemoglobin"
     ],
@@ -275,7 +285,7 @@
     "note": ""
   },
   "TNT-HS (Troponin T hs)": {
-    "answer": "NEW:troponin_t",
+    "answer": "troponin_t",
     "wrong": [
       "troponin_i"
     ],
@@ -398,7 +408,7 @@
     "note": ""
   },
   "FIB (Fibrinogen)": {
-    "answer": "NEW:fibrinogen",
+    "answer": "fibrinogen",
     "unit": "g/l",
     "note": ""
   },

@@ -211,7 +211,7 @@ def slovak() -> Lab:
         R("GMT", "0,61", "µkat/l", "0,10 – 1,19", "S", "", "ggt", note="Slovak/older Czech abbreviation of gamma-GT"),
         R("ALP", "1,30", "µkat/l", "0,66 – 2,20", "S", "", "alp"),
         R("CK", "2,40", "µkat/l", "0,40 – 3,24", "S", "", "ck", ("ck_mb",)),
-        R("Amyláza celková", "1,10", "µkat/l", "0,47 – 1,67", "S", "", "NEW:amylaza", ("amylaza_pankreaticka",), "total amylase; the catalog has only the pancreatic isoenzyme"),
+        R("Amyláza celková", "1,10", "µkat/l", "0,47 – 1,67", "S", "", "amylaza", ("amylaza_pankreaticka",), "total amylase; the catalog has only the pancreatic isoenzyme"),
         R("Amyláza pankreatická", "0,55", "µkat/l", "0,22 – 0,88", "S", "", "amylaza_pankreaticka"),
         R("Celkové bielkoviny", "72", "g/l", "64 – 83", "S", "", "celkova_bilkovina"),
         R("Albumín", "44", "g/l", "35 – 52", "S", "", "albumin"),
@@ -223,7 +223,7 @@ def slovak() -> Lab:
         R("LDL-cholesterol", "2,90", "mmol/l", "1,20 – 3,00", "S", "", "ldl", ("non_hdl",)),
         R("Non-HDL-cholesterol", "3,45", "mmol/l", "0,00 – 3,80", "S", "", "non_hdl", ("hdl", "ldl"), "computed non-HDL, not HDL and not LDL"),
         R("Triacylglyceroly", "1,20", "mmol/l", "0,45 – 1,70", "S", "", "triacylglyceroly"),
-        R("Lipoproteín (a)", "25", "nmol/l", "< 75", "S", "", "NEW:lipoprotein_a", ("ldl",), "Lp(a) is not LDL"),
+        R("Lipoproteín (a)", "25", "nmol/l", "< 75", "S", "", "lipoprotein_a", ("ldl",), "Lp(a) is not LDL"),
     ]
     FE = [
         R("Feritín", "95", "µg/l", "30 – 400", "S", "", "ferritin", ("zelezo",)),
@@ -231,6 +231,8 @@ def slovak() -> Lab:
         R("Saturácia transferínu", "28", "%", "20 – 55", "S", "", "saturace_trf", ("transferrin",), "the saturation, in percent, not the protein"),
         R("Solubilný transferínový receptor", "3,2", "mg/l", "1,9 – 4,4", "S", "", "str", ("transferrin", "saturace_trf")),
         R("Vitamín B12", "380", "pmol/l", "145 – 569", "S", "", "vitamin_b12", ("aktivni_b12",)),
+        R("Koenzým Q10", "0,95", "mg/l", "0,50 – 1,50", "S", "", "NEW:koenzym_q10", note="not in the catalog"),
+        R("Lítium", "0,6", "mmol/l", "0,5 – 1,2", "S", "", "NEW:lithium", note="drug level; not in the catalog"),
         R("Kyselina listová", "15,2", "nmol/l", "8,8 – 60,8", "S", "", "kyselina_listova", ("kyselina_listova_ery",), "serum folate"),
         R("Kyselina listová v erytrocytoch", "980", "nmol/l", "634 – 1780", "B", "", "kyselina_listova_ery", ("kyselina_listova",), "erythrocyte folate"),
         R("Vitamín D (25-OH)", "72", "nmol/l", "75 – 250", "S", "*", "vitamin_d", ("vitamin_d_1_25",)),
@@ -242,9 +244,9 @@ def slovak() -> Lab:
         R("fT3 (voľný trijódtyronín)", "4,9", "pmol/l", "3,1 – 6,8", "S", "", "ft3", ("t3_celkovy",), "free T3"),
         R("Testosterón celkový", "18,5", "nmol/l", "8,6 – 29,0", "S", "", "testosteron", ("testosteron_volny",), "total"),
         R("Testosterón voľný", "310", "pmol/l", "160 – 700", "S", "", "testosteron_volny", ("testosteron",), "free, pmol/l"),
-        R("PSA celkový", "0,8", "µg/l", "0,0 – 4,0", "S", "", "NEW:psa", ("psa_volny",)),
-        R("PSA voľný", "0,25", "µg/l", "", "S", "", "NEW:psa_volny", ("psa",)),
-        R("Glykovaný hemoglobín (HbA1c)", "36", "mmol/mol", "20 – 42", "B", "", "NEW:hba1c", ("hemoglobin",), "HbA1c in IFCC units is not hemoglobin"),
+        R("PSA celkový", "0,8", "µg/l", "0,0 – 4,0", "S", "", "psa", ("psa_volny",)),
+        R("PSA voľný", "0,25", "µg/l", "", "S", "", "psa_volny", ("psa",)),
+        R("Glykovaný hemoglobín (HbA1c)", "36", "mmol/mol", "20 – 42", "B", "", "hba1c", ("hemoglobin",), "HbA1c in IFCC units is not hemoglobin"),
     ]
     KO = [
         R("Leukocyty", "6,4", "10^9/l", "4,0 – 10,0", "B", "", "leukocyty", note="blood; the urine Leukocyty is under Moč chemicky"),
@@ -340,11 +342,11 @@ def lis() -> Lab:
         R("AST", "0,55", "µkat/l", "0,10", "0,72", "ast"),
         R("GGT", "0,70", "µkat/l", "0,10", "1,19", "ggt"),
         R("ALP", "1,25", "µkat/l", "0,66", "2,20", "alp"),
-        R("AMS (Amylase)", "1,05", "µkat/l", "0,47", "1,67", "NEW:amylaza", ("amylaza_pankreaticka",), "total amylase"),
+        R("AMS (Amylase)", "1,05", "µkat/l", "0,47", "1,67", "amylaza", ("amylaza_pankreaticka",), "total amylase"),
         R("TP (Total protein)", "70", "g/l", "64", "83", "celkova_bilkovina"),
         R("ALB (Albumin)", "43", "g/l", "35", "52", "albumin"),
         R("CRP", "12,5 *", "mg/l", "0,0", "5,0", "crp", flag="H"),
-        R("PCT (Procalcitonin)", "0,08", "µg/l", "0,00", "0,50", "NEW:prokalcitonin", ("trombokrit",), "the catalog's PCT is plateletcrit; this is procalcitonin"),
+        R("PCT (Procalcitonin)", "0,08", "µg/l", "0,00", "0,50", "prokalcitonin", ("trombokrit",), "the catalog's PCT is plateletcrit; this is procalcitonin"),
         R("CHOL", "5,6 *", "mmol/l", "2,9", "5,0", "cholesterol", ("hdl", "ldl"), flag="H"),
         R("TRIG", "1,9 *", "mmol/l", "0,45", "1,70", "triacylglyceroly", flag="H"),
         R("HDL", "1,10", "mmol/l", "1,00", "2,10", "hdl", ("non_hdl",)),
@@ -356,14 +358,16 @@ def lis() -> Lab:
         R("TSAT (Transferrin saturation)", "25", "%", "20", "55", "saturace_trf", ("transferrin",)),
         R("B12 (Cobalamin)", "290", "pmol/l", "145", "569", "vitamin_b12", ("aktivni_b12",)),
         R("HOLO-TC (Active B12)", "60", "pmol/l", "35", "165", "aktivni_b12", ("vitamin_b12",), "holotranscobalamin"),
+        R("PB (Lead)", "25", "µg/l", "0", "100", "NEW:olovo", note="trace metal; not in the catalog"),
+        R("VPA (Valproate)", "62", "mg/l", "50", "100", "NEW:kyselina_valproova", note="drug level; not in the catalog"),
         R("FOL (Folate)", "12", "nmol/l", "8,8", "60,8", "kyselina_listova", ("kyselina_listova_ery",), "serum"),
         R("VIT-D (25-OH vitamin D)", "55 *", "nmol/l", "75", "250", "vitamin_d", ("vitamin_d_1_25",), flag="L"),
         R("TSH", "2,3", "mIU/l", "0,27", "4,20", "tsh"),
         R("FT4 (Free T4)", "16", "pmol/l", "12", "22", "ft4", ("t4_celkovy",), "free"),
         R("TT4 (Total T4)", "95", "nmol/l", "66", "181", "t4_celkovy", ("ft4",), "total"),
         R("FT3 (Free T3)", "4,5", "pmol/l", "3,1", "6,8", "ft3", ("t3_celkovy",), "free"),
-        R("HBA1C (Glycated hemoglobin)", "41", "mmol/mol", "20", "42", "NEW:hba1c", ("hemoglobin",)),
-        R("TNT-HS (Troponin T hs)", "8", "ng/l", "0", "14", "NEW:troponin_t", ("troponin_i",), "troponin T, not I"),
+        R("HBA1C (Glycated hemoglobin)", "41", "mmol/mol", "20", "42", "hba1c", ("hemoglobin",)),
+        R("TNT-HS (Troponin T hs)", "8", "ng/l", "0", "14", "troponin_t", ("troponin_i",), "troponin T, not I"),
         R("CK", "2,2", "µkat/l", "0,4", "3,2", "ck", ("ck_mb",)),
         R("CKMB (CK-MB mass)", "1,8", "µg/l", "0,0", "5,0", "ck_mb", ("ck",)),
     ]
@@ -385,8 +389,8 @@ def lis() -> Lab:
         R("LYMPH%", "31,0", "%", "20", "40", "lymfocyty", ("lymfocyty_abs",)),
     ]
     KOAG = [
-        R("INR", "1,02", "", "0,80", "1,20", "NEW:inr"),
-        R("FIB (Fibrinogen)", "3,1", "g/l", "1,8", "4,2", "NEW:fibrinogen"),
+        R("INR", "1,02", "", "0,80", "1,20", "inr"),
+        R("FIB (Fibrinogen)", "3,1", "g/l", "1,8", "4,2", "fibrinogen"),
     ]
     U = [
         R("U-PH", "5,5", "", "5,0", "7,0", "NOT_BLOOD"),
@@ -450,13 +454,13 @@ def konvent() -> Lab:
         R("S-Kyselina močová", "5,8", "mg/dl", "3,4 - 7,0", "kyselina_mocova"),
         R("S-Bilirubin celk.", "0,8", "mg/dl", "0,2 - 1,2", "bilirubin_celkovy", ("bilirubin_konjugovany",), "total"),
         R("S-Bilirubin přímý", "0,2", "mg/dl", "0,0 - 0,3", "bilirubin_konjugovany", ("bilirubin_celkovy",), "direct = conjugated"),
-        R("S-Bilirubin nepřímý", "0,6", "mg/dl", "0,1 - 0,9", "NEW:bilirubin_nekonjugovany", ("bilirubin_celkovy", "bilirubin_konjugovany"), "indirect = unconjugated; the catalog lacks it"),
+        R("S-Bilirubin nepřímý", "0,6", "mg/dl", "0,1 - 0,9", "bilirubin_nekonjugovany", ("bilirubin_celkovy", "bilirubin_konjugovany"), "indirect = unconjugated; the catalog lacks it"),
         R("S-ALT (alaninaminotransferasa)", "38", "U/l", "10 - 50", "alt", note="U/l, not µkat/l"),
         R("S-AST (aspartátaminotransferasa)", "27", "U/l", "10 - 40", "ast"),
         R("S-GMT", "45", "U/l", "10 - 71", "ggt"),
         R("S-ALP (alkalická fosfatasa)", "68", "U/l", "40 - 130", "alp"),
         R("S-CK (kreatinkinasa)", "145", "U/l", "30 - 200", "ck", ("ck_mb",)),
-        R("S-Amylasa", "62", "U/l", "28 - 100", "NEW:amylaza", ("amylaza_pankreaticka",), "total amylase"),
+        R("S-Amylasa", "62", "U/l", "28 - 100", "amylaza", ("amylaza_pankreaticka",), "total amylase"),
         R("S-Bílkovina celk.", "7,2", "g/dl", "6,4 - 8,3", "celkova_bilkovina", note="g/dl"),
         R("S-Albumin", "4,4", "g/dl", "3,5 - 5,2", "albumin", note="g/dl"),
         R("S-CRP", "1,8", "mg/l", "0,0 - 5,0", "crp"),
@@ -470,8 +474,8 @@ def konvent() -> Lab:
         R("S-LDL-cholesterol (Friedewald)", "112", "mg/dl", "< 130", "ldl", ("non_hdl",), "calculated LDL; the catalog has one ldl"),
         R("S-Non-HDL-cholesterol", "140", "mg/dl", "< 160", "non_hdl", ("hdl", "ldl")),
         R("S-Triglyceridy", "130", "mg/dl", "< 150", "triacylglyceroly", note="'triglyceridy', the catalog says triacylglyceroly"),
-        R("S-Apolipoprotein B", "95", "mg/dl", "55 - 130", "NEW:apolipoprotein_b", ("apolipoprotein_a1",), "apo B, not apo A-I"),
-        R("S-Lipoprotein(a)", "18", "mg/dl", "< 30", "NEW:lipoprotein_a", ("ldl",)),
+        R("S-Apolipoprotein B", "95", "mg/dl", "55 - 130", "apolipoprotein_b", ("apolipoprotein_a1",), "apo B, not apo A-I"),
+        R("S-Lipoprotein(a)", "18", "mg/dl", "< 30", "lipoprotein_a", ("ldl",)),
     ]
     FE = [
         R("S-Železo", "95", "µg/dl", "60 - 170", "zelezo", ("ferritin",), "µg/dl"),
@@ -480,10 +484,12 @@ def konvent() -> Lab:
         R("S-Saturace transferinu", "26", "%", "20 - 50", "saturace_trf", ("transferrin",)),
         R("S-Vitamin B12", "450", "pg/ml", "200 - 900", "vitamin_b12", ("aktivni_b12",), "pg/ml"),
         R("S-Holotranskobalamin (aktivní B12)", "70", "pmol/l", "35 - 165", "aktivni_b12", ("vitamin_b12",)),
+        R("S-Vitamin B2 (riboflavin)", "180", "µg/l", "137 - 370", "NEW:vitamin_b2", note="not in the catalog"),
+        R("S-Leptin", "8,4", "ng/ml", "2,0 - 15,0", "NEW:leptin", note="not in the catalog"),
         R("S-Folát", "8,5", "ng/ml", "4,0 - 20,0", "kyselina_listova", ("kyselina_listova_ery",), "serum folate, ng/ml"),
         R("B-Folát v erytrocytech", "420", "ng/ml", "280 - 790", "kyselina_listova_ery", ("kyselina_listova",), "erythrocyte folate"),
         R("S-25-OH vitamin D", "28", "ng/ml", "30 - 100", "vitamin_d", ("vitamin_d_1_25",), "ng/ml; the S- prefix is not stripped because a digit follows the hyphen", flag="*"),
-        R("S-1,25-dihydroxyvitamin D", "45", "pg/ml", "20 - 79", "NEW:vitamin_d_1_25", ("vitamin_d",), "calcitriol, not 25-OH"),
+        R("S-1,25-dihydroxyvitamin D", "45", "pg/ml", "20 - 79", "vitamin_d_1_25", ("vitamin_d",), "calcitriol, not 25-OH"),
         R("B-Hořčík v erytrocytech", "5,2", "mg/dl", "4,2 - 6,4", "horcik_ery", ("horcik",), "erythrocyte magnesium"),
     ]
     HOR = [
@@ -494,11 +500,11 @@ def konvent() -> Lab:
         R("S-Kortizol (ráno)", "14,5", "µg/dl", "6,2 - 19,4", "kortizol", note="µg/dl"),
         R("S-Testosteron celkový", "520", "ng/dl", "264 - 916", "testosteron", ("testosteron_volny",), "total, ng/dl"),
         R("S-Testosteron volný", "12,5", "pg/ml", "6,8 - 21,5", "testosteron_volny", ("testosteron",), "free, pg/ml"),
-        R("B-HbA1c", "5,4", "%", "4,0 - 5,6", "NEW:hba1c", ("hemoglobin",), "DCCT percent, not hemoglobin"),
+        R("B-HbA1c", "5,4", "%", "4,0 - 5,6", "hba1c", ("hemoglobin",), "DCCT percent, not hemoglobin"),
     ]
     TUM = [
-        R("S-PSA celkový", "1,1", "ng/ml", "0,0 - 4,0", "NEW:psa", ("psa_volny",)),
-        R("S-PSA volný", "0,3", "ng/ml", "", "NEW:psa_volny", ("psa",)),
+        R("S-PSA celkový", "1,1", "ng/ml", "0,0 - 4,0", "psa", ("psa_volny",)),
+        R("S-PSA volný", "0,3", "ng/ml", "", "psa_volny", ("psa",)),
         R("S-CEA", "1,5", "ng/ml", "0,0 - 5,0", "cea"),
     ]
     KO = [
@@ -580,7 +586,7 @@ def wellness() -> Lab:
         R("Magnezium v séru", "0,88", "mmol/l", "0,70 - 1,05", "horcik", ("horcik_ery",), "serum"),
         R("Magnezium v erytrocytech", "2,20", "mmol/l", "1,80 - 2,60", "horcik_ery", ("horcik",), "erythrocyte"),
         R("Zinek v séru", "14,5", "µmol/l", "10,7 - 18,4", "zinek"),
-        R("Selen", "1,15", "µmol/l", "0,80 - 1,60", "NEW:selen"),
+        R("Selen", "1,15", "µmol/l", "0,80 - 1,60", "selen"),
     ]
     LJ = [
         R("Kreatinin v séru", "84", "µmol/l", "59 - 104", "kreatinin", note="serum"),
@@ -600,9 +606,9 @@ def wellness() -> Lab:
         R("Cholesterol LDL (přímé stanovení)", "2,40", "mmol/l", "1,20 - 3,00", "ldl", ("non_hdl",), "directly measured LDL"),
         R("Cholesterol non-HDL", "2,90", "mmol/l", "0,00 - 3,80", "non_hdl", ("hdl", "ldl")),
         R("Triacylglyceroly nalačno", "0,95", "mmol/l", "0,45 - 1,70", "triacylglyceroly"),
-        R("Omega-3 index", "6,8", "%", "> 8,0", "NEW:omega_3_index", flag="*"),
-        R("Apolipoprotein B", "0,85", "g/l", "0,55 - 1,30", "NEW:apolipoprotein_b", ("apolipoprotein_a1",), "apo B, not apo A-I"),
-        R("Lipoprotein (a)", "< 20", "nmol/l", "< 75", "NEW:lipoprotein_a", ("ldl",), "a below-detection value"),
+        R("Omega-3 index", "6,8", "%", "> 8,0", "omega3_index", flag="*"),
+        R("Apolipoprotein B", "0,85", "g/l", "0,55 - 1,30", "apolipoprotein_b", ("apolipoprotein_a1",), "apo B, not apo A-I"),
+        R("Lipoprotein (a)", "< 20", "nmol/l", "< 75", "lipoprotein_a", ("ldl",), "a below-detection value"),
     ]
     FE = [
         R("Feritin", "60", "µg/l", "30 - 300", "ferritin", ("zelezo",)),
@@ -612,13 +618,15 @@ def wellness() -> Lab:
         R("Solubilní transferinový receptor (sTfR)", "3,0", "mg/l", "1,9 - 4,4", "str", ("transferrin", "saturace_trf")),
         R("Vitamin B12 (kobalamin)", "400", "pmol/l", "145 - 569", "vitamin_b12", ("aktivni_b12",)),
         R("Aktivní vitamin B12 (holotranskobalamin)", "85", "pmol/l", "35 - 165", "aktivni_b12", ("vitamin_b12",)),
+        R("Koenzym Q10 (ubichinon)", "1,10", "mg/l", "0,50 - 1,50", "NEW:koenzym_q10", note="not in the catalog"),
+        R("Jód v séru", "62", "µg/l", "40 - 100", "NEW:jod", note="not in the catalog"),
         R("Kyselina listová v séru", "20", "nmol/l", "8,8 - 60,8", "kyselina_listova", ("kyselina_listova_ery",), "serum"),
         R("Kyselina listová v erytrocytech", "1100", "nmol/l", "634 - 1780", "kyselina_listova_ery", ("kyselina_listova",), "erythrocyte"),
     ]
     VIT = [
         R("Vitamin D (25-hydroxy)", "95", "nmol/l", "75 - 250", "vitamin_d", ("vitamin_d_1_25",), "25-OH"),
-        R("Vitamin D aktivní (1,25-dihydroxy)", "120", "pmol/l", "48 - 190", "NEW:vitamin_d_1_25", ("vitamin_d",), "calcitriol"),
-        R("Vitamin B6 (pyridoxal-5-fosfát)", "65", "nmol/l", "35 - 110", "NEW:vitamin_b6"),
+        R("Vitamin D aktivní (1,25-dihydroxy)", "120", "pmol/l", "48 - 190", "vitamin_d_1_25", ("vitamin_d",), "calcitriol"),
+        R("Vitamin B6 (pyridoxal-5-fosfát)", "65", "nmol/l", "35 - 110", "vitamin_b6"),
         R("Homocystein", "8,5", "µmol/l", "5,0 - 15,0", "homocystein"),
     ]
     HOR = [
@@ -630,13 +638,13 @@ def wellness() -> Lab:
         R("TSH (tyreotropin)", "1,6", "mIU/l", "0,27 - 4,20", "tsh"),
         R("Volný tyroxin (fT4)", "17,0", "pmol/l", "12,0 - 22,0", "ft4", ("t4_celkovy",), "free"),
         R("Volný trijodtyronin (fT3)", "5,2", "pmol/l", "3,1 - 6,8", "ft3", ("t3_celkovy",), "free"),
-        R("Protilátky proti tyreoidální peroxidáze (anti-TPO)", "12", "kIU/l", "0 - 34", "NEW:anti_tpo"),
+        R("Protilátky proti tyreoidální peroxidáze (anti-TPO)", "12", "kIU/l", "0 - 34", "anti_tpo"),
     ]
     MET = [
-        R("hs-CRP", "< 0,5", "mg/l", "< 1,0", "crp", note="high-sensitivity assay of the same analyte; a below-detection value"),
+        R("hs-CRP", "< 0,5", "mg/l", "< 1,0", "crp_hs", note="high-sensitivity assay of the same analyte; a below-detection value"),
         R("Glukóza nalačno", "4,9", "mmol/l", "3,9 - 5,6", "glukoza", note="serum; the strip Glukóza is under Moč chemicky"),
-        R("Index HOMA-IR", "1,3", "", "< 2,0", "NEW:homa_ir"),
-        R("Glykovaný hemoglobin (HbA1c)", "33", "mmol/mol", "20 - 42", "NEW:hba1c", ("hemoglobin",)),
+        R("Index HOMA-IR", "1,3", "", "< 2,0", "homa_ir"),
+        R("Glykovaný hemoglobin (HbA1c)", "33", "mmol/mol", "20 - 42", "hba1c", ("hemoglobin",)),
     ]
     KO = [
         R("Hemoglobin", "155", "g/l", "135 - 175", "hemoglobin", ("hba1c",)),
