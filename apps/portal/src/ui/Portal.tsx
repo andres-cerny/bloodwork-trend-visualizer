@@ -45,6 +45,7 @@ import {
 import { ThemeSwitch } from "@bw/ui-kit";
 import { type AiAsked, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
 import { type Judged, askingEntry, persistable, runAiMapping, withoutAsked } from "../lib/aiMapping";
+import { type Batch, holdsSummary } from "../lib/batch";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
 import { mergeSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
@@ -79,11 +80,20 @@ const TABS: Array<[TabId, string]> = [
 const PHONE_TABS: TabId[] = ["summary", "trends", "reports"];
 const onPhoneStrip = (id: TabId) => PHONE_TABS.includes(id);
 
-/** Mounted whether or not it is active; `hidden` keeps its state and takes it
- *  out of the accessibility tree — see apps/CLAUDE.md. */
-function Panel({ id, active, children }: { id: TabId; active: TabId; children: React.ReactNode }) {
+/**
+ * Mounted whether or not it is active; `hidden` keeps its state and takes it
+ * out of the accessibility tree — see apps/CLAUDE.md.
+ *
+ * Mounted before the account has a report, too, with Reporty the one shown:
+ * the upload queue lives in that panel, and a queue remounted the moment the
+ * first report landed lost its log and its progress bars mid-batch. Without
+ * the strip a panel is a plain region — a tabpanel labelled by a tab that is
+ * not there would be a lie to a screen reader — so the role comes and goes
+ * with the strip.
+ */
+function Panel({ id, active, strip, children }: { id: TabId; active: TabId; strip: boolean; children: React.ReactNode }) {
   return (
-    <div id={`tabpanel-${id}`} role="tabpanel" aria-labelledby={`tab-${id}`} hidden={active !== id}>
+    <div id={`tabpanel-${id}`} role={strip ? "tabpanel" : undefined} aria-labelledby={strip ? `tab-${id}` : undefined} hidden={active !== id}>
       {children}
     </div>
   );
@@ -127,6 +137,9 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const settingsQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [tab, setTab] = useState<TabId>("summary");
+  // The first batch: while it runs on an account that had no reports, the
+  // switch to Souhrn waits for its last file (lib/batch.ts).
+  const [holding, setHolding] = useState(false);
   const [budget, setBudget] = useState<Budget | null>(null);
   // The wrangler default, so the upload screen never promises more pages
   // than the worker accepts in the moment before /api/status answers.
@@ -467,6 +480,17 @@ export default function Portal({ email, demo, onLogout }: Props) {
     [commitReports, runMapping],
   );
 
+  /**
+   * The upload queue's batch changed. The count is read through the ref and
+   * outside the updater: a batch opening on an account with nothing in it is
+   * what starts the hold, and a report landing mid-batch is not what the
+   * rule should see.
+   */
+  const onBatch = useCallback((b: Batch) => {
+    const reportsNow = reportsRef.current.length;
+    setHolding((held) => holdsSummary(held, b, reportsNow));
+  }, []);
+
   const undoMapping = useCallback(
     (rawName: string, canonicalId: string) => {
       if (!registry) return;
@@ -564,7 +588,13 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // Only names a mapping could put into a trend: urine and never-numeric
   // rows are left out of the banner and the mapping tab alike (`trendable`).
   const unmappedNames = useMemo(() => findUnmapped(reports).filter(trendable).map((a) => a.rawName), [reports]);
-  const hasData = reports.length > 0;
+  // The strip and the five screens over the data, once there is data — and
+  // not before the first batch has ended, or Souhrn would open on the first
+  // report and rearrange itself as the rest of the pick landed.
+  const hasData = reports.length > 0 && !holding;
+  // Without the strip there is one panel to show, and it is Reporty. `tab`
+  // itself is left alone, so the switch lands on Souhrn as it always has.
+  const active: TabId = hasData ? tab : "reports";
   const frozen = budget?.frozen ?? false;
   const sorted = useMemo(() => [...reports].sort((a, b) => (b.reportDate ?? "").localeCompare(a.reportDate ?? "")), [reports]);
 
@@ -594,6 +624,8 @@ export default function Portal({ email, demo, onLogout }: Props) {
         frozen={frozen}
         onStored={storeAndMap}
         onBudget={noteBudget}
+        onBatch={onBatch}
+        holding={holding}
       />
     </div>
   );
@@ -643,6 +675,59 @@ export default function Portal({ email, demo, onLogout }: Props) {
         <p className="muted" style={{ margin: "10px 0 0" }}>
           Zpracování tento měsíc: {czUsd(budget.spentUsd)} / {czUsd(budget.budgetUsd)} USD
         </p>
+      )}
+    </div>
+  );
+
+  /** Export and the account's deletion — shown once the account holds a report. */
+  const accountCard = (
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h2>Váš účet, vaše data</h2>
+          <p className="sub" style={{ marginBottom: 0 }}>
+            Uloženy jsou jen hodnoty a začerněné stránky — <a href="/soukromi">co ukládáme, a co ne</a>.
+          </p>
+        </div>
+      </div>
+      <div className="toolbar" style={{ marginBottom: 10 }}>
+        <a className="btn small" href="/api/export" download>
+          Stáhnout vše (JSON)
+        </a>
+        <a className="btn small" href="/api/export?format=csv" download>
+          Stáhnout tabulku (CSV)
+        </a>
+      </div>
+      {demo ? (
+        <p className="sub" style={{ margin: 0 }}>
+          Jste v demu. Prohlížet, nahrávat i opravovat můžete — mazat ne.
+        </p>
+      ) : accountPhrase === null ? (
+        <button className="btn danger small" onClick={() => setAccountPhrase("")}>
+          Smazat účet i se vším uloženým
+        </button>
+      ) : (
+        <div className="runlog" role="alert">
+          <p style={{ margin: "0 0 6px" }}>
+            Smazání je okamžité a úplné — hodnoty, stránky, opravy i e-mail. Bez kopie, bez
+            návratu. Napište <strong>SMAZAT</strong> a potvrďte.
+          </p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <input aria-label="Potvrzení smazání" value={accountPhrase} onChange={(e) => setAccountPhrase(e.target.value)} />
+            <button
+              className="btn danger small"
+              disabled={accountPhrase !== "SMAZAT"}
+              onClick={() => {
+                deleteAccount().then(onLogout, () => setSaveError("Účet se nepodařilo smazat. Zkuste to prosím znovu."));
+              }}
+            >
+              Smazat účet
+            </button>
+            <button className="btn small" onClick={() => setAccountPhrase(null)}>
+              Zrušit
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -723,99 +808,56 @@ export default function Portal({ email, demo, onLogout }: Props) {
 
         {!registry ? (
           !loadError && <p className="muted">Načítám…</p>
-        ) : !hasData ? (
-          <>
-            {uploadCard}
-            {reportsCard}
-          </>
         ) : (
+          // Every panel from the first render, Reporty shown until there is
+          // data: the upload queue lives in it, and a queue remounted the
+          // moment the first report landed lost its log mid-batch. The five
+          // screens over the data mount their content once there is data.
           <>
-            <Panel id="summary" active={tab}>
-              <SummaryTab
-                reports={reports}
-                trends={trends}
-                onOpenTrend={showTrend}
-                onOpenVerify={() => goTab("verify")}
-                aboutOf={aboutOf}
-              />
+            <Panel id="summary" active={active} strip={hasData}>
+              {hasData && (
+                <SummaryTab
+                  reports={reports}
+                  trends={trends}
+                  onOpenTrend={showTrend}
+                  onOpenVerify={() => goTab("verify")}
+                  aboutOf={aboutOf}
+                />
+              )}
             </Panel>
-            <Panel id="trends" active={tab}>
-              <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} aboutOf={aboutOf} />
+            <Panel id="trends" active={active} strip={hasData}>
+              {hasData && <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} aboutOf={aboutOf} />}
             </Panel>
-            <Panel id="verify" active={tab}>
-              <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />
+            <Panel id="verify" active={active} strip={hasData}>
+              {hasData && <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />}
             </Panel>
-            <Panel id="mapping" active={tab}>
-              <MappingTab
-                reports={reports}
-                registry={registry}
-                customAnalytes={customAnalytes}
-                onMap={acceptMapping}
-                onUndoMap={undoMapping}
-                onCreateParameter={createParameter}
-                onDeleteParameter={deleteParameter}
-                onShowSource={showSource}
-                aiAsked={aiAsked}
-                aiError={aiError}
-                onAskAgain={askAgain}
-                frozen={frozen}
-              />
+            <Panel id="mapping" active={active} strip={hasData}>
+              {hasData && (
+                <MappingTab
+                  reports={reports}
+                  registry={registry}
+                  customAnalytes={customAnalytes}
+                  onMap={acceptMapping}
+                  onUndoMap={undoMapping}
+                  onCreateParameter={createParameter}
+                  onDeleteParameter={deleteParameter}
+                  onShowSource={showSource}
+                  aiAsked={aiAsked}
+                  aiError={aiError}
+                  onAskAgain={askAgain}
+                  frozen={frozen}
+                />
+              )}
             </Panel>
-            <Panel id="share" active={tab}>
-              <ShareTab reports={reports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />
+            <Panel id="share" active={active} strip={hasData}>
+              {hasData && <ShareTab reports={reports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />}
             </Panel>
-            <Panel id="reports" active={tab}>
+            <Panel id="reports" active={active} strip={hasData}>
               {uploadCard}
               {reportsCard}
-              <div className="card">
-                <div className="card-head">
-                  <div>
-                    <h2>Váš účet, vaše data</h2>
-                    <p className="sub" style={{ marginBottom: 0 }}>
-                      Uloženy jsou jen hodnoty a začerněné stránky — <a href="/soukromi">co ukládáme, a co ne</a>.
-                    </p>
-                  </div>
-                </div>
-                <div className="toolbar" style={{ marginBottom: 10 }}>
-                  <a className="btn small" href="/api/export" download>
-                    Stáhnout vše (JSON)
-                  </a>
-                  <a className="btn small" href="/api/export?format=csv" download>
-                    Stáhnout tabulku (CSV)
-                  </a>
-                </div>
-                {demo ? (
-                  <p className="sub" style={{ margin: 0 }}>
-                    Jste v demu. Prohlížet, nahrávat i opravovat můžete — mazat ne.
-                  </p>
-                ) : accountPhrase === null ? (
-                  <button className="btn danger small" onClick={() => setAccountPhrase("")}>
-                    Smazat účet i se vším uloženým
-                  </button>
-                ) : (
-                  <div className="runlog" role="alert">
-                    <p style={{ margin: "0 0 6px" }}>
-                      Smazání je okamžité a úplné — hodnoty, stránky, opravy i e-mail. Bez kopie, bez
-                      návratu. Napište <strong>SMAZAT</strong> a potvrďte.
-                    </p>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <input aria-label="Potvrzení smazání" value={accountPhrase} onChange={(e) => setAccountPhrase(e.target.value)} />
-                      <button
-                        className="btn danger small"
-                        disabled={accountPhrase !== "SMAZAT"}
-                        onClick={() => {
-                          deleteAccount().then(onLogout, () => setSaveError("Účet se nepodařilo smazat. Zkuste to prosím znovu."));
-                        }}
-                      >
-                        Smazat účet
-                      </button>
-                      <button className="btn small" onClick={() => setAccountPhrase(null)}>
-                        Zrušit
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* The account card waits for the first report, as it did when
+                  the empty account had its own two-card screen. */}
+              {hasData && accountCard}
             </Panel>
           </>
         )}
