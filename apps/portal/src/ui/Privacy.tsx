@@ -6,10 +6,16 @@
  * and the review screen shows, and what deletion does is what
  * tests/account.test.ts walks. If a sentence here stops being true, the
  * sentence is the bug report.
+ *
+ * A draft until the operator approves it (legal.tsx: LEGAL_DRAFT); the
+ * controller renders from the OPERATOR placeholder. The one clause that
+ * varies with the deployment — who reads a page — is asked of the
+ * deployment, never written down: see processorPhrase.
  */
 import { useEffect, useState } from "react";
-import { processorPhrase, RETENTION_NOTE } from "@bw/ui-kit";
+import { processorPhrase, RETENTION_NOTE, sendsToGoogle } from "@bw/ui-kit";
 import { getProcessors } from "../lib/api";
+import { CONSENT_HEALTH, CONTACT_PATH, DraftBanner, LEGAL_VERSION, LegalFooter, OPERATOR, TERMS_PATH } from "./legal";
 
 export default function Privacy() {
   // Who processes a page is asked of the deployment, not written down here.
@@ -27,25 +33,58 @@ export default function Privacy() {
   }, []);
 
   return (
-    <main className="privacy">
+    <main className="privacy legal">
       <p>
         <a href="/">← Moje krev</a>
       </p>
-      <h1>Co ukládáme, a co ne</h1>
+      <DraftBanner />
+      <h1>Zásady ochrany soukromí</h1>
+      <p className="legal-meta">Verze: {LEGAL_VERSION}</p>
 
-      <h2>Uloženo, k vašemu účtu</h2>
+      <h2>1. Kdo je správcem</h2>
+      <p>
+        Správcem vašich údajů je {OPERATOR.name}, {OPERATOR.address}, e-mail {OPERATOR.email}.
+        Žádosti týkající se údajů pošlete tam nebo přes <a href={CONTACT_PATH}>Napište nám</a>.
+      </p>
+
+      <h2>2. Co zpracováváme a proč</h2>
       <ul>
-        <li>naměřené hodnoty, jednotky a referenční meze z vašich výsledků,</li>
-        <li>začerněné obrázky stránek — kvůli ověření přepisu proti dokumentu,</li>
         <li>
-          přihlašovací e-mail, otisk hesla (heslo samo ne), vaše ruční opravy, přiřazení názvů a
-          parametry, které jste si sami založili — jejich název, jednotku a rozmezí z vašeho
-          dokumentu,
+          <strong>Hodnoty z laboratorních zpráv a začerněné stránky</strong> — naměřené hodnoty,
+          jednotky a referenční meze, a začerněné obrázky stránek kvůli ověření přepisu. Jsou to
+          údaje o zdraví, zvláštní kategorie podle čl. 9 GDPR. Zpracováváme je jen na základě
+          vašeho výslovného souhlasu, který dáváte při registraci zaškrtnutím věty:
+        </li>
+      </ul>
+      <blockquote className="legal-quote">„{CONSENT_HEALTH}"</blockquote>
+      <ul>
+        <li>
+          <strong>E-mail</strong> — vede účet, chodí na něj přihlašovací odkazy a odpovědi na vaše
+          zprávy. Základ: plnění smlouvy (<a href={TERMS_PATH}>Podmínky užití</a>).
         </li>
         <li>
-          kontext pro AI, pokud jste ho vyplnili — pohlaví, věková skupina, výška, váha, pohyb, léky a
-          doplňky, diagnózy, kouření, alkohol a vaše poznámka. Jméno k němu nepřidáváme; co napíšete
-          sami, uložíme tak, jak jste to napsali. Mizí s účtem.
+          <strong>Otisk hesla</strong> (heslo samo ne), <strong>vaše ruční opravy</strong>, přiřazení
+          názvů a parametry, které jste si založili — jejich název, jednotku a rozmezí z vašeho
+          dokumentu. Základ: plnění smlouvy.
+        </li>
+        <li>
+          <strong>Kontext pro AI</strong>, pokud jste ho vyplnili — pohlaví, věková skupina, výška,
+          váha, pohyb, léky a doplňky, diagnózy, kouření, alkohol a vaše poznámka. Jméno k němu
+          nepřidáváme; co napíšete sami, uložíme tak, jak jste to napsali. Základ: váš souhlas
+          (vyplnění je dobrovolné), mizí s účtem.
+        </li>
+        <li>
+          <strong>Záznamy o přihlašování</strong> — neúspěšné pokusy k adrese a otisk IP adresy u
+          registrace, kvůli zámku po opakovaných chybách a omezení počtu registrací. Základ:
+          oprávněný zájem na bezpečnosti účtů.
+        </li>
+        <li>
+          <strong>Zprávy z Napište nám</strong> — vaše adresa, text a případně id reportu, abychom
+          mohli odpovědět. Základ: oprávněný zájem na vyřízení vaší žádosti.
+        </li>
+        <li>
+          <strong>Nákup balíčku</strong> — e-mail, částka, datum a identifikátor platby od Stripe.
+          Základ: plnění smlouvy a účetní předpisy.
         </li>
       </ul>
       <p>
@@ -53,7 +92,7 @@ export default function Privacy() {
         záměrně: účet je jediná identita.
       </p>
 
-      <h2>Nikdy neopustí váš prohlížeč</h2>
+      <h2>3. Co nikdy neopustí váš prohlížeč</h2>
       <ul>
         <li>původní PDF i fotka — otevřou se u vás a nikam se nenahrávají,</li>
         <li>jméno, rodné číslo, datum narození a adresa — začerněné z obrázků i z textu, vždy před odesláním,</li>
@@ -69,15 +108,60 @@ export default function Privacy() {
         jediného nalezeného pole a s tužkou v ruce, a bez ní se fotka neodesílá.
       </p>
 
-      <h2>Ke zpracování odchází</h2>
+      <h2>4. Kdo údaje zpracovává za nás</h2>
       <p>
-        Začerněné řádky s hodnotami (u skenů a fotek začerněný obrázek stránky) na náš server a z
-        něj{" "}
-        {processorPhrase(photoReaders)}, kde se přepíšou na čísla. {RETENTION_NOTE} Útrata za
-        zpracování má měsíční strop na osobu.
+        Začerněné řádky s hodnotami (u skenů a fotek začerněný obrázek stránky) odcházejí na náš
+        server a z něj {processorPhrase(photoReaders)}, kde se přepíšou na čísla. {RETENTION_NOTE}{" "}
+        Útrata za zpracování má měsíční strop na osobu.
+      </p>
+      <ul>
+        <li>
+          <strong>Cloudflare</strong> — běh aplikace, databáze a úložiště začerněných stránek.
+          Datová centra Cloudflare: databáze leží v jedné oblasti, úložiště stránek je
+          rozprostřené po síti Cloudflare, takže kopie mohou být i mimo EU.
+        </li>
+        <li>
+          <strong>Anthropic</strong> — začerněný text stránky, u skenů a fotek začerněný obrázek
+          stránky, k přepisu na čísla.
+        </li>
+        {sendsToGoogle(photoReaders) && (
+          <li>
+            <strong>Google</strong> — začerněný obrázek stránky u fotografií a skenů, jako druhé
+            čtení téže stránky.
+          </li>
+        )}
+        <li>
+          <strong>Resend</strong> — vaše e-mailová adresa a obsah zprávy (odkaz, odpověď), aby
+          mail došel.
+        </li>
+        <li>
+          <strong>Stripe</strong> — při nákupu balíčku: e-mail a částka. Číslo karty zadáváte
+          Stripe; naše aplikace ho nikdy nevidí.
+        </li>
+        <li>
+          <strong>Telegram</strong> — zpráva z Napište nám (adresa, text, případně id reportu) se
+          přepošle provozovateli do jeho chatu, aby se k němu dostala hned.
+        </li>
+      </ul>
+      <p>
+        Návrh: všichni sídlí v USA; předání se opírá o standardní smluvní doložky EU, které jsou
+        součástí jejich smluv o zpracování. Žádný z nich nedostane vaše jméno — nemáme ho.
       </p>
 
-      <h2>AI konzultace — jen když chcete</h2>
+      <h2>5. Jak dlouho</h2>
+      <ul>
+        <li>Hodnoty, stránky, opravy, kontext a e-mail — dokud účet nesmažete.</li>
+        <li>
+          Neúspěšné přihlášení — 15 minut, pak se záznam maže; otisk IP u registrace — nejdéle
+          den.
+        </li>
+        <li>Odkaz pro AI konzultaci — 24 hodin, nebo dokud ho nezrušíte.</li>
+        <li>Měsíční součet útraty za zpracování — 90 dní.</li>
+        <li>Zpráva z Napište nám — do odpovědi a 12 měsíců po ní.</li>
+        <li>Záznam o platbě — po dobu, kterou ukládají účetní a daňové předpisy.</li>
+      </ul>
+
+      <h2>6. AI konzultace — jen když chcete</h2>
       <p>
         Na záložce AI konzultace si můžete vytvořit dočasný odkaz na stránku s prostým textem: vaše
         hodnoty, jednotky, referenční meze a data odběrů, a pokud jste ho vyplnili, i kontext o vás —
@@ -87,19 +171,48 @@ export default function Privacy() {
         u něj platí podmínky jeho provozovatele, ne naše.
       </p>
 
-      <h2>Vaše data jsou vaše</h2>
+      <h2>7. Vaše práva</h2>
       <ul>
         <li>
-          <strong>Export</strong> — kdykoli, jedním souborem (JSON nebo CSV), v záložce Reporty.
+          <strong>Přístup a přenositelnost</strong> — export kdykoli, jedním souborem (JSON nebo
+          CSV), v záložce Reporty.
         </li>
         <li>
-          <strong>Smazání účtu</strong> — okamžité a úplné: hodnoty, obrázky stránek, opravy i
-          e-mail. Bez lhůt, bez kopie.
+          <strong>Oprava</strong> — přepsanou hodnotu opravíte sami v záložce Ověření.
+        </li>
+        <li>
+          <strong>Výmaz a odvolání souhlasu</strong> — smazání účtu, okamžité a úplné: hodnoty,
+          obrázky stránek, opravy i e-mail. Bez lhůt, bez kopie. Bez souhlasu služba nemá co
+          zpracovávat, proto je odvolání souhlasu smazání účtu.
+        </li>
+        <li>
+          <strong>Stížnost</strong> — u Úřadu pro ochranu osobních údajů, Pplk. Sochora 27, 170 00
+          Praha 7, www.uoou.gov.cz. Rádi to ale vyřešíme dřív: <a href={CONTACT_PATH}>Napište nám</a>.
         </li>
       </ul>
 
-      <h2>Cookies</h2>
-      <p>Jedna, přihlašovací, na 90 dní, nedostupná skriptům. Žádná analytika, žádné třetí strany.</p>
+      <h2>8. Cookies</h2>
+      <p>
+        Jedna, přihlašovací, na 90 dní, nedostupná skriptům. Žádná analytika, žádné sledování,
+        žádné třetí strany — proto ani lišta se souhlasem. Ověření, že formulář vyplňuje člověk
+        (Cloudflare Turnstile), běží na registraci a přihlášení; není to analytika.
+      </p>
+
+      <h2>9. Věk</h2>
+      <p>Služba je pro osoby starší 18 let. Účet mladší osoby smažeme, jakmile se o něm dozvíme.</p>
+
+      <h2>10. Změny</h2>
+      <p>
+        Platná verze je vždy na této stránce, s datem verze nahoře. O změně, která se vás dotkne,
+        dáme vědět e-mailem na adresu účtu.
+      </p>
+
+      <h2>11. Kontakt</h2>
+      <p>
+        {OPERATOR.email}, nebo <a href={CONTACT_PATH}>Napište nám</a>.
+      </p>
+
+      <LegalFooter />
     </main>
   );
 }

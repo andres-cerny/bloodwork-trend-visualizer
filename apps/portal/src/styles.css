@@ -728,3 +728,86 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
     max-height: 70vh;
   }
 }
+
+/* The landing page: the first thing a stranger reads ------------------------ */
+/* A reading column like the privacy page's, not the door's card: five short
+   sections need width to read as prose, and the three ways in sit as a row
+   under the lead. Ink for type, the accent for the one primary action. */
+.landing { max-width: 44rem; margin: 0 auto; padding: 2.5rem 1.25rem 3rem; line-height: 1.6; }
+.landing-head { display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start; }
+.landing h1 { margin: 0; font-size: 1.9rem; letter-spacing: -0.02em; }
+.landing-lead { margin: 0; font-size: 1.1rem; color: var(--ink-1); max-width: 34rem; }
+.landing h2 { font-size: 1.05rem; margin: 1.5rem 0 0.35rem; }
+.landing p { margin: 0.4rem 0; color: var(--ink-1); }
+.landing a { color: var(--accent-ink); }
+.landing section p { max-width: 40rem; }
+.landing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.75rem; margin-top: 1.2rem; }
+.landing-actions .btn {
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--ink-1);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.landing-actions .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.landing-actions .btn.primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+.landing-actions .btn.linkish { background: none; border-color: transparent; color: var(--accent-ink); padding-left: 0.25rem; padding-right: 0.25rem; }
+.landing-actions .btn.linkish:hover { text-decoration: underline; }
+.landing-actions .btn:disabled { opacity: 0.6; cursor: default; }
+.landing-actions .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.landing-hint { color: var(--ink-2); font-size: 0.88rem; max-width: 40rem; }
+.landing .notice {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--status-critical-soft);
+  color: var(--critical-ink);
+}
+/* On a phone the three actions stack full-width, the primary first. */
+@media (max-width: 479.98px) {
+  .landing-actions { flex-direction: column; align-items: stretch; }
+  .landing-actions .btn { justify-content: center; }
+}
+
+/* The legal pages: what both drafts share --------------------------------- */
+/* The draft banner is a critical-soft strip: it must be read before the
+   text under it, and it disappears with one constant. */
+.legal-draft {
+  margin: 0.6rem 0 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--status-critical-soft);
+  color: var(--critical-ink);
+  font-weight: 600;
+}
+.legal-meta { color: var(--ink-muted); font-size: 0.85rem; margin: -0.6rem 0 1rem; }
+.legal-quote {
+  margin: 0.6rem 0 0.8rem;
+  padding: 0.6rem 0.9rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--ink-1);
+  overflow-wrap: anywhere;
+}
+.legal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.6rem;
+  margin-top: 2.2rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--grid);
+  font-size: 0.88rem;
+  color: var(--ink-muted);
+}
+.legal-foot a { color: var(--ink-muted); padding: 0.25rem 0; }
+.legal-foot a:hover { color: var(--accent-ink); }
+/* The same footer inside the door's card keeps the card's spacing. */
+.door .legal-foot { margin-top: 0.3rem; }

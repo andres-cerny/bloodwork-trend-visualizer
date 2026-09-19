@@ -188,6 +188,28 @@ zdravotnický prostředek" sentence, and a support contact (the help desk).
 Czech, plain, no marketing; drafts for Ondřej to approve, marked as such
 in the page until he does.
 
+- *Built 2026-09-19*: [LandingPage.tsx](../../apps/portal/src/ui/LandingPage.tsx)
+  at `/` logged out (the login form moved one link on, to `/prihlaseni`),
+  [TermsPage.tsx](../../apps/portal/src/ui/TermsPage.tsx) at `/podminky`,
+  [Privacy.tsx](../../apps/portal/src/ui/Privacy.tsx) rewritten. What the
+  three share — the draft banner, the operator placeholder, the allowance
+  numbers, the consent sentences, the footer — is
+  [legal.tsx](../../apps/portal/src/ui/legal.tsx): `LEGAL_DRAFT = false`
+  removes the banner from both pages, `OPERATOR` fills every
+  `[provozovatel]`. The processor clause stays dynamic
+  (`processorPhrase`, `sendsToGoogle`) on the landing and the privacy page;
+  `legalPages.test.tsx` renders both and fails on a vendor name in the copy.
+- **The consent sentences** (the registration form imports them from
+  `legal.tsx`; the privacy page quotes the first as the čl. 9 basis):
+  1. „Souhlasím se zpracováním svých zdravotních údajů — hodnot z
+     laboratorních zpráv a začerněných stránek — za účelem jejich zobrazení
+     a sledování v čase, jak popisují Zásady ochrany soukromí."
+  2. „Souhlasím s Podmínkami užití."
+- Sub-processors the privacy page names: Cloudflare, Anthropic, Google
+  (only while the deployment's pair reaches it), Resend, Stripe — and
+  Telegram, because Goal 8 forwards a help-desk message (address, text,
+  report id) into the operator's chat, which makes it one.
+
 ## Goal 10 — the gate, again, then live
 
 `test:all`, the mapping bench, `portal-auditor`, `invariant-reviewer`;

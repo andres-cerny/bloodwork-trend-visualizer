@@ -1,19 +1,22 @@
 /**
  * Moje krev's door: who are you, or the login form.
  *
- * This file is the door and nothing else. Three paths lead into the app —
- * "/" is the login, "/registrace" and "/heslo" are the two kinds of link the
- * operator sends (ui/InvitePage.tsx) — and "/soukromi" is the one public
- * page beside them. The shell serves index.html for any path, so this is
- * the whole router. Everything behind the door — upload, verification,
- * trends — is ui/Portal.tsx.
+ * This file is the door and nothing else. Logged out, "/" is the landing
+ * page (ui/LandingPage.tsx) and "/prihlaseni" the login form; "/registrace"
+ * and "/heslo" are the two kinds of link the operator sends
+ * (ui/InvitePage.tsx); "/soukromi" and "/podminky" are the public pages
+ * beside them. The shell serves index.html for any path, so this is the
+ * whole router. Everything behind the door — upload, verification, trends —
+ * is ui/Portal.tsx.
  */
 import { useEffect, useState } from "react";
 import InvitePage from "./ui/InvitePage";
 import Portal from "./ui/Portal";
 import Privacy from "./ui/Privacy";
+import TermsPage from "./ui/TermsPage";
+import LandingPage, { LOGIN_PATH } from "./ui/LandingPage";
 import { Door, fetchMe, messageOf, type Me, useShownPassword } from "./ui/Door";
-import { demoOffered, enterDemo, login } from "./lib/api";
+import { login } from "./lib/api";
 
 export default function App() {
   // Set once a link has opened the account: from then on this is the portal,
@@ -21,6 +24,7 @@ export default function App() {
   const [entered, setEntered] = useState<Me | null>(null);
   const path = location.pathname;
   if (path === "/soukromi") return <Privacy />;
+  if (path === "/podminky") return <TermsPage />;
   if (!entered && (path === "/registrace" || path === "/heslo")) {
     return (
       <InvitePage
@@ -47,8 +51,16 @@ function Home({ initial }: { initial: Me | null }) {
   switch (screen.kind) {
     case "loading":
       return null;
-    case "login":
-      return <Login onDone={(me) => setScreen({ kind: "home", me })} />;
+    case "login": {
+      // The stranger's first page is the landing; the form is one link on.
+      // Either way in lands on "/", so a reload after login shows the portal
+      // and not a login form over it.
+      const done = (me: Me) => {
+        history.replaceState(null, "", "/");
+        setScreen({ kind: "home", me });
+      };
+      return location.pathname === LOGIN_PATH ? <Login onDone={done} /> : <LandingPage onDone={done} />;
+    }
     case "home":
       return <Portal email={screen.me.email} demo={screen.me.demo} onLogout={() => setScreen({ kind: "login" })} />;
   }
@@ -60,14 +72,6 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
   const pw = useShownPassword();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Whether this deployment opens a demo patient to anyone. Asked rather
-  // than assumed: a link that leads nowhere is worse than no link, and most
-  // deployments name no demo account at all.
-  const [demo, setDemo] = useState(false);
-
-  useEffect(() => {
-    void demoOffered().then(setDemo);
-  }, []);
 
   /** One call, then the same question the three password doors ask. */
   async function enter(open: () => Promise<unknown>) {
@@ -115,20 +119,15 @@ function Login({ onDone }: { onDone: (me: Me) => void }) {
         </button>
       </form>
       <p className="sub">Zapomenuté heslo? Napište mi a pošlu vám odkaz.</p>
-      {demo && (
-        <div className="door-demo">
-          <button type="button" className="btn linkish" disabled={busy} onClick={() => void enter(enterDemo)}>
-            Zobrazit demo pacienta
-          </button>
-          <span className="hint">
-            Skutečné výsledky bez jména, bez přihlášení. Účet je společný — co do něj nahrajete,
-            uvidí i ostatní.
-          </span>
-        </div>
-      )}
-      <p className="door-foot sub">
+      {/* Each link its own box (flex, not inline text): at 360 the row wraps,
+          and an inline anchor that wraps covers the whole line. */}
+      <nav className="door-foot legal-foot" aria-label="Další cesty">
+        <a href="/">← Úvod</a>
+        <span aria-hidden="true">·</span>
+        <a href="/registrace">Registrovat</a>
+        <span aria-hidden="true">·</span>
         <a href="/soukromi">Co ukládáme, a co ne</a>
-      </p>
+      </nav>
     </Door>
   );
 }
