@@ -7,35 +7,34 @@
  * that drifts once, and this one is a promise to a stranger about their
  * medical record.
  *
- * The draft banner and the operator placeholder are the two things Ondřej
- * removes when he approves the texts: flip `LEGAL_DRAFT` to false, and put
- * the real identity into `OPERATOR`. Until then both pages say, at the top,
- * that they are drafts — a stranger who reads them should know that too.
+ * The draft banner and the operator placeholder were the two things Ondřej
+ * filled when he approved the texts on 20. 9. 2026: `LEGAL_DRAFT` went to
+ * false and `OPERATOR` got the real identity. To mark a revision as a draft
+ * again, flip the flag back — both pages then say so at the top.
  */
 
 /** True until the operator has approved the texts. One constant, both pages. */
-export const LEGAL_DRAFT = true;
+export const LEGAL_DRAFT = false;
 
 /** The sentence the banner shows while `LEGAL_DRAFT` holds. */
 export const DRAFT_NOTICE = "Návrh — čeká na schválení provozovatele.";
 
 /**
- * Who runs the service. Deliberately a placeholder: the operator's legal
- * identity, address and contact address are his to fill, not an agent's to
- * guess. Every occurrence on either page renders from these three, so
- * filling them here fills them everywhere.
+ * Who runs the service: a natural person, at his Czech address — the
+ * service is Czech and sells in CZK. Every occurrence on either page
+ * renders from these three, so a change here changes it everywhere.
  */
 export const OPERATOR = {
   /** Name, or entity name with its identification number. */
-  name: "[provozovatel]",
+  name: "Ondřej Černý",
   /** Seat or business address. */
-  address: "[adresa provozovatele]",
+  address: "Hákova 15, 109 00 Praha 15",
   /** The address for legal and data-protection requests. */
-  email: "[e-mail provozovatele]",
+  email: "andres.cerny@gmail.com",
 } as const;
 
-/** The date shown as the texts' version; set when the operator approves them. */
-export const LEGAL_VERSION = "[datum schválení]";
+/** The date shown as the texts' version; the day the operator approved them. */
+export const LEGAL_VERSION = "20. 9. 2026";
 
 /**
  * The consent to health data (GDPR art. 9(2)(a)), checked at registration.
