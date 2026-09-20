@@ -6,6 +6,8 @@ so two things only work on your machine: trying the app against real
 reports, and anything that touches Cloudflare. This file is the complete
 path from `git pull` to a working local Moje krev, and from there to a real
 deploy. The design and phase plan live in [plans/portal.md](plans/portal.md).
+The ordered list of what is still to be done by hand — logins, keys,
+migrations, the legal texts — is [moje-krev-go-live.md](moje-krev-go-live.md).
 
 ## One command, Claude does the rest
 
