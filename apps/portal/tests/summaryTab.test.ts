@@ -133,6 +133,20 @@ describe("Souhrn on a phone", () => {
     expect(html).toContain('aria-controls="sum-moves-worse"');
   });
 
+  it("draws the sketch inside the row's graf → link, above the word", () => {
+    // The phone's picture is the desktop's `Sparkline`, not a second
+    // drawing: one `.spark` svg per row in the Průběh cell and one in the
+    // link, and styles.css shows one of them. Inside the button, so the
+    // sketch and the word are one tap box.
+    const rows = html.match(/<tr>(?:(?!<\/tr>).)*<\/tr>/gs)!.filter((r) => r.includes("sum-go"));
+    expect(rows.length).toBe(8);
+    for (const row of rows) {
+      const link = row.match(/<button class="btn linkish sum-go"[^>]*>(.*?)<\/button>/s)![1];
+      expect(link).toMatch(/^<span class="sum-sketch"><svg class="spark"[\s\S]*<\/svg><\/span><span>graf →<\/span>$/);
+      expect((row.match(/<svg class="spark"/g) ?? []).length).toBe(2);
+    }
+  });
+
   it("does not say Více twice on one card", () => {
     // The per-row link opens the chart; the card's fold opens the list. When
     // both said "Více" they were the same word for two different things.
@@ -204,5 +218,88 @@ describe("the opening card, split on a phone", () => {
     expect(one).toContain("<dt>Poslední měření:</dt><dd>23. 9. 2024</dd>");
     expect(one).toContain("<dt>Doba sledování:</dt><dd>—</dd>");
     expect(one).toContain("<dt>Počet odběrů:</dt><dd>1</dd>");
+  });
+});
+
+/**
+ * The first impression: an account with one report. `summarizeChanges`
+ * needs two draws per parameter, so `records` is empty — and until
+ * 2026-09-19 the whole „Mimo rozmezí / V rozmezí" block was skipped with
+ * it, while the one report's Cholesterol sat out of range and Trendy said
+ * so. One draw has no change to show; it has values, flags and ranges.
+ */
+describe("Souhrn with one report", () => {
+  const ABOUT = { what: "Látka, kterou laboratoř měří.", usedFor: "Sleduje se při posouzení jater." };
+  const single = [report("r1", "2024-09-23", 2)];
+  const one = renderToStaticMarkup(
+    createElement(SummaryTab, {
+      reports: single,
+      trends: buildTrends(single, (cid) => cid ?? "", () => null, () => null),
+      aboutOf: () => ABOUT,
+    }),
+  );
+  const namesIn = (block: string) => [...block.matchAll(/class="btn linkish sum-open sum-name"[^>]*>([^<]+)</g)].map((m) => m[1]);
+
+  it("lists the report's rows, out of range first, in range after", () => {
+    expect(one).not.toContain("Zatím není dost měření");
+    expect(one).toContain('Mimo rozmezí <span class="n">5</span>');
+    expect(one).toContain('V rozmezí <span class="n">3</span>');
+    const outAt = one.indexOf('id="sum-table-out"');
+    const inAt = one.indexOf('id="sum-table-in"');
+    expect(outAt).toBeGreaterThan(-1);
+    expect(inAt).toBeGreaterThan(outAt);
+    // Furthest past its limit first — the order Trendy's shortcuts use.
+    expect(namesIn(one.slice(outAt, inAt))).toEqual(["Bilirubin", "AST", "ALT", "GGT", "ALP"]);
+    expect(namesIn(one.slice(inAt))).toEqual(["Kreatinin", "Sodík", "Urea"]);
+  });
+
+  it("shows each row's value, flag and printed range, and no change column", () => {
+    expect(one).toContain("↑ nad rozmezím");
+    expect(one).toContain("0,3–1,2");
+    expect(one).toContain(">1,90<");
+    expect(one).not.toContain("Změna od minule");
+    expect(one).not.toContain("předchozí měření");
+  });
+
+  it("says the block is the one report's values, and that changes wait for a second draw", () => {
+    expect(one).toContain("jediný odběr · 23. 9. 2024");
+    expect(one).toContain("Zatím jeden odběr. Změny vůči rozmezí se ukážou po druhém.");
+    expect(one).not.toContain("Jediný odběr —");
+    expect(one).not.toContain("Žádný přesun vůči referenčnímu rozmezí");
+  });
+
+  it("keeps the i after every parameter name", () => {
+    expect((one.match(/class="about-btn"/g) ?? []).length).toBe(8);
+  });
+
+  it("draws no sketch under one point, and keeps the link", () => {
+    // One measurement is not a course; the desktop has no Průběh column
+    // here and the phone gets no sketch in its place.
+    expect(one).not.toContain("sum-sketch");
+    expect(one).not.toContain('class="spark"');
+    expect((one.match(/graf →/g) ?? []).length).toBe(8);
+  });
+
+  it("qualifies the all-clear when the out-of-range readings are the withheld ones", () => {
+    // Every reading past its limit is one the app will not stand behind, so
+    // the block is empty — and an empty block is not "all in range"
+    // (docs/constraints.md: a filtered value is not a normal one).
+    const out = new Set(["Bilirubin", "AST", "ALT", "GGT", "ALP"]);
+    const withheldOne = renderToStaticMarkup(
+      createElement(SummaryTab, {
+        reports: single,
+        trends: buildTrends(single, (cid) => cid ?? "", (mm) => (out.has(mm.canonicalId ?? "") ? "ověřit" : null), () => null),
+      }),
+    );
+    expect(withheldOne).toContain('Mimo rozmezí <span class="n">0</span>');
+    expect(withheldOne).toContain("všechny ověřené parametry jsou v rozmezí");
+    expect(withheldOne).not.toContain("všechny parametry jsou v rozmezí");
+    expect(withheldOne).toContain("na ověření");
+  });
+
+  it("changes nothing for two reports", () => {
+    expect(html).toContain("Změna od minule");
+    expect(html).not.toContain("jediný odběr");
+    expect(html).not.toContain("Jediný odběr");
   });
 });

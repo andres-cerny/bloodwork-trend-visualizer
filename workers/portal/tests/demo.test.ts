@@ -19,7 +19,7 @@ const SECRET = "test-portal-secret";
 const DEMO_EMAIL = "andres@example.com";
 
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null }>;
+  users: Array<{ id: string; email: string; created_at: string; settings: string | null; session_epoch: number }>;
   reports: Array<{ id: string; user_id: string; payload: string }>;
   pages: Array<{ report_id: string; page_num: number; kv_key: string }>;
   shares: Array<{ token_hash: string; user_id: string }>;
@@ -78,6 +78,8 @@ function fakeD1(t: Tables): D1Database {
         t.shares = t.shares.filter((s) => s.user_id !== a[0]);
         return { results: [], changes: before - t.shares.length };
       }
+      case SQL.deleteMessagesForUser:
+        return { results: [], changes: 0 };
       case SQL.clearLoginFailures: {
         const before = t.failures.length;
         t.failures = t.failures.filter((f) => f.email !== a[0]);
@@ -85,6 +87,8 @@ function fakeD1(t: Tables): D1Database {
       }
       case SQL.unlinkInvites:
       case SQL.unlinkSynonyms:
+      case SQL.deleteDocumentsForUser:
+      case SQL.unlinkPurchases:
         return { results: [], changes: 0 };
       case SQL.deleteUser: {
         const before = t.users.length;
@@ -139,7 +143,7 @@ let pages: ReturnType<typeof fakeKv>;
 
 beforeEach(() => {
   tables = {
-    users: [{ id: "u-andres", email: DEMO_EMAIL, created_at: "2026-01-01T00:00:00Z", settings: null }],
+    users: [{ id: "u-andres", email: DEMO_EMAIL, created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 }],
     reports: [{ id: "r-1", user_id: "u-andres", payload: payload("r-1") }],
     pages: [{ report_id: "r-1", page_num: 1, kv_key: "u-andres/r-1/page_1" }],
     shares: [{ token_hash: "h", user_id: "u-andres" }],
@@ -281,5 +285,19 @@ describe("the line it may not cross", () => {
     const cookie = await enterDemo();
     tables.users = [];
     expect((await call(cookie, "GET", "/api/me")).status).toBe(401);
+  });
+
+  it("leaving the demo logs nobody out but the visitor: the owner's session stays", async () => {
+    // A logout moves the account's session_epoch — for the person's own
+    // login. A stranger clicking „Odhlásit se" in the demo must not end the
+    // owner's sessions on their own account; the fake has no branch for
+    // the bump, so reaching it here would throw.
+    const visitor = await enterDemo();
+    const owner = await ownLogin();
+    const out = await call(visitor, "POST", "/api/auth/logout");
+    expect(out.status).toBe(204);
+    expect(out.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect((await call(owner, "GET", "/api/me")).status).toBe(200);
+    expect(tables.users[0].session_epoch).toBe(0);
   });
 });

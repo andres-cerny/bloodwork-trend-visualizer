@@ -18,9 +18,12 @@ may use a system font**. This is not aesthetic:
   `4,11-5,60` reads back as `4,115,60` — a range that parses as a number.
 - Arial Unicode embeds 23 MB per fixture.
 
-Same rule for `scripts/make_layout_fixtures.py`, which is the only generator for
-the nine committed fixture PDFs in `packages/lab-core/tests/fixtures/`. It is
-not in CI, but its outputs are, and `npm test` reads them.
+Same rule for `scripts/make_layout_fixtures.py`, the only generator for the
+committed fixture PDFs in `packages/lab-core/tests/fixtures/`, and for
+`scripts/make_lab_fixtures.py`, which writes the four synthetic laboratories
+under `fixtures/labs/<lab>/` (report.pdf + truth.json) that `npm run
+bench:mapping` scores. Neither is in CI, but their outputs are, and `npm test`
+reads them.
 
 ## The parsing contract exists twice
 

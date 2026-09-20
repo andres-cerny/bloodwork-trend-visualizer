@@ -32,21 +32,50 @@
   // string as moje-krev-extract's SESSION_SECRET.
   "services": [{ "binding": "EXTRACT", "service": "moje-krev-extract" }],
 
+  // Workers AI, for the help desk's triage only (src/triage.ts): GLM 5.3
+  // Flash reads a message beside the account's last refusals and posts a
+  // guess under it in Telegram, marked as a guess. Same host, free tier, no
+  // new sub-processor. Remove this block and the guess is simply not made.
+  "ai": { "binding": "AI" },
+
+  // The scheduled check (src/watch.ts): is the shell up, is the extractor
+  // up, how much has it spent. Every 15 minutes; posts to TELEGRAM_OPS_CHAT
+  // only when something changes, and logs whether or not the bot exists.
+  "triggers": { "crons": ["*/15 * * * *"] },
+
   "vars": {
     // Session length. Days, not seconds: the portal's session is a login,
     // not a Turnstile page allowance.
     "SESSION_TTL_DAYS": "90",
-    // Per person, per calendar month. The text-layer path costs fractions of
-    // a cent per page, so this is a blast-radius cap, not a quota anyone
-    // should meet.
-    "PORTAL_USD_LIMIT": "5",
+    // Per person, per calendar month — the fuse behind the document count
+    // (src/allowance.ts), not the thing anyone is meant to reach. Sized
+    // above what a paid account can legitimately spend in one month: the
+    // free 5 plus a 15-package is 20 documents, 6 photo pages each at about
+    // 5 ¢ a page is 6 USD; the text path is fractions of a cent. A person
+    // who trips this sees the frozen sentence and waits for the month.
+    "PORTAL_USD_LIMIT": "10",
     // Real Czech reports are one to three pages — the speed bench read 33
     // pages out of 30 files. Six leaves room for a long one and stops a
     // hundred-page PDF from spending a month's ledger in a single upload;
     // beyond it `prepareFile` truncates and the upload log says so
     // ("Zpracováno prvních … zůstalo nepřečteno"), so nothing is dropped
     // silently. Raise it the day a real report needs it.
-    "MAX_PAGES_PER_REPORT": "6"
+    "MAX_PAGES_PER_REPORT": "6",
+    // The open door (src/signup.ts). "false" — the state of this file — is
+    // the invite-only worker: a stranger can register only with a code, the
+    // login form asks for no Turnstile, and the mail routes answer 404.
+    // Flipping it is Ondřej's step, after RESEND_API_KEY, MAIL_FROM and
+    // TURNSTILE_SECRET_KEY are set (docs/moje-krev-handoff.md). Never set
+    // OPEN_SIGNUP_DEV_BYPASS here — a test refuses this file if it is.
+    "OPEN_SIGNUP": "false",
+    // The hostnames a Turnstile token may have been solved on. The dev
+    // domain for now; the real domain replaces it, and localhost is never
+    // listed (the local app runs without a site key and with the bypass).
+    "TURNSTILE_HOSTNAMES": "moje-krev.andres-cerny.workers.dev",
+    // The shell's public origin, which the scheduled check probes end to
+    // end (GET / and GET /api/processors). A var, not a secret: it is the
+    // address on the door. A real domain changes it here.
+    "APP_URL": "https://moje-krev.andres-cerny.workers.dev"
   },
 
   "observability": { "enabled": true }
@@ -58,6 +87,21 @@
   // an address stays out of git; unset (the default) and the link is not
   // shown and its two routes answer 404. docs/moje-krev-handoff.md says what
   // a visitor can then do, and what they cannot.
-  // RESEND_API_KEY and MAIL_FROM may still be set from the magic-link days;
-  // nothing reads them.
+  // With OPEN_SIGNUP "true" three more are read (src/signup.ts, src/mail.ts):
+  // RESEND_API_KEY and MAIL_FROM, which send the registration and
+  // forgotten-password links — without the key both forms answer 503, and
+  // the link is logged only under the local dev bypass —
+  // and TURNSTILE_SECRET_KEY, which checks the token the three public forms
+  // post; unset, every token is refused.
+  // The shop (src/stripe.ts) opens when all four are set, and not before:
+  // STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_5, STRIPE_PRICE_15
+  // (the price ids of the 5-for-49-Kč and 15-for-99-Kč packages, in CZK).
+  // Unset, POST /api/buy answers 503 shop_closed and the sheet says so;
+  // docs/moje-krev-handoff.md walks the four.
+  //
+  // TELEGRAM_BOT_TOKEN, TELEGRAM_HELPDESK_CHAT and TELEGRAM_OPS_CHAT switch
+  // the help desk's forwarding and the scheduled check's alerts on
+  // (src/telegram.ts); unset, messages are stored and checks are logged.
+  // TURNSTILE_SECRET_KEY with TURNSTILE_HOSTNAMES guards the logged-out
+  // help-desk form. docs/moje-krev-handoff.md, „Help desk a hlídač".
 }

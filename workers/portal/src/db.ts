@@ -11,7 +11,7 @@
  * pair.
  */
 export const SQL = {
-  inviteByCode: "SELECT code, used_at, expires_at, user_id FROM invites WHERE code = ?1",
+  inviteByCode: "SELECT code, used_at, expires_at, user_id, email, consent_at FROM invites WHERE code = ?1",
   // Spent means used_at is set. used_by is unlinked when an account is
   // deleted (the row it referenced is gone), and a code must not come back to
   // life because of that. The expiry is checked here too, so a link that ran
@@ -19,17 +19,42 @@ export const SQL = {
   burnInvite:
     "UPDATE invites SET used_by = ?2, used_at = ?3 WHERE code = ?1 AND used_at IS NULL AND (expires_at IS NULL OR expires_at > ?3)",
   userByEmail:
-    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd FROM users WHERE email = ?1",
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch, doc_allowance, doc_used FROM users WHERE email = ?1",
   userById:
-    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd FROM users WHERE id = ?1",
+    "SELECT id, email, created_at, password_hash, password_salt, password_iters, budget_usd, session_epoch, doc_allowance, doc_used FROM users WHERE id = ?1",
   insertUser:
     "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+  // The account a mailed link opens (src/signup.ts): the address is the one
+  // the link went to, so it is verified at birth, and the consent is the one
+  // given on the form that asked for the mail.
+  insertVerifiedUser:
+    "INSERT INTO users (id, email, created_at, password_hash, password_salt, password_iters, consent_at, email_verified_at) " +
+    "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
   setPassword: "UPDATE users SET password_hash = ?2, password_salt = ?3, password_iters = ?4 WHERE id = ?1",
+  // End every session of the account: cookies carry the number they were
+  // minted under, and requireSession refuses one that is not the row's.
+  // RETURNING, so the caller can mint the one session that goes on living
+  // (the set-password link's) under the new number without a second read.
+  bumpSessionEpoch: "UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?1 RETURNING session_epoch",
   deleteUser: "DELETE FROM users WHERE id = ?1",
   // The per-person ceiling, set by the operator against an e-mail — the id
   // is not something they have to hand. NULL puts the account back on
   // PORTAL_USD_LIMIT; tools/scripts/moje-krev-budget.mjs writes both.
   setUserBudget: "UPDATE users SET budget_usd = ?2 WHERE email = ?1",
+
+  // The codes the worker mails (src/signup.ts). Bound to an account when the
+  // address has one — a set-password link, exactly what --email mints — and
+  // otherwise carrying the address and the consent, so using it opens the
+  // account for that address and no other.
+  insertBoundInvite: "INSERT INTO invites (code, note, created_at, expires_at, user_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+  insertPendingInvite:
+    "INSERT INTO invites (code, note, created_at, expires_at, email, consent_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+
+  // Mails asked for per IP hash (src/ratelimit.ts): the same shape as the
+  // login failures, one row per request, pruned as they age out of the day.
+  countSignupAttempts: "SELECT COUNT(*) AS n FROM signup_attempts WHERE ip_hash = ?1 AND at > ?2",
+  insertSignupAttempt: "INSERT INTO signup_attempts (ip_hash, at) VALUES (?1, ?2)",
+  pruneSignupAttempts: "DELETE FROM signup_attempts WHERE at < ?1",
 
   // Login failures per e-mail, whether or not the e-mail has an account:
   // the lockout must not be the one place that says which addresses exist.
@@ -89,7 +114,66 @@ export const SQL = {
   // The taught spellings outlive the teacher: the fact is the app's, the
   // link to the account is what the deletion removes.
   unlinkSynonyms: "UPDATE synonyms SET taught_by = NULL WHERE taught_by = ?1",
+  deleteDocumentsForUser: "DELETE FROM documents WHERE user_id = ?1",
+  // A payment's record stays; whose it was does not.
+  unlinkPurchases: "UPDATE purchases SET user_id = NULL WHERE user_id = ?1",
+
+  // Documents (src/allowance.ts). Inserting the row is the claim on the id —
+  // OR IGNORE and meta.changes say whether this call was the one that made
+  // it — and the conditional UPDATE on the user row is the claim on the
+  // slot: it moves doc_used only while one is left.
+  insertDocument: "INSERT OR IGNORE INTO documents (id, user_id, created_at) VALUES (?1, ?2, ?3)",
+  documentById: "SELECT id, user_id, pages_sent, pages_read, pages_failed, released_at FROM documents WHERE id = ?1",
+  deleteDocument: "DELETE FROM documents WHERE id = ?1",
+  takeDocument: "UPDATE users SET doc_used = doc_used + 1 WHERE id = ?1 AND doc_used < doc_allowance",
+  // One page more on this document, if it is the owner's, still open, and
+  // under the page cap. Zero changes is any of the three, refused.
+  sendPage:
+    "UPDATE documents SET pages_sent = pages_sent + 1 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL AND pages_sent < ?3",
+  notePageRead: "UPDATE documents SET pages_read = pages_read + 1 WHERE id = ?1",
+  notePageFailed: "UPDATE documents SET pages_failed = pages_failed + 1 WHERE id = ?1",
+  // The slot goes back only for a document nothing was read from, and only
+  // once every page sent has come back failed — a page still out at the
+  // extractor (sent, neither read nor failed) keeps the slot, because its
+  // read may yet land. The conditional UPDATE is what makes a second release,
+  // one after a read, or one fired while pages are in flight change nothing.
+  releaseDocument:
+    "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND pages_read = 0 AND pages_failed = pages_sent AND released_at IS NULL",
+  giveBackDocument: "UPDATE users SET doc_used = doc_used - 1 WHERE id = ?1 AND doc_used > 0",
+  allowanceForUser: "SELECT doc_allowance, doc_used FROM users WHERE id = ?1",
+
+  // Purchases (src/stripe.ts): the event id is the idempotency key.
+  insertPurchase:
+    "INSERT OR IGNORE INTO purchases (event_id, user_id, package, amount_czk, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+  creditDocuments: "UPDATE users SET doc_allowance = doc_allowance + ?2 WHERE id = ?1",
+
+  // „Napište nám" (src/helpdesk.ts): stored whole, read by the operator with
+  // tools/scripts/moje-krev-helpdesk.mjs. The worker never reads one back.
+  insertMessage:
+    "INSERT INTO messages (id, created_at, user_id, email, text, report_id, user_agent) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+  // The account's messages go with it; the fact that someone wrote stays
+  // useless without the address, so the row is deleted, not unlinked.
+  deleteMessagesForUser: "DELETE FROM messages WHERE user_id = ?1",
+  // The privacy page's „do odpovědi a 12 měsíců po ní": an answered message
+  // goes a year after the answer (src/watch.ts); an open one stays.
+  pruneAnsweredMessages: "DELETE FROM messages WHERE answered_at IS NOT NULL AND answered_at < ?1",
+
+  // Refusals the worker answered (src/events.ts): a route, a status, a code,
+  // a hash of the account. Read newest-first beside a help-desk message, and
+  // pruned by the scheduled check after 30 days.
+  insertEvent:
+    "INSERT INTO events (id, at, route, status, code, user_hash, request_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+  eventsForUser: "SELECT at, route, status, code FROM events WHERE user_hash = ?1 ORDER BY at DESC LIMIT 20",
+  recentEvents: "SELECT at, route, status, code FROM events ORDER BY at DESC LIMIT 20",
+  pruneEvents: "DELETE FROM events WHERE at < ?1",
 } as const;
+
+export interface EventRow {
+  at: number;
+  route: string;
+  status: number;
+  code: string | null;
+}
 
 export interface ReportRow {
   id: string;
@@ -116,6 +200,22 @@ export interface UserRow {
    * PORTAL_USD_LIMIT. Zero is a value, not an absence — see `limitFor`.
    */
   budget_usd: number | null;
+  /** The generation of sessions that is live; a cookie names one. */
+  session_epoch: number;
+  /** Documents this account may open in all: 5 free plus what was bought or granted. */
+  doc_allowance: number;
+  /** Documents it has opened for extraction; never lowered by a deletion. */
+  doc_used: number;
+}
+
+export interface DocumentRow {
+  id: string;
+  user_id: string;
+  pages_sent: number;
+  pages_read: number;
+  /** Pages the extractor answered with anything but a read; sent − read − failed is in flight. */
+  pages_failed: number;
+  released_at: string | null;
 }
 
 export interface InviteRow {
@@ -125,6 +225,10 @@ export interface InviteRow {
   expires_at: string | null;
   /** Set on a set-password link; null on a sign-up link. */
   user_id: string | null;
+  /** The address a mailed sign-up code went to; null on an operator's code. */
+  email: string | null;
+  /** When that address consented on the registration form; null otherwise. */
+  consent_at: string | null;
 }
 
 export interface AiShareRow {

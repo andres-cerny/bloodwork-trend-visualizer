@@ -4,8 +4,9 @@
  * from App.tsx so the link page and the door can both import it without
  * importing each other.
  */
-import { useState } from "react";
-import { ApiError } from "../lib/api";
+import { useEffect, useState } from "react";
+import { ApiError, signupOpen } from "../lib/api";
+import { TURNSTILE_FAILED, type TurnstileGate } from "../lib/turnstile";
 
 export interface Me {
   /** Null in the demo: the address is the owner's login, and no screen
@@ -38,10 +39,80 @@ export function Door({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * The links a door card ends on, one nav for every card. Each link is a
+ * box of its own, one per row (styles.css `.door .legal-foot`) — not inline
+ * text in a paragraph, where an anchor is 21px tall (under the 24px floor
+ * the sweep holds every link to), and not a dotted row either: the card is
+ * ~316px inside at every width, three links never fit one row, and the
+ * wrap left a dot dangling at the line's end.
+ */
+export function DoorFoot({ children }: { children: React.ReactNode }) {
+  return (
+    <nav className="door-foot legal-foot" aria-label="Další cesty">
+      {children}
+    </nav>
+  );
+}
+
 /** What a failed request says to the reader; the worker's sentence when it has one. */
 export function messageOf(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   return "Spojení se nezdařilo. Zkuste to prosím znovu.";
+}
+
+/**
+ * Where the Turnstile widget renders, when there is a site key to render it
+ * with. Without one the box is not drawn at all — an empty frame under a
+ * form would read as something missing. The box has no height of its own:
+ * the widget sets its own when it renders, and a fixed 65px reserved ahead
+ * of it was 65px of nothing whenever the script did not arrive. When it
+ * did not arrive in time (lib/turnstile.ts), one muted sentence says so.
+ */
+export function TurnstileBox({ gate }: { gate: TurnstileGate }) {
+  if (!gate.available) return null;
+  return (
+    <>
+      <div ref={gate.boxRef} className="door-turnstile" />
+      {gate.failed && (
+        <p className="hint door-turnstile-failed" role="status">
+          {TURNSTILE_FAILED}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * Whether this deployment lets a stranger register. Asked rather than
+ * assumed, like the demo link: most deployments are invite-only and must
+ * show no door that leads to a 404.
+ */
+export function useSignupOpen(): boolean {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    void signupOpen().then(setOpen);
+  }, []);
+  return open;
+}
+
+/**
+ * The two other ways off the login form. Open, they are the registration
+ * page and the forgotten-password page; closed, the one sentence the
+ * invite-only door has always had.
+ */
+export function DoorWays({ open }: { open: boolean }) {
+  if (!open) return <p className="sub">Zapomenuté heslo? Napište mi a pošlu vám odkaz.</p>;
+  return (
+    <div className="door-ways">
+      <a className="btn linkish" href="/registrace">
+        Registrovat
+      </a>
+      <a className="btn linkish" href="/zapomenute-heslo">
+        Zapomenuté heslo
+      </a>
+    </div>
+  );
 }
 
 /**

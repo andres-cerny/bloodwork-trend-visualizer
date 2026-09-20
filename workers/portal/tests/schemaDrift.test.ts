@@ -8,7 +8,7 @@
  * but the checker: that it reads schema.sql correctly, and that it reports the
  * one shape of drift that caused the outage.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { columnsFromResultSets, schemaDrift, tablesFromSchema } from "../../../tools/scripts/check-schema.mjs";
@@ -21,10 +21,15 @@ describe("reading schema.sql", () => {
   it("finds every table the worker uses", () => {
     expect([...tables.keys()].sort()).toEqual([
       "ai_shares",
+      "documents",
+      "events",
       "invites",
       "login_failures",
+      "messages",
+      "purchases",
       "report_pages",
       "reports",
+      "signup_attempts",
       "synonyms",
       "users",
     ]);
@@ -41,6 +46,11 @@ describe("reading schema.sql", () => {
       "password_salt",
       "password_iters",
       "budget_usd",
+      "session_epoch",
+      "consent_at",
+      "email_verified_at",
+      "doc_allowance",
+      "doc_used",
     ]);
   });
 
@@ -56,6 +66,86 @@ describe("reading schema.sql", () => {
       "CREATE TABLE t (\n  id TEXT PRIMARY KEY,\n  uniqueness TEXT,\n  PRIMARY KEY (id)\n);",
     );
     expect(t.get("t")).toEqual(["id", "uniqueness"]);
+  });
+});
+
+/**
+ * The live database is moved by migrations/ and a fresh one by schema.sql, and
+ * the checker compares the live one to schema.sql alone — so a column added
+ * to a migration and forgotten in schema.sql would pass check:schema and be
+ * missing from every fresh database, and the reverse would pass here and
+ * take login down live. Every ALTER and every CREATE in every migration
+ * must therefore name something schema.sql declares.
+ */
+describe("the migrations and schema.sql agree", () => {
+  const declared = tablesFromSchema(SCHEMA);
+  const dir = join(import.meta.dirname, "../migrations");
+  const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+
+  it("has the open-signup migration", () => {
+    expect(files).toContain("2026-09-19-open-signup.sql");
+  });
+
+  for (const file of files) {
+    it(`${file} adds only columns and tables schema.sql declares`, () => {
+      const sql = readFileSync(join(dir, file), "utf-8").replace(/--[^\n]*/g, "");
+      for (const [, table, column] of sql.matchAll(/ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)/gi)) {
+        expect(declared.get(table), `${file}: table ${table}`).toBeDefined();
+        expect(declared.get(table), `${file}: ${table}.${column}`).toContain(column);
+      }
+      for (const [table, cols] of tablesFromSchema(sql)) {
+        expect(declared.get(table), `${file}: table ${table}`).toEqual(cols);
+      }
+    });
+  }
+});
+
+/**
+ * schema.sql and the migration that moves the live database to it are two
+ * statements of one shape; they have drifted before (2026-09-12). So the
+ * documents migration is read with the same parser and held to the schema:
+ * every table it creates is declared with the same columns, and every
+ * column it adds to users is declared there.
+ */
+describe("the documents migration says what schema.sql says", () => {
+  const MIGRATION = readFileSync(join(import.meta.dirname, "../migrations/2026-09-19-documents.sql"), "utf-8");
+  const declared = tablesFromSchema(SCHEMA);
+
+  it("creates documents and purchases exactly as declared", () => {
+    const created = tablesFromSchema(MIGRATION);
+    expect([...created.keys()].sort()).toEqual(["documents", "purchases"]);
+    for (const [table, cols] of created) expect(declared.get(table), table).toEqual(cols);
+  });
+
+  it("gives documents the three page counters, each starting at zero, in both files", () => {
+    // pages_failed is what lets a release tell "every page came back failed"
+    // from "a page is still out at the extractor"; without the default an
+    // existing row would compare NULL and never release.
+    const bare = (sql: string) => sql.replace(/--[^\n]*/g, "").replace(/\s+/g, " ");
+    expect(tablesFromSchema(SCHEMA).get("documents")).toEqual(["id", "user_id", "created_at", "pages_sent", "pages_read", "pages_failed", "released_at"]);
+    for (const col of ["pages_sent", "pages_read", "pages_failed"]) {
+      expect(bare(SCHEMA), `schema.sql ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);
+      expect(bare(MIGRATION), `migration ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);
+    }
+  });
+
+  it("adds to users the two columns schema.sql declares, with the same defaults", () => {
+    const added = [...MIGRATION.matchAll(/ALTER TABLE users ADD COLUMN (\w+)\s+([^;]+);/g)].map((m) => [m[1], m[2].replace(/\s+/g, " ")]);
+    expect(added.map(([c]) => c)).toEqual(["doc_allowance", "doc_used"]);
+    for (const [col, def] of added) {
+      expect(declared.get("users")).toContain(col);
+      expect(SCHEMA.replace(/--[^\n]*/g, "").replace(/\s+/g, " ")).toContain(`${col} ${def}`);
+    }
+  });
+
+  it("is the drift the checker would name on a database that has not had it", () => {
+    const live = new Map(
+      [...declared].filter(([t]) => t !== "documents" && t !== "purchases").map(([t, c]) => [t, c.filter((x) => !x.startsWith("doc_"))]),
+    );
+    expect(schemaDrift(declared, live)).toEqual({
+      missingTables: ["documents", "purchases"],
+      missingColumns: ["users.doc_allowance", "users.doc_used"],
+    });
   });
 });
 
@@ -129,7 +219,7 @@ describe("reading wrangler's reply", () => {
   it("refuses a reply it cannot match to its questions", () => {
     // Fewer sets than statements, or no array at all, is a schema that was
     // not read — never a pass.
-    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 7 result sets, got 6/);
+    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 12 result sets, got 11/);
     expect(() => columnsFromResultSets(tables, { error: "SQLITE_AUTH" })).toThrow(/got object/);
   });
 });

@@ -23,6 +23,7 @@ interface UserT {
   password_hash: string | null;
   password_salt: string | null;
   password_iters: number | null;
+  session_epoch: number;
 }
 interface InviteT {
   code: string;
@@ -30,6 +31,9 @@ interface InviteT {
   used_at: string | null;
   expires_at: string | null;
   user_id: string | null;
+  /** Both null on every code the operator mints; the mailed ones are signup.test.ts. */
+  email: string | null;
+  consent_at: string | null;
 }
 interface Tables {
   users: UserT[];
@@ -69,8 +73,15 @@ function fakeD1(t: Tables): D1Database {
           password_hash: a[3] as string,
           password_salt: a[4] as string,
           password_iters: a[5] as number,
+          session_epoch: 0,
         });
         return { results: [], changes: 1 };
+      case SQL.bumpSessionEpoch: {
+        const u = t.users.find((u) => u.id === a[0]);
+        if (!u) return { results: [], changes: 0 };
+        u.session_epoch += 1;
+        return { results: [{ session_epoch: u.session_epoch }], changes: 1 };
+      }
       case SQL.setPassword: {
         const u = t.users.find((u) => u.id === a[0]);
         if (!u) return { results: [], changes: 0 };
@@ -143,6 +154,8 @@ const invite = (code: string, extra: Partial<InviteT> = {}): InviteT => ({
   used_at: null,
   expires_at: inHours(24),
   user_id: null,
+  email: null,
+  consent_at: null,
   ...extra,
 });
 
@@ -251,6 +264,7 @@ describe("login", () => {
       password_hash: null,
       password_salt: null,
       password_iters: null,
+      session_epoch: 0,
     });
     const res = await login("old@example.com", "");
     const unknown = await login("nikdo@example.com", "");
@@ -295,6 +309,7 @@ describe("set-password link", () => {
       password_hash: rec.hash,
       password_salt: rec.salt,
       password_iters: rec.iters,
+      session_epoch: 0,
     });
     tables.reports.push(
       { id: "r-1", user_id: "u-a", payload: '{"id":"r-1","measurements":[1]}' },
@@ -373,6 +388,81 @@ describe("sessions", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
   });
+});
+
+/**
+ * The cookie is a stateless signed claim, and until 2026-09-19 a copy of it
+ * kept answering /api/me for ninety days after „Odhlásit se" and after a
+ * set-password link — the browser forgot it, the worker did not. Every
+ * cookie now carries the account's session_epoch and is refused when the
+ * row's has moved on; logout, a set-password link and (with the row) the
+ * account's deletion move it.
+ */
+describe("a session ends when it should", () => {
+  const me = (cookie: string) => worker.fetch(get("/api/me", { cookie }), env);
+
+  it("logout: the cookie the browser was told to drop is a 401 if it comes back", async () => {
+    const cookie = await signup();
+    expect((await me(cookie)).status).toBe(200);
+    const out = await worker.fetch(post("/api/auth/logout", {}, { cookie }), env);
+    expect(out.status).toBe(204);
+    expect(out.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect((await me(cookie)).status).toBe(401);
+    // A fresh login is a fresh session.
+    const again = await login("andres@example.com", PASSWORD);
+    expect(again.status).toBe(200);
+    expect((await me(again.headers.get("set-cookie")!.split(";")[0])).status).toBe(200);
+  });
+
+  it("logout ends every session of the account, not only the one that clicked", async () => {
+    const first = await signup();
+    const second = (await login("andres@example.com", PASSWORD)).headers.get("set-cookie")!.split(";")[0];
+    expect((await me(second)).status).toBe(200);
+    await worker.fetch(post("/api/auth/logout", {}, { cookie: first }), env);
+    expect((await me(first)).status).toBe(401);
+    expect((await me(second)).status).toBe(401);
+  });
+
+  it("logout with a cookie already ended moves nobody's epoch — an old copy cannot log the owner out again", async () => {
+    const stale = await signup();
+    await worker.fetch(post("/api/auth/logout", {}, { cookie: stale }), env);
+    const live = (await login("andres@example.com", PASSWORD)).headers.get("set-cookie")!.split(";")[0];
+    expect((await me(live)).status).toBe(200);
+    const out = await worker.fetch(post("/api/auth/logout", {}, { cookie: stale }), env);
+    expect(out.status).toBe(204);
+    expect((await me(live)).status).toBe(200);
+  });
+
+  it("logout without a valid cookie still answers 204 and moves nobody's epoch", async () => {
+    const cookie = await signup();
+    const out = await worker.fetch(post("/api/auth/logout", {}, { cookie: "mojekrev_session=nonsense" }), env);
+    expect(out.status).toBe(204);
+    expect((await me(cookie)).status).toBe(200);
+  });
+
+  it("a set-password link ends the sessions the old password opened", async () => {
+    const cookie = await signup();
+    tables.invites.push(invite("HESLO-X", { user_id: tables.users[0].id }));
+    const res = await worker.fetch(post("/api/auth/password", { code: "HESLO-X", password: "nové heslo 2" }), env);
+    expect(res.status).toBe(200);
+    expect((await me(cookie)).status).toBe(401);
+    // The session the link itself opened is a live one.
+    expect((await me(res.headers.get("set-cookie")!.split(";")[0])).status).toBe(200);
+  });
+
+  it("a cookie minted for an earlier epoch, or without one, is a 401", async () => {
+    await signup();
+    const uid = tables.users[0].id;
+    tables.users[0].session_epoch = 3;
+    const stale = await mintCookieToken(SECRET, uid, 3600, false, 2);
+    const current = await mintCookieToken(SECRET, uid, 3600, false, 3);
+    const ahead = await mintCookieToken(SECRET, uid, 3600, false, 4);
+    expect((await me(`mojekrev_session=${stale}`)).status).toBe(401);
+    expect((await me(`mojekrev_session=${ahead}`)).status).toBe(401);
+    expect((await me(`mojekrev_session=${current}`)).status).toBe(200);
+  });
+  // Deletion: the row goes, and with it the epoch — account.test.ts, "makes
+  // the account's cookie a 401 from the next request on".
 });
 
 describe("the invite script", () => {

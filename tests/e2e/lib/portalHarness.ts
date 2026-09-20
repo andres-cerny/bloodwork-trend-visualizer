@@ -36,8 +36,13 @@ function demoReports(): { reports: unknown[]; pages: Map<string, string> } {
   return { reports, pages };
 }
 
+/** Three of five used: the chip has numbers on both sides. */
+const ALLOWANCE = { free: 5, purchased: 0, used: 3, remaining: 2 };
+
 function fakeApi(port: number): Promise<Server> {
   const { reports, pages } = demoReports();
+  // Per page load — every scene opens a fresh page, and its load is the first call.
+  let mapCalls = 0;
   const json = (res: import("node:http").ServerResponse, data: unknown, status = 200) => {
     res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
     res.end(JSON.stringify(data));
@@ -57,21 +62,42 @@ function fakeApi(port: number): Promise<Server> {
         // screens a family member sees, deletions and address included.
         return json(res, { email: "audit@example.com", createdAt: "2026-01-01T00:00:00Z", demo: false });
       case "GET /api/status":
-        return json(res, { budget: { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" }, maxPages: 30 });
+        return json(res, {
+          budget: { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" },
+          maxPages: 30,
+          allowance: ALLOWANCE,
+        });
+      case "GET /api/allowance":
+        return json(res, ALLOWANCE);
+      // Opening a document takes nothing here: the sweep reads, it does not
+      // spend. The answer has the shape the upload path expects.
+      case "POST /api/documents":
+        return json(res, { ok: true, already: false, allowance: ALLOWANCE });
+      // The shop with no Stripe account behind it: the sheet lays out both
+      // packages and says it is not open yet.
+      case "POST /api/buy":
+        return json(res, { error: "shop_closed", message: "Obchod zatím není otevřený." }, 503);
       case "GET /api/settings":
         return json(res, {});
       case "GET /api/reports":
+        mapCalls = 0;
         return json(res, reports);
       // Nobody has taught anything: the shipped catalog is what the sweep sees.
       case "GET /api/synonyms":
         return json(res, []);
       // The mapping model, answering for the one blood name the demo leaves
-      // unmapped: a catalog id whose unit and interval agree, so the screen
-      // applies it and shows the applied banner.
+      // unmapped. It runs on its own at load, so the load's call (the first
+      // after GET /api/reports) answers "medium": the name stays on its card
+      // with the model's suggestion under it, which is what the mapping
+      // scenes lay out. "Zeptat se znovu" asks a second time and gets "high"
+      // with a unit and interval that agree, so the screen files it and shows
+      // the applied banner with its way back.
       case "POST /api/map":
+        mapCalls += 1;
         return json(res, {
+          model: "claude-haiku-4-5",
           suggestions: [
-            { rawName: "S_Homocystein tot.", decision: "catalog", canonicalId: "homocystein", proposed: null, reason: "Zkratka tot. znamená celkový homocystein.", confidence: "high" },
+            { rawName: "S_Homocystein tot.", decision: "catalog", canonicalId: "homocystein", proposed: null, reason: "Zkratka tot. znamená celkový homocystein.", confidence: mapCalls === 1 ? "medium" : "high" },
           ],
           costUsd: 0.004,
           budget: { spentUsd: 0.124, budgetUsd: 5, frozen: false, remainingUsd: 4.876, month: "2026-08" },
@@ -79,6 +105,9 @@ function fakeApi(port: number): Promise<Server> {
       case "POST /api/auth/logout":
         res.writeHead(204);
         return res.end();
+      // „Napište nám": the message is acknowledged and kept nowhere.
+      case "POST /api/helpdesk":
+        return json(res, { ok: true });
       // AI konzultace: no link on arrival; minting answers a link-shaped URL
       // with a 24-hour expiry. Nothing is stored, nothing is fetched.
       case "GET /api/ai-share":
@@ -93,6 +122,18 @@ function fakeApi(port: number): Promise<Server> {
         return json(res, { kind: "signup" });
       case "GET /api/auth/invite/audit-heslo":
         return json(res, { kind: "password" });
+      // The link the worker mails to an address with no account: it names
+      // the address, so the form asks for the password alone.
+      case "GET /api/auth/invite/audit-email":
+        return json(res, { kind: "signup", email: "audit@example.com" });
+      // The open door: this deployment registers strangers, and the two
+      // forms that mail a link answer as the worker does — the same ok
+      // whether or not the address has an account. No mail goes anywhere.
+      case "GET /api/auth/signup":
+        return json(res, { open: true });
+      case "POST /api/auth/register":
+      case "POST /api/auth/forgot":
+        return json(res, { ok: true });
     }
     if (req.method === "GET" && url.pathname.startsWith("/api/auth/invite/")) {
       return json(res, { error: "invite_invalid", message: "Odkaz už neplatí. Napište mi a pošlu nový." }, 404);

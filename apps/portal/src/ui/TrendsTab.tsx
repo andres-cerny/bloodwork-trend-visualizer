@@ -10,6 +10,7 @@
  * opens this for.
  */
 import { useEffect, useMemo, useState } from "react";
+import AboutParam, { type About } from "./AboutParam";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
 import { TrendChart } from "@bw/ui-kit";
 import Flag from "./Flag";
@@ -56,6 +57,7 @@ export default function TrendsTab({
   unmappedNames = [],
   open = null,
   onVerify,
+  aboutOf,
 }: {
   trends: Map<string, Trend>;
   unmappedNames?: string[];
@@ -63,6 +65,8 @@ export default function TrendsTab({
   onVerify?: (reportId: string, rawName: string) => void;
   /** A parameter another screen asked to see; `seq` makes a repeat a new ask. */
   open?: { id: string; seq: number } | null;
+  /** The catalog's two sentences about a parameter, for the "i" after its name. */
+  aboutOf?: (canonicalId: string) => About | undefined;
 }) {
   const unmappedCount = unmappedNames.length;
   const all = useMemo(() => sortTrends([...trends.values()]), [trends]);
@@ -165,6 +169,7 @@ export default function TrendsTab({
             <div className="card trend-card" key={t.canonicalId}>
               <h3>
                 <span>{t.displayName}</span>
+                <AboutParam name={t.displayName} about={aboutOf?.(t.canonicalId)} />
                 {t.unit && <span className="unit">{prettyUnit(t.unit)}</span>}
                 <span className="spacer" />
                 {outNow(t) && <span className="chip alert">mimo rozmezí</span>}

@@ -23,7 +23,7 @@ interface ShareRow {
   revoked_at: number | null;
 }
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null }>;
+  users: Array<{ id: string; email: string; created_at: string; settings: string | null; session_epoch: number }>;
   shares: ShareRow[];
   reports: Array<{ id: string; user_id: string }>;
   pages: Array<{ report_id: string; kv_key: string }>;
@@ -69,6 +69,8 @@ function fakeD1(t: Tables): D1Database {
         t.shares = t.shares.filter((s) => s.user_id !== a[0]);
         return { results: [], changes: before - t.shares.length };
       }
+      case SQL.deleteMessagesForUser:
+        return { results: [], changes: 0 };
       // The rest of the account cascade, so DELETE /api/account runs whole.
       case SQL.pageKeysForUser:
       case SQL.deletePagesForUser:
@@ -82,6 +84,8 @@ function fakeD1(t: Tables): D1Database {
         return { results: [], changes: before - t.users.length };
       }
       case SQL.unlinkSynonyms:
+      case SQL.deleteDocumentsForUser:
+      case SQL.unlinkPurchases:
         return { results: [], changes: 0 };
       default:
         throw new Error(`fakeD1: no branch for: ${sql}`);
@@ -104,8 +108,8 @@ function fakeD1(t: Tables): D1Database {
 
 const kv = () => ({ get: async () => null, put: async () => {}, delete: async () => {} }) as unknown as KVNamespace;
 
-const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: '{"learned":{"glukoza":["S_Glukóza"]}}' };
-const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null };
+const A = { id: "u-a", email: "a@example.com", created_at: "2026-01-01T00:00:00Z", settings: '{"learned":{"glukoza":["S_Glukóza"]}}', session_epoch: 0 };
+const B = { id: "u-b", email: "b@example.com", created_at: "2026-01-01T00:00:00Z", settings: null, session_epoch: 0 };
 const TEXT = "This page holds one person's own blood test results.\n\nglukoza | mmol/l | 4,11–5,6 | 2025-08-13: 6,1 (H)\n";
 
 let tables: Tables;

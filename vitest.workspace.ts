@@ -126,10 +126,12 @@ export default defineWorkspace([
   {
     test: {
       // The portal client's pure helpers: how a page's reads become rows,
-      // which is where a highlight lands on the wrong printed row.
+      // which is where a highlight lands on the wrong printed row. One .tsx
+      // file drives a component in a DOM and names its own environment
+      // (happy-dom) in its docblock; everything else stays node.
       name: "portal-app",
       root: "./apps/portal",
-      include: ["tests/**/*.test.ts"],
+      include: ["tests/**/*.test.{ts,tsx}"],
       environment: "node",
     },
   },

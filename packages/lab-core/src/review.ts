@@ -54,7 +54,9 @@ export function reviewOf(
     return {
       level: "withheld",
       chip: implausible.level === "impossible" ? "nemožná hodnota" : "ověřit desetinnou čárku",
-      reason: implausible.reason,
+      // The value is believed wrong, so the way out named first is the
+      // correction.
+      reason: `${implausible.reason} ${ASK_CORRECT_OR_CONFIRM}`,
     };
   }
 
@@ -70,13 +72,10 @@ export function reviewOf(
   }
 
   if (m.confidence === "low") {
-    return {
-      level: "unconfirmed",
-      chip: "nejisté čtení",
-      reason:
-        "Přepis tohoto řádku byl označen jako nejistý — na stránce je špatně " +
-        "čitelný nebo nejednoznačný. Ověřte ho prosím proti dokumentu.",
-    };
+    // Low confidence and an uncorroborated row ask the same thing of the
+    // reader, so they share the sentence (`disagreementReason` without
+    // readings). The cause is different only inside the app.
+    return { level: "unconfirmed", chip: CHIP_UNSURE, reason: UNSURE_REASON };
   }
 
   // A printed result that is not a number — "negativní", "stopy", "<1,0" — is
@@ -87,28 +86,52 @@ export function reviewOf(
   return OK;
 }
 
-/** "dvě nezávislá čtení se liší: 0,61 / 0,67" → "0,61 vs 0,67 — nepotvrzeno". */
-function disagreementChip(disagreement: string): string {
+/**
+ * The sentences a reader sees are for a person who does not know, and need
+ * not know, that a page is read twice (Ondrej, 2026-09-19). Nothing here may
+ * say how the app arrived at its doubt — no readings, no models, no
+ * confidence — only what the reader is asked to do: compare the value with
+ * the highlighted row on the page and either confirm it or correct it. The
+ * stored `disagreement` keeps the cause, for the bench and the logs.
+ */
+const CHIP_UNSURE = "ověřit hodnotu";
+const COMPARE = "Porovnejte ji s vyznačeným řádkem na stránce níže";
+const ASK_CONFIRM_OR_CORRECT = `${COMPARE} a potvrďte ji, nebo ji opravte.`;
+const ASK_CORRECT_OR_CONFIRM = `${COMPARE} a opravte ji, nebo ji potvrďte.`;
+const UNSURE_REASON = `Touto hodnotou si nejsme jistí. ${ASK_CONFIRM_OR_CORRECT}`;
+
+/**
+ * The readings, if the stored fact carries them:
+ * "dvě nezávislá čtení se liší: 0,61 / 0,67" → ["0,61", "0,67"]. A fact
+ * without a colon ("druhé čtení se nezdařilo") has none.
+ */
+function readingsOf(disagreement: string): string[] {
   const m = /:\s*(.+)$/.exec(disagreement);
-  if (!m) return "nepotvrzeno";
-  const parts = m[1].split("/").map((s) => s.trim()).filter(Boolean);
-  return parts.length === 2 ? `${parts[0]} vs ${parts[1]} — nepotvrzeno` : "nepotvrzeno";
+  if (!m) return [];
+  return m[1].split("/").map((s) => s.trim()).filter(Boolean);
+}
+
+/** "dvě nezávislá čtení se liší: 0,61 / 0,67" → "0,61 nebo 0,67 — ověřit". */
+function disagreementChip(disagreement: string): string {
+  const parts = readingsOf(disagreement);
+  return parts.length >= 2 ? `${joinNebo(parts)} — ověřit` : CHIP_UNSURE;
+}
+
+/** ["a", "b", "c"] → "a, b nebo c". */
+function joinNebo(parts: string[]): string {
+  return parts.length < 2 ? parts.join("") : `${parts.slice(0, -1).join(", ")} nebo ${parts[parts.length - 1]}`;
 }
 
 /**
- * The sentence beside the correction field. The stored disagreement is a
- * fact ("dvě nezávislá čtení se liší: 7,4 / 7,3"); shown bare above an input
- * it told the reader what the program had noticed and not what was wanted of
- * them (Ondrej, 2026-09-12). So it opens with the ask, keeps the two readings
- * — they are what to compare against the page — and names the two ways out.
+ * The sentence beside the correction field. It opens with the ask and, when
+ * two numbers are in play, offers both — they are what to look for on the
+ * page — without saying where they came from. A row only one reader saw, or
+ * a page read once, gets the plain sentence: the reader's job is the same.
  */
 function disagreementReason(disagreement: string): string {
-  const m = /:\s*(.+)$/.exec(disagreement);
-  const readings = m ? m[1].trim() : null;
-  const cause = readings
-    ? `dvě čtení stránky se neshodla (${readings})`
-    : disagreement;
-  return `Opravte prosím nejistou hodnotu — ${cause}. Porovnejte ji s řádkem na zdrojové stránce a tlačítkem Potvrdit nebo Opravit řekněte, co je tam vytištěno.`;
+  const parts = readingsOf(disagreement);
+  if (parts.length < 2) return UNSURE_REASON;
+  return `Touto hodnotou si nejsme jistí — mohlo by tam být ${joinNebo(parts)}. ${ASK_CONFIRM_OR_CORRECT}`;
 }
 
 /** Rows a reviewer must look at. Matches exactly what the table chips show. */

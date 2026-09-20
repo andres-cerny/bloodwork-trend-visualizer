@@ -2,11 +2,15 @@
  * Moje krev's API worker: accounts, and the reports they own.
  *
  * Auth is deliberately small: e-mail and password, the session a signed
- * cookie. Sign-up is a link the operator sends — a code that lives a week
- * and spends once — and so is a forgotten password: the same kind of code,
- * bound to the account it resets. No route ever confirms whether an e-mail
+ * cookie. Sign-up is a link — a code that lives a day and spends once —
+ * and so is a forgotten password: the same kind of code, bound to the
+ * account it resets. The operator mints them by hand; with OPEN_SIGNUP on,
+ * the worker mints and mails them to whoever asks (src/signup.ts), behind
+ * Turnstile and a per-IP ceiling. No route ever confirms whether an e-mail
  * is registered: a wrong password and an unknown address get one sentence,
- * and a spent, expired or foreign code gets another, whichever it was.
+ * a spent, expired or foreign code gets another, whichever it was, and a
+ * request for a link is answered the same whether the address has an
+ * account or not.
  *
  * Storage is deliberately dumb: the client builds a LabReport with lab-core
  * and this worker keeps it, whole, keyed to the account. Trends, review and
@@ -34,9 +38,15 @@
  * response may say markdown. The old `.md` address redirects to the bare one.
  */
 import { mintSession } from "@bw/gate";
+import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
+import { errorCodeOf, recordEvent, routeLabel } from "./events";
+import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
+import { handleSignupMail, looksLikeEmail, openMailedAccount, requireHuman, signupStatus, type SignupEnv } from "./signup";
+import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageFailed, notePageRead, sendPage } from "./allowance";
+import { handleBuy, handleStripeWebhook, type StripeEnv } from "./stripe";
 import {
   clearCookieHeader,
   mintCookieToken,
@@ -46,8 +56,14 @@ import {
   sha256Hex,
   verifyCookieToken,
 } from "./session";
+import type { AiBinding } from "./triage";
+import { runWatch } from "./watch";
 
-export interface Env {
+/**
+ * SignupEnv is the open door's part (src/signup.ts): OPEN_SIGNUP and its dev
+ * bypass, the Turnstile secret and hostnames, RESEND_API_KEY and MAIL_FROM.
+ */
+export interface Env extends SignupEnv, StripeEnv {
   DB: D1Database;
   /** Redacted page images, keyed `${uid}/${reportId}/page_${n}`. */
   PAGES: KVNamespace;
@@ -67,8 +83,28 @@ export interface Env {
    * the repository.
    */
   DEMO_EMAIL?: string;
+  /**
+   * The per-person monthly USD fuse behind the document count
+   * (src/allowance.ts). Not what anyone is meant to reach: a document is
+   * priced in documents, and this only stops a runaway.
+   */
   PORTAL_USD_LIMIT?: string;
   MAX_PAGES_PER_REPORT?: string;
+  /**
+   * Workers AI, for the help desk's triage (src/triage.ts). Optional on
+   * purpose: absent in tests and in a config without `ai`, and then the
+   * raw message goes to Telegram alone.
+   */
+  AI?: AiBinding;
+  /** The bot and its two chats (src/telegram.ts). All three unset: nothing is posted, everything else is the same. */
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_HELPDESK_CHAT?: string;
+  TELEGRAM_OPS_CHAT?: string;
+  /** The shell's public origin, probed by the scheduled check (src/watch.ts). */
+  APP_URL?: string;
+  /** Turnstile on the logged-out help-desk form; unset, the form takes no token. */
+  TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_HOSTNAMES?: string;
 }
 
 const json = (data: unknown, status = 200) =>
@@ -78,7 +114,7 @@ const json = (data: unknown, status = 200) =>
   });
 
 const sessionTtlSeconds = (env: Env) => (parseInt(env.SESSION_TTL_DAYS ?? "90", 10) || 90) * 86400;
-const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "5") || 5;
+const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
 
 /**
  * What this person may spend in a month.
@@ -91,6 +127,17 @@ const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "5") || 5;
  */
 const limitFor = (user: UserRow, env: Env) => user.budget_usd ?? usdLimit(env);
 const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "6", 10) || 6;
+
+/**
+ * A ceiling in Czech copy: "2,50", not "2.5". The same rule as lab-core's
+ * czUsd, restated because this worker deliberately bundles no lab-core.
+ */
+const czUsd = (n: number) =>
+  n.toLocaleString("cs-CZ", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
+
+/** The refusal a frozen person gets, on every route that would spend. */
+const frozenMessage = (limit: number) =>
+  `Měsíční limit zpracování (${czUsd(limit)} USD) je vyčerpán. Obnoví se začátkem příštího měsíce.`;
 
 /** One extract call covers one page and lives five minutes — long enough for
  *  the slowest model round-trip, short enough that a leaked token is worth
@@ -117,10 +164,6 @@ const DEMO_SESSION_TTL_DAYS = 1;
 const LOCKOUT_FAILURES = 10;
 const LOCKOUT_WINDOW_SECONDS = 15 * 60;
 
-/** Enough to catch typos; the delivered link is the real verification. */
-const looksLikeEmail = (s: unknown): s is string =>
-  typeof s === "string" && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-
 const passwordOk = (s: unknown): s is string =>
   typeof s === "string" && s.length >= MIN_PASSWORD && s.length <= MAX_PASSWORD;
 
@@ -139,13 +182,42 @@ interface Session {
 /**
  * The uid is re-read from the database on every authed request, not trusted
  * from the cookie alone: it is what makes account deletion effective — a
- * signed cookie for a deleted row is a 401, not a ghost login.
+ * signed cookie for a deleted row is a 401, not a ghost login. The row's
+ * session_epoch is compared the same way: a cookie minted before the last
+ * logout or set-password link names an earlier number and is a 401 too.
  */
 async function requireSession(request: Request, env: Env): Promise<Session | null> {
   const claims = await verifyCookieToken(env.SESSION_SECRET, readCookie(request));
   if (!claims) return null;
   const user = await env.DB.prepare(SQL.userById).bind(claims.uid).first<UserRow>();
-  return user ? { user, demo: claims.demo === true } : null;
+  if (!user || claims.epoch !== user.session_epoch) return null;
+  return { user, demo: claims.demo === true };
+}
+
+/**
+ * End every session of the account and say which generation is live now.
+ * Null when the row is gone — nothing to end, nothing to mint.
+ */
+async function endSessions(env: Env, uid: string): Promise<number | null> {
+  const row = await env.DB.prepare(SQL.bumpSessionEpoch).bind(uid).first<{ session_epoch: number }>();
+  return row?.session_epoch ?? null;
+}
+
+/**
+ * Logout. The browser drops the cookie whatever happens; the account's
+ * epoch moves so a copy of it is a 401 too — every session of the account,
+ * not only the one that clicked, which is what „Odhlásit se" on a shared
+ * computer has to mean. A demo session moves nothing: it is a stranger on
+ * the owner's account, and their leaving must not log the owner out.
+ */
+async function handleLogout(request: Request, env: Env): Promise<Response> {
+  // Through requireSession, not the bare signature: a cookie whose epoch
+  // the row has already left is not a session, and must not be allowed to
+  // end the owner's live ones — that would let a copy ended weeks ago log
+  // them out of every device, again and again, until it expired.
+  const session = await requireSession(request, env);
+  if (session && !session.demo) await endSessions(env, session.user.id);
+  return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
 }
 
 const unauthorized = () => json({ error: "unauthorized", message: "Přihlaste se prosím." }, 401);
@@ -171,10 +243,11 @@ const inviteDead = (status = 403) =>
 const badLogin = () => json({ error: "invalid_login", message: "E-mail nebo heslo nesouhlasí." }, 401);
 
 /** A 200 with the session cookie set — the end of register, login, reset,
- *  and of the demo link, whose session is shorter and carries the claim. */
-async function loggedIn(env: Env, uid: string, demo = false): Promise<Response> {
+ *  and of the demo link, whose session is shorter and carries the claim.
+ *  The cookie names the account's live epoch; a fresh account's is 0. */
+async function loggedIn(env: Env, uid: string, demo = false, epoch = 0): Promise<Response> {
   const ttl = demo ? DEMO_SESSION_TTL_DAYS * 86400 : sessionTtlSeconds(env);
-  const cookie = await mintCookieToken(env.SESSION_SECRET, uid, ttl, demo);
+  const cookie = await mintCookieToken(env.SESSION_SECRET, uid, ttl, demo, epoch);
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { "content-type": "application/json; charset=utf-8", "set-cookie": setCookieHeader(cookie, ttl) },
@@ -207,21 +280,28 @@ async function inviteKind(env: Env, rawCode: string): Promise<Response> {
   }
   const invite = await liveInvite(env, code);
   if (!invite) return inviteDead(404);
-  return json({ kind: invite.user_id ? "password" : "signup" });
+  // A mailed sign-up code names its address, so the form need not ask.
+  return json({ kind: invite.user_id ? "password" : "signup", ...(invite.email ? { email: invite.email } : {}) });
 }
 
 async function handleRegister(request: Request, env: Env): Promise<Response> {
-  const { code, email, password } = (await request.json().catch(() => ({}))) as {
+  const body = (await request.json().catch(() => ({}))) as {
     code?: string;
     email?: string;
     password?: string;
   };
+  // No code and no password is the open door's form: an address asking for
+  // a link (src/signup.ts). With OPEN_SIGNUP off it answers 404, and a code
+  // is the only way in, as before.
+  if (body.code === undefined && body.password === undefined) return handleSignupMail(request, env, "register", body);
+  const { code, email, password } = body;
   if (!looksLikeEmail(email) || !passwordOk(password)) {
     return json({ error: "bad_request", message: `Vyplňte platný e-mail a heslo o nejméně ${MIN_PASSWORD} znacích.` }, 400);
   }
   const invite = await liveInvite(env, code);
-  // A bound code is a set-password link; it opens no new account.
-  if (!invite || invite.user_id !== null) return inviteDead();
+  // A bound code is a set-password link; it opens no new account. A mailed
+  // code names its own address and is used through /api/auth/password.
+  if (!invite || invite.user_id !== null || invite.email !== null) return inviteDead();
 
   const normEmail = email.trim().toLowerCase();
   // The same refusal as a dead code: a person holding a link must not learn
@@ -243,10 +323,18 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
 }
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
-  const { email, password } = (await request.json().catch(() => ({}))) as { email?: string; password?: string };
+  const { email, password, turnstile } = (await request.json().catch(() => ({}))) as {
+    email?: string;
+    password?: string;
+    turnstile?: unknown;
+  };
   if (!looksLikeEmail(email) || typeof password !== "string" || password.length > MAX_PASSWORD) {
     return json({ error: "bad_request", message: "Zadejte e-mail a heslo." }, 400);
   }
+  // The bot gate, on an open deployment only; a bot's guess must not even
+  // count towards the lockout.
+  const human = await requireHuman(request, env, PORTAL_TURNSTILE_ACTIONS.login, turnstile);
+  if (human) return human;
   const normEmail = email.trim().toLowerCase();
 
   const since = now() - LOCKOUT_WINDOW_SECONDS;
@@ -269,7 +357,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return badLogin();
   }
   await env.DB.prepare(SQL.clearLoginFailures).bind(normEmail).run();
-  return loggedIn(env, user.id);
+  return loggedIn(env, user.id, false, user.session_epoch);
 }
 
 /* ------------------------------------------------------------------- demo */
@@ -306,18 +394,25 @@ async function handleDemoLogin(request: Request, env: Env): Promise<Response> {
   if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return noDemo();
   const user = await demoAccount(env);
   if (!user) return noDemo();
-  return loggedIn(env, user.id, true);
+  return loggedIn(env, user.id, true, user.session_epoch);
 }
 
 /** A set-password link: the code names the account, the password replaces
- *  whatever it had — including nothing. Reports are not touched. */
+ *  whatever it had — including nothing — and every session the old password
+ *  opened ends with it. Reports are not touched. */
 async function handleSetPassword(request: Request, env: Env): Promise<Response> {
   const { code, password } = (await request.json().catch(() => ({}))) as { code?: string; password?: string };
   if (!passwordOk(password)) {
     return json({ error: "bad_request", message: `Heslo musí mít nejméně ${MIN_PASSWORD} znaků.` }, 400);
   }
   const invite = await liveInvite(env, code);
-  if (!invite || invite.user_id === null) return inviteDead();
+  if (!invite) return inviteDead();
+  // A mailed sign-up code: the address is the code's, the password is this
+  // one, and the account is born here (src/signup.ts).
+  if (invite.user_id === null) {
+    const opened = invite.email ? await openMailedAccount(env, invite, password) : null;
+    return opened ? loggedIn(env, opened.uid, false, opened.epoch) : inviteDead();
+  }
   const user = await env.DB.prepare(SQL.userById).bind(invite.user_id).first<UserRow>();
   if (!user) return inviteDead();
 
@@ -326,7 +421,11 @@ async function handleSetPassword(request: Request, env: Env): Promise<Response> 
   const record = await hashPassword(password);
   await env.DB.prepare(SQL.setPassword).bind(user.id, record.hash, record.salt, record.iters).run();
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
-  return loggedIn(env, user.id);
+  // Whoever held the old password — or a cookie from it — is out; the one
+  // session that goes on is the one this link opens, under the new number.
+  const epoch = await endSessions(env, user.id);
+  if (epoch === null) return inviteDead();
+  return loggedIn(env, user.id, false, epoch);
 }
 
 /* --------------------------------------------------------------- synonyms */
@@ -382,7 +481,7 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
     return json(
       {
         error: "budget_exhausted",
-        message: `Měsíční limit zpracování (${limit} USD) je vyčerpán. Obnoví se začátkem příštího měsíce.`,
+        message: frozenMessage(limit),
         budget: before,
       },
       402,
@@ -392,14 +491,33 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   const body = await request.text();
   if (body.length > MAX_EXTRACT_BYTES) return json({ error: "too_large", message: "Stránka je příliš velká." }, 413);
 
+  // Which document this page belongs to — one the browser opened with
+  // POST /api/documents, which is where the slot was taken. The page is
+  // counted against that document's cap here; a page of no document, of
+  // someone else's, of a released one or past the cap is refused before
+  // anything is sent. The allowance itself is not touched per page.
+  const docId = request.headers.get("x-document") ?? "";
+  if (!(await sendPage(env.DB, user, docId, maxPages(env)))) {
+    return json({ error: "no_document", message: "Dokument není otevřený — nahrajte soubor znovu." }, 409);
+  }
+
   const session = await mintSession(env.EXTRACT_SESSION_SECRET, EXTRACT_SESSION_TTL, 1);
-  const res = await env.EXTRACT.fetch(
-    new Request("https://extract/api/extract", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-demo-session": session },
-      body,
-    }),
-  );
+  let res: Response;
+  try {
+    res = await env.EXTRACT.fetch(
+      new Request("https://extract/api/extract", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-demo-session": session },
+        body,
+      }),
+    );
+  } catch (e) {
+    // The binding itself failed: the page was sent and nothing will answer
+    // it. Settled as a failure, so the document is not left with a page in
+    // flight for ever and the slot can still come back.
+    console.error(`extract unreachable: ${e instanceof Error ? e.message : String(e)}`);
+    return json(await settle(env, user, 502, { error: "extraction_failed", message: "Zpracování se nezdařilo — zkuste to znovu." }, docId), 502);
+  }
   // Streamed answer: rows as they are written, then a final "done" line
   // that is the buffered answer. Lines pass through untouched except the
   // last, which is where the cost is booked and the person's budget added —
@@ -418,7 +536,12 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
       }
       if (ev.type !== "done" && ev.type !== "error") return text;
       const { type: _t, ...data } = ev;
-      const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer);
+      const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer, docId);
+      // The HTTP status is already 200 on a stream, so the refusal in its
+      // last line is what the events table has to see (src/events.ts).
+      if (ev.type === "error") {
+        await recordEvent(env, { route: "POST /api/extract", status: 502, code: typeof ev.error === "string" ? ev.error : null, uid: user.id, requestId: request.headers.get("cf-ray") });
+      }
       return JSON.stringify({ type: ev.type, ...shaped });
     };
     const through = new TransformStream<Uint8Array, Uint8Array>({
@@ -442,7 +565,7 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   }
 
   const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
-  return json(await settle(env, user, res.status, data), res.status);
+  return json(await settle(env, user, res.status, data, docId), res.status);
 }
 
 interface ExtractAnswer {
@@ -453,11 +576,16 @@ interface ExtractAnswer {
 }
 
 /** Book the extractor's cost to the person and answer with their ledger. */
-async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer): Promise<Record<string, unknown>> {
+async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer, docId?: string): Promise<Record<string, unknown>> {
   const limit = limitFor(user, env);
   if (status === 200 && typeof data.costUsd === "number") {
     await recordUserSpendUsd(env.BUDGET, user.id, monthOf(), data.costUsd);
+    // A page read: from here on the document's slot is spent for good.
+    if (docId) await notePageRead(env.DB, docId);
   } else if (status !== 200) {
+    // A page failed: no longer in flight, so a release that waits for every
+    // page to come back can now count it.
+    if (docId) await notePageFailed(env.DB, docId);
     // The extractor's reason, in the log as well as in the answer: a page that
     // fails for every member of the family is a deployment problem, and the
     // log is where the operator looks first. Its `message` is deliberately not
@@ -598,7 +726,31 @@ async function deleteReport(env: Env, user: UserRow, id: string): Promise<Respon
 
 /* --------------------------------------------------------------- settings */
 
-const MAX_SETTINGS_BYTES = 64 * 1024;
+/**
+ * What an account's settings may weigh. The learned names and custom
+ * parameters are small; `aiAsked` is not — the mapping model's answer is
+ * filed per printed name at ~200 bytes each, and an unknown lab's few
+ * hundred names passed the 64 kB this used to be, after which every save
+ * failed with the client's generic sentence. 512 kB is ~2 500 names, and
+ * stays well under D1's 1 MB row. Measured in bytes, not characters: the
+ * row is what the cap has to bound, and Czech reasons are not ASCII.
+ */
+const MAX_SETTINGS_BYTES = 512 * 1024;
+
+/** Whole kilobytes, for the refusal: "600 kB", never "614.4". */
+const kB = (bytes: number) => `${Math.round(bytes / 1024)} kB`;
+
+/** Says what is too large, and by how much. The client's banner still
+ *  prints its own sentence (Portal.tsx); this one is in the response for
+ *  the network tab and for the day the banner reads the worker's words. */
+const settingsTooLarge = (bytes: number) =>
+  json(
+    {
+      error: "too_large",
+      message: `Nastavení účtu (přiřazení názvů, vlastní parametry a AI kontext) je příliš velké: ${kB(bytes)}, nejvýše ${kB(MAX_SETTINGS_BYTES)}.`,
+    },
+    413,
+  );
 
 async function getSettings(env: Env, user: UserRow): Promise<Response> {
   const row = await env.DB.prepare(SQL.settingsForUser).bind(user.id).first<{ settings: string | null }>();
@@ -606,8 +758,9 @@ async function getSettings(env: Env, user: UserRow): Promise<Response> {
 }
 
 async function putSettings(request: Request, env: Env, user: UserRow): Promise<Response> {
-  const text = await request.text();
-  if (text.length > MAX_SETTINGS_BYTES) return json({ error: "too_large" }, 413);
+  const bytes = await request.arrayBuffer();
+  if (bytes.byteLength > MAX_SETTINGS_BYTES) return settingsTooLarge(bytes.byteLength);
+  const text = new TextDecoder().decode(bytes);
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -683,6 +836,9 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   await env.DB.prepare(SQL.deletePagesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteReportsForUser).bind(user.id).run();
   await env.DB.prepare(SQL.deleteSharesForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteDocumentsForUser).bind(user.id).run();
+  await env.DB.prepare(SQL.unlinkPurchases).bind(user.id).run();
+  await env.DB.prepare(SQL.deleteMessagesForUser).bind(user.id).run();
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
   await env.DB.prepare(SQL.unlinkSynonyms).bind(user.id).run();
@@ -843,7 +999,7 @@ async function handleMap(request: Request, env: Env, user: UserRow): Promise<Res
   const before = await userBudget(env.BUDGET, user.id, limit);
   if (before.frozen) {
     return json(
-      { error: "budget_exhausted", message: `Měsíční limit zpracování (${limit} USD) je vyčerpán. Obnoví se začátkem příštího měsíce.`, budget: before },
+      { error: "budget_exhausted", message: frozenMessage(limit), budget: before },
       402,
     );
   }
@@ -862,9 +1018,13 @@ async function handleMap(request: Request, env: Env, user: UserRow): Promise<Res
 const REPORT = /^\/api\/reports\/([^/]+)$/;
 const INVITE = /^\/api\/auth\/invite\/([^/]+)$/;
 const PAGE = /^\/api\/(?:reports|pages)\/([^/]+)\/(\d{1,3})$/;
+const DOCUMENT = /^\/api\/documents\/([^/]+)$/;
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+/** Which account a request turned out to belong to, for the events hook below. */
+const accountOf = new WeakMap<Request, string>();
+
+const routes = {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const route = `${request.method} ${url.pathname}`;
 
@@ -882,7 +1042,15 @@ export default {
       case "POST /api/auth/password":
         return handleSetPassword(request, env);
       case "POST /api/auth/logout":
-        return new Response(null, { status: 204, headers: { "set-cookie": clearCookieHeader() } });
+        return handleLogout(request, env);
+      // The open door (src/signup.ts): whether it is open, and the forgotten
+      // password form, which mails a link. Closed, the form answers 404 and
+      // the GET says so. Register without a code is the same door — see
+      // handleRegister.
+      case "GET /api/auth/signup":
+        return signupStatus(env);
+      case "POST /api/auth/forgot":
+        return handleSignupMail(request, env, "forgot");
       // The public demo patient, on a deployment that names one. The GET is
       // how the door decides whether to show the link at all; both answer
       // 404 where there is no demo, so an ordinary deployment looks exactly
@@ -899,6 +1067,19 @@ export default {
       // anyone who asks.
       case "GET /api/processors":
         return json({ photoReaders: await extractPhotoReaders(env) });
+      // Stripe posting a paid checkout. Public — Stripe holds no cookie — and
+      // guarded by its signature alone (src/stripe.ts).
+      case "POST /api/stripe/webhook":
+        return handleStripeWebhook(request, env);
+      // „Napište nám", logged in or not: the session names the sender when
+      // there is one, and a stranger names themselves (src/helpdesk.ts). A
+      // demo cookie is a stranger's: the message is not the owner's, must not
+      // carry their address, and gets the stranger's Turnstile and limits.
+      case "POST /api/helpdesk": {
+        const who = await requireSession(request, env);
+        if (who) accountOf.set(request, who.user.id);
+        return handleHelpdesk(request, env, who && !who.demo ? who.user : null, ctx);
+      }
     }
     const invite = INVITE.exec(url.pathname);
     if (invite && request.method === "GET") return inviteKind(env, invite[1]);
@@ -907,6 +1088,7 @@ export default {
     const session = await requireSession(request, env);
     if (!session) return unauthorized();
     const { user } = session;
+    accountOf.set(request, user.id);
 
     switch (route) {
       case "GET /api/me":
@@ -915,7 +1097,19 @@ export default {
         // screens needs it. Their own login still reads it back.
         return json({ email: session.demo ? null : user.email, createdAt: user.created_at, demo: session.demo });
       case "GET /api/status":
-        return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env) });
+        return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env), allowance: allowanceOf(user) });
+      case "GET /api/allowance":
+        return handleAllowance(env.DB, user);
+      // Open a document: where the one slot is taken. A frozen person is
+      // refused here first, so the fuse tripping costs no document.
+      case "POST /api/documents": {
+        const limit = limitFor(user, env);
+        const before = await userBudget(env.BUDGET, user.id, limit);
+        if (before.frozen) return json({ error: "budget_exhausted", message: frozenMessage(limit), budget: before }, 402);
+        return handleOpenDocument(request, env.DB, user, session.demo);
+      }
+      case "POST /api/buy":
+        return handleBuy(request, env, user, session.demo);
       case "POST /api/extract":
         return handleExtract(request, env, user);
       case "POST /api/map":
@@ -946,6 +1140,9 @@ export default {
         return revokeShare(env, user);
     }
 
+    const doc = DOCUMENT.exec(url.pathname);
+    if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1], session.demo);
+
     const page = PAGE.exec(url.pathname);
     if (page) {
       const [, id, n] = page;
@@ -960,5 +1157,31 @@ export default {
       if (request.method === "DELETE") return session.demo ? demoMayNotDelete() : deleteReport(env, user, report[1]);
     }
     return json({ error: "not_found" }, 404);
+  },
+};
+
+export default {
+  /**
+   * Every answer goes through here so a refusal leaves a row (src/events.ts):
+   * the route with its ids stripped, the status, the body's code, and the
+   * account's hash when the request had a session.
+   */
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+    const res = await routes.fetch(request, env, ctx);
+    if (res.status >= 400) {
+      const url = new URL(request.url);
+      await recordEvent(env, {
+        route: routeLabel(request.method, url.pathname),
+        status: res.status,
+        code: await errorCodeOf(res),
+        uid: accountOf.get(request) ?? null,
+        requestId: request.headers.get("cf-ray"),
+      });
+    }
+    return res;
+  },
+  /** The cron trigger in wrangler.jsonc, every 15 minutes (src/watch.ts). */
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runWatch(env));
   },
 } satisfies ExportedHandler<Env>;

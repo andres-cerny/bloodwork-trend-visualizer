@@ -315,7 +315,7 @@ describe("a page only one reader answered for", () => {
     expect(await table.locator("tr").count()).toBe(ROWS.length);
     // Every row, not merely one of them.
     expect(await table.locator("tr .chip.alert").count()).toBe(ROWS.length);
-    expect(await table.innerText()).toContain("nepotvrzeno");
+    expect(await table.innerText()).toContain("ověřit hodnotu");
 
     expect(errorsOn(page)).toEqual([]);
     await page.close();

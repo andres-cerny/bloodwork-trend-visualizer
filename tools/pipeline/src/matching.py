@@ -68,7 +68,12 @@ class Registry:
             self._index_names(a)
 
     def _index_names(self, a: AnalyteDef) -> None:
-        for n in [a.canonical_id, a.display_name_cs, *a.synonyms]:
+        # A canonical id is not a printed name: "non_hdl" must not lose its
+        # "non_" to the material-prefix rule and land on the bare "hdl" key,
+        # and "elfo_albumin" must not shadow "albumin". registry.ts has held
+        # this since 2026-09-06; the Python twin caught up on 2026-09-19 when
+        # the seed's collision guard found the two ids above sharing a key.
+        for n in [a.canonical_id.replace("_", " "), a.display_name_cs, *a.synonyms]:
             self._index[norm_key(n)] = a.canonical_id
             # A synonym that carries the bracket teaches the bare code too.
             abbr = abbreviation_key(n)

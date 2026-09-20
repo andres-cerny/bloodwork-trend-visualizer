@@ -15,6 +15,12 @@
  * up, with the notes an honest read produces — a page that failed, a value
  * that disagreed with the print, a printed row nobody read.
  *
+ * The files picked together are one batch (lib/batch.ts), counted here
+ * because this is where a file enters and where it ends: every file gets
+ * exactly one log entry, so the log is where the batch is stepped. The
+ * parent is told on every change; on an account with no reports yet it
+ * holds the switch to Souhrn until the batch ends, and says so here.
+ *
  * ## Two inputs, because one cannot do both jobs
  *
  * `capture="environment"` is not a hint that a camera would be nice: on
@@ -31,7 +37,9 @@
 import { useRef, useState } from "react";
 import { type IdentityHit, type LabReport, type Registry, count } from "@bw/lab-core";
 import { PHOTO_TYPES, PhotoError, isPhotoFile } from "@bw/lab-core/photo";
-import { type Budget, ApiError, isFatalApiError } from "../lib/api";
+import { type Allowance, type Budget, ApiError, isFatalApiError } from "../lib/api";
+import { type Batch, NO_BATCH, pick, settle, waitingLine } from "../lib/batch";
+import { exhaustedCopy } from "./AllowanceChip";
 import {
   type PreparedFile,
   checkRedaction,
@@ -47,8 +55,17 @@ interface Props {
   registry: Registry;
   maxPages: number;
   frozen: boolean;
+  /** Documents left to upload; null before /api/status has answered. */
+  allowance: Allowance | null;
+  onAllowance: (a: Allowance) => void;
+  /** Opens the buy sheet — the refusal at zero offers it. */
+  onBuy: () => void;
   onStored: (report: LabReport) => void;
   onBudget: (b: Budget) => void;
+  /** The batch changed: a file came in, or one ended. */
+  onBatch: (b: Batch) => void;
+  /** The parent is holding Souhrn for this batch — say so under the queue. */
+  holding: boolean;
 }
 
 /** What the reader is doing — one file at a time. */
@@ -68,6 +85,16 @@ type Stage =
  * iOS Photos picker transcode a HEIC on its way out.
  */
 const ACCEPT = ["application/pdf", ...PHOTO_TYPES].join(",");
+
+/**
+ * What the log says when the read went through and the store did not. The
+ * two halves are different facts: the pages were read and the document is
+ * spent (the worker refuses a release once a page was read), and the row
+ * was refused. „Nepodařilo se zpracovat PDF" would name the wrong half.
+ * `reason` is the worker's own sentence where it gave one.
+ */
+export const storeFailedCopy = (reason: string) =>
+  `Report se přečetl, ale nepodařilo se ho uložit: ${reason.replace(/\.?$/, ".")} Dokument z nároku je využitý.`;
 
 /** What the machine is doing — as many files as have been confirmed. */
 interface Running {
@@ -89,19 +116,32 @@ interface LogEntry {
   error: string | null;
 }
 
-export default function UploadFlow({ registry, maxPages, frozen, onStored, onBudget }: Props) {
+export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding }: Props) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [queued, setQueued] = useState<File[]>([]);
   const [running, setRunning] = useState<Running[]>([]);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [batch, setBatch] = useState<Batch>(NO_BATCH);
   const [dragging, setDragging] = useState(false);
   // The queue is worked from async code that outlives the render it started
-  // in, so the truth lives in a ref and `queued` is its mirror.
+  // in, so the truth lives in a ref and `queued` is its mirror. The batch
+  // the same: stepped from the same async code, mirrored for the screen.
   const queueRef = useRef<File[]>([]);
+  const batchRef = useRef<Batch>(NO_BATCH);
   const busyRef = useRef(false);
 
   const publishQueue = () => setQueued([...queueRef.current]);
-  const addLog = (e: LogEntry) => setLog((l) => [e, ...l]);
+  const publishBatch = (b: Batch) => {
+    batchRef.current = b;
+    setBatch(b);
+    onBatch(b);
+  };
+  // One entry per file, whichever way it ended — so one entry is one file
+  // settled, and the batch is stepped here and nowhere else.
+  const addLog = (e: LogEntry) => {
+    setLog((l) => [e, ...l]);
+    publishBatch(settle(batchRef.current));
+  };
   const updateRunning = (id: string, patch: Partial<Running>) =>
     setRunning((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const dropRunning = (id: string) => setRunning((rs) => rs.filter((r) => r.id !== id));
@@ -161,6 +201,9 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
     // first reader to name it wins, and the count is of distinct rows.
     const seen = new Set<string>();
     const latest: string[] = [];
+    // True once the read has returned: from here a failure is a failed
+    // store, the document is spent, and the sentence says so.
+    let read = false;
     try {
       const { report, notes } = await extractReport(
         id,
@@ -178,15 +221,19 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
           if (latest.length > 4) latest.shift();
           updateRunning(id, { rows: seen.size, latest: [...latest] });
         },
+        onAllowance,
       );
+      read = true;
       updateRunning(id, { phase: "storing" });
       const stored = await storeReport(report, pages);
       onStored(stored);
       addLog({ name, status: "done", notes, error: null });
     } catch (e) {
-      const message = e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${e instanceof Error ? e.message : e}`;
+      const reason = e instanceof ApiError || e instanceof Error ? e.message : String(e);
+      const message = read ? storeFailedCopy(reason) : e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${reason}`;
       addLog({ name, status: "failed", notes: [], error: message });
       if (e instanceof ApiError && e.budget) onBudget(e.budget);
+      if (e instanceof ApiError && e.allowance) onAllowance(e.allowance);
       if (isFatalApiError(e)) {
         // Every file still waiting would fail the same way; say so instead
         // of leaving them queued and silent. A file already under review is
@@ -211,6 +258,7 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
     if (usable.length === 0) return;
     queueRef.current.push(...usable);
     publishQueue();
+    publishBatch(pick(batchRef.current, usable.length));
     void startNext();
   }
 
@@ -220,6 +268,40 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
         Měsíční limit zpracování je vyčerpán — nahrávání se obnoví začátkem příštího měsíce. Uložené
         výsledky fungují dál.
       </p>
+    );
+
+  // No document left, and nothing in flight: the picker gives way to the
+  // refusal and the way to buy. A file already being read finishes.
+  if (allowance && allowance.remaining === 0 && stage.kind === "idle" && running.length === 0)
+    return (
+      <div className="allow-out">
+        <p className="muted" style={{ margin: 0 }}>{exhaustedCopy(allowance)}</p>
+        <p style={{ margin: "10px 0 0" }}>
+          <button type="button" className="btn small primary" onClick={onBuy}>
+            Přikoupit
+          </button>
+        </p>
+        {log.length > 0 && (
+          <ul className="joblist">
+            {log.map((j, i) => (
+              <li key={i} className={`job ${j.status}`}>
+                <span className="job-head">
+                  <span className="job-mark" aria-hidden="true">
+                    {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
+                  </span>
+                  <span className="job-name" title={j.name}>
+                    {j.name}
+                  </span>
+                  <span className="job-state">
+                    {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : "přeskočeno"}
+                  </span>
+                </span>
+                {j.error && <span className="job-note err">{j.error}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     );
 
   if (stage.kind === "review")
@@ -309,6 +391,19 @@ export default function UploadFlow({ registry, maxPages, frozen, onStored, onBud
           }}
         />
       </label>
+
+      {/*
+        The first batch: the parent holds Souhrn until every file has ended,
+        and the person waiting in front of a list of progress bars is told
+        what the wait is for. Under the drop target and above the list, so it
+        reads before the per-file detail; gone the moment the batch ends,
+        which is the moment the screen switches.
+      */}
+      {holding && batch.total > 0 && (
+        <p className="muted batch-wait" aria-live="polite" style={{ margin: "9px 0 0" }}>
+          {waitingLine(batch)}
+        </p>
+      )}
 
       {running.length > 0 && (
         <ul className="joblist" aria-live="polite">

@@ -5,6 +5,7 @@
  *   prepare   open the PDF, render and read every page, find the identity
  *   review    (the screen) the reader sees the boxes and adds or removes
  *   redact    paint the boxes, drop the strings from the text layer, verify
+ *   open      one document from the allowance, under the report's id
  *   extract   the redacted rows to the extractor, one request per page
  *   store     payload to D1, images to KV
  *
@@ -42,7 +43,7 @@ import {
 } from "@bw/lab-core";
 import type { PageAssets, RedactedPage } from "@bw/lab-core/pdf";
 import { isPhotoFile, photoAssets } from "@bw/lab-core/photo";
-import { type ProvisionalRow, extractPage, isFatalApiError, putPage, putReport } from "./api";
+import { type Allowance, type ProvisionalRow, extractPage, isFatalApiError, openDocument, putPage, putReport, releaseDocument } from "./api";
 import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
 
@@ -136,8 +137,21 @@ export async function extractReport(
   onProgress: (done: number, total: number) => void,
   /** A row as a reader writes it — for the screen only; the page's final read is what is kept. */
   onRow?: (pageNum: number, row: ProvisionalRow) => void,
+  /** The allowance after the document was taken, and after one was given back. */
+  onAllowance?: (a: Allowance) => void,
 ): Promise<ExtractOutcome> {
   const { rowsAsText } = await import("@bw/lab-core/pdf");
+
+  // One document from the allowance, before any page goes: this is the
+  // moment it is taken, once, whatever the page count. At zero the worker
+  // refuses here — an ApiError `no_documents` with the allowance on it — and
+  // nothing has been sent. Given back below if no page could be read.
+  const opened = await openDocument(id);
+  onAllowance?.(opened.allowance);
+  const giveBack = async () => {
+    const r = await releaseDocument(id).catch(() => null);
+    if (r) onAllowance?.(r.allowance);
+  };
 
   const results: Array<PageResult | undefined> = new Array(pages.length);
   const failed: number[] = [];
@@ -158,6 +172,7 @@ export async function extractReport(
         try {
           const res = await extractPage(
             isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
+            id,
             onRow ? (row) => onRow(page.pageNum, row) : undefined,
           );
           results[i] = interpretPage(
@@ -182,10 +197,17 @@ export async function extractReport(
       }),
     ),
   );
-  if (fatal) throw fatal;
+  // Nothing read — the ledger froze before the first page, or every page
+  // failed — and the document goes back. The worker checks that nothing
+  // was read before it agrees, so this cannot be a way to read for free.
+  if (fatal) {
+    await giveBack();
+    throw fatal;
+  }
   // One failed page is a note on a report; every page failed is no report.
   // Storing an empty row would show "uloženo" over nothing.
   if (!results.some(Boolean)) {
+    await giveBack();
     throw new Error(`žádnou stranu se nepodařilo přečíst — report nebyl uložen${firstError ? ` (${firstError})` : ""}`);
   }
 
@@ -257,9 +279,21 @@ export async function extractReport(
  * Persist: the row first (pages attach to a report that exists), then each
  * painted image, then the row again with the images named by route so the
  * data: URLs can be let go of.
+ *
+ * The first row goes without the pixels. `report.pages[].imageUrl` is the
+ * painted page as a data: URL — ~59 kB each — and the worker, which never
+ * stores that field, still counts it against its 2 MiB payload cap: six
+ * pages answered 413 „Report je příliš velký." after the document was taken
+ * and every page read. What the first PUT needs is the page numbers and
+ * sizes; the routes come with the second.
+ *
+ * Nothing here gives the document back. By the time a report is stored its
+ * pages were read and paid for, and the worker would refuse the release
+ * anyway (it checks that nothing was read); a failure here is reported as
+ * what it is — read, not stored — by the caller.
  */
 export async function storeReport(report: LabReport, pages: RedactedPage[]): Promise<LabReport> {
-  await putReport(report);
+  await putReport({ ...report, pages: report.pages.map(({ imageUrl: _pixels, ...p }) => p) });
   const stored = [];
   for (const p of pages) {
     const { imageUrl } = await putPage(report.id, p.pageNum, p.blob, p.imageWidth, p.imageHeight);

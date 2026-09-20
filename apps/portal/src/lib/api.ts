@@ -12,6 +12,18 @@ export interface Budget {
   month: string;
 }
 
+/**
+ * The allowance the person sees, in documents (workers/portal/src/allowance.ts):
+ * `free` for good, `purchased` on top, `used` taken at each document's open,
+ * `remaining` what is left to upload.
+ */
+export interface Allowance {
+  free: number;
+  purchased: number;
+  used: number;
+  remaining: number;
+}
+
 export interface Settings {
   /** canonicalId → raw names the reader mapped to it, in acceptance order. */
   learned?: Record<string, string[]>;
@@ -23,23 +35,28 @@ export interface Settings {
   customAnalytes?: CustomAnalyte[];
   /** What the person told their AI assistant about themselves, once. */
   aiContext?: AiContext;
+  /**
+   * What the mapping model answered, per printed name — asked once per
+   * account, so a reload does not spend again (lib/aiMapping.ts).
+   */
+  aiAsked?: AiAsked;
 }
 
 export class ApiError extends Error {
-  constructor(message: string, readonly code: string, readonly status: number, readonly budget?: Budget) {
+  constructor(message: string, readonly code: string, readonly status: number, readonly budget?: Budget, readonly allowance?: Allowance) {
     super(message);
   }
 }
 
 /** Errors after which every remaining page would fail the same way. */
-const FATAL = new Set(["budget_exhausted", "unauthorized"]);
+const FATAL = new Set(["budget_exhausted", "unauthorized", "no_document"]);
 export const isFatalApiError = (e: unknown): boolean => e instanceof ApiError && FATAL.has(e.code);
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, init);
   if (res.status === 204) return undefined as T;
-  const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget };
-  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget);
+  const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget; allowance?: Allowance };
+  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget, data.allowance);
   return data as T;
 }
 
@@ -49,18 +66,36 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-/** Which form a link opens. A dead link is an ApiError with status 404. */
+/**
+ * Which form a link opens. A dead link is an ApiError with status 404. A
+ * sign-up link the worker mailed names its address, so the form need not
+ * ask for it; an operator's sign-up code does not.
+ */
 export const checkInvite = (code: string) =>
-  request<{ kind: "signup" | "password" }>(`/api/auth/invite/${encodeURIComponent(code)}`);
+  request<{ kind: "signup" | "password"; email?: string }>(`/api/auth/invite/${encodeURIComponent(code)}`);
 
 /** Each of the three mints the session cookie on success; the caller then
- *  reads /api/me, which is the only thing that says who is logged in. */
+ *  reads /api/me, which is the only thing that says who is logged in. The
+ *  Turnstile token goes with the login on an open deployment; the worker
+ *  ignores it on a closed one. */
 export const register = (code: string, email: string, password: string) =>
   request<{ ok: true }>("/api/auth/register", jsonInit("POST", { code, email, password }));
-export const login = (email: string, password: string) =>
-  request<{ ok: true }>("/api/auth/login", jsonInit("POST", { email, password }));
+export const login = (email: string, password: string, turnstile?: string | null) =>
+  request<{ ok: true }>("/api/auth/login", jsonInit("POST", { email, password, ...(turnstile ? { turnstile } : {}) }));
 export const setPassword = (code: string, password: string) =>
   request<{ ok: true }>("/api/auth/password", jsonInit("POST", { code, password }));
+
+/**
+ * The open door. `signupOpen` is what the door asks before drawing
+ * „Registrovat" and „Zapomenuté heslo"; the two requests mail a link and
+ * answer {ok:true} whether or not the address has an account — the mailbox
+ * learns which, the screen does not. `consent` is both boxes ticked.
+ */
+export const signupOpen = () => request<{ open: boolean }>("/api/auth/signup").then((r) => r.open, () => false);
+export const requestSignup = (email: string, consent: boolean, turnstile?: string | null) =>
+  request<{ ok: true }>("/api/auth/register", jsonInit("POST", { email, consent, ...(turnstile ? { turnstile } : {}) }));
+export const requestReset = (email: string, turnstile?: string | null) =>
+  request<{ ok: true }>("/api/auth/forgot", jsonInit("POST", { email, ...(turnstile ? { turnstile } : {}) }));
 
 /**
  * The public demo patient — a real account this deployment opens to anyone.
@@ -73,7 +108,27 @@ export const setPassword = (code: string, password: string) =>
 export const demoOffered = () => request<{ available: true }>("/api/auth/demo").then(() => true, () => false);
 export const enterDemo = () => request<{ ok: true }>("/api/auth/demo", jsonInit("POST", {}));
 
-export const getStatus = () => request<{ budget: Budget; maxPages: number }>("/api/status");
+export const getStatus = () => request<{ budget: Budget; maxPages: number; allowance: Allowance }>("/api/status");
+export const getAllowance = () => request<Allowance>("/api/allowance");
+
+/**
+ * Open a document for extraction — the one call that takes a document from
+ * the allowance. The id is the report id the browser minted, so document and
+ * report share a name. Answers 402 `no_documents` (an ApiError with the
+ * allowance on it) when none is left; a retry with the same id takes nothing.
+ */
+export const openDocument = (id: string) =>
+  request<{ ok: true; already: boolean; allowance: Allowance }>("/api/documents", jsonInit("POST", { id }));
+
+/** Give a document back. The worker does so only if no page of it was read. */
+export const releaseDocument = (id: string) =>
+  request<{ ok: true; released: boolean; allowance: Allowance }>(`/api/documents/${id}`, { method: "DELETE" });
+
+/**
+ * The shop: a Checkout URL to send the browser to, or an ApiError — 503
+ * `shop_closed` while the deployment has no Stripe account behind it.
+ */
+export const buyDocuments = (pkg: "5" | "15") => request<{ url: string }>("/api/buy", jsonInit("POST", { package: pkg }));
 
 /** A row as the reader wrote it, before its page is finished. Provisional. */
 export interface ProvisionalRow {
@@ -101,6 +156,15 @@ export const getProcessors = () =>
   request<{ photoReaders: string | null }>("/api/processors");
 
 /**
+ * „Napište nám". Logged in, the worker takes the address from the session and
+ * `email` is ignored; logged out it is required, and so is the Turnstile
+ * token on a deployment that asks for one. The 200 means the message is in
+ * the database — not that anyone has been told yet.
+ */
+export const sendHelpdesk = (m: { email?: string; text: string; reportId?: string; turnstileToken?: string }) =>
+  request<{ ok: true }>("/api/helpdesk", jsonInit("POST", m));
+
+/**
  * One page to the extractor: the printed rows of a digital page, or the
  * painted image of a scan. Never both, and never an image of a page that has
  * rows — the text path is what keeps the pixels at home.
@@ -113,11 +177,16 @@ export const getProcessors = () =>
  */
 export async function extractPage(
   page: { rowsText: string } | { imageBase64: string; mediaType: string },
+  /** The document this page belongs to — opened first with `openDocument`. */
+  documentId: string,
   onRow?: (row: ProvisionalRow, model: string) => void,
 ): Promise<ExtractResult> {
-  if (!onRow) return request<ExtractResult>("/api/extract", jsonInit("POST", page));
+  // The document rides in a header, not the body: the body goes to the
+  // extractor as sent, and the extractor has no idea what a document is.
+  const withDoc = (init: RequestInit): RequestInit => ({ ...init, headers: { ...(init.headers as Record<string, string>), "x-document": documentId } });
+  if (!onRow) return request<ExtractResult>("/api/extract", withDoc(jsonInit("POST", page)));
 
-  const res = await fetch("/api/extract", jsonInit("POST", { ...page, stream: true }));
+  const res = await fetch("/api/extract", withDoc(jsonInit("POST", { ...page, stream: true })));
   const type = res.headers.get("content-type") ?? "";
   if (!res.ok || !type.includes("x-ndjson") || !res.body) {
     const data = (await res.json().catch(() => ({}))) as ExtractResult & { message?: string; error?: string };
@@ -153,7 +222,16 @@ export async function extractPage(
 
 export const listReports = () => request<LabReport[]>("/api/reports");
 
-export const putReport = (report: LabReport) => request<{ ok: true }>(`/api/reports/${report.id}`, jsonInit("PUT", report));
+/**
+ * A report as it is sent: the pages may go without `imageUrl`. The worker
+ * never stores that field — a page image is named by route at rest — but it
+ * does count it against its 2 MiB payload cap, and a painted page is a
+ * ~59 kB data: URL in the browser. The first PUT of a report goes without
+ * them (lib/upload.ts storeReport); the second carries the routes.
+ */
+export type ReportBody = Omit<LabReport, "pages"> & { pages: Array<Omit<LabReport["pages"][number], "imageUrl"> & { imageUrl?: string }> };
+
+export const putReport = (report: ReportBody) => request<{ ok: true }>(`/api/reports/${report.id}`, jsonInit("PUT", report));
 
 export const putPage = (reportId: string, pageNum: number, blob: Blob, width: number, height: number) =>
   request<{ ok: true; imageUrl: string }>(`/api/reports/${reportId}/${pageNum}`, {
@@ -204,9 +282,30 @@ export interface MapSuggestion {
 }
 export interface AiMapAnswer {
   suggestions: MapSuggestion[];
+  /** Which model answered, for the record kept per name. */
+  model?: string;
   costUsd?: number;
   budget: Budget;
 }
+/**
+ * One name's answer as the account keeps it. `applied` marks the ones the
+ * model filed without a click; `asking` is the in-memory mark between the
+ * call and its answer, never persisted (see lib/aiMapping.ts).
+ */
+export interface AiAskedEntry {
+  decision: MapSuggestion["decision"];
+  canonicalId: string | null;
+  confidence: MapSuggestion["confidence"];
+  reason: string;
+  model: string;
+  /** ISO date, "2026-09-19". */
+  at: string;
+  /** For `new`: what it proposed, so the founding form opens with it after a reload. */
+  proposed?: MapSuggestion["proposed"];
+  applied?: true;
+  asking?: true;
+}
+export type AiAsked = Record<string, AiAskedEntry>;
 export const suggestWithAi = (names: NameToMap[], catalog: CatalogEntry[]) =>
   request<AiMapAnswer>("/api/map", jsonInit("POST", { names, catalog }));
 

@@ -12,7 +12,7 @@ import { mintCookieToken } from "../src/session";
 const SECRET = "test-portal-secret";
 
 interface Tables {
-  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null }>;
+  users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null; session_epoch: number }>;
   synonyms: Array<{ raw_name: string; canonical_id: string; taught_by: string | null; created_at: string }>;
 }
 
@@ -84,8 +84,8 @@ async function as(uid: string, method: string, path: string, body?: unknown): Pr
 let current: Tables;
 const fresh = (): Tables => ({
   users: [
-    { id: "u-a", email: "a@x.cz", created_at: "2026-01-01", settings: null },
-    { id: "u-b", email: "b@x.cz", created_at: "2026-01-01", settings: null },
+    { id: "u-a", email: "a@x.cz", created_at: "2026-01-01", settings: null, session_epoch: 0 },
+    { id: "u-b", email: "b@x.cz", created_at: "2026-01-01", settings: null, session_epoch: 0 },
   ],
   synonyms: [],
 });

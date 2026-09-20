@@ -6,6 +6,8 @@
  *   node tools/scripts/moje-krev-budget.mjs kdo@example.com 20 --apply
  *   node tools/scripts/moje-krev-budget.mjs kdo@example.com --default # back to PORTAL_USD_LIMIT
  *   node tools/scripts/moje-krev-budget.mjs --show --apply            # who is on what
+ *   node tools/scripts/moje-krev-budget.mjs kdo@example.com --documents 5 --apply   # grant documents
+ *   node tools/scripts/moje-krev-budget.mjs kdo@example.com --documents -5 --apply  # take them back (a refund)
  *
  * The account has to exist: this UPDATEs a row keyed by e-mail, so it is run
  * after the person has registered, not before. Read wrangler's row count —
@@ -19,6 +21,13 @@
  * Nothing here is retroactive. The ceiling applies to the running calendar
  * month's spend, which lives in KV (src/ledger.ts) and is not touched: raise
  * a frozen person and their next upload goes through immediately.
+ *
+ * --documents is the other allowance, the one the person sees: it adds to
+ * `doc_allowance` (five free, plus what was bought or granted). Whole
+ * numbers, either sign — a refund takes back what a purchase gave — and the
+ * total never drops under what the account has already used, so a refund
+ * cannot leave someone at "7 of 5". Used documents are not touched: what
+ * was read was read.
  */
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -38,8 +47,19 @@ export function budgetSql({ email, usd }) {
   };
 }
 
+/** Grant (or, negative, take back) documents; the sentence says which. */
+export function documentsSql({ email, n }) {
+  const addr = String(email).trim().toLowerCase();
+  const value = Number(n);
+  if (!Number.isInteger(value) || value === 0) throw new Error(`not a number of documents: ${n}`);
+  return {
+    sql: `UPDATE users SET doc_allowance = MAX(doc_used, doc_allowance ${value < 0 ? "-" : "+"} ${Math.abs(value)}) WHERE email = ${q(addr)};`,
+    says: value > 0 ? `${addr} → +${value} documents` : `${addr} → ${value} documents (never under what is used)`,
+  };
+}
+
 export const SHOW_SQL =
-  "SELECT email, COALESCE(CAST(budget_usd AS TEXT), 'default') AS budget_usd FROM users ORDER BY email;";
+  "SELECT email, COALESCE(CAST(budget_usd AS TEXT), 'default') AS budget_usd, doc_used, doc_allowance FROM users ORDER BY email;";
 
 function run(sql) {
   execFileSync("npx", ["wrangler", "d1", "execute", "moje-krev", "--remote", `--command=${sql}`], {
@@ -61,8 +81,24 @@ function main(argv) {
 
   const email = rest[0];
   if (!email || !email.includes("@")) {
-    console.error("usage: moje-krev-budget.mjs <e-mail> <usd|--default> [--apply]   ·   --show [--apply]");
+    console.error("usage: moje-krev-budget.mjs <e-mail> <usd|--default> [--apply]   ·   <e-mail> --documents <n> [--apply]   ·   --show [--apply]");
     process.exit(1);
+  }
+
+  const docs = argv.indexOf("--documents");
+  if (docs >= 0) {
+    let out;
+    try {
+      out = documentsSql({ email, n: argv[docs + 1] });
+    } catch (e) {
+      console.error(`${e.message} — give a whole number, e.g. --documents 5 or --documents -5`);
+      process.exit(1);
+    }
+    console.log(out.sql);
+    console.log(`\n${out.says}`);
+    if (apply) run(out.sql);
+    else console.log("\n(dry run — add --apply to execute against the remote database)");
+    return;
   }
 
   let usd = null;
