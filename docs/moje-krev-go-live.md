@@ -116,11 +116,12 @@ endpoint at `/api/stripe/webhook` for `checkout.session.completed` +
   100 %. Resetting it is the eight-key loop under *Ledger extraktoru*.
 - **Demo patient**: `DEMO_EMAIL` secret on the API worker opens one
   account read-only from the front page; unset means no demo link.
-- **Worktrees**: the 22 `.claude/worktrees/agent-*` directories are merged
-  agent leftovers; `git worktree remove --force` each, then
-  `git worktree prune`. The named ones (`lab-adapt`, `moje-krev`, `polish-a`,
-  `refine-*`, …) are older experiments — check `git log main..<branch>`
-  before removing any.
+- **Worktrees**: the 22 `agent-*` worktrees were removed 2026-09-20; five
+  of their branches (`worktree-agent-a02a7d…`, `a75f54…`, `a7c6b6…`,
+  `aa5737…`, `aeaacb…`) are kept — August UI variants A/B/C never merged,
+  `git branch -D` them when sure. The nine named worktrees (`lab-adapt`,
+  `moje-krev`, `polish-a`, `refine-*`, …) are older experiments — check
+  `git log main..<branch>` before removing any.
 
 ## What is deliberately not done
 
