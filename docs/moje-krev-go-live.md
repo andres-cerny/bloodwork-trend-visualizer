@@ -1,13 +1,14 @@
 # Moje krev — what only Ondřej can do
 
-The `claude/multi-user-hardening` branch (merged to `main` 2026-09-20) is
-built, tested and reviewed, but nothing on it is live. Every step below
-needs a browser login, a key, or a decision — none of it can be done by an
-agent in the cloud. Do them in this order; each one is safe to stop after.
-The details of every step are in [moje-krev-handoff.md](moje-krev-handoff.md)
-under the section named.
+The `claude/multi-user-hardening` branch was merged to `main` on
+2026-09-20 (PR #3) and **steps 1 and 2 are done**: the four migrations are
+on live D1, all three workers are deployed from `main`, and the legal texts
+are approved. Steps 3–6 still need a browser login, a key, or a decision —
+none of it can be done by an agent in the cloud. Do them in this order;
+each one is safe to stop after. The details of every step are in
+[moje-krev-handoff.md](moje-krev-handoff.md) under the section named.
 
-## 1. Deploy the merged main (~15 min, no new accounts needed)
+## 1. Deploy the merged main — done 2026-09-20
 
 Live D1 was created before 2026-09-19, so it needs four migrations **before**
 the worker that reads them is deployed. `check:schema` says which are missing.
@@ -25,6 +26,10 @@ cd ../.. && npm run check:schema                     # must say every table and 
 npm run deploy:moje-krev                             # extract → API → shell, in order
 ```
 
+Done 2026-09-20: `check:schema` reads 12 tables, 74 columns; versions
+extract `73bfb590`, API `1af439f3`, app `b713c99e`. The live D1 was
+exported to a local file first — do that before any future migration too.
+
 After this: every existing account has 5 documents and 0 used; the landing
 page, `/podminky`, `/soukromi`, `/napiste-nam` and `/proc-prikoupit` are
 up; the 15-minute check runs and logs (no Telegram yet); registration,
@@ -36,21 +41,14 @@ Then log in with your own account and click through Souhrn, Trendy,
 Ověření and Přiřazení once — the catalog grew from 139 to 344 analytes and
 every row now carries an "i".
 
-## 2. Approve the legal texts (a decision, then one file)
+## 2. Approve the legal texts — done 2026-09-20
 
-Both `/podminky` and `/soukromi` carry the banner „Návrh — čeká na
-schválení provozovatele." and say `[provozovatel]` where a name should be.
-Read them. When they are right, in `apps/portal/src/ui/legal.tsx`:
-
-- `OPERATOR` — your name (or entity + IČO), address, and the e-mail for
-  data-protection requests. Which address is your call; the file says why
-  it was left blank.
-- `LEGAL_VERSION` — the approval date.
-- `LEGAL_DRAFT = false`.
-
-`npm test` holds the consent sentences and the privacy page to what the
-code does; `npm run deploy:portal` ships it. Do this before step 3 — a
-stranger who registers agrees to these texts.
+`apps/portal/src/ui/legal.tsx` names Ondřej Černý, Hákova 15, 109 00
+Praha 15, andres.cerny@gmail.com as the operator, version „20. 9. 2026",
+`LEGAL_DRAFT = false`. Read `/podminky` and `/soukromi` once yourself
+anyway — the texts describe what the code does and a test holds them to
+it, but nobody with legal training has read them. To revise: edit, bump
+`LEGAL_VERSION`, `npm run deploy:portal`.
 
 ## 3. Open registration (Resend + Turnstile accounts)
 
@@ -66,7 +64,7 @@ Two accounts to create, then three secrets, one build variable, one var.
 
 ```sh
 cd workers/portal
-npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put RESEND_API_KEY               # already set on the API worker (2026-09-20) — re-put only if the domain changed
 npx wrangler secret put MAIL_FROM                    # Moje krev <noreply@your-domain>
 npx wrangler secret put TURNSTILE_SECRET_KEY
 # repo-root .env (git-ignored):  VITE_TURNSTILE_SITE_KEY=<site key>
@@ -128,7 +126,8 @@ endpoint at `/api/stripe/webhook` for `checkout.session.completed` +
 
 - Mail, Turnstile, Telegram and Stripe are all **off by default** and each
   turns on by its secrets alone; no code change opens any of them.
-- The legal texts are drafts by an agent. They describe what the code does
-  (a test holds them to it) but nobody with legal training has read them.
+- The legal texts were written by an agent and approved by their operator
+  on 2026-09-20. They describe what the code does (a test holds them to
+  it) but nobody with legal training has read them.
 - Only `moje-krev.andres-cerny.workers.dev` is in `TURNSTILE_HOSTNAMES`;
   a custom domain needs adding there before Turnstile will pass on it.
