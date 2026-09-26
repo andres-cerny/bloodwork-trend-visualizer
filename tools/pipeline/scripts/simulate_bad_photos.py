@@ -17,6 +17,7 @@ with the same helpers (imported, not copied, and that file is not edited):
     micro       long edge 200 px: no text can survive              -> refuse
     black       a lens-cap frame: near-uniform dark noise          -> refuse
     wall        a blank, evenly lit wall                           -> refuse
+    sheet       a blank A4 sheet on the desk                       -> warn (not a lab sheet)
 
 `tilt_hard` and `table` are `ok` because the page is found and flattened
 (Phase C); the plan's table lists strong tilt as a warning, and the calibration
@@ -79,7 +80,7 @@ EXPECTED = {
     "screen": "ok",
     "micro": "refuse",
 }
-BLANK_EXPECTED = {"black": "refuse", "wall": "refuse"}
+BLANK_EXPECTED = {"black": "refuse", "wall": "refuse", "sheet": "warn"}
 
 Quad = list[tuple[float, float]]
 
@@ -268,6 +269,13 @@ def blank(kind: str, rng: random.Random) -> Image.Image:
     nrng = np.random.default_rng(rng.randint(0, 2**31))
     if kind == "black":
         a = np.clip(nrng.normal(0.035, 0.015, (h, w, 3)), 0, 1)
+    elif kind == "sheet":
+        # A blank A4 sheet on the desk: not uniform (paper against wood), no
+        # print. The photo checks cannot call it blank; the lab-sheet score can.
+        sheet = Image.new("RGB", (2100, 2970), (236, 234, 228))
+        quad = [(0.1, 0.07), (0.9, 0.08), (0.92, 0.93), (0.08, 0.92)]
+        im = place(sheet, (w, h), quad)
+        a = as_float(im) * gradient(h, w, 0.0, 0.0, 1.0, 1.0, 1.0, 0.85) + nrng.normal(0, 0.01, (h, w, 3))
     else:
         a = gradient(h, w, 0.0, 0.0, 1.0, 1.0, 0.82, 0.74) * np.array([0.96, 0.94, 0.9]) + nrng.normal(0, 0.01, (h, w, 3))
     return jpeg_roundtrip(from_float(a.astype(np.float32)), 80)

@@ -364,3 +364,4 @@ export async function photoAssets(file: Blob, pageNum = 1): Promise<PageAssets> 
 /* ------------------------------------------------------ is it worth sending */
 
 export * from "./photoQuality";
+export * from "./photoPage";
