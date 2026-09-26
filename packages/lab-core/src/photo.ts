@@ -360,3 +360,7 @@ export function photoPage(shot: EncodedPhoto, pageNum = 1): PageAssets {
 export async function photoAssets(file: Blob, pageNum = 1): Promise<PageAssets> {
   return photoPage(await encodePhoto(file), pageNum);
 }
+
+/* ------------------------------------------------------ is it worth sending */
+
+export * from "./photoQuality";
