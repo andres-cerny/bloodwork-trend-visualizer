@@ -25,6 +25,8 @@
  *    capitalised word follows, so a real word is never cut.
  */
 import type { Box } from "./models";
+import { mapBox } from "./photoPage";
+import { findIdentity, type IdentityHit } from "./redact";
 
 export interface OcrWord {
   text: string;
@@ -82,6 +84,26 @@ export function ocrPhrases(lines: OcrLine[]): OcrPhrase[] {
     flush();
   }
   return out;
+}
+
+/**
+ * Identity boxes for a photographed page, in the photo's own pixels.
+ *
+ * OCR ran on the flattened page, where rows are straight — that is where
+ * `buildRows` inside `findIdentity` works. Each hit is then carried back onto
+ * the photo through `toPhoto` (flattened → photo; null when the photo was not
+ * warped), because the photo is what the review screen shows and what gets
+ * painted. These are suggestions: the review screen keeps the pencil and the
+ * confirmation, and an empty list means "nothing found", never "nothing there".
+ */
+export function identityFromOcr(lines: OcrLine[], toPhoto: number[] | null, pageNum = 1): IdentityHit[] {
+  const { hits } = findIdentity([{ pageNum, words: ocrPhrases(lines) }]);
+  return toPhoto ? hits.map((h) => ({ ...h, box: mapBox(toPhoto, h.box) })) : hits;
+}
+
+/** Each OCR line as one string, for `labSheetScore`. */
+export function ocrLineTexts(lines: OcrLine[]): string[] {
+  return lines.map((l) => l.words.map((w) => w.text).join(" "));
 }
 
 /* ------------------------------------------------------ is this a lab sheet */

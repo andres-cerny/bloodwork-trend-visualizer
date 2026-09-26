@@ -380,6 +380,17 @@ export function applyHomography(H: number[], [x, y]: Point): Point {
   return [(H[0] * x + H[1] * y + H[2]) / d, (H[3] * x + H[4] * y + H[5]) / d];
 }
 
+/**
+ * A box through a homography, as the axis-aligned box around its four mapped
+ * corners. Used to carry an OCR box on the flattened page back onto the photo
+ * the review screen shows: the result is a little larger than the text on a
+ * skewed page, which is the right way to be wrong for a redaction.
+ */
+export function mapBox(H: number[], [x0, y0, x1, y1]: [number, number, number, number]): [number, number, number, number] {
+  const c = ([[x0, y0], [x1, y0], [x1, y1], [x0, y1]] as Point[]).map((p) => applyHomography(H, p));
+  return [Math.min(...c.map((p) => p[0])), Math.min(...c.map((p) => p[1])), Math.max(...c.map((p) => p[0])), Math.max(...c.map((p) => p[1]))];
+}
+
 /** A4, portrait: height over width. */
 export const A4 = Math.SQRT2;
 

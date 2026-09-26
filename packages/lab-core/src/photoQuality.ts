@@ -261,7 +261,9 @@ export type PhotoReason =
   | "small" // warn: few pixels; small print may be lost
   | "blurred" // warn: defocus or shake
   | "dark" // warn: underexposed
-  | "glare"; // warn: a reflection has wiped out part of the print
+  | "glare" // warn: a reflection has wiped out part of the print
+  | "corner_cut" // warn: part of the sheet is outside the frame (photoPage.ts)
+  | "not_lab"; // warn: the OCR text does not look like a lab sheet (photoOcr.ts)
 
 export interface PhotoVerdict {
   outcome: PhotoOutcome;
@@ -311,4 +313,23 @@ export function assessPhoto(m: PhotoMetrics, t = QUALITY): PhotoVerdict {
   if (m.paper < t.darkPaper) warn.push("dark");
   if (m.glare >= t.glare) warn.push("glare");
   return { outcome: warn.length ? "warn" : "ok", reasons: warn };
+}
+
+/**
+ * The two checks that need more than pixel statistics, folded into a verdict:
+ * a sheet with a corner outside the frame (`findPage`), and OCR text that does
+ * not look like a lab sheet (`labSheetScore`). Both only ever warn; a refusal
+ * stands as it is. `null` means the check did not run (no page found, OCR not
+ * loaded) and adds nothing — an absent answer is not a bad one.
+ */
+export function withPageChecks(
+  v: PhotoVerdict,
+  page: { cornerCut: boolean } | null,
+  lab: { lab: boolean } | null,
+): PhotoVerdict {
+  if (v.outcome === "refuse") return v;
+  const reasons = [...v.reasons];
+  if (page?.cornerCut) reasons.push("corner_cut");
+  if (lab && !lab.lab) reasons.push("not_lab");
+  return { outcome: reasons.length ? "warn" : "ok", reasons };
 }

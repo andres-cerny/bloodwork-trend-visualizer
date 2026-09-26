@@ -10,7 +10,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { findIdentity } from "../src/redact";
-import { LAB_SHEET_MIN, labSheetScore, ocrPhrases, type OcrLine } from "../src/photoOcr";
+import { identityFromOcr, LAB_SHEET_MIN, labSheetScore, ocrPhrases, type OcrLine } from "../src/photoOcr";
+import { homography, mapBox } from "../src/photoPage";
+import { withPageChecks } from "../src/photoQuality";
 import type { Box } from "../src/models";
 
 const w = (text: string, box: Box, conf = 95) => ({ text, conf, box });
@@ -101,5 +103,48 @@ describe("labSheetScore", () => {
   it("reads a Slovak sheet as a lab sheet — a foreign lab is still a lab", () => {
     const sk = ["Vyšetrenie Výsledok Jednotky Referenčné hodnoty", "Glukóza 5,1 mmol/l 3,9 - 5,6", "Kreatinín 78 µmol/l 44 - 104", "Hemoglobín 139 g/l 120 - 160"];
     expect(labSheetScore(sk).score).toBeGreaterThanOrEqual(LAB_SHEET_MIN);
+  });
+});
+
+describe("identityFromOcr", () => {
+  it("finds on the flattened page and hands back boxes in the photo's pixels", () => {
+    // Flattened -> photo: twice the size, shifted by (100, 50).
+    const toPhoto = homography([[0, 0], [1, 0], [1, 1], [0, 1]], [[100, 50], [102, 50], [102, 52], [100, 52]]);
+    const flat = identityFromOcr(HEADER, null);
+    const onPhoto = identityFromOcr(HEADER, toPhoto);
+    expect(onPhoto.map((h) => h.kind)).toEqual(flat.map((h) => h.kind));
+    flat.forEach((h, i) => {
+      expect(onPhoto[i].box[0]).toBeCloseTo(100 + 2 * h.box[0], 6);
+      expect(onPhoto[i].box[3]).toBeCloseTo(50 + 2 * h.box[3], 6);
+    });
+  });
+
+  it("returns an empty list — never a claim — when OCR read nothing", () => {
+    expect(identityFromOcr([], null)).toEqual([]);
+  });
+});
+
+describe("mapBox", () => {
+  it("boxes all four corners of a skewed map, so nothing of the text escapes", () => {
+    const H = homography([[0, 0], [100, 0], [100, 100], [0, 100]], [[10, 0], [110, 20], [100, 120], [0, 100]]);
+    const b = mapBox(H, [0, 0, 100, 100]);
+    expect(b[0]).toBeCloseTo(0, 6);
+    expect(b[1]).toBeCloseTo(0, 6);
+    expect(b[2]).toBeCloseTo(110, 6);
+    expect(b[3]).toBeCloseTo(120, 6);
+  });
+});
+
+describe("withPageChecks", () => {
+  const ok = { outcome: "ok" as const, reasons: [] };
+  it("warns on a cut corner and on text that is not a lab sheet, never refuses", () => {
+    expect(withPageChecks(ok, { cornerCut: true }, { lab: true })).toEqual({ outcome: "warn", reasons: ["corner_cut"] });
+    expect(withPageChecks(ok, null, { lab: false })).toEqual({ outcome: "warn", reasons: ["not_lab"] });
+    expect(withPageChecks({ outcome: "warn", reasons: ["blurred"] }, { cornerCut: true }, { lab: false }).reasons).toEqual(["blurred", "corner_cut", "not_lab"]);
+  });
+  it("adds nothing when a check could not run, and leaves a refusal alone", () => {
+    expect(withPageChecks(ok, null, null)).toEqual(ok);
+    const refuse = { outcome: "refuse" as const, reasons: ["blank" as const] };
+    expect(withPageChecks(refuse, { cornerCut: true }, { lab: false })).toBe(refuse);
   });
 });

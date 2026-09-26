@@ -201,6 +201,44 @@ resolution without the stretch; at 2576 px it is 10/57. OCR ≈ 2.6 s/page on
 an M4 Max with 8 in parallel. The readers still receive the unflattened
 photo (C4 decides).
 
+### C4 status (2026-09-26): Sonnet half done, Gemini half waiting for Ondřej
+
+The candidate picture is the OCR one (flatten + `evenLight`, JPEG 85), per the
+decision "same picture for OCR, readers and the highlight". `photo_dump.ts`
+writes it for the 133 simulated photos as class `photo_flatlit`, same truth as
+`photo`.
+
+**Sonnet, tier 1** (17 Sonnet subagents, deployed `SYSTEM_EXTRACT` and `TOOL`
+verbatim; three batches that opened other files or copied one page's answer
+onto another were discarded and re-read under Read/Write-only isolation):
+
+```
+variant                pages truth  rows match  miss extra valERR
+orig_sonnet_vision_dF    133  3585  3593  3585     0     8      0
+sonnet_flatlit           133  3585  3589  3581     4     8      0
+orig_gemini38_ultra      133  3585  3593  3583     2    10      0
+
+pair                                   confirmed flagged UNCAUGHT
+orig_gemini38_ultra+orig_sonnet_vision_dF   3583       5        0
+orig_gemini38_ultra+sonnet_flatlit          3579      13        0
+```
+
+0 value errors. The 4 misses are one row — the second `25-hydroxyvitamin D`
+line, whose name is not reprinted — on all four shots of one page, the
+unwarped frontal one included: a reader habit this batch had, not the warp.
+
+**Gemini, tier 2 — PAID, not run.** ≈ 133 × USD 0.0133 ≈ USD 1.80; cap 9.
+
+```sh
+cd <this worktree>
+BW_MAIN=/Users/ondrejcerny/dev/bloodwork_app tests/bench/photo_flat_gemini.sh validate   # 10 pages first
+BW_MAIN=/Users/ondrejcerny/dev/bloodwork_app tests/bench/photo_flat_gemini.sh full       # the other 123
+```
+
+`full` scores the pair `gemini_flatlit+sonnet_flatlit` with `pairStats` (the
+reconcile pairing); `score` re-prints the tables for free. Ships to the
+readers only on 0 uncaught and no fewer matched rows than the unflattened pair.
+
 ## Phase D — OCR in the browser
 
 **D1.** Tesseract.js in a Web Worker, `ces` traineddata and wasm core

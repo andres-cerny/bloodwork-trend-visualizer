@@ -967,3 +967,11 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
   font-weight: 600;
   overflow-wrap: anywhere;
 }
+
+/* A photo the checks warned on or refused (ui/PhotoCheck.tsx). */
+.photo-check-reasons { margin: 4px 0 8px; padding-left: 1.2em; }
+.photo-check-reasons li { margin: 2px 0; }
+.photo-check-note { font-size: 0.82rem; margin: 6px 0; }
+.photo-check-img { display: block; max-width: 100%; max-height: 50vh; margin: 8px auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.photo-retake { position: relative; cursor: pointer; }
+.photo-retake input[type="file"] { display: none; }

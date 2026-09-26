@@ -128,6 +128,48 @@ describe("RedactReview, given a photograph", () => {
   });
 });
 
+/**
+ * A photograph with the local OCR's suggestions (docs/plans/photo-capture.md,
+ * D3; Ondřej's yes, 2026-09-26). What changed is that boxes may arrive drawn;
+ * what did not is everything the old "no detection on photos" rule protected:
+ * the pencil is on, the confirm is required, the caption says suggestions, and
+ * zero hits never reads as a clean page.
+ */
+describe("RedactReview, given a photograph with OCR suggestions", () => {
+  const ocrHits: IdentityHit[] = [
+    { pageNum: 1, box: [120, 100, 260, 112], kind: "name", text: "Jana Ukázková" },
+    { pageNum: 1, box: [300, 100, 420, 112], kind: "rodne-cislo", text: "855312/0004" },
+  ];
+  const withHits: PreparedFile = { ...photo, hits: ocrHits, photo: { verdict: { outcome: "ok", reasons: [] }, ocr: "done" } };
+  const none: PreparedFile = { ...photo, photo: { verdict: { outcome: "ok", reasons: [] }, ocr: "done" } };
+
+  it("draws the suggestions as ordinary numbered boxes, and still names nothing they cover", () => {
+    const html = draw(withHits);
+    expect(html).toContain('aria-label="Začerněné pole 1"');
+    expect(html).toContain('aria-label="Začerněné pole 2"');
+    for (const h of ocrHits) expect(html).not.toContain(h.text);
+  });
+
+  it("calls them suggestions to check and complete by hand", () => {
+    const html = draw(withHits);
+    expect(html).toContain("navrhli jsme 2 pole");
+    expect(html).toContain("zkontrolujte a doplňte ručně");
+  });
+
+  it("keeps the pencil on and the confirm required", () => {
+    const html = draw(withHits);
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Ano, nahrát");
+  });
+
+  it("says zero hits as 'nic jsme nenašli — zkontrolujte ručně', never as a clean page", () => {
+    const html = draw(none);
+    expect(html).toContain("nic jsme nenašli — zkontrolujte ručně");
+    expect(html).not.toContain("nic tam není");
+    expect(html).toContain('aria-pressed="true"');
+  });
+});
+
 describe("hitZone", () => {
   // Four boxes one printed line apart, drawn at a phone's scale: each zone
   // must be its own band, with no two overlapping, and the padding must

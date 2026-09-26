@@ -635,6 +635,9 @@ const SCREENS: Screen[] = [
       await page.locator('label.drop input[type="file"]').setInputFiles([{ name: "vysledky.pdf", mimeType: "application/pdf", buffer: readFileSync(FIXTURE) }, { name: "IMG_0042.jpg", mimeType: "image/jpeg", buffer: png(1200, 1600) }]);
       await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
       await page.getByRole("button", { name: "Ano, nahrát" }).click();
+      // The photo's checks warn on the fixture (no letters: "not a lab sheet").
+      await page.waitForSelector(".photo-check", { timeout: 40_000 });
+      await page.getByRole("button", { name: "Nahrát i tak" }).click();
       await expect.poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 20_000 }).toContain("IMG_0042.jpg");
       await page.getByRole("button", { name: "Ano, nahrát" }).click();
       await page.waitForSelector(".batch-wait", { timeout: 20_000 });
@@ -644,6 +647,21 @@ const SCREENS: Screen[] = [
     check: async (page) => {
       expect(await page.locator(".batch-wait").textContent()).toBe("Souhrn se otevře až po přečtení všech 2 souborů.");
       expect(await page.getByRole("tab").count(), "the strip waits for the batch").toBe(0);
+    },
+  },
+  {
+    // A photo the checks warned on (docs/plans/photo-capture.md): the reasons,
+    // the picture, the scan tip and three ways on. The fixture carries no
+    // letters, so the local OCR finds no lab sheet in it.
+    name: "fotka — upozornění",
+    go: async (page) => {
+      await tab(page, "Reporty");
+      await page.locator('label.drop input[type="file"]').setInputFiles([{ name: "IMG_0042.jpg", mimeType: "image/jpeg", buffer: png(1200, 1600) }]);
+      await page.waitForSelector(".photo-check img", { timeout: 40_000 });
+      await page.waitForTimeout(300);
+    },
+    check: async (page) => {
+      expect(await page.getByRole("button", { name: "Nahrát i tak" }).count()).toBe(1);
     },
   },
   {

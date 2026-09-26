@@ -61,6 +61,8 @@
  */
 
 import type { PageAssets } from "./pdf/pdf";
+import { evenLight, flattenPhoto, homography, type PageQuad } from "./photoPage";
+import { assessPhoto, lumaFromRgba, measurePhoto, type PhotoVerdict } from "./photoQuality";
 
 /**
  * The long edge every photo is downscaled to.
@@ -281,6 +283,23 @@ export const DECODE_MESSAGE = "Fotku se nepodařilo otevřít — použijte JPEG
  * bytes are sniffed and the person is told what to send instead.
  */
 export async function encodePhoto(file: Blob): Promise<EncodedPhoto> {
+  const d = await decodePhoto(file);
+  enhanceRgba(d.img.data);
+  return finishEncode(d);
+}
+
+interface Decoded {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  /** Raw pixels at the capped size, before any enhancement. */
+  img: ImageData;
+  width: number;
+  height: number;
+  /** The file's own long edge, before the cap — what the size check reads. */
+  longEdge: number;
+}
+
+async function decodePhoto(file: Blob): Promise<Decoded> {
   const buf = new Uint8Array(await file.slice(0, 32).arrayBuffer());
   let bitmap: ImageBitmap;
   try {
@@ -288,8 +307,8 @@ export async function encodePhoto(file: Blob): Promise<EncodedPhoto> {
   } catch {
     throw new PhotoError(isHeicBytes(buf) ? HEIC_MESSAGE : DECODE_MESSAGE);
   }
-
   try {
+    const longEdge = Math.max(bitmap.width, bitmap.height);
     const { width, height } = fitWithin(bitmap.width, bitmap.height);
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -300,25 +319,62 @@ export async function encodePhoto(file: Blob): Promise<EncodedPhoto> {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(bitmap, 0, 0, width, height);
-
-    const img = ctx.getImageData(0, 0, width, height);
-    enhanceRgba(img.data);
-    ctx.putImageData(img, 0, 0);
-
-    const dataUrl = canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY);
-    const imageBase64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
-    return {
-      imageBase64,
-      mediaType: "image/jpeg",
-      width,
-      height,
-      imageUrl: URL.createObjectURL(base64ToBlob(imageBase64)),
-    };
+    return { canvas, ctx, img: ctx.getImageData(0, 0, width, height), width, height, longEdge };
   } finally {
     // The decoded frame is the largest allocation on this path — a 12 MP shot
     // is ~48 MB of RGBA — and 64 pages may be in flight.
     bitmap.close?.();
   }
+}
+
+/** Put the (enhanced) pixels back and encode the JPEG the readers get. */
+function finishEncode({ canvas, ctx, img, width, height }: Decoded): EncodedPhoto {
+  ctx.putImageData(img, 0, 0);
+  const dataUrl = canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY);
+  const imageBase64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  return {
+    imageBase64,
+    mediaType: "image/jpeg",
+    width,
+    height,
+    imageUrl: URL.createObjectURL(base64ToBlob(imageBase64)),
+  };
+}
+
+export interface PreparedPhoto {
+  /** Exactly what `encodePhoto` returns: the readers' input is unchanged. */
+  shot: EncodedPhoto;
+  /** Pixel checks (photoQuality.ts), before the page and lab-sheet checks. */
+  quality: PhotoVerdict;
+  /** The sheet, when found with confidence (photoPage.ts). */
+  page: PageQuad | null;
+  /** The picture OCR reads: flattened when a page was found, light evened. */
+  ocr: { rgba: Uint8ClampedArray; width: number; height: number };
+  /** Flattened → photo pixels, to carry OCR boxes back; null when not warped. */
+  toPhoto: number[] | null;
+}
+
+/**
+ * `encodePhoto`, plus what the photo checks and the local OCR pass need
+ * (docs/plans/photo-capture.md, B–D), from the one decode.
+ *
+ * The flattening and the even light are for OCR only. The readers still get
+ * `shot`, the same single encode of the unflattened photo as before, until
+ * the C4 bench shows the flattened picture reads at least as well.
+ */
+export async function preparePhoto(file: Blob): Promise<PreparedPhoto> {
+  const d = await decodePhoto(file);
+  const grey = lumaFromRgba(d.img.data, d.width, d.height);
+  const quality = assessPhoto(measurePhoto(grey, d.longEdge));
+  // Before `enhanceRgba` mutates the pixels: the finder and the OCR picture
+  // were measured on the raw decode (tests/bench/photo_ocr.ts, `flatlit`).
+  const flat = flattenPhoto(grey, d.img.data, d.width, d.height);
+  const ocr = { rgba: evenLight(flat.rgba, flat.width, flat.height), width: flat.width, height: flat.height };
+  const toPhoto = flat.warped && flat.page
+    ? homography([[0, 0], [flat.width, 0], [flat.width, flat.height], [0, flat.height]], flat.page.corners)
+    : null;
+  enhanceRgba(d.img.data);
+  return { shot: finishEncode(d), quality, page: flat.page, ocr, toPhoto };
 }
 
 /** The encoded JPEG as a Blob, so the verification tab shows the same bytes

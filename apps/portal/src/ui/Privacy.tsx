@@ -115,9 +115,10 @@ export default function Privacy() {
         podpis. Poslední pohled je váš.
       </p>
       <p>
-        U fotky a u skenu žádná textová vrstva není, takže automatika nemá kde hledat a nenajde nic
-        — ne proto, že by tam nic nebylo. Tam začerníte hlavičku vy: kontrola u nich začíná bez
-        jediného nalezeného pole a s tužkou v ruce, a bez ní se fotka neodesílá.
+        Ve skenu žádná textová vrstva není, takže automatika nemá kde hledat a nenajde nic — ne
+        proto, že by tam nic nebylo. Tam začerníte hlavičku vy. Fotku se prohlížeč pokusí přečíst
+        sám, přímo u vás, a navrhne pole k začernění; je to jen návrh, protože čtení fotky chybuje.
+        Kontrola u fotky proto začíná s tužkou v ruce a bez vašeho potvrzení se fotka neodesílá.
       </p>
 
       <h2>4. Kdo údaje zpracovává za nás</h2>
