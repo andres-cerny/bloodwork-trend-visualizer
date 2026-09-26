@@ -266,6 +266,29 @@ already: a document whose pages return no rows can be given back
 before D3 ships. If a page takes more than a few seconds, OCR runs while the
 person looks at the review screen, and the boxes appear when ready.
 
+### D status (2026-09-26): built in the portal
+
+- **D1.** `apps/portal/src/lib/ocr.ts`, reached only by `import("./ocr")`:
+  tesseract.js's ESM build (18.7 kB gz chunk) in its own Web Worker, worker
+  script, LSTM cores and `ces` 4.0.0_best_int copied into `dist/ocr/` by the
+  `ocrAssets` Vite plugin (not committed; package-lock pins them).
+  `check:bundle:portal` proves OCR is on neither the first load nor the PDF
+  path, and fails when `ocr.ts` is imported statically (tried).
+- **D2.** `ocrPhrases` and `identityFromOcr` in `packages/lab-core/src/photoOcr.ts`,
+  tested on a fixture shaped like recorded Tesseract output with invented
+  identities; boxes found on the flattened page are mapped back onto the
+  photo (`mapBox`).
+- **D3.** Suggestions on the review; pencil on, confirm required; "nic jsme
+  nenašli — zkontrolujte ručně" for none; the privacy page's photo paragraph
+  rewritten to match (**needs Ondřej's look — it is an approved legal text**).
+- **D4.** `labSheetScore`, warn below 5 (calibration above). Photo verdict =
+  pixel checks + `corner_cut` + `not_lab` (`withPageChecks`); `PhotoCheck.tsx`
+  shows warn/refuse before the review. `photo_checks.ts`: every expected
+  outcome met once the OCR score covers the blank sheet and non-lab pictures.
+- **Open:** D5 phone timing. Find + warp + even light cost ≈ 260 ms on an M4
+  Max on the main thread (Tesseract itself is in the worker); on a phone that
+  may approach a second — move them into the worker if it shows.
+
 ## Phase E — the Ověření highlight on photos
 
 Each photo row from the readers carries `source_snippet`
