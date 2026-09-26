@@ -168,9 +168,9 @@ const sheet = () => ({ name: "vysledky.pdf", mimeType: "application/pdf", buffer
  */
 async function toReview(page: Page, name = "IMG_0042.jpg", timeout = 40_000) {
   const at = async () =>
-    (await page.locator(".photo-check .sub").first().textContent().catch(() => null))?.includes(name)
+    (await page.locator(".photo-check .sub").first().textContent({ timeout: 250 }).catch(() => null))?.includes(name)
       ? "check"
-      : (await page.locator(".review .sub").first().textContent().catch(() => null))?.includes(name)
+      : (await page.locator(".review .sub").first().textContent({ timeout: 250 }).catch(() => null))?.includes(name)
         ? "review"
         : "";
   await expect.poll(at, { timeout }).not.toBe("");
