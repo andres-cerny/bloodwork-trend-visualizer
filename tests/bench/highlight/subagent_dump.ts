@@ -16,7 +16,18 @@ import { RESULTS, loadTransforms, readerRows, views, type View } from "./common"
 import { LOCATE_BOX, LOCATE_MARK, rowList } from "./locate_prompts";
 import { drawMarks } from "./marks";
 
-const photos = process.argv.slice(2).map((p) => (p.endsWith(".jpg") ? p : `${p}.jpg`));
+const argv = process.argv.slice(2);
+const photos = argv.filter((a) => !a.startsWith("--")).map((p) => (p.endsWith(".jpg") ? p : `${p}.jpg`));
+/** --arms=M (default C,M). --flat-only: for angle/twopage, only the flattened pages. */
+const arms = (argv.find((a) => a.startsWith("--arms="))?.slice(7) ?? "C,M").split(",");
+const flatOnly = argv.includes("--flat-only");
+/**
+ * Where subagents write answers. A subagent runs isolated in the worktree and
+ * cannot write into the main checkout's results, so ANSWER_ROOT (git-ignored,
+ * inside the worktree) takes the answers and they are copied back before
+ * subagent_collect.ts runs. Defaults to RESULTS.
+ */
+const ANSWER_ROOT = process.env.ANSWER_ROOT ?? RESULTS;
 if (!photos.length) throw new Error("name the photos");
 
 const all = views(loadTransforms());
@@ -26,7 +37,7 @@ function taskViews(photo: string): View[] {
   const vs = all.filter((v) => v.photo === photo);
   const orig = vs.filter((v) => v.variant === "orig");
   const flat = vs.filter((v) => v.variant === "flat" && v.path !== orig[0].path);
-  return [...orig, ...flat];
+  return flatOnly && flat.length ? flat : [...orig, ...flat];
 }
 
 function task(arm: "C" | "M", image: string, prompt: string, rows: string, answer: string): string {
@@ -51,18 +62,28 @@ function task(arm: "C" | "M", image: string, prompt: string, rows: string, answe
 for (const photo of photos) {
   const rows = rowList(readerRows(photo));
   for (const v of taskViews(photo)) {
-    const cdir = join(RESULTS, "subagent", "C", `${v.id}.${v.variant}`);
-    mkdirSync(cdir, { recursive: true });
-    writeFileSync(join(cdir, "task.md"), task("C", v.path, LOCATE_BOX, rows, join(cdir, "answer.json")));
-    writeFileSync(join(cdir, "view.json"), JSON.stringify({ photo: v.photo, id: v.id, variant: v.variant, size: v.size }));
-
-    const mdir = join(RESULTS, "subagent", "M", `${v.id}.${v.variant}`);
-    mkdirSync(mdir, { recursive: true });
-    const img = join(mdir, "marked.jpg");
-    const marks = await drawMarks(v, img);
-    writeFileSync(join(mdir, "marks.json"), JSON.stringify(marks));
-    writeFileSync(join(mdir, "task.md"), task("M", img, LOCATE_MARK, rows, join(mdir, "answer.json")));
-    writeFileSync(join(mdir, "view.json"), JSON.stringify({ photo: v.photo, id: v.id, variant: v.variant, size: v.size }));
-    console.log(`${v.id}.${v.variant}: C + M (${Object.keys(marks).length} marks)`);
+    const tag = `${v.id}.${v.variant}`;
+    const answerAt = (arm: string) => {
+      const d = join(ANSWER_ROOT, "subagent", arm, tag);
+      mkdirSync(d, { recursive: true });
+      return join(d, "answer.json");
+    };
+    if (arms.includes("C")) {
+      const cdir = join(RESULTS, "subagent", "C", tag);
+      mkdirSync(cdir, { recursive: true });
+      writeFileSync(join(cdir, "task.md"), task("C", v.path, LOCATE_BOX, rows, answerAt("C")));
+      writeFileSync(join(cdir, "view.json"), JSON.stringify({ photo: v.photo, id: v.id, variant: v.variant, size: v.size }));
+    }
+    let marks: Record<number, unknown> = {};
+    if (arms.includes("M")) {
+      const mdir = join(RESULTS, "subagent", "M", tag);
+      mkdirSync(mdir, { recursive: true });
+      const img = join(mdir, "marked.jpg");
+      marks = await drawMarks(v, img);
+      writeFileSync(join(mdir, "marks.json"), JSON.stringify(marks));
+      writeFileSync(join(mdir, "task.md"), task("M", img, LOCATE_MARK, rows, answerAt("M")));
+      writeFileSync(join(mdir, "view.json"), JSON.stringify({ photo: v.photo, id: v.id, variant: v.variant, size: v.size }));
+    }
+    console.log(`${tag}: ${arms.join(" + ")} (${Object.keys(marks).length} marks)`);
   }
 }

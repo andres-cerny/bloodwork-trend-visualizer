@@ -16,8 +16,8 @@
  *   orig-geo the unflattened angle and twopage photos — 33
  *
  * A view already answered is skipped, so a rerun only pays for what failed.
- * The run stops before a call that would take the arm's recorded spend (all
- * runs, from the answer files) past BENCH_MAX_USD. After the calls it writes
+ * The run stops before a call that would take the recorded spend of G and MG
+ * together (all runs, from the answer files) past BENCH_MAX_USD. After the calls it writes
  * pred files for every answered photo view, like subagent_collect.ts.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -116,9 +116,14 @@ function request(image: Buffer, rows: string): GenerateContentParameters {
   };
 }
 
+/** Recorded spend of both Gemini arms together: BENCH_MAX_USD is one budget for G and MG. */
 function spent(): number {
   let s = 0;
-  for (const f of readdirSync(dir)) if (f.endsWith(".json")) s += JSON.parse(readFileSync(join(dir, f), "utf8")).costUsd ?? 0;
+  for (const a of ["G", "MG"]) {
+    const d = join(RESULTS, "gemini", a);
+    if (!existsSync(d)) continue;
+    for (const f of readdirSync(d)) if (f.endsWith(".json")) s += JSON.parse(readFileSync(join(d, f), "utf8")).costUsd ?? 0;
+  }
   return s;
 }
 
