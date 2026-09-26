@@ -665,6 +665,20 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // The refused variant: too few pixels to hold print. No note, no
+    // "Nahrát i tak" — only "Zrušit" and "Vyfotit znovu".
+    name: "fotka — odmítnutá",
+    go: async (page) => {
+      await tab(page, "Reporty");
+      await page.locator('label.drop input[type="file"]').setInputFiles([{ name: "IMG_0044.jpg", mimeType: "image/jpeg", buffer: png(200, 260) }]);
+      await page.waitForSelector(".photo-check img", { timeout: 40_000 });
+      await page.waitForTimeout(300);
+    },
+    check: async (page) => {
+      expect(await page.getByRole("button", { name: "Nahrát i tak" }).count()).toBe(0);
+    },
+  },
+  {
     // The one screen with a page image and boxes over it. The upload stops
     // here for the reader's look, so the audit can reach it without the
     // extractor: the file is read in the browser, nothing is sent.

@@ -58,7 +58,9 @@ describe("photo copy", () => {
     expect(photoCaption(1, "done")).toContain("1 pole");
     expect(photoCaption(3, "done")).toContain("3 pole");
     expect(photoCaption(7, "done")).toContain("7 polí");
-    expect(photoCaption(0, "failed")).toBe("nic nenalezeno, začerněte ručně");
-    expect(photoCaption(0, undefined)).toBe("nic nenalezeno, začerněte ručně");
+    // OCR that never ran or failed claims no search: "nic nenalezeno" would be false.
+    expect(photoCaption(0, "failed")).toBe("fotku se nepodařilo přečíst — začerněte ručně");
+    expect(photoCaption(0, "skipped")).toBe("začerněte ručně");
+    expect(photoCaption(0, undefined)).not.toContain("nenalezeno");
   });
 });

@@ -97,9 +97,9 @@ const photo: PreparedFile = {
 };
 
 describe("RedactReview, given a photograph", () => {
-  it("says nothing was found and that blacking out is the reader's job", () => {
+  it("claims no search it did not run, and says blacking out is the reader's job", () => {
     const html = draw(photo);
-    expect(html).toContain("nic nenalezeno");
+    expect(html).not.toContain("nic nenalezeno");
     expect(html).toContain("začerněte ručně");
   });
 
@@ -167,6 +167,15 @@ describe("RedactReview, given a photograph with OCR suggestions", () => {
     expect(html).toContain("nic jsme nenašli — zkontrolujte ručně");
     expect(html).not.toContain("nic tam není");
     expect(html).toContain('aria-pressed="true"');
+  });
+});
+
+describe("RedactReview, given a photograph the OCR could not read", () => {
+  it("says the reading failed, never that nothing was found", () => {
+    const html = draw({ ...photo, photo: { verdict: { outcome: "ok", reasons: [] }, ocr: "failed" } });
+    expect(html).toContain("fotku se nepodařilo přečíst — začerněte ručně");
+    expect(html).not.toContain("nic nenalezeno");
+    expect(html).not.toContain("nic jsme nenašli");
   });
 });
 

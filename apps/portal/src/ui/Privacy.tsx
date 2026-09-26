@@ -117,7 +117,7 @@ export default function Privacy() {
       <p>
         Ve skenu žádná textová vrstva není, takže automatika nemá kde hledat a nenajde nic — ne
         proto, že by tam nic nebylo. Tam začerníte hlavičku vy. Fotku se prohlížeč pokusí přečíst
-        sám, přímo u vás, a navrhne pole k začernění; je to jen návrh, protože čtení fotky chybuje.
+        sám, přímo u vás, a navrhne pole k začernění; je to jen návrh, protože strojové čtení fotky dělá chyby.
         Kontrola u fotky proto začíná s tužkou v ruce a bez vašeho potvrzení se fotka neodesílá.
       </p>
 

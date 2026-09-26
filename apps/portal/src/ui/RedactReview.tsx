@@ -96,7 +96,7 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
           <p className="sub" style={{ marginBottom: 0 }}>
             {prepared.name} · {count(prepared.pages.length, "strana", "strany", "stran")}
             {photo
-              ? prepared.hits.length > 0
+              ? hits.length > 0
                 ? " · fotografie — návrhy zkontrolujte a doplňte ručně"
                 : " · fotografie — začerněte ručně"
               : scans.length > 0 && ` · ${count(scans.length, "sken", "skeny", "skenů")} — začerněte ručně`}
