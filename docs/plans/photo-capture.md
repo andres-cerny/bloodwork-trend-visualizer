@@ -275,7 +275,7 @@ name both sit on one OCR row; otherwise `null`, as today. The stored page
 image is then the flattened one, so the box lands on the pixels shown.
 Gate: on the corpus, zero boxes on a wrong row; report how many rows get a
 box. Which locator wins — OCR, reader coordinates, or numbered rows — is
-measured first in [photo-highlight](photo-highlight.md).
+measured first in `docs/plans/photo-highlight.md` (Phase E's research, on its own branch).
 
 ## Phase F — the guided camera
 
@@ -312,4 +312,4 @@ optional and paid. Each UI phase ends with the `portal-auditor` agent and
 | F: guided camera | Deferred. Checks and flattening cover any photo however taken; F is built only if real uploads show many blurred, cut-off or glare warnings — the three faults flattening cannot repair |
 
 The Ověření highlight on photos (Phase E) is researched separately first:
-[photo-highlight](photo-highlight.md).
+`docs/plans/photo-highlight.md` (Phase E's research, on its own branch).
