@@ -12,7 +12,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assessPhoto, lumaFromRgba, measurePhoto } from "../../packages/lab-core/src/photo";
+import { assessPhoto, findPage, lumaFromRgba, measurePhoto, withPageChecks } from "../../packages/lab-core/src/photo";
 import { decodeForChecks, loadCorpus, MAIN } from "./photo_corpus";
 
 const corpus = loadCorpus();
@@ -23,7 +23,9 @@ for (const p of corpus) {
   const t0 = performance.now();
   const metrics = measurePhoto(grey, d.longEdge);
   const ms = performance.now() - t0;
-  const verdict = assessPhoto(metrics);
+  // The page check too (C2): a sheet running off the frame warns. The
+  // lab-sheet score needs OCR and is calibrated in photo_ocr_score.ts.
+  const verdict = withPageChecks(assessPhoto(metrics), findPage(grey), null);
   rows.push({ id: p.id, set: p.set, condition: p.condition, expected: p.expected, readersFull: p.readersFull, ms, metrics, ...verdict });
 }
 
