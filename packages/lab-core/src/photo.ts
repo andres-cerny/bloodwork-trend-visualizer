@@ -51,6 +51,13 @@
  * a homography here would add a slow, failure-prone step in front of two
  * readers that do not need it. If a reader is ever swapped for one that does,
  * that measurement — not this comment — is what reopens the question.
+ *
+ * **What changed on 2026-09-26: OCR does need it.** `photoPage.ts` finds and
+ * flattens the sheet for the local Tesseract pass that pre-draws identity
+ * boxes (docs/plans/photo-capture.md, C and D): on `angle` shots it took
+ * identity recall from 10/57 to 52/57. What the readers receive is still this
+ * file's single encode of the unflattened photo, until the C4 bench says
+ * otherwise.
  */
 
 import type { PageAssets } from "./pdf/pdf";
@@ -365,3 +372,4 @@ export async function photoAssets(file: Blob, pageNum = 1): Promise<PageAssets> 
 
 export * from "./photoQuality";
 export * from "./photoPage";
+export * from "./photoOcr";

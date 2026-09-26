@@ -1,6 +1,6 @@
 # Plan: photo capture — good input before any model sees it
 
-Drafted 2026-09-26 (session with Ondřej). Not started. **A photo should reach
+Drafted 2026-09-26 (session with Ondřej). A, B, C1–C3 built; C4 prepared. **A photo should reach
 the pipeline flat, sharp and recognisably a lab sheet — and when it is not,
 the person is told why and may still send it.** Everything here runs in the
 browser; nothing new leaves the device.
@@ -157,6 +157,49 @@ it (a bad warp is worse than a tilted page).
 Claude arms through subagents, one API gate run and Gemini proposed to
 Ondřej with page count and USD first (rule from lab-adaptability). Ships to
 the readers only on no regression; otherwise C stays OCR-and-highlight only.
+
+### C1–C3 results (2026-09-26)
+
+**C1, the detector.** `tests/bench/photo_page.ts` over 180 scored photos; truth
+for `angle` is the simulator's own transform (`data/photos-bad/corners_angle.json`,
+identical to the photo-highlight bench's byte-verified replay, 0.0 px apart).
+
+| Finder | Correct | Angle corner error, original px | Time/photo | Download |
+|---|---|---|---|---|
+| `photoPage.ts` (own) | **180/180** | median 9.0, max 12.2 | 67 ms | **3.3 kB gz** |
+| OpenCV.js 5 (Canny, largest 4-point contour) | 174/180 | median 6.6, max 8.2 | 25 ms | 3.7 MB gz |
+
+OpenCV misses all six `corner_cut` shots. **Chosen: our own finder.** 9 px on a
+3024 px photo is well inside what OCR needs; the download is 1,100× smaller.
+
+**C3, identity recall** (`tests/bench/photo_ocr.ts` + `photo_ocr_score.ts`,
+Tesseract `ces` 4.0.0_best_int, input as the browser has it: long edge 2576).
+Flattening alone was not enough: 10 → 17 of 57 on `angle`, and even the
+simulator's *exact* inverse transform reached only 19. What held the rest back
+was the shadow every `angle` shot carries (down to 58 % brightness), which a
+global contrast stretch cannot undo. `evenLight` (divide by the paper's own
+brightness, estimated by a closing at 160 px) fixed it:
+
+| Condition | orig | flat | flat + even light (**shipped**) |
+|---|---|---|---|
+| angle | 10/57 | 17/57 | **52/57** (16/21 photos complete) |
+| flat | 49/57 | 49/57 | 53/57 |
+| dark | 52/57 | 52/57 | 55/57 |
+| glare | 52/57 | 52/57 | 52/57 |
+| crop | 11/11 | 11/11 | 11/11 |
+| tilt_hard | 8/17 | 15/17 | 16/17 |
+| corner_cut | 10/17 | 16/17 | 16/17 |
+| table | 15/17 | 15/17 | 15/17 |
+| blown | 11/17 | 11/17 | 10/17 |
+| screen | 9/17 | 0/17 | 7/17 |
+| all | 229/394, 32 false hits | 240/394, 24 | **289/394, 20** |
+
+Losses: blown −1, screen −2 (both conditions the quality checks already name);
+blur, motion, tiny and micro stay at 0–1 — nothing to read, and they warn or
+refuse before OCR runs. The 8/57 in the table above was measured at full
+resolution without the stretch; at 2576 px it is 10/57. OCR ≈ 2.6 s/page on
+an M4 Max with 8 in parallel. The readers still receive the unflattened
+photo (C4 decides).
 
 ## Phase D — OCR in the browser
 

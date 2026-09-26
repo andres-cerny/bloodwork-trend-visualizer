@@ -7,8 +7,17 @@
  * ones, and only a flat page gives the highlight straight rows to draw on.
  *
  * Pure: a greyscale buffer in, four corners and a warped RGBA buffer out, no
- * DOM, ~9 kB of source. Chosen over OpenCV.js on the numbers recorded in the
- * plan's Stage 1 results (corner accuracy, time, and a download ~1,000× smaller).
+ * DOM. Chosen over OpenCV.js on `tests/bench/photo_page.ts` (2026-09-26, 180
+ * scored photos, truth for `angle` = the simulator's own transform):
+ *
+ *     finder        correct  angle corner error (orig px)  time/photo  download
+ *     this file     180/180  median 9.0, max 12.2          67 ms       3.3 kB gz
+ *     OpenCV.js     174/180  median 6.6, max 8.2           25 ms       3.7 MB gz
+ *
+ * OpenCV's textbook contour pipeline misses all six `corner_cut` shots (a
+ * sheet running off the frame has no closed contour); 9 px on a 3024 px photo
+ * is well inside what OCR needs, and 1,100× smaller is the download a phone
+ * makes before it can do anything.
  *
  * ## How
  *
@@ -460,4 +469,49 @@ export function flattenPhoto(
   }
   const size = flatSize(page.corners, maxEdge);
   return { found: true, page, warped: true, rgba: warpRgba(rgba, width, height, page.corners, size.width, size.height), ...size };
+}
+
+/* ------------------------------------------------------------- even light */
+
+/** The paper's own brightness is estimated at this long edge. */
+const LIGHT_EDGE = 160;
+/** Closing radius at LIGHT_EDGE, in px: wider than any printed stroke there. */
+const LIGHT_RADIUS = 4;
+
+/**
+ * Divide out uneven light, for OCR (not for the readers).
+ *
+ * A shadow across half the sheet — the simulator's `angle` shots all have one,
+ * down to 58 % brightness — survives flattening and a global contrast stretch:
+ * the stretch picks one black point and one white point for the whole page,
+ * and the shaded half's paper ends up the grey of the lit half's print.
+ *
+ * The paper's brightness is estimated where print cannot reach it: a small
+ * copy, closed (max then min) so dark strokes vanish, blurred, and read back
+ * bilinearly. Each pixel is divided by it and stretched so paper is white.
+ * Returns a new greyscale RGBA buffer; the input is not touched.
+ */
+export function evenLight(src: Uint8Array | Uint8ClampedArray, width: number, height: number): Uint8ClampedArray {
+  const grey = new Uint8Array(width * height);
+  for (let i = 0, j = 0; j < grey.length; i += 4, j++) grey[j] = (src[i] * 299 + src[i + 1] * 587 + src[i + 2] * 114) / 1000;
+  const small = downscaleGrey({ data: grey, width, height }, LIGHT_EDGE);
+  const bg = blur3(blur3(minMax(minMax(small, LIGHT_RADIUS, true), LIGHT_RADIUS, false)));
+  const out = new Uint8ClampedArray(width * height * 4);
+  const sx = bg.width / width, sy = bg.height / height;
+  for (let y = 0; y < height; y++) {
+    const fy = Math.min(bg.height - 1, Math.max(0, (y + 0.5) * sy - 0.5));
+    const y0 = Math.floor(fy), y1 = Math.min(bg.height - 1, y0 + 1), ay = fy - y0;
+    for (let x = 0; x < width; x++) {
+      const fx = Math.min(bg.width - 1, Math.max(0, (x + 0.5) * sx - 0.5));
+      const x0 = Math.floor(fx), x1 = Math.min(bg.width - 1, x0 + 1), ax = fx - x0;
+      const b =
+        (bg.data[y0 * bg.width + x0] * (1 - ax) + bg.data[y0 * bg.width + x1] * ax) * (1 - ay) +
+        (bg.data[y1 * bg.width + x0] * (1 - ax) + bg.data[y1 * bg.width + x1] * ax) * ay;
+      const v = Math.min(255, (grey[y * width + x] * 255) / Math.max(24, b));
+      const o = (y * width + x) * 4;
+      out[o] = out[o + 1] = out[o + 2] = v;
+      out[o + 3] = 255;
+    }
+  }
+  return out;
 }

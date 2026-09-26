@@ -31,11 +31,10 @@ async function opencvFinder(): Promise<Finder> {
   const path = process.env.OPENCV_JS;
   if (!path) throw new Error("set OPENCV_JS to opencv.js");
   const { createRequire } = await import("node:module");
-  const cv: any = createRequire(import.meta.url)(path);
-  // The UMD build is a thenable Module; wait for its wasm runtime, never await the object itself.
-  await new Promise<void>((res) => {
-    const t = setInterval(() => cv.Mat && (clearInterval(t), res()), 20);
-  });
+  const mod: any = createRequire(import.meta.url)(path);
+  // The UMD build is a thenable Module whose `then` hands over the initialised
+  // module — a different object. Wrap it: awaiting a thenable directly loops.
+  const { cv } = await new Promise<{ cv: any }>((res) => mod.then((m: any) => res({ cv: m })));
   return async (rgba, w, h) => {
     const src = cv.matFromImageData({ data: new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, rgba.length), width: w, height: h });
     const k = 480 / Math.max(w, h);
@@ -91,13 +90,19 @@ for (const p of loadCorpus()) {
   const diag = Math.hypot(d.width, d.height);
   const full = p.corners && p.corners.every(([x, y], i) => [[0, 0], [1, 0], [1, 1], [0, 1]][i][0] === x && [[0, 0], [1, 0], [1, 1], [0, 1]][i][1] === y);
   let err: number | null = null;
+  let px: number | null = null;
   let correct: boolean | null = null;
   if (p.corners) {
     const truth = p.corners.map(([x, y]) => [x * d.width, y * d.height] as Point);
-    if (got) err = truth.reduce((s, t, i) => s + Math.hypot(t[0] - got.corners[i][0], t[1] - got.corners[i][1]), 0) / 4 / diag;
+    if (got) {
+      px = truth.reduce((s, t, i) => s + Math.hypot(t[0] - got.corners[i][0], t[1] - got.corners[i][1]), 0) / 4;
+      err = px / diag;
+      // In the original photo's pixels (the decode caps the long edge).
+      px *= d.longEdge / Math.max(d.width, d.height);
+    }
     correct = full ? !got || (err !== null && err < 0.03) : err !== null && err < 0.03;
   }
-  rows.push({ id: p.id, condition: p.condition, found: !!got, cornerCut: got?.cornerCut ?? null, confidence: got?.confidence ?? null, err, correct, ms });
+  rows.push({ id: p.id, condition: p.condition, found: !!got, cornerCut: got?.cornerCut ?? null, confidence: got?.confidence ?? null, err, px, correct, ms });
 }
 
 const dir = join(MAIN, "tests/bench/results");
@@ -115,4 +120,6 @@ for (const [c, rs] of by) {
 }
 const ms = rows.map((r) => r.ms).sort((a, b) => a - b);
 const scored = rows.filter((r) => r.correct !== null);
+const angle = rows.filter((r) => r.condition === "angle" && r.px !== null).map((r) => r.px).sort((a, b) => a - b);
+if (angle.length) console.log(`angle corner error (original px, mean of 4 corners): median ${angle[angle.length >> 1].toFixed(1)}, max ${angle[angle.length - 1].toFixed(1)}, found ${angle.length}/${rows.filter((r) => r.condition === "angle").length}`);
 console.log(`correct ${scored.filter((r) => r.correct).length}/${scored.length}; time median ${ms[ms.length >> 1].toFixed(0)} ms, p90 ${ms[Math.floor(ms.length * 0.9)].toFixed(0)} ms`);
