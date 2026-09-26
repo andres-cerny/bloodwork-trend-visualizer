@@ -1,6 +1,6 @@
 # Plan: photo capture — good input before any model sees it
 
-Drafted 2026-09-26 (session with Ondřej). A, B, C1–C3 built; C4 prepared. **A photo should reach
+Drafted 2026-09-26 (session with Ondřej). A, B, C1–C3 and D1–D4 built; C4 measured and not shipped to the readers. **A photo should reach
 the pipeline flat, sharp and recognisably a lab sheet — and when it is not,
 the person is told why and may still send it.** Everything here runs in the
 browser; nothing new leaves the device.
@@ -201,7 +201,7 @@ resolution without the stretch; at 2576 px it is 10/57. OCR ≈ 2.6 s/page on
 an M4 Max with 8 in parallel. The readers still receive the unflattened
 photo (C4 decides).
 
-### C4 status (2026-09-26): Sonnet half done, Gemini half waiting for Ondřej
+### C4 result (2026-09-26): not shipped to the readers
 
 The candidate picture is the OCR one (flatten + `evenLight`, JPEG 85), per the
 decision "same picture for OCR, readers and the highlight". `photo_dump.ts`
@@ -227,17 +227,28 @@ orig_gemini38_ultra+sonnet_flatlit          3579      13        0
 line, whose name is not reprinted — on all four shots of one page, the
 unwarped frontal one included: a reader habit this batch had, not the warp.
 
-**Gemini, tier 2 — PAID, not run.** ≈ 133 × USD 0.0133 ≈ USD 1.80; cap 9.
+**Gemini, tier 2** (paid, run by the main session with Ondřej's approval:
+133 calls, 0 failed, USD 1.7345, `tests/bench/photo-flat-spend-log.md`):
 
-```sh
-cd <this worktree>
-BW_MAIN=/Users/ondrejcerny/dev/bloodwork_app tests/bench/photo_flat_gemini.sh validate   # 10 pages first
-BW_MAIN=/Users/ondrejcerny/dev/bloodwork_app tests/bench/photo_flat_gemini.sh full       # the other 123
+```
+variant                pages truth  rows match  miss extra valERR
+gemini_flatlit           133  3585  3598  3579     6    19      0
+orig_gemini38_ultra      133  3585  3593  3583     2    10      0
+
+pair                                   confirmed flagged UNCAUGHT
+gemini_flatlit+sonnet_flatlit               3575      22        0
+orig_gemini38_ultra+orig_sonnet_vision_dF   3583       5        0   (today)
 ```
 
-`full` scores the pair `gemini_flatlit+sonnet_flatlit` with `pairStats` (the
-reconcile pairing); `score` re-prints the tables for free. Ships to the
-readers only on 0 uncaught and no fewer matched rows than the unflattened pair.
+**Verdict: fails the gate, so the readers keep the unflattened photo.**
+There are still 0 value errors and 0 uncaught, but the flattened pair
+matches 8 fewer rows and flags 22 for review instead of 5. Both readers lose
+rows on the flattened picture: Gemini 4, Sonnet 4. Sonnet's four are a
+reader habit on one page, frontal shot included. Gemini's are not explained
+yet. The 2026-09-08 finding stands: the readers do not need de-skewing, and
+`evenLight` plus the warp costs them a little. Flattening stays for OCR,
+identity boxes and the highlight. The Decisions row for C4 is answered by
+this measurement.
 
 ## Phase D — OCR in the browser
 
@@ -330,7 +341,7 @@ optional and paid. Each UI phase ends with the `portal-auditor` agent and
 | Question | Answer |
 |---|---|
 | D3: pre-draw identity boxes on photos | **Yes.** Overrides the 2026-09-09 rule "do not run detection on photos"; the copy and per-page confirmation keep its reason |
-| C4: flattened image to the readers | **Yes, after the retest.** Same picture for OCR, readers and the highlight; the paid gate run is still proposed with page count and USD first |
+| C4: flattened image to the readers | **Yes, after the retest** — retest run 2026-09-26 (USD 1.73): no gain, 8 fewer rows, 22 flagged vs 5, so **not shipped**; readers keep the original photo |
 | C1: OpenCV.js vs own quad finder | Claude decides from C1's numbers |
 | F: guided camera | Deferred. Checks and flattening cover any photo however taken; F is built only if real uploads show many blurred, cut-off or glare warnings — the three faults flattening cannot repair |
 
