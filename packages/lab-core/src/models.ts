@@ -15,6 +15,10 @@ import type { TextRow } from "./pdf/rows";
 /** Pixel bbox on the rendered page image: [x0, y0, x1, y1]. */
 export type Box = [number, number, number, number];
 
+/** A row's frame on a photograph: four corners in the image's pixels,
+ *  clockwise from top-left. A photographed row is rarely axis-aligned. */
+export type Quad = [[number, number], [number, number], [number, number], [number, number]];
+
 export interface Measurement {
   /**
    * Why the date of the report this reading belongs to is in doubt — set
@@ -57,6 +61,12 @@ export interface Measurement {
 
   /** Precomputed at build time (src/locate.py) or derived from pdf.js. */
   bbox: Box | null;
+  /**
+   * Photos only: the row's frame as the photo shows it (photoRows.ts,
+   * `locatePhotoRows`), where `bbox` is its bounding box. Numbers only — the
+   * OCR text it was found with never leaves the browser.
+   */
+  quad?: Quad | null;
   /**
    * Snapshot of the machine transcription, kept so a correction can be undone.
    *

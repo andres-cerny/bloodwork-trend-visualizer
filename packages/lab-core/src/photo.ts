@@ -429,3 +429,4 @@ export async function photoAssets(file: Blob, pageNum = 1): Promise<PageAssets> 
 export * from "./photoQuality";
 export * from "./photoPage";
 export * from "./photoOcr";
+export * from "./photoRows";
