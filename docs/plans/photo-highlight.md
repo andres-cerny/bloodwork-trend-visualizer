@@ -123,3 +123,29 @@ two readers from two vendors.
 Prior art worth reading first: the chat demo's citation boxes
 (`packages/agent/tools/src/citations.ts`) and why its evidence rail stayed
 empty.
+
+## Result (2026-09-26 and 27)
+
+Full tables: [lab-adaptability](../lab-adaptability.md), "Photo highlight".
+With oracle flattening, T had 0 wrong and 82 % of rows framed. G, MG and M
+drew wrong frames, and the one zero-wrong upgrade, V(M+G), bought 12 points
+for about 3.5 cents a page. **T ships.**
+
+**Through the real app pipeline** (findPage → flattenPhoto → evenLight, the
+app's ocrPhrases) the first run failed the gate with 3 wrong frames. All were on
+the two-sheet photo: the finder takes the spread for one page, and rows of both
+sheets merge. The policy Ondřej set (2026-09-27): page found and portrait →
+locate on the flattened picture; no page found → locate on the photo itself;
+page found but wider than tall → no highlight. The guard came after the
+failure, so it was proven on ten new two-sheet shots (`simulate_bad_photos.py`,
+per-page truth). Without the guard: 121 wrong. With it: none.
+
+| Set | Photos | No page | Two sheets | Wrong (strict) | Framed |
+|---|---|---|---|---|---|
+| simulated | 133 | 100 | 1 | **0** | 90.4 % |
+| bad photos | 54 | 30 | 0 | **0** | 42.5 % |
+| new two-sheet shots | 10 | 0 | 10 | **0** | 0 % |
+
+Built as photo-capture Phase E: `locatePhotoRows` in `@bw/lab-core/photo`, the
+quad in Ověření. Still open: real phone shots (photo-capture A3) and OCR timing
+on a phone (D5).

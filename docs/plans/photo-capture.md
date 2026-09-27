@@ -302,14 +302,31 @@ person looks at the review screen, and the boxes appear when ready.
 
 ## Phase E — the Ověření highlight on photos
 
-Each photo row from the readers carries `source_snippet`
-(`packages/extraction/src/extract.ts:203`). Match it against the adapter's
-OCR rows on the **flattened** page: draw `bbox` only when the value and the
-name both sit on one OCR row; otherwise `null`, as today. The stored page
-image is then the flattened one, so the box lands on the pixels shown.
-Gate: on the corpus, zero boxes on a wrong row; report how many rows get a
-box. Which locator wins — OCR, reader coordinates, or numbered rows — is
-measured first in `docs/plans/photo-highlight.md` (Phase E's research, on its own branch).
+**Built 2026-09-27** (measured in [photo-highlight](photo-highlight.md)). The
+photo's own OCR rows — the same pass that finds identity, `ocrPhrases` →
+`buildRows` — give each read a frame when **one OCR row carries both its name
+and its value**; otherwise none (`locatePhotoRows`, `@bw/lab-core/photo`).
+Where it is located:
+
+| The page finder says | Located on | Carried to the photo |
+|---|---|---|
+| found, portrait | the flattened OCR picture | through `toPhoto`, as a quadrilateral |
+| not found (the page fills the frame) | the photo itself — OCR read it | as is |
+| found, **wider than tall** | nowhere: two sheets side by side, taken for one | — |
+
+The page shown and stored stays the **original photo** (the readers' input is
+unchanged). A frame is stored as numbers only — `quad` on the measurement,
+`bbox` its bounds for the scroll and the magnified strip — and drawn in
+Ověření as a polygon. The OCR rows are text read from the unredacted photo:
+they stay in memory and never enter a request or a report (a test sends both
+and looks).
+
+**Gate, through the final function** (`tests/bench/highlight/gate.ts`, strict
+rule): **0 wrong** on 133 simulated photos (90.4 % of rows framed), 54 bad
+photos and 10 new two-sheet shots. The two-sheet guard was designed after the
+one two-sheet photo failed, so it was proven on new data: without it the ten
+new shots get 121 wrong frames; with it, none (no frame at all). Scanned PDF
+pages are unchanged.
 
 ## Phase F — the guided camera
 
