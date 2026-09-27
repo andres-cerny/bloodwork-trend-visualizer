@@ -123,6 +123,32 @@ endpoint at `/api/stripe/webhook` for `checkout.session.completed` +
   `moje-krev`, `polish-a`, `refine-*`, …) are older experiments — check
   `git log main..<branch>` before removing any.
 
+## 7. Deploy the edge-case fixes — when the branch is merged
+
+`claude/app-edge-cases-errors-ur5wh0` fixes what the 2026-09-27 audit found
+(lost documents, missing dates, mixed units, two tabs, the demo's spend —
+[the list, and what was decided](plans/edge-cases.md)). It needs **one
+migration before the API worker is deployed**; the worker reads the new
+columns, and `check:schema` says whether they are there.
+
+```sh
+git checkout main && git pull && npm install && npm test
+# export the live D1 first (handoff: The D1 export)
+cd workers/portal
+npx wrangler d1 execute moje-krev --remote --file migrations/2026-09-27-edge-cases.sql
+cd ../.. && npm run check:schema
+npm run deploy:moje-krev
+```
+
+What changes for people, and is yours to know: a report may now have up to
+**10 pages** (`MAX_PAGES_PER_REPORT`, was 6), and anything over 6 asks first;
+an empty read or the same report twice is given back, except every third
+in 30 days; demo visitors spend from their own **2 USD** a month
+(`DEMO_USD_LIMIT`), not from your account's; a demo visitor can no longer
+teach name mappings to other accounts, and a name belongs to the first
+account that mapped it. The 15-minute cron now also gives back documents
+abandoned for over an hour.
+
 ## What is deliberately not done
 
 - Mail, Turnstile, Telegram and Stripe are all **off by default** and each
