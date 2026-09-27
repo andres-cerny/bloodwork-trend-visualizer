@@ -69,9 +69,12 @@ export default function AllowanceChip({ allowance, onAllowance, onBuy }: Props) 
     url.searchParams.delete(RETURN_PARAM);
     history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     setThanks(PURCHASE_PENDING);
-    // Five looks over ten seconds: Stripe's webhook usually lands within
-    // one or two. What was there before the first look is the baseline; a
-    // higher total is the credit arriving.
+    // Looks spaced out over about a minute: Stripe's webhook usually lands
+    // within a second or two, but not always — five looks over ten seconds
+    // left a slow one saying "Děkujeme" over the old numbers until a reload.
+    // What was there before the first look is the baseline; a higher total
+    // is the credit arriving.
+    const WAITS = [0, 2000, 2000, 3000, 4000, 5000, 7000, 9000, 12000, 15000];
     let tries = 0;
     let stopped = false;
     const look = async () => {
@@ -87,12 +90,13 @@ export default function AllowanceChip({ allowance, onAllowance, onBuy }: Props) 
           return;
         }
       } catch {
-        // The next look asks again; five misses leave the pending sentence.
+        // The next look asks again; the last miss leaves the neutral sentence.
       }
-      if (tries < 5) timer = setTimeout(look, 2000);
-      // Nothing rose in ten seconds: either the webhook is slow, or the
-      // credit had landed before /api/status was first asked and was in
-      // the baseline all along. The neutral sentence is true either way.
+      if (tries < WAITS.length) timer = setTimeout(look, WAITS[tries]);
+      // Nothing rose in a minute: either the webhook is slow, or the credit
+      // had landed before /api/status was first asked and was in the
+      // baseline all along. The neutral sentence is true either way, and the
+      // next time the tab comes to the front the numbers are asked again.
       else setThanks(PURCHASE_DONE);
     };
     let timer = setTimeout(look, 0);
@@ -103,6 +107,17 @@ export default function AllowanceChip({ allowance, onAllowance, onBuy }: Props) 
     // Once, on mount: the parameter is read from the address, not from props.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A purchase in another tab, a webhook later than the looks above, a
+  // document given back by the server's sweep: the numbers are asked again
+  // whenever the tab comes back to the front.
+  useEffect(() => {
+    const onShow = () => {
+      if (document.visibilityState === "visible") getAllowance().then(onAllowance, () => undefined);
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, [onAllowance]);
 
   if (!allowance) return null;
   return (

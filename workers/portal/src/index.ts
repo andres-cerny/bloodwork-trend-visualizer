@@ -40,6 +40,7 @@
 import { mintSession } from "@bw/gate";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { sweepAbandonedDocuments } from "./sweep";
+import { ipHash } from "./ratelimit";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
 import { errorCodeOf, recordEvent, routeLabel } from "./events";
 import { handleHelpdesk } from "./helpdesk";
@@ -90,6 +91,8 @@ export interface Env extends SignupEnv, StripeEnv {
    * priced in documents, and this only stops a runaway.
    */
   PORTAL_USD_LIMIT?: string;
+  /** The demo visitors' own monthly ceiling, USD (default 2). */
+  DEMO_USD_LIMIT?: string;
   MAX_PAGES_PER_REPORT?: string;
   /**
    * Workers AI, for the help desk's triage (src/triage.ts). Optional on
@@ -143,7 +146,17 @@ const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
  * deliberate freeze and must not fall through to the default the way an
  * empty env var does.
  */
-const limitFor = (user: UserRow, env: Env) => user.budget_usd ?? usdLimit(env);
+/**
+ * The ledger a request spends from. A demo visitor spends from a ledger of
+ * its own, with a small ceiling (DEMO_USD_LIMIT): before, every stranger on
+ * the public demo link spent the owner's monthly fuse — and could freeze the
+ * owner's own uploads by looping pages. Marked per request, on the user row
+ * that request loaded.
+ */
+const demoPayer = new WeakSet<UserRow>();
+const demoUsdLimit = (env: Env) => parseFloat(env.DEMO_USD_LIMIT ?? "2") || 2;
+const ledgerKey = (user: UserRow) => (demoPayer.has(user) ? `demo_${user.id}` : user.id);
+const limitFor = (user: UserRow, env: Env) => (demoPayer.has(user) ? demoUsdLimit(env) : user.budget_usd ?? usdLimit(env));
 const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "10", 10) || 10;
 
 /**
@@ -177,9 +190,12 @@ const MAX_PASSWORD = 256;
  *  that a look around survives a closed tab, short enough that a borrowed or
  *  public computer forgets. Days, like SESSION_TTL_DAYS. */
 const DEMO_SESSION_TTL_DAYS = 1;
-/** Ten wrong tries on one e-mail in fifteen minutes, and that e-mail waits
- *  fifteen minutes — whether or not it has an account. */
+/** Ten wrong tries on one e-mail from one IP in fifteen minutes, and that
+ *  pair waits fifteen minutes — whether or not the address has an account.
+ *  Per IP, so a stranger who knows the address cannot keep its owner out;
+ *  LOCKOUT_FAILURES_ANY_IP still stops a guess spread over many addresses. */
 const LOCKOUT_FAILURES = 10;
+const LOCKOUT_FAILURES_ANY_IP = 100;
 const LOCKOUT_WINDOW_SECONDS = 15 * 60;
 
 const passwordOk = (s: unknown): s is string =>
@@ -356,8 +372,10 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   const normEmail = email.trim().toLowerCase();
 
   const since = now() - LOCKOUT_WINDOW_SECONDS;
-  const recent = await env.DB.prepare(SQL.countLoginFailures).bind(normEmail, since).first<{ n: number }>();
-  if ((recent?.n ?? 0) >= LOCKOUT_FAILURES) {
+  const ip = await ipHash(env, request);
+  const fromHere = await env.DB.prepare(SQL.countLoginFailuresFrom).bind(normEmail, since, ip).first<{ n: number }>();
+  const anywhere = await env.DB.prepare(SQL.countLoginFailures).bind(normEmail, since).first<{ n: number }>();
+  if ((fromHere?.n ?? 0) >= LOCKOUT_FAILURES || (anywhere?.n ?? 0) >= LOCKOUT_FAILURES_ANY_IP) {
     return json({ error: "locked", message: "Příliš mnoho pokusů. Zkuste to znovu za 15 minut." }, 429);
   }
 
@@ -370,7 +388,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
       : DUMMY_RECORD;
   const ok = (await verifyPassword(password, record)) && record !== DUMMY_RECORD;
   if (!ok || !user) {
-    await env.DB.prepare(SQL.insertLoginFailure).bind(normEmail, now()).run();
+    await env.DB.prepare(SQL.insertLoginFailure).bind(normEmail, now(), ip).run();
     await env.DB.prepare(SQL.pruneLoginFailures).bind(since).run();
     return badLogin();
   }
@@ -495,7 +513,7 @@ async function forgetSynonym(request: Request, env: Env, user: UserRow): Promise
  */
 async function handleExtract(request: Request, env: Env, user: UserRow, ctx?: ExecutionContext): Promise<Response> {
   const limit = limitFor(user, env);
-  const before = await userBudget(env.BUDGET, user.id, limit);
+  const before = await userBudget(env.BUDGET, ledgerKey(user), limit);
   if (before.frozen) {
     return json(
       {
@@ -634,7 +652,7 @@ interface ExtractAnswer {
 async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer, docId?: string): Promise<Record<string, unknown>> {
   const limit = limitFor(user, env);
   if (status === 200 && typeof data.costUsd === "number") {
-    await recordUserSpendUsd(env.BUDGET, user.id, monthOf(), data.costUsd);
+    await recordUserSpendUsd(env.BUDGET, ledgerKey(user), monthOf(), data.costUsd);
     // A page read: from here on the document's slot is spent for good.
     if (docId) await notePageRead(env.DB, docId);
   } else if (status !== 200) {
@@ -657,7 +675,7 @@ async function settle(env: Env, user: UserRow, status: number, data: ExtractAnsw
     data.error === "budget_exhausted"
       ? "Zpracování je dočasně pozastaveno — společný limit je vyčerpán."
       : data.message;
-  return { ...data, ...(message !== undefined ? { message } : {}), budget: await userBudget(env.BUDGET, user.id, limit) };
+  return { ...data, ...(message !== undefined ? { message } : {}), budget: await userBudget(env.BUDGET, ledgerKey(user), limit) };
 }
 
 /* ---------------------------------------------------------------- reports */
@@ -731,14 +749,38 @@ async function putReport(request: Request, env: Env, user: UserRow, id: string):
   const report = sanitizeReport(id, body);
   if (!report) return json({ error: "bad_request", message: "Neplatný report." }, 400);
 
+  // The revision the writer last saw; absent means "write regardless".
+  const expected = revisionOf(request);
+  if (expected !== null && !(await ownedReport(env, user, id))) return reportConflict(true);
   const saved = await env.DB.prepare(SQL.upsertReport)
-    .bind(id, user.id, report.reportDate, report.labName, JSON.stringify(report), new Date().toISOString())
+    .bind(id, user.id, report.reportDate, report.labName, JSON.stringify(report), new Date().toISOString(), expected)
     .run();
-  // Zero changes on an upsert means the id exists and belongs to someone
-  // else: the conflict branch's WHERE refused it.
-  if (!saved.meta || saved.meta.changes !== 1) return json({ error: "forbidden", message: "Report nepatří k tomuto účtu." }, 403);
-  return json({ ok: true });
+  // Zero changes on an upsert: the id is someone else's, or the writer's
+  // revision is stale — another tab or device saved this report since.
+  if (!saved.meta || saved.meta.changes !== 1) {
+    return (await ownedReport(env, user, id)) ? reportConflict(false) : json({ error: "forbidden", message: "Report nepatří k tomuto účtu." }, 403);
+  }
+  const row = await env.DB.prepare(SQL.reportRev).bind(id).first<{ rev: number | null }>();
+  return json({ ok: true, rev: row?.rev ?? null });
 }
+
+/** The `If-Match` revision a write was made against, or null for none. */
+function revisionOf(request: Request): number | null {
+  const h = request.headers.get("if-match");
+  const n = h === null ? NaN : Number(h.replace(/"/g, ""));
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+const reportConflict = (gone: boolean) =>
+  json(
+    {
+      error: "conflict",
+      message: gone
+        ? "Report byl mezitím smazán v jiném okně nebo zařízení."
+        : "Report byl mezitím změněn v jiném okně nebo zařízení — načetli jsme novější verzi, změnu prosím zopakujte.",
+    },
+    409,
+  );
 
 /** The report row, if it is this user's. */
 async function ownedReport(env: Env, user: UserRow, id: string): Promise<boolean> {
@@ -834,8 +876,13 @@ async function putSettings(request: Request, env: Env, user: UserRow): Promise<R
     return json({ error: "bad_request" }, 400);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return json({ error: "bad_request" }, 400);
-  await env.DB.prepare(SQL.saveSettings).bind(user.id, JSON.stringify(parsed)).run();
-  return json({ ok: true });
+  const { meta } = await env.DB.prepare(SQL.saveSettings).bind(user.id, JSON.stringify(parsed), revisionOf(request)).run();
+  // Stale: another tab saved the settings since this one read them. It
+  // reads them again and merges its change over them (apps/portal Portal.tsx).
+  if (!meta || meta.changes !== 1) return json({ error: "conflict", message: "Nastavení se mezitím změnilo v jiném okně." }, 409);
+  const row = await env.DB.prepare(SQL.settingsForUser).bind(user.id).first<{ settings: string | null }>();
+  const rev = row?.settings ? ((JSON.parse(row.settings) as { _rev?: number })._rev ?? null) : null;
+  return json({ ok: true, rev });
 }
 
 /* ---------------------------------------------------------------- account */
@@ -1062,7 +1109,7 @@ async function revokeShare(env: Env, user: UserRow): Promise<Response> {
  */
 async function handleMap(request: Request, env: Env, user: UserRow): Promise<Response> {
   const limit = limitFor(user, env);
-  const before = await userBudget(env.BUDGET, user.id, limit);
+  const before = await userBudget(env.BUDGET, ledgerKey(user), limit);
   if (before.frozen) {
     return json(
       { error: "budget_exhausted", message: frozenMessage(limit), budget: before },
@@ -1161,7 +1208,10 @@ const routes = {
     // Everything below is the account's own data.
     const session = await requireSession(request, env);
     if (!session) return unauthorized();
-    const { user } = session;
+    // A demo request gets its own copy of the row to carry the mark, so the
+    // mark cannot outlive the request on an object anything else holds.
+    const user = session.demo ? { ...session.user } : session.user;
+    if (session.demo) demoPayer.add(user);
     accountOf.set(request, user.id);
 
     switch (route) {
@@ -1171,14 +1221,14 @@ const routes = {
         // screens needs it. Their own login still reads it back.
         return json({ email: session.demo ? null : user.email, createdAt: user.created_at, demo: session.demo });
       case "GET /api/status":
-        return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env), allowance: allowanceOf(user) });
+        return json({ budget: await userBudget(env.BUDGET, ledgerKey(user), limitFor(user, env)), maxPages: maxPages(env), allowance: allowanceOf(user) });
       case "GET /api/allowance":
         return handleAllowance(env.DB, user);
       // Open a document: where the one slot is taken. A frozen person is
       // refused here first, so the fuse tripping costs no document.
       case "POST /api/documents": {
         const limit = limitFor(user, env);
-        const before = await userBudget(env.BUDGET, user.id, limit);
+        const before = await userBudget(env.BUDGET, ledgerKey(user), limit);
         if (before.frozen) return json({ error: "budget_exhausted", message: frozenMessage(limit), budget: before }, 402);
         return handleOpenDocument(request, env.DB, user, session.demo);
       }

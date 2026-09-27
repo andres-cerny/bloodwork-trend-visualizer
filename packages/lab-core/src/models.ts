@@ -102,6 +102,8 @@ export interface LabReport {
    * is visible from `reportDate` itself (see `dateDoubtOf`).
    */
   dateDoubt?: string | null;
+  /** The stored revision (the worker's), sent back with the next save so a stale tab cannot overwrite a newer one. */
+  rev?: number | null;
 }
 
 export interface AnalyteDef {

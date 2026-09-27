@@ -51,7 +51,7 @@ import BuySheet from "./BuySheet";
 import { type Judged, askingEntry, persistable, runAiMapping, withoutAsked } from "../lib/aiMapping";
 import { type Batch, holdsSummary } from "../lib/batch";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
-import { mergeSettings } from "../lib/settings";
+import { mergeSettings, rebaseSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
 import ShareTab from "./ShareTab";
 import SummaryTab from "./SummaryTab";
@@ -82,6 +82,23 @@ const TABS: Array<[TabId, string]> = [
  * than costing every label two points of type size.
  */
 const PHONE_TABS: TabId[] = ["summary", "trends", "reports"];
+
+/**
+ * The tab lives in the address (`?karta=trendy`), so the phone's back gesture
+ * goes to the previous tab rather than out of the app, a reload stays where
+ * it was, and a tab can be linked to. Czech slugs: the address is on screen.
+ */
+const TAB_SLUG: Record<TabId, string> = { summary: "souhrn", trends: "trendy", verify: "overeni", mapping: "prirazeni", reports: "reporty", share: "ai" };
+const tabFromUrl = (): TabId | null => {
+  const slug = new URLSearchParams(location.search).get("karta");
+  const hit = (Object.entries(TAB_SLUG) as Array<[TabId, string]>).find(([, v]) => v === slug);
+  return hit ? hit[0] : null;
+};
+const tabUrl = (id: TabId): string => {
+  const q = new URLSearchParams(location.search);
+  q.set("karta", TAB_SLUG[id]);
+  return `${location.pathname}?${q.toString()}${location.hash}`;
+};
 const onPhoneStrip = (id: TabId) => PHONE_TABS.includes(id);
 
 /**
@@ -140,7 +157,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // would leave the server with whichever landed last, not the newest.
   const settingsQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
-  const [tab, setTab] = useState<TabId>("summary");
+  const [tab, setTab] = useState<TabId>(() => tabFromUrl() ?? "summary");
   // The first batch: while it runs on an account that had no reports, the
   // switch to Souhrn waits for its last file (lib/batch.ts).
   const [holding, setHolding] = useState(false);
@@ -166,7 +183,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // The ⋯ row, on a phone. Open it when one of the tabs behind it is chosen
   // by any route — a keyboard arrow, or showSource sending the reader to
   // Ověření — so the strip never hides the tab it is showing.
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(() => {
+    const t = tabFromUrl();
+    return t ? !onPhoneStrip(t) : false;
+  });
 
   useEffect(() => {
     (async () => {
@@ -206,13 +226,17 @@ export default function Portal({ email, demo, onLogout }: Props) {
         // would otherwise stay null forever. Only null rows are touched — a
         // name the reader filed by hand keeps their choice — and a report
         // that changed is written back.
+        const changed: LabReport[] = [];
         const loaded = rs.map((r) => {
           const matched = rematchReport(r, reg);
-          if (matched) putReport(matched).catch(() => undefined);
+          if (matched) changed.push(matched);
           return matched ?? r;
         });
         reportsRef.current = loaded;
         setReports(loaded);
+        // Written back through the queue, so each comes back with its new
+        // revision and the next edit is not refused as stale.
+        for (const r of changed) persist(r);
         budgetRef.current = status.budget;
         setBudget(status.budget);
         setAllowance(status.allowance ?? null);
@@ -229,11 +253,43 @@ export default function Portal({ email, demo, onLogout }: Props) {
 
   /** Write a report back, and say so if that failed — a correction that
    *  only lived in this tab would be gone on the next device. */
+  //
+  // One report's saves go out one after another, each carrying the newest
+  // state and the revision the last save came back with: two quick edits
+  // otherwise crossed on the wire, and the older body could land last. A
+  // save refused because another tab or device saved first (409) reloads
+  // the reports and says so — before revisions, the stale tab simply won.
+  const persistQueue = useRef(new Map<string, Promise<void>>());
   const persist = useCallback((r: LabReport) => {
-    putReport(r).then(
-      () => setSaveError(null),
-      () => setSaveError("Změnu se nepodařilo uložit. Zkontrolujte připojení a zkuste to znovu."),
-    );
+    const before = persistQueue.current.get(r.id) ?? Promise.resolve();
+    const next = before.then(async () => {
+      const cur = reportsRef.current.find((x) => x.id === r.id);
+      if (!cur) return;
+      try {
+        const res = await putReport(cur, cur.rev ?? null);
+        const rev = res?.rev ?? null;
+        reportsRef.current = reportsRef.current.map((x) => (x.id === r.id ? { ...x, rev } : x));
+        setReports(reportsRef.current);
+        setSaveError(null);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) {
+          const fresh = await listReports().catch(() => null);
+          if (fresh && registryRef.current) {
+            const reg = registryRef.current;
+            reportsRef.current = fresh.map((x) => rematchReport(x, reg) ?? x);
+            setReports(reportsRef.current);
+          }
+          setSaveError(e.message);
+          return;
+        }
+        setSaveError(
+          e instanceof ApiError && e.code !== "network" && e.code !== "timeout" && e.status < 500
+            ? `Změnu se nepodařilo uložit: ${e.message}`
+            : "Změnu se nepodařilo uložit. Zkontrolujte připojení a zkuste to znovu.",
+        );
+      }
+    });
+    persistQueue.current.set(r.id, next);
   }, []);
 
   const curatedRange = useCallback(
@@ -332,10 +388,25 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const setLearned = useCallback((next: Record<string, string[]>) => updateLearned(() => next), [updateLearned]);
 
   /** Every settings write: merge into what the account holds, then PUT the whole. */
+  //
+  // With its revision: a save refused because another tab saved first reads
+  // the settings again and lays this patch over them (lib/settings.ts
+  // rebaseSettings), once — instead of erasing what the other tab saved.
   const saveSettings = useCallback((patch: Partial<Settings>) => {
     settingsRef.current = mergeSettings(settingsRef.current, patch);
-    const whole = settingsRef.current;
-    const p = settingsQueue.current.then(() => putSettings(whole));
+    const put = async () => {
+      const res = await putSettings(settingsRef.current, settingsRef.current._rev ?? null);
+      settingsRef.current = { ...settingsRef.current, _rev: res?.rev ?? undefined };
+    };
+    const p = settingsQueue.current.then(async () => {
+      try {
+        await put();
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 409)) throw e;
+        settingsRef.current = rebaseSettings(await getSettings(), patch);
+        await put();
+      }
+    });
     settingsQueue.current = p.catch(() => undefined);
     return p;
   }, []);
@@ -520,7 +591,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
 
   /** A batch ended with a failure or a note: stay where the log is, not on Souhrn. */
   const onBatchEnd = useCallback((problems: number) => {
-    if (problems > 0) setTab("reports");
+    if (problems > 0) {
+      setTab("reports");
+      history.replaceState(null, "", tabUrl("reports"));
+    }
   }, []);
 
   /**
@@ -598,6 +672,18 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const goTab = useCallback((id: TabId) => {
     setTab(id);
     setMoreOpen(!onPhoneStrip(id));
+    if (tabFromUrl() !== id) history.pushState({ karta: id }, "", tabUrl(id));
+  }, []);
+
+  // Back and forward move between tabs.
+  useEffect(() => {
+    const onPop = () => {
+      const id = tabFromUrl() ?? "summary";
+      setTab(id);
+      setMoreOpen(!onPhoneStrip(id));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   const showSource = useCallback(

@@ -451,8 +451,8 @@ export async function storeReport(report: LabReport, pages: RedactedPage[]): Pro
     stored.push({ pageNum: p.pageNum, imageUrl, imageWidth: p.imageWidth, imageHeight: p.imageHeight });
   }
   const final = { ...report, pages: stored };
-  await putReport(final);
-  return final;
+  const saved = await putReport(final);
+  return { ...final, rev: saved?.rev ?? null };
 }
 
 export const newReportId = (): string => crypto.randomUUID();

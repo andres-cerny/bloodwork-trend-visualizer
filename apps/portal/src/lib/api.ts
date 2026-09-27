@@ -40,6 +40,8 @@ export interface Settings {
    * account, so a reload does not spend again (lib/aiMapping.ts).
    */
   aiAsked?: AiAsked;
+  /** The blob's revision, set by the worker on every save (If-Match on the next). */
+  _rev?: number;
 }
 
 export class ApiError extends Error {
@@ -342,7 +344,12 @@ export const listReports = () => request<LabReport[]>("/api/reports");
  */
 export type ReportBody = Omit<LabReport, "pages"> & { pages: Array<Omit<LabReport["pages"][number], "imageUrl"> & { imageUrl?: string }> };
 
-export const putReport = (report: ReportBody) => request<{ ok: true }>(`/api/reports/${report.id}`, jsonInit("PUT", report));
+/** With `rev`, the save is refused (409 `conflict`) if another tab or device saved the report since. */
+export const putReport = (report: ReportBody, rev?: number | null) =>
+  request<{ ok: true; rev?: number | null }>(`/api/reports/${report.id}`, withRev(jsonInit("PUT", report), rev));
+
+const withRev = (init: RequestInit, rev?: number | null): RequestInit =>
+  rev === null || rev === undefined ? init : { ...init, headers: { ...(init.headers as Record<string, string>), "if-match": String(rev) } };
 
 export const putPage = (reportId: string, pageNum: number, blob: Blob, width: number, height: number) =>
   request<{ ok: true; imageUrl: string }>(`/api/reports/${reportId}/${pageNum}`, {
@@ -421,7 +428,7 @@ export const suggestWithAi = (names: NameToMap[], catalog: CatalogEntry[]) =>
   request<AiMapAnswer>("/api/map", jsonInit("POST", { names, catalog }));
 
 export const getSettings = () => request<Settings>("/api/settings");
-export const putSettings = (s: Settings) => request<{ ok: true }>("/api/settings", jsonInit("PUT", s));
+export const putSettings = (s: Settings, rev?: number | null) => request<{ ok: true; rev?: number | null }>("/api/settings", withRev(jsonInit("PUT", s), rev));
 
 export const logout = () => request<void>("/api/auth/logout", { method: "POST" });
 

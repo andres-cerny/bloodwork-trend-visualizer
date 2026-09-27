@@ -21,3 +21,9 @@ ALTER TABLE documents ADD COLUMN took_slot INTEGER NOT NULL DEFAULT 1;
 -- every third is kept (apps/portal: „třetí takové nahrání za 30 dní se
 -- počítá"), so a document cannot become a free read on demand.
 ALTER TABLE documents ADD COLUMN empty_at TEXT;
+
+-- The login lockout counts per e-mail AND IP (salted hash), so a stranger who
+-- knows an address can no longer keep its owner locked out by guessing from
+-- elsewhere; a much higher per-address ceiling still stops a spread-out
+-- attack. Old rows have no IP and age out of the 15-minute window.
+ALTER TABLE login_failures ADD COLUMN ip_hash TEXT;

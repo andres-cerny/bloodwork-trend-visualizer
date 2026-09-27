@@ -118,7 +118,10 @@ function Home({ initial }: { initial: Me | null }) {
       // Either way in lands on "/", so a reload after login shows the portal
       // and not a login form over it.
       const done = (me: Me) => {
-        history.replaceState(null, "", "/");
+        // Back from Checkout into an expired session: the login must not
+        // swallow ?koupeno=1, or the chip never looks for the credit.
+        const back = new URLSearchParams(location.search).get("koupeno") === "1" ? "/?koupeno=1" : "/";
+        history.replaceState(null, "", back);
         setScreen({ kind: "home", me });
       };
       return location.pathname === LOGIN_PATH ? <Login onDone={done} notice={screen.notice} /> : <LandingPage onDone={done} />;

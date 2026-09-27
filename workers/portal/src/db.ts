@@ -59,7 +59,8 @@ export const SQL = {
   // Login failures per e-mail, whether or not the e-mail has an account:
   // the lockout must not be the one place that says which addresses exist.
   countLoginFailures: "SELECT COUNT(*) AS n FROM login_failures WHERE email = ?1 AND at > ?2",
-  insertLoginFailure: "INSERT INTO login_failures (email, at) VALUES (?1, ?2)",
+  countLoginFailuresFrom: "SELECT COUNT(*) AS n FROM login_failures WHERE email = ?1 AND at > ?2 AND ip_hash = ?3",
+  insertLoginFailure: "INSERT INTO login_failures (email, at, ip_hash) VALUES (?1, ?2, ?3)",
   pruneLoginFailures: "DELETE FROM login_failures WHERE at < ?1",
   clearLoginFailures: "DELETE FROM login_failures WHERE email = ?1",
 
@@ -69,10 +70,17 @@ export const SQL = {
   reportOwner: "SELECT id, user_id FROM reports WHERE id = ?1",
   // The WHERE on the conflict branch is the owner check for an id that
   // already exists: a foreign id updates nothing, and meta.changes says so.
+  // `rev` lives in the payload and moves by one on every write. ?7 is the
+  // revision the writer last saw (If-Match), or NULL for a write that does
+  // not care — the upload's own two PUTs. A stale ?7 changes nothing: two
+  // tabs saving whole reports used to have the older one silently undo the
+  // newer one's correction (2026-09-27).
   upsertReport:
-    "INSERT INTO reports (id, user_id, report_date, lab_name, payload, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) " +
-    "ON CONFLICT(id) DO UPDATE SET report_date = excluded.report_date, lab_name = excluded.lab_name, payload = excluded.payload " +
-    "WHERE reports.user_id = ?2",
+    "INSERT INTO reports (id, user_id, report_date, lab_name, payload, created_at) VALUES (?1, ?2, ?3, ?4, json_set(?5, '$.rev', 1), ?6) " +
+    "ON CONFLICT(id) DO UPDATE SET report_date = excluded.report_date, lab_name = excluded.lab_name, " +
+    "payload = json_set(excluded.payload, '$.rev', COALESCE(json_extract(reports.payload, '$.rev'), 0) + 1) " +
+    "WHERE reports.user_id = ?2 AND (?7 IS NULL OR COALESCE(json_extract(reports.payload, '$.rev'), 0) = ?7)",
+  reportRev: "SELECT json_extract(payload, '$.rev') AS rev FROM reports WHERE id = ?1",
   deleteReport: "DELETE FROM reports WHERE id = ?1 AND user_id = ?2",
   pagesForReport: "SELECT page_num, kv_key, width, height FROM report_pages WHERE report_id = ?1 ORDER BY page_num",
   upsertPage:
@@ -80,7 +88,10 @@ export const SQL = {
     "ON CONFLICT(report_id, page_num) DO UPDATE SET kv_key = excluded.kv_key, width = excluded.width, height = excluded.height",
   deletePages: "DELETE FROM report_pages WHERE report_id = ?1",
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
-  saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
+  // The same revision rule for the settings blob, as `_rev` inside it.
+  saveSettings:
+    "UPDATE users SET settings = json_set(?2, '$._rev', COALESCE(json_extract(settings, '$._rev'), 0) + 1) " +
+    "WHERE id = ?1 AND (?3 IS NULL OR COALESCE(json_extract(settings, '$._rev'), 0) = ?3)",
 
   // Synonyms taught by anyone, read by everyone. The FIRST teacher of a name
   // owns the row, and only they can change or withdraw it: with the last

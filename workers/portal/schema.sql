@@ -76,8 +76,9 @@ CREATE TABLE IF NOT EXISTS invites (
 -- fifteen minutes and the address waits. Rows are pruned as they age out
 -- and cleared on a successful login.
 CREATE TABLE IF NOT EXISTS login_failures (
-  email TEXT NOT NULL,
-  at    INTEGER NOT NULL                -- epoch seconds
+  email   TEXT NOT NULL,
+  at      INTEGER NOT NULL,             -- epoch seconds
+  ip_hash TEXT                          -- salted hash of the IP (src/ratelimit.ts); the lockout is per address and IP
 );
 
 CREATE INDEX IF NOT EXISTS login_failures_by_email ON login_failures (email, at);

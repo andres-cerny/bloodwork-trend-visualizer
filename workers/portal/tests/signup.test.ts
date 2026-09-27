@@ -112,8 +112,10 @@ function fakeD1(t: Tables): D1Database {
       }
       case SQL.countLoginFailures:
         return { results: [{ n: t.failures.filter((f) => f.email === a[0] && f.at > (a[1] as number)).length }], changes: 0 };
+      case SQL.countLoginFailuresFrom:
+        return { results: [{ n: t.failures.filter((f) => f.email === a[0] && f.at > (a[1] as number) && (f as { ip?: string }).ip === a[2]).length }], changes: 0 };
       case SQL.insertLoginFailure:
-        t.failures.push({ email: a[0] as string, at: a[1] as number });
+        t.failures.push({ email: a[0] as string, at: a[1] as number, ip: a[2] as string } as (typeof t.failures)[number]);
         return { results: [], changes: 1 };
       case SQL.pruneLoginFailures:
       case SQL.clearLoginFailures:

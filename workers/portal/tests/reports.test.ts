@@ -51,16 +51,22 @@ function fakeD1(t: Tables): D1Database {
       case SQL.reportOwner:
         return { results: t.reports.filter((r) => r.id === a[0]).map((r) => ({ id: r.id, user_id: r.user_id })), changes: 0 };
       case SQL.upsertReport: {
-        const [id, uid, date, lab, payload, created] = a as [string, string, string | null, string | null, string, string];
+        // The SQL's revision rule, restated: rev moves by one per write, and
+        // a write made against a stale rev (?7) changes nothing.
+        const [id, uid, date, lab, payload, created, expected] = a as [string, string, string | null, string | null, string, string, number | null];
         const existing = t.reports.find((r) => r.id === id);
+        const revOf = (p: string) => (JSON.parse(p) as { rev?: number }).rev ?? 0;
         if (existing) {
           if (existing.user_id !== uid) return { results: [], changes: 0 };
-          Object.assign(existing, { report_date: date, lab_name: lab, payload });
+          if (expected !== null && revOf(existing.payload) !== expected) return { results: [], changes: 0 };
+          Object.assign(existing, { report_date: date, lab_name: lab, payload: JSON.stringify({ ...JSON.parse(payload), rev: revOf(existing.payload) + 1 }) });
           return { results: [], changes: 1 };
         }
-        t.reports.push({ id, user_id: uid, report_date: date, lab_name: lab, payload, created_at: created });
+        t.reports.push({ id, user_id: uid, report_date: date, lab_name: lab, payload: JSON.stringify({ ...JSON.parse(payload), rev: 1 }), created_at: created });
         return { results: [], changes: 1 };
       }
+      case SQL.reportRev:
+        return { results: t.reports.filter((r) => r.id === a[0]).map((r) => ({ rev: (JSON.parse(r.payload) as { rev?: number }).rev ?? null })), changes: 0 };
       case SQL.countReports:
         return { results: [{ n: (t as { reports: Array<{ user_id: string }> }).reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
       case SQL.revokeSharesForUser:
@@ -88,8 +94,11 @@ function fakeD1(t: Tables): D1Database {
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ settings: u.settings })), changes: 0 };
       case SQL.saveSettings: {
         const u = t.users.find((x) => x.id === a[0]);
-        if (u) u.settings = a[1] as string;
-        return { results: [], changes: u ? 1 : 0 };
+        if (!u) return { results: [], changes: 0 };
+        const rev = u.settings ? ((JSON.parse(u.settings) as { _rev?: number })._rev ?? 0) : 0;
+        if (a[2] !== null && a[2] !== undefined && a[2] !== rev) return { results: [], changes: 0 };
+        u.settings = JSON.stringify({ ...JSON.parse(a[1] as string), _rev: rev + 1 });
+        return { results: [], changes: 1 };
       }
       // The document slot — only what the extract proxy needs here; the
       // allowance's own rules are tests/allowance.test.ts.
@@ -389,6 +398,22 @@ describe("reports", () => {
     expect((await call(A, "PUT", "/api/reports/../etc", report("../etc"))).status).toBe(404);
   });
 
+  it("refuses a save made against an older revision — another tab saved since — and takes one made against the current", async () => {
+    expect(((await (await call(A, "PUT", "/api/reports/r-1", report("r-1"))).json()) as { rev: number }).rev).toBe(1);
+    // Tab one saves against rev 1: rev 2.
+    const one = await call(A, "PUT", "/api/reports/r-1", report("r-1"), { "if-match": "1" });
+    expect(await one.json()).toEqual({ ok: true, rev: 2 });
+    // Tab two still holds rev 1: refused, in Czech, and nothing changed.
+    const two = await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), labName: "stale" }, { "if-match": "1" });
+    expect(two.status).toBe(409);
+    expect(((await two.json()) as { message: string }).message).toMatch(/jiném okně/);
+    expect(JSON.parse(tables.reports[0].payload).labName).toBe("Lab");
+    // An edit to a report deleted elsewhere is not a way to bring it back.
+    const gone = await call(A, "PUT", "/api/reports/r-9", report("r-9"), { "if-match": "3" });
+    expect(gone.status).toBe(409);
+    expect(tables.reports.find((r) => r.id === "r-9")).toBeUndefined();
+  });
+
   it("answers a body that is not JSON with a Czech 400, not a crash", async () => {
     const res = await call(A, "PUT", "/api/reports/r-1", new TextEncoder().encode("{not json").buffer as ArrayBuffer);
     expect(res.status).toBe(400);
@@ -474,10 +499,18 @@ describe("delete", () => {
 });
 
 describe("settings", () => {
+  it("refuses a settings save against an older revision", async () => {
+    const first = (await (await call(A, "PUT", "/api/settings", { learned: {} })).json()) as { rev: number };
+    expect(first.rev).toBe(1);
+    expect((await call(A, "PUT", "/api/settings", { learned: { a: ["x"] } }, { "if-match": "1" })).status).toBe(200);
+    expect((await call(A, "PUT", "/api/settings", { learned: {} }, { "if-match": "1" })).status).toBe(409);
+  });
+
   it("round-trips a JSON object and starts empty", async () => {
     expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({});
     expect((await call(A, "PUT", "/api/settings", { learned: { glukoza: ["S-GLU"] } })).status).toBe(200);
-    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ learned: { glukoza: ["S-GLU"] } });
+    // With its revision, which the next save names (If-Match).
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ learned: { glukoza: ["S-GLU"] }, _rev: 1 });
     // Someone else's settings are their own.
     expect(await (await call(B, "GET", "/api/settings")).json()).toEqual({});
   });
@@ -512,7 +545,7 @@ describe("settings", () => {
     };
     const kept = settingsOf(300);
     expect((await call(A, "PUT", "/api/settings", kept)).status).toBe(200);
-    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual(kept);
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ ...kept, _rev: 1 });
 
     const res = await call(A, "PUT", "/api/settings", settingsOf(600));
     expect(res.status).toBe(413);
@@ -520,7 +553,7 @@ describe("settings", () => {
     expect(body.error).toBe("too_large");
     expect(body.message).toMatch(/^Nastavení účtu \(přiřazení názvů, vlastní parametry a AI kontext\) je příliš velké: 6\d\d kB, nejvýše 512 kB\.$/);
     // The refusal kept the last good settings.
-    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual(kept);
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ ...kept, _rev: 1 });
   });
 });
 

@@ -373,8 +373,8 @@ describe("taking a document", () => {
   it("takes nothing from the demo account for a demo visitor's upload, and gives nothing back either", async () => {
     // The demo cookie is the owner's account for anyone who asks: five
     // strangers' uploads must not exhaust it for the sixth, and for the
-    // owner. The pages still go through the extractor and still count
-    // against the owner's USD fuse.
+    // owner. The pages still go through the extractor and count against
+    // the demo's own USD fuse.
     const extract = fakeExtract(() => 200);
     env.EXTRACT = extract.fetcher;
     const opened = await call(A, "POST", "/api/documents", { id: "demo-1" }, {}, true);
@@ -388,9 +388,15 @@ describe("taking a document", () => {
     const released = await call(A, "DELETE", "/api/documents/demo-2", undefined, {}, true);
     expect(((await released.json()) as { released: boolean }).released).toBe(false);
     expect(await allowance(A)).toMatchObject({ used: 0, remaining: 5 });
-    // And the fuse still applies: frozen, the demo opens nothing.
-    await recordUserSpendUsd(env.BUDGET, A.id, monthOf(), 10);
+    // A fuse still applies — the demo's own (DEMO_USD_LIMIT, 2 USD), not
+    // the owner's: strangers spent the owner's month before 2026-09-27.
+    await recordUserSpendUsd(env.BUDGET, `demo_${A.id}`, monthOf(), 2);
     expect((await call(A, "POST", "/api/documents", { id: "demo-3" }, {}, true)).status).toBe(402);
+    // The owner's own login is untouched by what the demo spent…
+    expect((await call(A, "POST", "/api/documents", { id: "own-1" })).status).toBe(200);
+    // …and the owner's fuse frozen does not freeze the demo's separately.
+    await recordUserSpendUsd(env.BUDGET, A.id, monthOf(), 10);
+    expect((await call(A, "POST", "/api/documents", { id: "own-2" })).status).toBe(402);
   });
 
   it("refuses a frozen person before taking, so the fuse costs no document", async () => {
