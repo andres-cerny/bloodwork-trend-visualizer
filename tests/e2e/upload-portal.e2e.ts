@@ -11,11 +11,12 @@
  *  1. **A photograph reaches the redaction review through the scan door.**
  *     Moje krev's whole promise is that a name and a rodné číslo are painted
  *     out before anything leaves the tab, and it finds them in the text layer.
- *     A photograph has none, so the honest thing is to say nothing was found
- *     *because nothing could be looked at* and hand the reader the pencil. The
- *     failure this pins is the quiet one: an empty `hits` rendered with the
+ *     A photograph has none; since 2026-09-26 a local OCR pass suggests boxes
+ *     (docs/plans/photo-capture.md, D3), and the checks before it may warn.
+ *     The failure this pins is the quiet one: no suggestions rendered with an
  *     ordinary caption reads as "we looked, your page is clean", over a picture
- *     in which the header is perfectly legible.
+ *     in which the header is perfectly legible — so it must read "nic jsme
+ *     nenašli — zkontrolujte ručně", with the pencil already in hand.
  *  2. **It cannot be sent without the reader passing that step.** Cancelling
  *     the review sends nothing at all — no page image, no rows, no allowance
  *     spent — and the file is logged as skipped.
@@ -158,21 +159,59 @@ const shot = (name = "IMG_0042.jpg") => ({ name, mimeType: "image/jpeg", buffer:
 const PDF = join(import.meta.dirname, "../../packages/lab-core/tests/fixtures/identity.pdf");
 const sheet = () => ({ name: "vysledky.pdf", mimeType: "application/pdf", buffer: readFileSync(PDF) });
 
+/**
+ * A photo meets the photo checks before its review (docs/plans/photo-capture.md).
+ * The fixture is bands of ink with no letters, so the local OCR reads nothing
+ * and the check warns "not a lab sheet"; a person who knows better presses
+ * "Nahrát i tak". Waits for `name`'s check or review, whichever comes, and
+ * leaves the page on its review.
+ */
+async function toReview(page: Page, name = "IMG_0042.jpg", timeout = 40_000) {
+  const at = async () =>
+    (await page.locator(".photo-check .sub").first().textContent({ timeout: 250 }).catch(() => null))?.includes(name)
+      ? "check"
+      : (await page.locator(".review .sub").first().textContent({ timeout: 250 }).catch(() => null))?.includes(name)
+        ? "review"
+        : "";
+  await expect.poll(at, { timeout }).not.toBe("");
+  if ((await at()) === "check") await page.getByRole("button", { name: "Nahrát i tak" }).click();
+  await expect.poll(at, { timeout }).toBe("review");
+  await page.waitForSelector(".review-canvas img", { timeout });
+}
+
 /* ----------------------------------------------------------------- tests */
 
 describe("a photograph at the redaction review", () => {
-  it("is presented as found-nothing-because-nothing-to-look-at, and nothing has been sent", async () => {
+  it("warns first when the picture does not read as a lab sheet, and nothing has been sent", async () => {
     const s = stub();
     const page = await openUpload(MOBILE, s, true);
 
     await pick(page, [shot()]);
-    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    // The local OCR ran (Tesseract, self-hosted, in a worker) and read no
+    // lab sheet in the fixture's bands: a warning, with both ways on.
+    await page.waitForSelector(".photo-check", { timeout: 40_000 });
+    const check = (await page.locator(".photo-check").textContent()) ?? "";
+    expect(check).toContain("Nevypadá to jako laboratorní výsledky.");
+    expect(await page.getByRole("button", { name: "Nahrát i tak" }).count()).toBe(1);
+    expect(await page.locator(".photo-check label", { hasText: "Vyfotit znovu" }).count()).toBe(1);
+    expect(s.requests).toHaveLength(0);
 
-    // The screen names what it is looking at, and it is not a sken.
+    expect(errorsOn(page)).toEqual([]);
+    await page.close();
+  });
+
+  it("is presented as found-nothing-check-it-yourself, and nothing has been sent", async () => {
+    const s = stub();
+    const page = await openUpload(MOBILE, s, true);
+
+    await pick(page, [shot()]);
+    await toReview(page);
+
+    // The screen names what it is looking at, and it is not a sken. OCR ran
+    // and found nothing, which it says as nothing found — never as clean.
     const caption = (await page.locator(".review-page figcaption").first().textContent()) ?? "";
     expect(caption).toContain("Fotografie");
-    expect(caption).toContain("nic nenalezeno");
-    expect(caption).toContain("začerněte ručně");
+    expect(caption).toContain("nic jsme nenašli — zkontrolujte ručně");
     expect(caption.toLowerCase()).not.toContain("sken");
 
     // No box was found, and none is claimed: nothing to dismiss, and the
@@ -192,7 +231,7 @@ describe("a photograph at the redaction review", () => {
     const page = await openUpload(MOBILE, s, true);
 
     await pick(page, [shot()]);
-    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    await toReview(page);
     await page.getByRole("button", { name: "Zrušit" }).click();
 
     await page.waitForSelector("li.job.skipped", { timeout: 10_000 });
@@ -209,7 +248,7 @@ describe("a photograph at the redaction review", () => {
     const page = await openUpload(MOBILE, s, true);
 
     await pick(page, [shot()]);
-    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    await toReview(page);
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
 
     await page.waitForSelector("li.job.done", { timeout: 30_000 });
@@ -239,15 +278,12 @@ describe("a photograph at the redaction review", () => {
     const page = await openUpload(MOBILE, s, true);
 
     await pick(page, [shot("IMG_0042.jpg"), shot("IMG_0043.jpg")]);
-    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    await toReview(page, "IMG_0042.jpg");
     expect(await page.locator(".review .sub").first().textContent()).toContain("IMG_0042.jpg");
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
 
-    // The second opens its own review rather than riding on the first's.
-    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
-    await expect
-      .poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 20_000 })
-      .toContain("IMG_0043.jpg");
+    // The second opens its own check and review rather than riding on the first's.
+    await toReview(page, "IMG_0043.jpg");
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
 
     await expect.poll(() => page.locator("li.job.done").count(), { timeout: 30_000 }).toBe(2);
@@ -280,13 +316,12 @@ describe("a selection of both kinds at once", () => {
     expect(caption).not.toContain("nic nenalezeno");
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
 
-    // Then the photograph, on the other branch entirely.
-    await expect
-      .poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 30_000 })
-      .toContain("IMG_0042.jpg");
+    // Then the photograph, on the other branch entirely: its own check, then
+    // suggestions from the local OCR — none on this fixture, and said so.
+    await toReview(page, "IMG_0042.jpg");
     caption = (await page.locator(".review-page figcaption").first().textContent()) ?? "";
     expect(caption).toContain("Fotografie");
-    expect(caption).toContain("nic nenalezeno");
+    expect(caption).toContain("zkontrolujte ručně");
     expect(await page.getByRole("button", { name: /^Začerněné pole/ }).count()).toBe(0);
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
 
@@ -316,11 +351,9 @@ describe("the first upload, several files at once", () => {
     expect(await page.getByRole("tab").count(), "an empty account has no strip").toBe(0);
 
     await pick(page, [shot("IMG_0042.jpg"), shot("IMG_0043.jpg")]);
-    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    await toReview(page, "IMG_0042.jpg");
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
-    await expect
-      .poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 20_000 })
-      .toContain("IMG_0043.jpg");
+    await toReview(page, "IMG_0043.jpg");
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
 
     // One in, one held: the account has a report, and the screen has not moved.
@@ -356,11 +389,9 @@ describe("the first upload, several files at once", () => {
     const page = await openEmpty(s);
 
     await pick(page, [shot("IMG_0042.jpg"), shot("IMG_0043.jpg")]);
-    await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+    await toReview(page, "IMG_0042.jpg");
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
-    await expect
-      .poll(async () => (await page.locator(".review .sub").first().textContent()) ?? "", { timeout: 20_000 })
-      .toContain("IMG_0043.jpg");
+    await toReview(page, "IMG_0043.jpg");
     await page.getByRole("button", { name: "Ano, nahrát" }).click();
 
     await expect.poll(() => s.requests.length, { timeout: 30_000 }).toBe(2);

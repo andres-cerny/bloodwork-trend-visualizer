@@ -15,7 +15,11 @@
  * and the reader had to click past them to see the page.
  *
  * A photograph is that same page and is handled by that same branch — it is in
- * `scanPages`, drawing is on when it opens, nothing is claimed about it. It is
+ * `scanPages`, drawing is on when it opens, nothing is claimed about it. Since
+ * 2026-09-26 it may arrive with boxes already drawn: the local OCR pass's
+ * suggestions (lib/upload.ts). They are ordinary boxes — removable, added to —
+ * and the caption says they are suggestions; with none it says "nic jsme
+ * nenašli — zkontrolujte ručně", never that the page is clean. It is
  * called a fotografie rather than a sken only because that is what it is; a
  * person who has just photographed a sheet with their phone and is told the app
  * found a "sken" has been told something they can tell is wrong, on the one
@@ -35,6 +39,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type Box, type IdentityHit, count } from "@bw/lab-core";
 import type { PreparedFile } from "../lib/upload";
+import { photoCaption } from "../lib/photoCopy";
 
 interface Props {
   prepared: PreparedFile;
@@ -91,7 +96,9 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
           <p className="sub" style={{ marginBottom: 0 }}>
             {prepared.name} · {count(prepared.pages.length, "strana", "strany", "stran")}
             {photo
-              ? " · fotografie — začerněte ručně"
+              ? hits.length > 0
+                ? " · fotografie — návrhy zkontrolujte a doplňte ručně"
+                : " · fotografie — začerněte ručně"
               : scans.length > 0 && ` · ${count(scans.length, "sken", "skeny", "skenů")} — začerněte ručně`}
           </p>
         </div>
@@ -109,6 +116,7 @@ export default function RedactReview({ prepared, onConfirm, onCancel }: Props) {
           height={page.imageHeight}
           scan={scans.includes(page.pageNum)}
           photo={photo}
+          photoNote={photo ? photoCaption(prepared.hits.filter((h) => h.pageNum === page.pageNum).length, prepared.photo?.ocr) : ""}
           drawing={drawing}
           hits={hits.filter((h) => h.pageNum === page.pageNum)}
           selected={selected}
@@ -171,6 +179,7 @@ function ReviewPage({
   height,
   scan,
   photo,
+  photoNote,
   drawing,
   hits,
   selected,
@@ -184,6 +193,8 @@ function ReviewPage({
   height: number;
   scan: boolean;
   photo: boolean;
+  /** A photograph's caption tail: what the local OCR suggested, or that it could not. */
+  photoNote: string;
   drawing: boolean;
   hits: IdentityHit[];
   selected: IdentityHit | null;
@@ -239,7 +250,7 @@ function ReviewPage({
     <figure className={`review-page${scan ? " scan" : ""}`}>
       <figcaption className="muted">
         {photo ? "Fotografie" : `Strana ${pageNum}`}
-        {scan && (photo ? " · nic nenalezeno, začerněte ručně" : " · sken — nic nenalezeno, začerněte ručně")}
+        {scan && (photo ? ` · ${photoNote}` : " · sken — nic nenalezeno, začerněte ručně")}
       </figcaption>
       <div
         ref={canvasRef}

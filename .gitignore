@@ -16,7 +16,9 @@ __pycache__/
 tests/e2e/zz*.e2e.ts
 
 # Node / web build
-node_modules/
+# No trailing slash: a worktree links node_modules as a symlink, and
+# "node_modules/" matches only directories — one was committed that way.
+node_modules
 dist/
 .wrangler/
 

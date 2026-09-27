@@ -49,6 +49,7 @@ import {
   redactFile,
   storeReport,
 } from "../lib/upload";
+import PhotoCheck from "./PhotoCheck";
 import RedactReview from "./RedactReview";
 
 interface Props {
@@ -71,7 +72,9 @@ interface Props {
 /** What the reader is doing — one file at a time. */
 type Stage =
   | { kind: "idle" }
-  | { kind: "preparing"; name: string }
+  | { kind: "preparing"; name: string; photo: boolean }
+  /** A photo the checks warned on or refused — before its review. */
+  | { kind: "photoCheck"; prepared: PreparedFile }
   | { kind: "review"; prepared: PreparedFile }
   | { kind: "redacting"; name: string };
 
@@ -152,10 +155,12 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     publishQueue();
     if (!file) return;
     busyRef.current = true;
-    setStage({ kind: "preparing", name: file.name });
+    setStage({ kind: "preparing", name: file.name, photo: isPhotoFile(file) });
     try {
       const prepared = await prepareFile(file, maxPages);
-      setStage({ kind: "review", prepared });
+      // A photo the checks did not pass stops first, and the person decides.
+      const checked = prepared.photo && prepared.photo.verdict.outcome !== "ok";
+      setStage(checked ? { kind: "photoCheck", prepared } : { kind: "review", prepared });
     } catch (e) {
       // A PhotoError already carries the sentence the person needs — which
       // format it was and what to send instead. Wrapping it would bury it.
@@ -304,6 +309,30 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
       </div>
     );
 
+  if (stage.kind === "photoCheck")
+    return (
+      <PhotoCheck
+        prepared={stage.prepared}
+        onRetake={(files) => {
+          // This photo is dropped without anything sent; the new one queues
+          // first, ahead of any file still waiting. It joins the batch before
+          // the dropped one settles, so a batch of one does not close and
+          // reopen — the parent holding Souhrn would switch in between.
+          const usable = files.filter(isPhotoFile);
+          queueRef.current.unshift(...usable);
+          publishQueue();
+          publishBatch(pick(batchRef.current, usable.length));
+          addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
+          finish();
+        }}
+        onSendAnyway={() => setStage({ kind: "review", prepared: stage.prepared })}
+        onCancel={() => {
+          addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
+          finish();
+        }}
+      />
+    );
+
   if (stage.kind === "review")
     return (
       <RedactReview
@@ -321,7 +350,9 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
   const busy = stage.kind !== "idle";
   const status =
     stage.kind === "preparing"
-      ? `Otevírám ${stage.name}…`
+      ? stage.photo
+        ? `Kontroluji fotku ${stage.name}…`
+        : `Otevírám ${stage.name}…`
       : stage.kind === "redacting"
         ? `Anonymizuji ${stage.name}…`
         : running.length > 0
@@ -471,10 +502,10 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
       */}
       <p className="muted" style={{ margin: "9px 0 0" }}>
         PDF i fotka se otevřou ve vašem prohlížeči. U PDF najdeme jméno, rodné číslo, datum narození
-        a adresu v textu a začerníme je <strong>před</strong> odesláním; ve fotce ani ve skenu není
-        text, ve kterém by se dalo hledat — tam je začerníte při kontrole vy. Na server pak odejdou
-        jen začerněné obrázky stránek a vytištěné řádky s hodnotami. Původní soubor se nikam
-        neukládá.
+        a adresu v textu a začerníme je <strong>před</strong> odesláním. Ve fotce je zkusíme přečíst
+        přímo v prohlížeči a navrhneme, co začernit — zkontrolovat a doplnit to ale musíte vy; ve
+        skenu hledat nejde, tam začerníte vše sami. Na server pak odejdou jen začerněné obrázky
+        stránek a vytištěné řádky s hodnotami. Původní soubor se nikam neukládá.
       </p>
     </>
   );
