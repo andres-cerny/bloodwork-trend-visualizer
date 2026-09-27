@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyH, boxToQuad, judge, mapBox, overlapArea, pointInConvex, type Box, type H3, type Quad } from "./geometry";
+import { applyH, boxToQuad, judge, judgeQuad, mapBox, overlapArea, pointInConvex, type Box, type H3, type Quad } from "./geometry";
 
 /** A table of ten printed rows, 20 px tall on a 30 px pitch, x 100..900. */
 const pitch = 30;
@@ -67,6 +67,29 @@ describe("judge — the photo-highlight scorer", () => {
     const box: Box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     expect(judge(box, 4, slanted).right).toBe(true);
     expect(judge(box, 5, slanted).right).toBe(false);
+  });
+});
+
+describe("judgeQuad — the same rules for a quadrilateral", () => {
+  const boxes: Box[] = [rowBoxes[4], rowBoxes[5], [100, 110 + 4 * pitch, 900, 140 + 4 * pitch], [100, 100 + 3 * pitch, 900, 120 + 5 * pitch], [120, 100 + 4 * pitch, 500, 120 + 4 * pitch]];
+  it("agrees with judge on axis-aligned boxes, one row off included", () => {
+    for (const b of boxes) {
+      const a = judge(b, 4, rows);
+      const q = judgeQuad(boxToQuad(b), 4, rows);
+      expect([q.right, q.rightStrict, q.centreRow]).toEqual([a.right, a.rightStrict, a.centreRow]);
+      expect(q.share).toBeCloseTo(a.share, 6);
+    }
+  });
+
+  it("judges a slanted row's own quad right and its neighbour's wrong", () => {
+    const H: H3 = [
+      [1, 0.05, 10],
+      [0.08, 1, 5],
+      [0.00002, 0, 1],
+    ];
+    const slanted = rowBoxes.map((b) => mapBox(H, b));
+    expect(judgeQuad(slanted[4], 4, slanted).rightStrict).toBe(true);
+    expect(judgeQuad(slanted[5], 4, slanted).right).toBe(false);
   });
 });
 

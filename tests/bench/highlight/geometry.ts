@@ -129,6 +129,68 @@ export interface Verdict {
   why: string;
 }
 
+/** Clip a polygon to a convex polygon (Sutherland–Hodgman, either winding). */
+export function clipToConvex(poly: Pt[], clip: Pt[]): Pt[] {
+  const area2 = clip.reduce((s, p, i) => s + cross([0, 0], p, clip[(i + 1) % clip.length]), 0);
+  const inside = (a: Pt, b: Pt, p: Pt) => (area2 > 0 ? cross(a, b, p) >= 0 : cross(a, b, p) <= 0);
+  const hit = (a: Pt, b: Pt, p: Pt, q: Pt): Pt => {
+    const d = (q[0] - p[0]) * (b[1] - a[1]) - (q[1] - p[1]) * (b[0] - a[0]);
+    const t = d === 0 ? 0 : ((a[0] - p[0]) * (b[1] - a[1]) - (a[1] - p[1]) * (b[0] - a[0])) / d;
+    return [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])];
+  };
+  let out = poly;
+  for (let i = 0; i < clip.length && out.length; i++) {
+    const a = clip[i];
+    const b = clip[(i + 1) % clip.length];
+    const input = out;
+    out = [];
+    for (let j = 0; j < input.length; j++) {
+      const cur = input[j];
+      const prev = input[(j + input.length - 1) % input.length];
+      if (inside(a, b, cur)) {
+        if (!inside(a, b, prev)) out.push(hit(a, b, prev, cur));
+        out.push(cur);
+      } else if (inside(a, b, prev)) out.push(hit(a, b, prev, cur));
+    }
+  }
+  return out;
+}
+
+/**
+ * `judge` for a predicted quadrilateral (clockwise from top-left) — what the
+ * app draws on an unflattened photo. The same three rules: the centre (the
+ * centroid of its corners) on the true row; no other row covering more than
+ * half its height, where height is its area over its mean top/bottom length;
+ * and the true row's share of the rows inside it. On an axis-aligned quad it
+ * reduces to `judge` exactly (a test pins that).
+ */
+export function judgeQuad(q: Quad, truth: number, rows: Quad[]): Verdict {
+  const c: Pt = [(q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4];
+  const len = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const w = (len(q[0], q[1]) + len(q[3], q[2])) / 2;
+  const area = polygonArea(q);
+  const h = w > 0 ? area / w : 0;
+  const centreRow = rows.findIndex((r) => pointInConvex(c, r));
+  const areas = rows.map((r) => (area > 0 ? polygonArea(clipToConvex(r, q)) : 0));
+  const total = areas.reduce((s, a) => s + a, 0);
+  const share = total > 0 ? areas[truth] / total : 0;
+  const centreOk = truth >= 0 && truth < rows.length && pointInConvex(c, rows[truth]);
+  const worst = areas.reduce((m, a, i) => (i === truth ? m : Math.max(m, a)), 0);
+  const overlapOk = w <= 0 || worst / w <= 0.5 * h;
+  const right = centreOk && overlapOk;
+  const rightStrict = right && share >= STRICT_SHARE;
+  const why = !centreOk
+    ? centreRow >= 0
+      ? `centre on row ${centreRow}`
+      : "centre on no row"
+    : !overlapOk
+      ? "another row covers over half the box"
+      : !rightStrict
+        ? `true row holds ${(share * 100).toFixed(0)} % of the rows inside`
+        : "ok";
+  return { right, rightStrict, centreRow, share, why };
+}
+
 /**
  * Judge one predicted box against the rows of its page.
  *
