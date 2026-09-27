@@ -127,7 +127,8 @@ export function interpretPage(
     // is flagged for review rather than allowed into a trend.
     let disagreement = m.disagreement;
     let confidence = m.confidence;
-    if (!isScan && !isPrintedOnPage(m.valueRaw, rows)) {
+    const printed = !isScan && isPrintedOnPage(m.valueRaw, rows);
+    if (!isScan && !printed) {
       disagreement = `hodnota "${m.valueRaw}" není na stránce vytištěna`;
       confidence = "low";
       out.unverified += 1;
@@ -143,6 +144,9 @@ export function interpretPage(
       sourcePage: pageNum,
       confidence,
       disagreement,
+      // Copied from the text layer, not transcribed: review.ts does not
+      // suspect a moved decimal point in it.
+      printedOnPage: printed,
       // The row's Materiál cell or heading rides along, so a bare "Glukóza"
       // under Moč is refused the serum glukoza (Registry.match). The index is
       // the repaired one, so the material comes from the row the value is on.

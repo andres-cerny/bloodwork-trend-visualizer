@@ -85,7 +85,18 @@ the trend screen all read it. Two tiers, because the doubts differ:
 - **unconfirmed** — may well be right, nothing confirmed it (two reads
   disagreed, or low confidence). Plotted, drawn hollow, named in words.
 
-If you add a new kind of doubt, add it **there**, not at a call site. The bug
+If you add a new kind of doubt, add it **there**, not at a call site.
+
+A doubt nobody could resolve by looking is noise, and noise teaches people
+to click through the real ones: on 2026-09-27 one account's 15 born-digital
+reports asked about 87 of 873 values. So three things are **not** doubts:
+a value inside the interval printed beside it, or copied from its row's own
+text layer (`printedOnPage`), is never suspected of a moved decimal point —
+that check exists for values transcribed from pixels; two readings that
+differ only by the lab's "!" agree; and a text result taken from the page
+("negativní", an index) needs no confirming. Pinned by
+`packages/lab-core/tests/review.test.ts`; the demo's deliberate misread is
+still withheld, because its value is not its row's text. The bug
 this replaced was a misread flag reaching the chart while a model disagreement
 did not, so four readings the app had itself doubted were plotted silently.
 

@@ -184,3 +184,50 @@ describe("needsReview drives one consistent worklist", () => {
     expect(reviews.filter((r) => r.chip !== "").length).toBe(3);
   });
 });
+
+/**
+ * What stopped asking (2026-09-27): one account's 15 born-digital reports
+ * asked about 87 of 873 values, most of them nothing a reader could have got
+ * wrong. Each rule below was seen failing by putting the old check back.
+ */
+describe("asking only what could be wrong", () => {
+  const CK = () => ({ low: 0.4, high: 3.2 });
+  const box = [0, 0, 10, 10] as [number, number, number, number];
+
+  it("does not suspect a moved decimal in a value copied from the page's text layer", () => {
+    // A CK at twice its limit divides by ten into range; printed and checked
+    // against the page, it is the lab's number, not a slip.
+    const ck = { ...m({ rawAnalyteName: "S_CK", valueRaw: "6,38", unitRaw: "µkat/l", refRangeRaw: "0,65 - 5,14" }), printedOnPage: true };
+    expect(reviewOf(ck, CK).level).toBe("ok");
+    // The same value transcribed from a photo is still asked about.
+    expect(reviewOf({ ...ck, printedOnPage: false }, CK).level).toBe("withheld");
+  });
+
+  it("infers the copy for a row stored before the flag existed — row box and its own text — and not otherwise", () => {
+    const base = m({ rawAnalyteName: "S_CK", valueRaw: "6,38", unitRaw: "µkat/l", refRangeRaw: "0,65 - 5,14" });
+    expect(reviewOf({ ...base, bbox: box, sourceSnippet: "S_CK 6,38 µkat/l 0,65 - 5,14" }, CK).level).toBe("ok");
+    // The demo's misread: the page says 4,45, the value is 44,5 — still withheld.
+    const glu = m({ valueRaw: "44,5" });
+    expect(reviewOf({ ...glu, bbox: box, sourceSnippet: "S_Glukóza 4,45 mmol/l 4,11-5,60" }, GLUCOSE).level).toBe("withheld");
+    // No row box (a scan): the reader's own snippet proves nothing.
+    expect(reviewOf({ ...base, bbox: null, sourceSnippet: "S_CK 6,38" }, CK).level).toBe("withheld");
+  });
+
+  it("never calls a value inside its own printed interval a misread, whatever the curated range says", () => {
+    // Trombokrit's curated interval is an order of magnitude off the labs'.
+    const t = m({ rawAnalyteName: "Trombokrit", valueRaw: "0,024", unitRaw: "", refRangeRaw: "0,012 - 0,035" });
+    expect(reviewOf(t, () => ({ low: 0.0012, high: 0.0035 })).level).toBe("ok");
+  });
+
+  it("takes two readings that differ only by the lab's ! mark as agreeing", () => {
+    expect(reviewOf(m({ disagreement: "dvě nezávislá čtení se liší: 0,87 ! / 0,87" }), noRange).level).toBe("ok");
+    expect(reviewOf(m({ disagreement: "dvě nezávislá čtení se liší: 0,567 / 3,330" }), noRange).level).toBe("unconfirmed");
+  });
+
+  it("does not ask about a text result taken from the page's own text", () => {
+    const row = { ...m({ rawAnalyteName: "Hemolýza-index", valueRaw: "negativní", unitRaw: "" }), confidence: "low" as const, extractedBy: "printed-row" };
+    expect(reviewOf(row, noRange).level).toBe("ok");
+    // A reader's own low-confidence number is still asked about.
+    expect(reviewOf({ ...m(), confidence: "low" }, GLUCOSE).level).toBe("unconfirmed");
+  });
+});
