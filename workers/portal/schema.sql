@@ -76,8 +76,9 @@ CREATE TABLE IF NOT EXISTS invites (
 -- fifteen minutes and the address waits. Rows are pruned as they age out
 -- and cleared on a successful login.
 CREATE TABLE IF NOT EXISTS login_failures (
-  email TEXT NOT NULL,
-  at    INTEGER NOT NULL                -- epoch seconds
+  email   TEXT NOT NULL,
+  at      INTEGER NOT NULL,             -- epoch seconds
+  ip_hash TEXT                          -- salted hash of the IP (src/ratelimit.ts); the lockout is per address and IP
 );
 
 CREATE INDEX IF NOT EXISTS login_failures_by_email ON login_failures (email, at);
@@ -166,7 +167,9 @@ CREATE TABLE IF NOT EXISTS documents (
   pages_sent   INTEGER NOT NULL DEFAULT 0,
   pages_read   INTEGER NOT NULL DEFAULT 0,
   pages_failed INTEGER NOT NULL DEFAULT 0,
-  released_at  TEXT                     -- set when the slot was given back
+  released_at  TEXT,                    -- set when the slot was given back
+  took_slot    INTEGER NOT NULL DEFAULT 1, -- 0 for a demo document, which took none
+  empty_at     TEXT                     -- read, and nothing in it (or a report already held)
 );
 
 CREATE INDEX IF NOT EXISTS documents_by_user ON documents (user_id, created_at);
@@ -180,7 +183,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   user_id    TEXT,
   package    TEXT NOT NULL,             -- "5" | "15"
   amount_czk INTEGER NOT NULL,          -- whole crowns, as Stripe reported
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  credited_at TEXT                      -- set in the same transaction as the credit
 );
 
 CREATE INDEX IF NOT EXISTS purchases_by_user ON purchases (user_id, created_at);

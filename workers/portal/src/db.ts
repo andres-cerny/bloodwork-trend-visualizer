@@ -59,7 +59,8 @@ export const SQL = {
   // Login failures per e-mail, whether or not the e-mail has an account:
   // the lockout must not be the one place that says which addresses exist.
   countLoginFailures: "SELECT COUNT(*) AS n FROM login_failures WHERE email = ?1 AND at > ?2",
-  insertLoginFailure: "INSERT INTO login_failures (email, at) VALUES (?1, ?2)",
+  countLoginFailuresFrom: "SELECT COUNT(*) AS n FROM login_failures WHERE email = ?1 AND at > ?2 AND ip_hash = ?3",
+  insertLoginFailure: "INSERT INTO login_failures (email, at, ip_hash) VALUES (?1, ?2, ?3)",
   pruneLoginFailures: "DELETE FROM login_failures WHERE at < ?1",
   clearLoginFailures: "DELETE FROM login_failures WHERE email = ?1",
 
@@ -69,10 +70,19 @@ export const SQL = {
   reportOwner: "SELECT id, user_id FROM reports WHERE id = ?1",
   // The WHERE on the conflict branch is the owner check for an id that
   // already exists: a foreign id updates nothing, and meta.changes says so.
+  // `rev` lives in the payload and moves by one on every write. ?7 is the
+  // revision the writer last saw (If-Match), or NULL for a write that does
+  // not care — the upload's own two PUTs. A stale ?7 changes nothing: two
+  // tabs saving whole reports used to have the older one silently undo the
+  // newer one's correction (2026-09-27).
   upsertReport:
-    "INSERT INTO reports (id, user_id, report_date, lab_name, payload, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) " +
-    "ON CONFLICT(id) DO UPDATE SET report_date = excluded.report_date, lab_name = excluded.lab_name, payload = excluded.payload " +
-    "WHERE reports.user_id = ?2",
+    "INSERT INTO reports (id, user_id, report_date, lab_name, payload, created_at) VALUES (?1, ?2, ?3, ?4, json_set(?5, '$.rev', 1), ?6) " +
+    "ON CONFLICT(id) DO UPDATE SET report_date = excluded.report_date, lab_name = excluded.lab_name, " +
+    "payload = json_set(excluded.payload, '$.rev', COALESCE(json_extract(reports.payload, '$.rev'), 0) + 1) " +
+    "WHERE reports.user_id = ?2 AND (?7 IS NULL OR COALESCE(json_extract(reports.payload, '$.rev'), 0) = ?7) " +
+    // The new revision from the write itself: a SELECT after it could read
+    // another tab's write that landed in between, and hand this writer that rev.
+    "RETURNING json_extract(payload, '$.rev') AS rev",
   deleteReport: "DELETE FROM reports WHERE id = ?1 AND user_id = ?2",
   pagesForReport: "SELECT page_num, kv_key, width, height FROM report_pages WHERE report_id = ?1 ORDER BY page_num",
   upsertPage:
@@ -80,14 +90,24 @@ export const SQL = {
     "ON CONFLICT(report_id, page_num) DO UPDATE SET kv_key = excluded.kv_key, width = excluded.width, height = excluded.height",
   deletePages: "DELETE FROM report_pages WHERE report_id = ?1",
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
-  saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
+  // The same revision rule for the settings blob, as `_rev` inside it.
+  saveSettings:
+    "UPDATE users SET settings = json_set(?2, '$._rev', COALESCE(json_extract(settings, '$._rev'), 0) + 1) " +
+    "WHERE id = ?1 AND (?3 IS NULL OR COALESCE(json_extract(settings, '$._rev'), 0) = ?3) " +
+    "RETURNING json_extract(settings, '$._rev') AS rev",
 
-  // Synonyms taught by anyone, read by everyone. The last teacher of a name
-  // wins the row; a delete is the teacher's alone.
+  // Synonyms taught by anyone, read by everyone. The FIRST teacher of a name
+  // owns the row, and only they can change or withdraw it: with the last
+  // teacher winning, one wrong click — or a stranger in the demo — silently
+  // relabelled that name for every family (2026-09-27).
   allSynonyms: "SELECT raw_name, canonical_id, taught_by FROM synonyms ORDER BY created_at",
   upsertSynonym:
     "INSERT INTO synonyms (raw_name, canonical_id, taught_by, created_at) VALUES (?1, ?2, ?3, ?4) " +
-    "ON CONFLICT(raw_name) DO UPDATE SET canonical_id = excluded.canonical_id, taught_by = excluded.taught_by, created_at = excluded.created_at",
+    "ON CONFLICT(raw_name) DO UPDATE SET canonical_id = excluded.canonical_id, taught_by = excluded.taught_by, created_at = excluded.created_at " +
+    // Or nobody's any more: a teacher who deleted their account (taught_by
+    // NULL), or the public demo account (?5) — strangers taught under it
+    // before it was refused. Otherwise such a name could never be put right.
+    "WHERE synonyms.taught_by = excluded.taught_by OR synonyms.taught_by IS NULL OR synonyms.taught_by = ?5",
   deleteSynonym: "DELETE FROM synonyms WHERE raw_name = ?1 AND taught_by = ?2",
 
   // AI konzultace: the snapshot is stored as sent and served as stored. The
@@ -98,6 +118,8 @@ export const SQL = {
   shareByHash: "SELECT snapshot, expires_at, revoked_at FROM ai_shares WHERE token_hash = ?1",
   liveShareForUser:
     "SELECT expires_at FROM ai_shares WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?2 ORDER BY created_at DESC LIMIT 1",
+  // After a report is deleted: none left means the AI page has nothing true to say.
+  countReports: "SELECT COUNT(*) AS n FROM reports WHERE user_id = ?1",
   revokeSharesForUser: "UPDATE ai_shares SET revoked_at = ?2 WHERE user_id = ?1 AND revoked_at IS NULL",
   // The live link's text replaced in place: the URL the person may already
   // have pasted somewhere keeps working, now with the newer text.
@@ -122,14 +144,20 @@ export const SQL = {
   // OR IGNORE and meta.changes say whether this call was the one that made
   // it — and the conditional UPDATE on the user row is the claim on the
   // slot: it moves doc_used only while one is left.
-  insertDocument: "INSERT OR IGNORE INTO documents (id, user_id, created_at) VALUES (?1, ?2, ?3)",
+  // took_slot is 0 for a demo document: the sweep below must not give the
+  // owner back a document a stranger's visit never took.
+  insertDocument: "INSERT OR IGNORE INTO documents (id, user_id, created_at, took_slot) VALUES (?1, ?2, ?3, ?4)",
   documentById: "SELECT id, user_id, pages_sent, pages_read, pages_failed, released_at FROM documents WHERE id = ?1",
   deleteDocument: "DELETE FROM documents WHERE id = ?1",
   takeDocument: "UPDATE users SET doc_used = doc_used + 1 WHERE id = ?1 AND doc_used < doc_allowance",
   // One page more on this document, if it is the owner's, still open, and
-  // under the page cap. Zero changes is any of the three, refused.
+  // under the page cap. Zero changes is any of the three, refused. The cap
+  // counts pages that did not fail, so a page that failed (a dropped
+  // connection, a busy reader) can be sent again; the second bound keeps
+  // retries to twice the cap, so a document cannot become a free loop.
   sendPage:
-    "UPDATE documents SET pages_sent = pages_sent + 1 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL AND pages_sent < ?3",
+    "UPDATE documents SET pages_sent = pages_sent + 1 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL " +
+    "AND pages_sent - pages_failed < ?3 AND pages_sent < ?3 * 3",
   notePageRead: "UPDATE documents SET pages_read = pages_read + 1 WHERE id = ?1",
   notePageFailed: "UPDATE documents SET pages_failed = pages_failed + 1 WHERE id = ?1",
   // The slot goes back only for a document nothing was read from, and only
@@ -140,12 +168,34 @@ export const SQL = {
   releaseDocument:
     "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND pages_read = 0 AND pages_failed = pages_sent AND released_at IS NULL",
   giveBackDocument: "UPDATE users SET doc_used = doc_used - 1 WHERE id = ?1 AND doc_used > 0",
+  // An empty read (src/allowance.ts refundEmpty): marked once, then counted
+  // over 30 days. The refund itself releases the document the way a failed
+  // read is released, but with pages read — which only this route may do.
+  markEmpty: "UPDATE documents SET empty_at = ?3 WHERE id = ?1 AND user_id = ?2 AND empty_at IS NULL AND released_at IS NULL",
+  countEmpty: "SELECT COUNT(*) AS n FROM documents WHERE user_id = ?1 AND empty_at IS NOT NULL AND empty_at > ?2",
+  releaseEmpty: "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL AND took_slot = 1",
+  // The sweep (src/sweep.ts): a document opened an hour ago with nothing
+  // read will never be read — the tab was closed after the open, or its
+  // pages' answers were lost. Released, and its slot given back if it took one.
+  sweepDocuments:
+    "UPDATE documents SET released_at = ?1 WHERE pages_read = 0 AND released_at IS NULL AND created_at < ?2 RETURNING user_id, took_slot",
   allowanceForUser: "SELECT doc_allowance, doc_used FROM users WHERE id = ?1",
 
   // Purchases (src/stripe.ts): the event id is the idempotency key.
   insertPurchase:
     "INSERT OR IGNORE INTO purchases (event_id, user_id, package, amount_czk, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
   creditDocuments: "UPDATE users SET doc_allowance = doc_allowance + ?2 WHERE id = ?1",
+  // The webhook's credit and its mark, run as one D1 batch (a transaction):
+  // the account is credited only while the purchase is unmarked, and marked
+  // only while the account exists. A delivery that died between insert and
+  // credit is therefore finished by Stripe's retry instead of being taken
+  // for a duplicate — which is how a paid purchase once could go uncredited.
+  creditPurchase:
+    "UPDATE users SET doc_allowance = doc_allowance + ?2 WHERE id = ?1 " +
+    "AND EXISTS (SELECT 1 FROM purchases WHERE event_id = ?3 AND credited_at IS NULL)",
+  markPurchaseCredited:
+    "UPDATE purchases SET credited_at = ?2 WHERE event_id = ?1 AND credited_at IS NULL " +
+    "AND EXISTS (SELECT 1 FROM users WHERE id = ?3)",
 
   // „Napište nám" (src/helpdesk.ts): stored whole, read by the operator with
   // tools/scripts/moje-krev-helpdesk.mjs. The worker never reads one back.

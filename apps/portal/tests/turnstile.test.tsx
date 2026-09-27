@@ -73,7 +73,7 @@ describe("the gate with no widget", () => {
     expect(q("output")!.textContent).toBe("true");
     const line = q(".door-turnstile-failed")!;
     expect(line.textContent).toBe(TURNSTILE_FAILED);
-    expect(TURNSTILE_FAILED).toBe("Ověření, že nejste robot, se nenačetlo. Načtěte prosím stránku znovu.");
+    expect(TURNSTILE_FAILED).toMatch(/^Ověření, že nejste robot, se nenačetlo\. .*blokátor reklam/);
     expect(line.classList.contains("hint"), "muted, not a notice").toBe(true);
     expect(line.classList.contains("notice")).toBe(false);
   });
@@ -91,6 +91,25 @@ describe("the gate with no widget", () => {
     elapse(TURNSTILE_WAIT_MS * 2);
     expect(q("output")!.textContent).toBe("false");
     expect(q(".door-turnstile-failed")).toBeNull();
+  });
+
+  it("says so when the widget rendered but its challenge failed — a privacy browser's case", () => {
+    let opts: Record<string, (x?: string) => void> = {};
+    (window as unknown as { turnstile: unknown }).turnstile = {
+      render: (el: HTMLElement, o: Record<string, (x?: string) => void>) => {
+        el.appendChild(document.createElement("div"));
+        opts = o;
+        return "w";
+      },
+      reset: () => {},
+    };
+    render(<Form />);
+    act(() => opts["error-callback"]());
+    expect(q("output")!.textContent).toBe("true");
+    expect(q(".door-turnstile-failed")!.textContent).toBe(TURNSTILE_FAILED);
+    // A later success takes the sentence away.
+    act(() => opts.callback("tok"));
+    expect(q("output")!.textContent).toBe("false");
   });
 
   it("stays quiet when the script arrives late but before the deadline", () => {

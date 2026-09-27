@@ -5,7 +5,7 @@
  * importing each other.
  */
 import { useEffect, useState } from "react";
-import { ApiError, signupOpen } from "../lib/api";
+import { ApiError, errorOf, fetchChecked, signupOpen } from "../lib/api";
 import { TURNSTILE_FAILED, type TurnstileGate } from "../lib/turnstile";
 
 export interface Me {
@@ -17,11 +17,36 @@ export interface Me {
   demo: boolean;
 }
 
-/** The only thing that says who is logged in: the cookie, read by the worker. */
+/**
+ * The only thing that says who is logged in: the cookie, read by the worker.
+ * `null` means logged out (a 401) and nothing else. A server that is down, a
+ * phone that is offline, a request that never answers — those throw an
+ * ApiError: they used to read as "logged out" too, and a logged-in person
+ * was shown the landing page and a login that could not work.
+ */
 export async function fetchMe(): Promise<Me | null> {
-  const res = await fetch("/api/me").catch(() => null);
-  if (!res || !res.ok) return null;
+  const res = await fetchChecked("/api/me", {}, 15_000);
+  if (res.status === 401) return null;
+  if (!res.ok) throw await errorOf(res, "/api/me");
   return (await res.json()) as Me;
+}
+
+/**
+ * The login answered yes and /api/me still says nobody: the cookie was not
+ * kept. Retrying cannot help, so the sentence names the cause.
+ */
+export const COOKIES_BLOCKED =
+  "Přihlášení proběhlo, ale prohlížeč neuložil cookie. Povolte prosím cookies pro tuto stránku (soukromý režim nebo blokátor je může zakazovat) a zkuste to znovu.";
+
+/** What a door shows while it asks the server — never a blank page. */
+export function DoorWaiting({ text = "Načítám…" }: { text?: string }) {
+  return (
+    <Door>
+      <p className="sub" role="status" aria-live="polite">
+        {text}
+      </p>
+    </Door>
+  );
 }
 
 /** The centered card every logged-out state shares: mark, wordmark, content. */

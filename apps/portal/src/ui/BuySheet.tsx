@@ -95,6 +95,9 @@ export default function BuySheet({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     setNotice(null);
+    // Back from Checkout (or a redirect the person gave up on) must not find
+    // both buttons still saying „Přesměrování…".
+    setBusy(null);
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus();
     return () => {
@@ -126,6 +129,16 @@ export default function BuySheet({ open, onClose }: Props) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // The browser's back button from Stripe restores this page from its cache
+  // with the state it left in — busy included.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setBusy(null);
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
   if (!open) return null;
 

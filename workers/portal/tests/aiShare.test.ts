@@ -83,6 +83,19 @@ function fakeD1(t: Tables): D1Database {
         t.users = t.users.filter((u) => u.id !== a[0]);
         return { results: [], changes: before - t.users.length };
       }
+      // Deleting one report, as far as the share cares.
+      case SQL.reportOwner:
+        return { results: t.reports.filter((r) => r.id === a[0]).map((r) => ({ id: r.id, user_id: r.user_id })), changes: 0 };
+      case SQL.pagesForReport:
+      case SQL.deletePages:
+        return { results: [], changes: 0 };
+      case SQL.deleteReport: {
+        const before = t.reports.length;
+        t.reports = t.reports.filter((r) => !(r.id === a[0] && r.user_id === a[1]));
+        return { results: [], changes: before - t.reports.length };
+      }
+      case SQL.countReports:
+        return { results: [{ n: t.reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
       case SQL.unlinkSynonyms:
       case SQL.deleteDocumentsForUser:
       case SQL.unlinkPurchases:
@@ -313,6 +326,17 @@ describe("the public page", () => {
     await mint(B);
     await api(B, "DELETE", "/api/ai-share");
     expect((await page(url)).status).toBe(200);
+  });
+});
+
+describe("deleting reports", () => {
+  it("keeps the link while a report is left, and ends it with the last one", async () => {
+    const { url } = await mint();
+    tables.reports.push({ id: "r-1", user_id: A.id }, { id: "r-2", user_id: A.id });
+    expect((await api(A, "DELETE", "/api/reports/r-1")).status).toBe(200);
+    expect((await page(url)).status).toBe(200);
+    expect((await api(A, "DELETE", "/api/reports/r-2")).status).toBe(200);
+    expect((await page(url)).status).toBe(404);
   });
 });
 

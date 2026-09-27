@@ -67,7 +67,8 @@ import {
   preparePhoto,
   withPageChecks,
 } from "@bw/lab-core/photo";
-import { type Allowance, type ProvisionalRow, extractPage, isFatalApiError, openDocument, putPage, putReport, releaseDocument } from "./api";
+import { type Allowance, ApiError, type ProvisionalRow, extractPage, isFatalApiError, isRetryablePage, openDocument, putPage, putReport, releaseDocument, withRetry } from "./api";
+import { type FileWarning, LONG_REPORT_PAGES, drawDates, fingerprintOf, tooManyPagesCopy } from "./fileChecks";
 import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
 
@@ -81,11 +82,19 @@ export interface PreparedFile {
   /** Pages with no usable text layer: nothing was found on them automatically,
    *  the reader must redact by hand, and they are read from the image. */
   scanPages: number[];
-  /** Pages past the per-report cap, left unread. */
+  /** Pages past the per-report cap, left unread. Always 0 now: a file over
+   *  the cap is refused before anything is read (`FileRefused`). */
   truncated: number;
   /** Photos only: what the checks and the local OCR said. */
   photo?: PhotoFindings;
+  /** SHA-256 of the picked file — the same file picked again is recognised. */
+  fingerprint?: string | null;
+  /** What the person is asked about before the review (lib/fileChecks.ts). */
+  warnings?: FileWarning[];
 }
+
+/** A file that cannot be uploaded as it is — the message says what to do. */
+export class FileRefused extends Error {}
 
 export interface PhotoFindings {
   /** ok, warn (the person may send it anyway) or refuse (they may not). */
@@ -109,17 +118,38 @@ export interface PhotoFindings {
  *  A photograph goes its own way: one page, no pdf.js (~1.4 MB that someone
  *  photographing a sheet on a phone should not download), and the OCR chunk
  *  instead — see `preparePhotoFile`. */
-export async function prepareFile(file: File, maxPages: number): Promise<PreparedFile> {
-  if (isPhotoFile(file)) return preparePhotoFile(file);
+export async function prepareFile(file: File, maxPages: number, fingerprintSalt?: string | null): Promise<PreparedFile> {
+  // No salt yet (settings still loading): no fingerprint, never an unsalted one.
+  const fingerprint = fingerprintSalt ? await fingerprintOf(await file.arrayBuffer(), fingerprintSalt).catch(() => null) : null;
+  if (isPhotoFile(file)) return { ...(await preparePhotoFile(file)), fingerprint };
   const { loadPdf, pageAssets } = await import("@bw/lab-core/pdf");
   const doc = await loadPdf(file);
-  const n = Math.min(doc.numPages, maxPages);
+  // Over the cap is refused, not cut: reading the first pages of a longer
+  // file used to spend the document and say so only afterwards, in a note.
+  if (doc.numPages > maxPages) {
+    await doc.destroy();
+    throw new FileRefused(tooManyPagesCopy(doc.numPages, maxPages));
+  }
   const pages: PageAssets[] = [];
-  for (let p = 1; p <= n; p++) pages.push(await pageAssets(doc, p));
+  for (let p = 1; p <= doc.numPages; p++) pages.push(await pageAssets(doc, p));
   await doc.destroy();
   const scanPages = pages.filter((p) => !p.hasTextLayer || !canRedact(p.words)).map((p) => p.pageNum);
   const { hits } = findIdentity(pages.map((p) => ({ pageNum: p.pageNum, words: p.words })));
-  return { name: file.name, kind: "pdf", pages, hits, scanPages, truncated: doc.numPages - n };
+  return { name: file.name, kind: "pdf", pages, hits, scanPages, truncated: 0, fingerprint, warnings: pdfWarnings(pages, scanPages) };
+}
+
+/**
+ * What a PDF's own text says before anything is sent: long, several draw
+ * dates, or not a lab sheet at all. A page without a text layer says
+ * nothing either way, so a scan is only ever checked for length.
+ */
+export function pdfWarnings(pages: Array<Pick<PageAssets, "pageNum" | "rows">>, scanPages: number[]): FileWarning[] {
+  const out: FileWarning[] = [];
+  if (pages.length > LONG_REPORT_PAGES) out.push("long");
+  const texts = pages.filter((p) => !scanPages.includes(p.pageNum)).map((p) => p.rows.map((r) => r.cells.join(" ")));
+  if (drawDates(texts).length > 1) out.push("multi_date");
+  if (texts.length > 0 && !labSheetScore(texts.flat()).lab) out.push("not_lab");
+  return out;
 }
 
 /**
@@ -172,7 +202,10 @@ export async function preparePhotoFile(
     const rows: PhotoRowSource = { rows: ocrRows(lines), toPhoto: p.toPhoto, withhold };
     return { ...base, hits, photo: { verdict, ocr: "done", rows } };
   } catch {
-    return { ...base, hits: [], photo: { verdict: withPageChecks(p.quality, p.page, null), ocr: "failed" } };
+    // A job that timed out is still running in the worker, and the next
+    // photo would queue behind it and time out too: that worker goes.
+    void import("./ocr").then((m) => m.reset()).catch(() => undefined);
+    return { ...base, hits: [], photo: { verdict: withPageChecks(p.quality, p.page, null), ocr: "failed" }, warnings: ["unverified"] };
   }
 }
 
@@ -203,6 +236,20 @@ export function checkRedaction(pages: RedactedPage[], hits: IdentityHit[]): stri
 export interface ExtractOutcome {
   report: LabReport;
   notes: string[];
+  /** A note that needs the person — a page not read, printed rows no read
+   *  returned — as against the routine ones (a photo has no text layer). */
+  serious?: boolean;
+}
+
+/**
+ * A read that produced no report. `released` says whether the document went
+ * back to the allowance: a retry then opens a new one, and otherwise reuses
+ * this id — opening the same id again takes nothing (POST /api/documents).
+ */
+export class ReadFailed extends Error {
+  constructor(message: string, readonly released: boolean, readonly cause?: unknown) {
+    super(message);
+  }
 }
 
 /**
@@ -237,11 +284,16 @@ export async function extractReport(
   // moment it is taken, once, whatever the page count. At zero the worker
   // refuses here — an ApiError `no_documents` with the allowance on it — and
   // nothing has been sent. Given back below if no page could be read.
-  const opened = await openDocument(id);
+  // Same id on every try: a second open of it takes nothing.
+  const opened = await withRetry(() => openDocument(id));
   onAllowance?.(opened.allowance);
-  const giveBack = async () => {
-    const r = await releaseDocument(id).catch(() => null);
+  const giveBack = async (): Promise<boolean> => {
+    // Retried: this is the call that returns a document, and a dropped
+    // connection here used to keep it spent. The hourly sweep on the server
+    // is the net under this one (workers/portal/src/sweep.ts).
+    const r = await withRetry(() => releaseDocument(id)).catch(() => null);
     if (r) onAllowance?.(r.allowance);
+    return !!r?.released;
   };
 
   const results: Array<PageResult | undefined> = new Array(pages.length);
@@ -261,10 +313,20 @@ export async function extractReport(
         if (fatal) return;
         const isScan = prepared.scanPages.includes(page.pageNum);
         try {
-          const res = await extractPage(
-            isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
-            id,
-            onRow ? (row) => onRow(page.pageNum, row) : undefined,
+          // A dropped connection or a server too busy to start gets two more
+          // tries before the page counts as failed (isRetryablePage: never a
+          // timeout or a failed read, which would pay for the page twice);
+          // the worker lets a failed page be sent again (db.ts sendPage).
+          const res = await withRetry(
+            () =>
+              extractPage(
+                isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
+                id,
+                onRow ? (row) => onRow(page.pageNum, row) : undefined,
+              ),
+            3,
+            1000,
+            isRetryablePage,
           );
           results[i] = interpretPage(
             res.reads,
@@ -283,7 +345,9 @@ export async function extractReport(
             return;
           }
           failed.push(page.pageNum);
-          firstError = firstError ?? (e instanceof Error ? e.message : String(e));
+          // Only an ApiError's message is written for a reader; anything
+          // else is a bug's text, and the screen gets a sentence instead.
+          firstError = firstError ?? (e instanceof ApiError ? e.message : "Čtení stránky selhalo.");
         }
         onProgress(++done, pages.length);
       }),
@@ -299,8 +363,11 @@ export async function extractReport(
   // One failed page is a note on a report; every page failed is no report.
   // Storing an empty row would show "uloženo" over nothing.
   if (!results.some(Boolean)) {
-    await giveBack();
-    throw new Error(`žádnou stranu se nepodařilo přečíst — report nebyl uložen${firstError ? ` (${firstError})` : ""}`);
+    const released = await giveBack();
+    throw new ReadFailed(
+      `Žádnou stranu se nepodařilo přečíst — report nebyl uložen.${firstError ? ` ${firstError}` : ""}${released ? " Dokument se vrátil do vašeho nároku." : ""}`,
+      released,
+    );
   }
 
   const measurements: Measurement[] = [];
@@ -310,8 +377,12 @@ export async function extractReport(
   const unread: string[] = [];
   let reportDate: string | null = null;
   let labName: string | null = null;
+  const pageDates = new Set<string>();
+  const conflicts = new Set<string>();
   for (const [i, r] of results.entries()) {
     if (!r) continue;
+    if (r.reportDate) pageDates.add(r.reportDate);
+    for (const d of r.dateConflict ?? []) conflicts.add(d);
     measurements.push(...r.measurements);
     unverified += r.unverified;
     qualitative += r.qualitative;
@@ -319,6 +390,17 @@ export async function extractReport(
     reportDate = reportDate ?? r.reportDate;
     labName = labName ?? r.labName;
   }
+
+  // The date is the one thing every value of the report hangs on; a doubt
+  // about it travels with the report so Ověření asks instead of trusting.
+  // The candidate dates are not written into it: one of them may be a birth
+  // date a reader took for the draw, and the note is stored on the server.
+  const dateDoubt =
+    pageDates.size > 1
+      ? "Strany reportu nesou různá data — zkontrolujte na stránce, které je datum odběru."
+      : conflicts.size > 1
+        ? "Čtení se na datu odběru neshodla — zkontrolujte ho prosím na stránce."
+        : null;
 
   const notes: string[] = [];
   // A photograph has no text layer by definition, so calling it a sken would
@@ -362,8 +444,11 @@ export async function extractReport(
       patientId: null,
       pages: pages.map((p) => ({ pageNum: p.pageNum, imageUrl: p.imageUrl, imageWidth: p.imageWidth, imageHeight: p.imageHeight })),
       measurements,
+      fingerprint: prepared.fingerprint ?? null,
+      dateDoubt,
     },
     notes,
+    serious: failed.length > 0 || unread.length > 0 || unverified > 0 || dateDoubt !== null,
   };
 }
 
@@ -392,8 +477,8 @@ export async function storeReport(report: LabReport, pages: RedactedPage[]): Pro
     stored.push({ pageNum: p.pageNum, imageUrl, imageWidth: p.imageWidth, imageHeight: p.imageHeight });
   }
   const final = { ...report, pages: stored };
-  await putReport(final);
-  return final;
+  const saved = await putReport(final);
+  return { ...final, rev: saved?.rev ?? null };
 }
 
 export const newReportId = (): string => crypto.randomUUID();

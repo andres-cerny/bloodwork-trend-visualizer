@@ -34,14 +34,17 @@
  * which also keeps it out of the tab order on a desktop, where it would open
  * a file dialog labelled as a camera.
  */
-import { useRef, useState } from "react";
-import { type IdentityHit, type LabReport, type Registry, count } from "@bw/lab-core";
+import { useEffect, useRef, useState } from "react";
+import { type IdentityHit, type LabReport, type Registry, count, czDate } from "@bw/lab-core";
 import { PHOTO_TYPES, PhotoError, isPhotoFile } from "@bw/lab-core/photo";
-import { type Allowance, type Budget, ApiError, isFatalApiError } from "../lib/api";
+import { type Allowance, type Budget, ApiError, isFatalApiError, reportEmptyDocument, withRetry } from "../lib/api";
+import { UNSUPPORTED_COPY, sameDayCheck, sizeRefusal } from "../lib/fileChecks";
 import { type Batch, NO_BATCH, pick, settle, waitingLine } from "../lib/batch";
 import { exhaustedCopy } from "./AllowanceChip";
 import {
+  FileRefused,
   type PreparedFile,
+  ReadFailed,
   checkRedaction,
   extractReport,
   newReportId,
@@ -49,6 +52,7 @@ import {
   redactFile,
   storeReport,
 } from "../lib/upload";
+import FileCheck from "./FileCheck";
 import PhotoCheck from "./PhotoCheck";
 import RedactReview from "./RedactReview";
 
@@ -67,6 +71,12 @@ interface Props {
   onBatch: (b: Batch) => void;
   /** The parent is holding Souhrn for this batch — say so under the queue. */
   holding: boolean;
+  /** What the account holds — for the same file, or the same report, picked again. */
+  reports?: LabReport[];
+  /** A batch ended; `problems` is how many of its files failed or carry notes. */
+  onBatchEnd?: (problems: number) => void;
+  /** The account's salt for file fingerprints (lib/fileChecks.ts fingerprintOf). */
+  fingerprintSalt?: string | null;
 }
 
 /** What the reader is doing — one file at a time. */
@@ -75,6 +85,8 @@ type Stage =
   | { kind: "preparing"; name: string; photo: boolean }
   /** A photo the checks warned on or refused — before its review. */
   | { kind: "photoCheck"; prepared: PreparedFile }
+  /** A file the checks warn on (lib/fileChecks.ts) — before its review. */
+  | { kind: "fileCheck"; prepared: PreparedFile }
   | { kind: "review"; prepared: PreparedFile }
   | { kind: "redacting"; name: string };
 
@@ -97,7 +109,24 @@ const ACCEPT = ["application/pdf", ...PHOTO_TYPES].join(",");
  * `reason` is the worker's own sentence where it gave one.
  */
 export const storeFailedCopy = (reason: string) =>
-  `Report se přečetl, ale nepodařilo se ho uložit: ${reason.replace(/\.?$/, ".")} Dokument z nároku je využitý.`;
+  `Report se přečetl, ale nepodařilo se ho uložit: ${reason.replace(/\.?$/, ".")} Přečtené hodnoty držíme — zkuste uložit znovu, dokud je okno otevřené.`;
+
+/**
+ * Why a file would not open, in a sentence the person can act on. pdf.js
+ * names its failures by class — the log used to print them as they came:
+ * „PasswordException: No password given".
+ */
+export function openFailedCopy(e: unknown): string {
+  const name = e && typeof e === "object" && "name" in e ? String((e as { name: unknown }).name) : "";
+  const text = e instanceof Error ? e.message : String(e);
+  if (name === "PasswordException" || /password/i.test(text))
+    return "PDF je chráněné heslem. Otevřete ho, uložte kopii bez hesla (Tisk → Uložit jako PDF) a nahrajte ji.";
+  if (name === "InvalidPDFException" || name === "MissingPDFException" || /invalid pdf|empty/i.test(text))
+    return "Soubor není čitelné PDF — je poškozený, prázdný, nebo jde o jiný typ souboru přejmenovaný na .pdf.";
+  if (/dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(text))
+    return "Aplikace se mezitím aktualizovala. Obnovte prosím stránku a nahrajte soubor znovu.";
+  return "Soubor se nepodařilo otevřít. Zkuste ho prosím nahrát znovu, případně ho uložte znovu jako PDF.";
+}
 
 /** What the machine is doing — as many files as have been confirmed. */
 interface Running {
@@ -113,13 +142,26 @@ interface Running {
 }
 
 interface LogEntry {
+  /** Stable across a retry, so the entry is replaced rather than duplicated. */
+  key: string;
   name: string;
-  status: "done" | "failed" | "skipped";
+  status: "done" | "failed" | "skipped" | "waiting";
   notes: string[];
   error: string | null;
+  /** Stored, but with a note the person should read (ExtractOutcome.serious). */
+  serious?: boolean;
+  /** A second choice beside `retry` — „Neukládat" beside „Uložit i tak". */
+  dismiss?: { label: string; run: () => void };
+  /**
+   * What „Zkusit znovu" does, when a second try can succeed without the
+   * person redoing anything: the redacted pages (and, after a failed save,
+   * the read report) are still held in memory. Gone on reload — which is
+   * why the page asks before it is left while anything is held.
+   */
+  retry?: { label: string; run: () => void };
 }
 
-export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding }: Props) {
+export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding, reports = [], onBatchEnd, fingerprintSalt = null }: Props) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [queued, setQueued] = useState<File[]>([]);
   const [running, setRunning] = useState<Running[]>([]);
@@ -132,6 +174,12 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
   const queueRef = useRef<File[]>([]);
   const batchRef = useRef<Batch>(NO_BATCH);
   const busyRef = useRef(false);
+  // Read from async code that outlives the render: the account's reports as
+  // they are now, and the files of this tab's session already on their way.
+  const reportsRef = useRef<LabReport[]>(reports);
+  reportsRef.current = reports;
+  const underway = useRef(new Set<string>());
+  const problemsRef = useRef(0);
 
   const publishQueue = () => setQueued([...queueRef.current]);
   const publishBatch = (b: Batch) => {
@@ -141,10 +189,53 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
   };
   // One entry per file, whichever way it ended — so one entry is one file
   // settled, and the batch is stepped here and nowhere else.
-  const addLog = (e: LogEntry) => {
-    setLog((l) => [e, ...l]);
-    publishBatch(settle(batchRef.current));
+  const addLog = (e: Omit<LogEntry, "key"> & { key?: string }) => {
+    const entry = { ...e, key: e.key ?? `${Date.now()}-${Math.random()}` };
+    setLog((l) => [entry, ...l.filter((x) => x.key !== entry.key)]);
+    if (entry.status === "failed" || entry.status === "waiting" || entry.serious) problemsRef.current += 1;
+    const next = settle(batchRef.current);
+    const closed = next.total === 0 && batchRef.current.total > 0;
+    publishBatch(next);
+    if (closed) {
+      onBatchEnd?.(problemsRef.current);
+      problemsRef.current = 0;
+    }
   };
+  /** A retry takes its entry off the log and puts its file back into the batch. */
+  const reopen = (key: string) => {
+    setLog((l) => l.filter((x) => x.key !== key));
+    publishBatch(pick(batchRef.current, 1));
+  };
+
+  // A file dropped anywhere but the target — or while the review is up and
+  // the target is not drawn at all — made the browser open it in place of
+  // the app, and every file in flight went with the page. Caught at the
+  // window, the drop target still gets its own events first.
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+    };
+    window.addEventListener("dragover", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", stop);
+      window.removeEventListener("drop", stop);
+    };
+  }, []);
+
+  // Closing or reloading the tab mid-read used to lose the file without a
+  // word — and the redacted pages a retry needs. The browser's own dialog is
+  // the only thing that can stop that; its text is the browser's, not ours.
+  const holdsWork = stage.kind !== "idle" || running.length > 0 || queued.length > 0 || log.some((j) => j.retry);
+  useEffect(() => {
+    if (!holdsWork) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [holdsWork]);
   const updateRunning = (id: string, patch: Partial<Running>) =>
     setRunning((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const dropRunning = (id: string) => setRunning((rs) => rs.filter((r) => r.id !== id));
@@ -157,18 +248,36 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     busyRef.current = true;
     setStage({ kind: "preparing", name: file.name, photo: isPhotoFile(file) });
     try {
-      const prepared = await prepareFile(file, maxPages);
-      // A photo the checks did not pass stops first, and the person decides.
+      const prepared = await prepareFile(file, maxPages, fingerprintSalt);
+      // The same file again — already stored, or already on its way in this
+      // tab — is said before a document is spent on it.
+      const fp = prepared.fingerprint;
+      const held = fp ? reportsRef.current.find((r) => r.fingerprint === fp) : undefined;
+      if (held || (fp && underway.current.has(fp))) {
+        addLog({
+          name: file.name,
+          status: "skipped",
+          notes: [],
+          error: held ? `Tento soubor už máte nahraný (report z ${czDate(held.reportDate)}) — nic se neposílalo.` : "Tento soubor se už nahrává — nic se neposílalo podruhé.",
+        });
+        finish();
+        return;
+      }
+      // A photo the checks did not pass stops first, and the person decides;
+      // then the file's own warnings; then the review.
       const checked = prepared.photo && prepared.photo.verdict.outcome !== "ok";
-      setStage(checked ? { kind: "photoCheck", prepared } : { kind: "review", prepared });
+      setStage(checked ? { kind: "photoCheck", prepared } : afterPhotoCheck(prepared));
     } catch (e) {
       // A PhotoError already carries the sentence the person needs — which
       // format it was and what to send instead. Wrapping it would bury it.
-      const error = e instanceof PhotoError ? e.message : `Soubor se nepodařilo otevřít: ${e}`;
+      const error = e instanceof PhotoError || e instanceof FileRefused ? e.message : openFailedCopy(e);
       addLog({ name: file.name, status: "failed", notes: [], error });
       finish();
     }
   }
+
+  const afterPhotoCheck = (prepared: PreparedFile): Stage =>
+    prepared.warnings?.length ? { kind: "fileCheck", prepared } : { kind: "review", prepared };
 
   function finish() {
     busyRef.current = false;
@@ -190,27 +299,34 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         throw new Error(`anonymizace se nezdařila — v textu zůstalo: ${survived.slice(0, 3).join(", ")}`);
       }
       const id = newReportId();
-      setRunning((rs) => [...rs, { id, name, phase: "extracting", done: 0, total: pages.length, rows: 0, latest: [] }]);
+      if (prepared.fingerprint) underway.current.add(prepared.fingerprint);
       // Not awaited: the next file's review must not wait for this read.
       void extractInBackground(id, name, prepared, pages);
     } catch (e) {
-      addLog({ name, status: "failed", notes: [], error: `Nepodařilo se zpracovat PDF: ${e instanceof Error ? e.message : e}` });
+      addLog({ name, status: "failed", notes: [], error: `Soubor se nepodařilo zpracovat: ${e instanceof Error ? e.message : e}` });
     }
     finish();
   }
 
   /** The machine's half: read every page under the shared ceiling, store. */
-  async function extractInBackground(id: string, name: string, prepared: PreparedFile, pages: Awaited<ReturnType<typeof redactFile>>) {
+  async function extractInBackground(
+    id: string,
+    name: string,
+    prepared: PreparedFile,
+    pages: Awaited<ReturnType<typeof redactFile>>,
+    key = `${id}`,
+  ) {
+    setRunning((rs) => [...rs, { id, name, phase: "extracting", done: 0, total: pages.length, rows: 0, latest: [] }]);
     // Rows arrive as the readers write them, both readers, out of order
     // across pages. One line per printed row is enough for the screen: the
     // first reader to name it wins, and the count is of distinct rows.
     const seen = new Set<string>();
     const latest: string[] = [];
-    // True once the read has returned: from here a failure is a failed
-    // store, the document is spent, and the sentence says so.
-    let read = false;
+    let report: LabReport | null = null;
+    let notes: string[] = [];
+    let serious = false;
     try {
-      const { report, notes } = await extractReport(
+      ({ report, notes, serious = false } = await extractReport(
         id,
         prepared,
         pages,
@@ -219,36 +335,156 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         (pageNum, row) => {
           const name = (row.raw_analyte_name ?? "").trim();
           if (!name) return;
-          const key = `${pageNum}:${name.toLowerCase()}`;
-          if (seen.has(key)) return;
-          seen.add(key);
+          const k = `${pageNum}:${name.toLowerCase()}`;
+          if (seen.has(k)) return;
+          seen.add(k);
           latest.push([name, row.value_raw ?? "", row.unit_raw ?? ""].filter(Boolean).join(" "));
           if (latest.length > 4) latest.shift();
           updateRunning(id, { rows: seen.size, latest: [...latest] });
         },
         onAllowance,
-      );
-      read = true;
-      updateRunning(id, { phase: "storing" });
-      const stored = await storeReport(report, pages);
-      onStored(stored);
-      addLog({ name, status: "done", notes, error: null });
+      ));
     } catch (e) {
-      const reason = e instanceof ApiError || e instanceof Error ? e.message : String(e);
-      const message = read ? storeFailedCopy(reason) : e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${reason}`;
-      addLog({ name, status: "failed", notes: [], error: message });
-      if (e instanceof ApiError && e.budget) onBudget(e.budget);
-      if (e instanceof ApiError && e.allowance) onAllowance(e.allowance);
-      if (isFatalApiError(e)) {
-        // Every file still waiting would fail the same way; say so instead
-        // of leaving them queued and silent. A file already under review is
-        // left to the reader — its own read will say the same thing.
-        for (const f of queueRef.current) addLog({ name: f.name, status: "skipped", notes: [], error: "Nezpracováno — předchozí soubor narazil na limit." });
-        queueRef.current = [];
-        publishQueue();
-      }
+      dropRunning(id);
+      if (prepared.fingerprint) underway.current.delete(prepared.fingerprint);
+      failedRead(e, id, name, prepared, pages, key);
+      return;
     }
     dropRunning(id);
+    if (prepared.fingerprint) underway.current.delete(prepared.fingerprint);
+
+    // Nothing to store, or something already stored: the read happened, and
+    // the document goes back — except every third time in 30 days.
+    if (report.measurements.length === 0) {
+      await emptyRead(report.id, name, key, "V reportu jsme nenašli žádné hodnoty — nic se neuložilo.");
+      return;
+    }
+    const same = sameDayCheck(report, reportsRef.current);
+    if (same.kind === "duplicate") {
+      await emptyRead(report.id, name, key, `Tento report už máte (${czDate(same.other.reportDate)}, stejné hodnoty) — podruhé jsme ho neuložili.`);
+      return;
+    }
+    if (same.kind === "repeat") {
+      // Same day, same parameters, other values: a second draw that day is
+      // real, and so is a misread. Held until the person says which.
+      const held = report;
+      addLog({
+        key,
+        name,
+        status: "waiting",
+        notes,
+        error: `Report ze stejného dne (${czDate(same.other.reportDate)}) už máte a hodnoty se liší. Jde o další odběr téhož dne? Pokud ano, uložte ho — v trendech budou obě hodnoty.`,
+        retry: {
+          label: "Uložit i tak",
+          run: () => {
+            reopen(key);
+            void storeInBackground(held, pages, name, notes, key, serious);
+          },
+        },
+        // „Neukládat" is the person saying it is the same report: treated
+        // like the duplicate the app would have caught without the misread —
+        // the document goes back, under the same every-third-kept rule.
+        dismiss: {
+          label: "Neukládat",
+          run: () => {
+            setLog((l) => l.filter((x) => x.key !== key));
+            publishBatch(pick(batchRef.current, 1));
+            void emptyRead(held.id, name, key, "Neuloženo.");
+          },
+        },
+      });
+      return;
+    }
+    await storeInBackground(report, pages, name, notes, key, serious);
+  }
+
+  /** A read with nothing to store: tell the worker, and say what came of it. */
+  async function emptyRead(id: string, name: string, key: string, what: string) {
+    const r = await withRetry(() => reportEmptyDocument(id)).catch(() => null);
+    if (r) onAllowance(r.allowance);
+    const after = !r
+      ? " Dokument se nepodařilo vrátit — napište nám prosím."
+      : r.refunded
+        ? " Dokument se vrátil do vašeho nároku."
+        : " Dokument se tentokrát nevrací: je to třetí takové nahrání za posledních 30 dní.";
+    addLog({ key, name, status: "failed", notes: [], error: what + after });
+  }
+
+  /** Persist a read report; on failure keep it, and offer to save it again. */
+  async function storeInBackground(report: LabReport, pages: Awaited<ReturnType<typeof redactFile>>, name: string, notes: string[], key: string, serious = false) {
+    setRunning((rs) => [...rs, { id: report.id, name, phase: "storing", done: 0, total: 0, rows: 0, latest: [] }]);
+    try {
+      const stored = await withRetry(() => storeReport(report, pages));
+      onStored(stored);
+      addLog({ key, name, status: "done", notes, error: null, serious });
+    } catch (e) {
+      const reason = e instanceof ApiError ? e.message : "Neznámá chyba.";
+      addLog({
+        key,
+        name,
+        status: "failed",
+        notes,
+        error: storeFailedCopy(reason),
+        // The document is spent and the values are read: saving again costs
+        // nothing, and PUT of the same report id is safe to repeat.
+        retry: {
+          label: "Uložit znovu",
+          run: () => {
+            reopen(key);
+            void storeInBackground(report, pages, name, notes, key, serious);
+          },
+        },
+      });
+      if (isFatalApiError(e)) skipQueued(e);
+    }
+    dropRunning(report.id);
+  }
+
+  function failedRead(e: unknown, id: string, name: string, prepared: PreparedFile, pages: Awaited<ReturnType<typeof redactFile>>, key: string) {
+    const message = e instanceof ApiError || e instanceof ReadFailed ? e.message : `Soubor se nepodařilo zpracovat: ${e instanceof Error ? e.message : String(e)}`;
+    if (e instanceof ApiError && e.budget) onBudget(e.budget);
+    if (e instanceof ApiError && e.allowance) onAllowance(e.allowance);
+    // Worth a second try when nothing the person can change caused it. The
+    // pages are already redacted, so the retry skips the review; a document
+    // that went back is opened afresh, one still held is reused by its id.
+    const retryable = e instanceof ReadFailed || (e instanceof ApiError && !isFatalApiError(e) && e.code !== "bad_request");
+    // A document still held is reused by its id — unless the retry comes so
+    // late that the server's hourly sweep may have given it back, when the
+    // old id would be refused as "not open" and read as out of documents.
+    const failedAt = Date.now();
+    const retryId = () => (e instanceof ReadFailed && e.released) || Date.now() - failedAt > 30 * 60_000 ? newReportId() : id;
+    addLog({
+      key,
+      name,
+      status: "failed",
+      notes: [],
+      error: message,
+      retry: retryable
+        ? {
+            label: "Zkusit znovu",
+            run: () => {
+              reopen(key);
+              void extractInBackground(retryId(), name, prepared, pages, key);
+            },
+          }
+        : undefined,
+    });
+    if (isFatalApiError(e)) skipQueued(e);
+  }
+
+  /** Every file still waiting would fail the same way; say so instead of
+   *  leaving them queued and silent. A file already under review is left to
+   *  the reader — its own read will say the same thing. */
+  function skipQueued(e: unknown) {
+    const why =
+      e instanceof ApiError && e.code === "unauthorized"
+        ? "Nezpracováno — přihlášení vypršelo. Přihlaste se znovu a soubor nahrajte."
+        : e instanceof ApiError && (e.code === "no_documents" || e.code === "no_document")
+          ? "Nezpracováno — došly dokumenty v nároku."
+          : "Nezpracováno — předchozí soubor narazil na limit.";
+    for (const f of queueRef.current) addLog({ name: f.name, status: "skipped", notes: [], error: why });
+    queueRef.current = [];
+    publishQueue();
   }
 
   /**
@@ -259,10 +495,26 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
    * queue, each one reviewed in turn.
    */
   function enqueue(files: File[]) {
-    const usable = files.filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name) || isPhotoFile(f));
+    const usable: File[] = [];
+    for (const f of files) {
+      const photo = isPhotoFile(f);
+      const pdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+      // Each refused file is said, once, instead of vanishing from a mixed
+      // selection without a word.
+      const why = !photo && !pdf ? UNSUPPORTED_COPY : sizeRefusal(f, photo);
+      if (why) {
+        setLog((l) => [{ key: `${Date.now()}-${Math.random()}`, name: f.name, status: "failed", notes: [], error: why }, ...l]);
+        continue;
+      }
+      usable.push(f);
+    }
     if (usable.length === 0) return;
+    // A photo's local reading needs ~6 MB of files; start fetching them
+    // now, while the person is still on the first screen.
+    if (usable.some(isPhotoFile)) void import("../lib/ocr").then((m) => m.preload()).catch(() => undefined);
     queueRef.current.push(...usable);
     publishQueue();
+    if (batchRef.current.total === 0) problemsRef.current = 0;
     publishBatch(pick(batchRef.current, usable.length));
     void startNext();
   }
@@ -286,26 +538,10 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
             Přikoupit
           </button>
         </p>
-        {log.length > 0 && (
-          <ul className="joblist">
-            {log.map((j, i) => (
-              <li key={i} className={`job ${j.status}`}>
-                <span className="job-head">
-                  <span className="job-mark" aria-hidden="true">
-                    {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
-                  </span>
-                  <span className="job-name" title={j.name}>
-                    {j.name}
-                  </span>
-                  <span className="job-state">
-                    {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : "přeskočeno"}
-                  </span>
-                </span>
-                {j.error && <span className="job-note err">{j.error}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* The same log as below the picker: a file waiting on the person, or
+            one read and not stored, keeps its question and its buttons when
+            the file that spent the last document is the one that ended. */}
+        <JobLog log={log} />
       </div>
     );
 
@@ -325,6 +561,18 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
           addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
           finish();
         }}
+        onSendAnyway={() => setStage(afterPhotoCheck(stage.prepared))}
+        onCancel={() => {
+          addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
+          finish();
+        }}
+      />
+    );
+
+  if (stage.kind === "fileCheck")
+    return (
+      <FileCheck
+        prepared={stage.prepared}
         onSendAnyway={() => setStage({ kind: "review", prepared: stage.prepared })}
         onCancel={() => {
           addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
@@ -384,7 +632,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
             ? queued.length > 0
               ? `Nechte okno otevřené · ve frontě ${count(queued.length, "soubor", "soubory", "souborů")}`
               : "Nechte okno otevřené."
-            : `nebo klepněte a vyberte — i více najednou · nejvýše ${count(maxPages, "strana", "strany", "stran")} na report`}
+            : `nebo klepněte a vyberte — i více najednou · nejvýše ${count(maxPages, "strana", "strany", "stran")} na report, PDF do 20 MB`}
         </span>
         {/*
           The picker half of the pair: no `capture`, so iOS offers Fotky and
@@ -468,31 +716,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         </ul>
       )}
 
-      {log.length > 0 && (
-        <ul className="joblist">
-          {log.map((j, i) => (
-            <li key={i} className={`job ${j.status}`}>
-              <span className="job-head">
-                <span className="job-mark" aria-hidden="true">
-                  {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
-                </span>
-                <span className="job-name" title={j.name}>
-                  {j.name}
-                </span>
-                <span className="job-state">
-                  {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : "přeskočeno"}
-                </span>
-              </span>
-              {j.notes.map((n, k) => (
-                <span className="job-note" key={k}>
-                  {n}
-                </span>
-              ))}
-              {j.error && <span className="job-note err">{j.error}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
+      <JobLog log={log} />
 
       {/*
         The claim has to survive a photograph, and the old one did not: it said
@@ -508,5 +732,51 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         stránek a vytištěné řádky s hodnotami. Původní soubor se nikam neukládá.
       </p>
     </>
+  );
+}
+
+/** One entry per file, however it ended — with its notes and, where a second
+ *  try or a choice is open, its buttons. */
+function JobLog({ log }: { log: LogEntry[] }) {
+  if (log.length === 0) return null;
+  return (
+    <ul className="joblist">
+      {log.map((j) => (
+        <li key={j.key} className={`job ${j.status}`}>
+          <span className="job-head">
+            <span className="job-mark" aria-hidden="true">
+              {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : j.status === "waiting" ? "?" : "–"}
+            </span>
+            <span className="job-name" title={j.name}>
+              {j.name}
+            </span>
+            <span className="job-state">
+              {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : j.status === "waiting" ? "čeká na vás" : "přeskočeno"}
+            </span>
+          </span>
+          {j.notes.map((n, k) => (
+            <span className="job-note" key={k}>
+              {n}
+            </span>
+          ))}
+          {/* A question waiting on the person is not an error, and is not drawn as one. */}
+          {j.error && <span className={j.status === "waiting" ? "job-note" : "job-note err"}>{j.error}</span>}
+          {(j.retry || j.dismiss) && (
+            <span className="job-note job-actions">
+              {j.retry && (
+                <button type="button" className="btn small" onClick={j.retry.run}>
+                  {j.retry.label}
+                </button>
+              )}
+              {j.dismiss && (
+                <button type="button" className="btn small" onClick={j.dismiss.run}>
+                  {j.dismiss.label}
+                </button>
+              )}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }

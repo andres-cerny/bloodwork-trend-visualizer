@@ -51,16 +51,25 @@ function fakeD1(t: Tables): D1Database {
       case SQL.reportOwner:
         return { results: t.reports.filter((r) => r.id === a[0]).map((r) => ({ id: r.id, user_id: r.user_id })), changes: 0 };
       case SQL.upsertReport: {
-        const [id, uid, date, lab, payload, created] = a as [string, string, string | null, string | null, string, string];
+        // The SQL's revision rule, restated: rev moves by one per write, and
+        // a write made against a stale rev (?7) changes nothing.
+        const [id, uid, date, lab, payload, created, expected] = a as [string, string, string | null, string | null, string, string, number | null];
         const existing = t.reports.find((r) => r.id === id);
+        const revOf = (p: string) => (JSON.parse(p) as { rev?: number }).rev ?? 0;
         if (existing) {
           if (existing.user_id !== uid) return { results: [], changes: 0 };
-          Object.assign(existing, { report_date: date, lab_name: lab, payload });
-          return { results: [], changes: 1 };
+          if (expected !== null && revOf(existing.payload) !== expected) return { results: [], changes: 0 };
+          const rev = revOf(existing.payload) + 1;
+          Object.assign(existing, { report_date: date, lab_name: lab, payload: JSON.stringify({ ...JSON.parse(payload), rev }) });
+          return { results: [{ rev }], changes: 1 };
         }
-        t.reports.push({ id, user_id: uid, report_date: date, lab_name: lab, payload, created_at: created });
-        return { results: [], changes: 1 };
+        t.reports.push({ id, user_id: uid, report_date: date, lab_name: lab, payload: JSON.stringify({ ...JSON.parse(payload), rev: 1 }), created_at: created });
+        return { results: [{ rev: 1 }], changes: 1 };
       }
+      case SQL.countReports:
+        return { results: [{ n: (t as { reports: Array<{ user_id: string }> }).reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
+      case SQL.revokeSharesForUser:
+        return { results: [], changes: 0 };
       case SQL.deleteReport: {
         const before = t.reports.length;
         t.reports = t.reports.filter((r) => !(r.id === a[0] && r.user_id === a[1]));
@@ -84,8 +93,11 @@ function fakeD1(t: Tables): D1Database {
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ settings: u.settings })), changes: 0 };
       case SQL.saveSettings: {
         const u = t.users.find((x) => x.id === a[0]);
-        if (u) u.settings = a[1] as string;
-        return { results: [], changes: u ? 1 : 0 };
+        if (!u) return { results: [], changes: 0 };
+        const rev = u.settings ? ((JSON.parse(u.settings) as { _rev?: number })._rev ?? 0) : 0;
+        if (a[2] !== null && a[2] !== undefined && a[2] !== rev) return { results: [], changes: 0 };
+        u.settings = JSON.stringify({ ...JSON.parse(a[1] as string), _rev: rev + 1 });
+        return { results: [{ rev: rev + 1 }], changes: 1 };
       }
       // The document slot — only what the extract proxy needs here; the
       // allowance's own rules are tests/allowance.test.ts.
@@ -103,7 +115,7 @@ function fakeD1(t: Tables): D1Database {
       case SQL.allowanceForUser:
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ doc_allowance: u.doc_allowance, doc_used: u.doc_used })), changes: 0 };
       case SQL.sendPage: {
-        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent < (a[2] as number));
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent - x.pages_failed < (a[2] as number) && x.pages_sent < (a[2] as number) * 3);
         if (!d) return { results: [], changes: 0 };
         d.pages_sent += 1;
         return { results: [], changes: 1 };
@@ -292,6 +304,50 @@ describe("extract proxy", () => {
     expect((await userBudget(env.BUDGET, A.id, 5)).spentUsd).toBe(0.0123);
   });
 
+  it("settles a stream that ends without its final line as a failed page, and says so", async () => {
+    const stream = fakeExtractStream([{ type: "row", model: "claude-haiku-4-5", row: { raw_analyte_name: "S_Glukóza", value_raw: "5,32" } }]);
+    env.EXTRACT = stream.fetcher;
+    const res = await extractPage(A, { rowsText: "x", stream: true });
+    const lines = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+    expect(lines.at(-1)).toMatchObject({ type: "error", error: "stream_ended", message: expect.stringMatching(/přerušilo/) });
+    // Counted failed, not left in flight: the release can now give it back.
+    expect(tables.documents[0]).toMatchObject({ pages_sent: 1, pages_failed: 1, pages_read: 0 });
+  });
+
+  it("books a streamed read even when the browser stops listening halfway", async () => {
+    let waited: Promise<unknown> | null = null;
+    const ctx = { waitUntil: (p: Promise<unknown>) => void (waited = p), passThroughOnException: () => {} } as unknown as ExecutionContext;
+    const stream = fakeExtractStream([
+      { type: "row", model: "m", row: { raw_analyte_name: "S_Glukóza", value_raw: "5,32" } },
+      { type: "done", reads: [], mode: "text", costUsd: 0.02, budget: {} },
+    ]);
+    env.EXTRACT = stream.fetcher;
+    await call(A, "POST", "/api/documents", { id: "d-1" });
+    const res = await worker.fetch(
+      new Request("https://portal/api/extract", { method: "POST", headers: { ...(await as(A)), "content-type": "application/json", "x-document": "d-1" }, body: JSON.stringify({ rowsText: "x", stream: true }) }),
+      env,
+      ctx,
+    );
+    // The tab closes: the body is cancelled before a line is read.
+    await res.body!.cancel();
+    expect(waited).not.toBeNull();
+    await waited;
+    expect(tables.documents[0]).toMatchObject({ pages_read: 1 });
+    expect((await userBudget(env.BUDGET, A.id, 5)).spentUsd).toBe(0.02);
+  });
+
+  it("lets a failed page be sent again, and bounds the retries", async () => {
+    extract = fakeExtract({ status: 502, body: { error: "extraction_failed", message: "no" } });
+    env.EXTRACT = extract.fetcher;
+    await call(A, "POST", "/api/documents", { id: "d-1" });
+    const statuses: number[] = [];
+    // The cap is 10 pages; a page that failed does not count against it, and
+    // retries stop at three times the cap.
+    for (let i = 0; i < 32; i++) statuses.push((await call(A, "POST", "/api/extract", { rowsText: "x" }, { "x-document": "d-1" })).status);
+    expect(statuses.filter((s) => s === 502)).toHaveLength(30);
+    expect(statuses.slice(30)).toEqual([409, 409]);
+  });
+
   it("freezes the person who spent the month's allowance, and nobody else", async () => {
     await recordUserSpendUsd(env.BUDGET, A.id, monthOf(), 10);
     const a = await extractPage(A, { rowsText: "x" });
@@ -339,6 +395,52 @@ describe("reports", () => {
     expect((await call(A, "PUT", "/api/reports/r-1", { id: "r-2", measurements: [], pages: [] })).status).toBe(400);
     expect((await call(A, "PUT", "/api/reports/r-1", "nonsense")).status).toBe(400);
     expect((await call(A, "PUT", "/api/reports/../etc", report("../etc"))).status).toBe(404);
+  });
+
+  it("refuses a save made against an older revision — another tab saved since — and takes one made against the current", async () => {
+    expect(((await (await call(A, "PUT", "/api/reports/r-1", report("r-1"))).json()) as { rev: number }).rev).toBe(1);
+    // Tab one saves against rev 1: rev 2.
+    const one = await call(A, "PUT", "/api/reports/r-1", report("r-1"), { "if-match": "1" });
+    expect(await one.json()).toEqual({ ok: true, rev: 2 });
+    // Tab two still holds rev 1: refused, in Czech, and nothing changed.
+    const two = await call(A, "PUT", "/api/reports/r-1", { ...report("r-1"), labName: "stale" }, { "if-match": "1" });
+    expect(two.status).toBe(409);
+    expect(((await two.json()) as { message: string }).message).toMatch(/jiném okně/);
+    expect(JSON.parse(tables.reports[0].payload).labName).toBe("Lab");
+    // An edit to a report deleted elsewhere is not a way to bring it back.
+    const gone = await call(A, "PUT", "/api/reports/r-9", report("r-9"), { "if-match": "3" });
+    expect(gone.status).toBe(409);
+    expect(tables.reports.find((r) => r.id === "r-9")).toBeUndefined();
+  });
+
+  it("answers a body that is not JSON with a Czech 400, not a crash", async () => {
+    const res = await call(A, "PUT", "/api/reports/r-1", new TextEncoder().encode("{not json").buffer as ArrayBuffer);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad_request", message: "Neplatný report." });
+  });
+
+  it("gives a refusal that named only a code a Czech sentence", async () => {
+    const res = await call(A, "GET", "/api/nothing-here");
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: "not_found", message: expect.stringMatching(/obnovte/) });
+  });
+
+  it("turns an exception no route expected into a Czech 500", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const prepare = env.DB.prepare;
+    (env.DB as { prepare: unknown }).prepare = () => {
+      throw new Error("D1_ERROR: overloaded");
+    };
+    try {
+      const res = await call(A, "GET", "/api/reports");
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body).toMatchObject({ error: "server_error" });
+      expect(JSON.stringify(body)).not.toContain("D1_ERROR");
+    } finally {
+      (env.DB as { prepare: unknown }).prepare = prepare;
+      spy.mockRestore();
+    }
   });
 });
 
@@ -396,10 +498,18 @@ describe("delete", () => {
 });
 
 describe("settings", () => {
+  it("refuses a settings save against an older revision", async () => {
+    const first = (await (await call(A, "PUT", "/api/settings", { learned: {} })).json()) as { rev: number };
+    expect(first.rev).toBe(1);
+    expect((await call(A, "PUT", "/api/settings", { learned: { a: ["x"] } }, { "if-match": "1" })).status).toBe(200);
+    expect((await call(A, "PUT", "/api/settings", { learned: {} }, { "if-match": "1" })).status).toBe(409);
+  });
+
   it("round-trips a JSON object and starts empty", async () => {
     expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({});
     expect((await call(A, "PUT", "/api/settings", { learned: { glukoza: ["S-GLU"] } })).status).toBe(200);
-    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ learned: { glukoza: ["S-GLU"] } });
+    // With its revision, which the next save names (If-Match).
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ learned: { glukoza: ["S-GLU"] }, _rev: 1 });
     // Someone else's settings are their own.
     expect(await (await call(B, "GET", "/api/settings")).json()).toEqual({});
   });
@@ -434,7 +544,7 @@ describe("settings", () => {
     };
     const kept = settingsOf(300);
     expect((await call(A, "PUT", "/api/settings", kept)).status).toBe(200);
-    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual(kept);
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ ...kept, _rev: 1 });
 
     const res = await call(A, "PUT", "/api/settings", settingsOf(600));
     expect(res.status).toBe(413);
@@ -442,7 +552,7 @@ describe("settings", () => {
     expect(body.error).toBe("too_large");
     expect(body.message).toMatch(/^Nastavení účtu \(přiřazení názvů, vlastní parametry a AI kontext\) je příliš velké: 6\d\d kB, nejvýše 512 kB\.$/);
     // The refusal kept the last good settings.
-    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual(kept);
+    expect(await (await call(A, "GET", "/api/settings")).json()).toEqual({ ...kept, _rev: 1 });
   });
 });
 

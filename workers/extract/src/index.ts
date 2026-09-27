@@ -155,7 +155,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
   // the client can verify every returned value against the printed page.
   // Only scans fall back to sending an image.
   const useText = typeof rowsText === "string" && rowsText.trim().length > 0;
-  if (!useText && !imageBase64) return json({ error: "missing_page" }, 400);
+  if (!useText && !imageBase64) return json({ error: "missing_page", message: "Stránka dorazila prázdná — nahrajte soubor znovu." }, 400);
 
   // The text path never varies its pair (see ./readers); only an image asks
   // which two readers are configured.
@@ -224,7 +224,10 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
       const { status, body } = await settle(results, env, used, useText, readers, pair.name);
       await line(status === 200 ? { type: "done", ...body } : { type: "error", ...body });
     } catch (e) {
-      await line({ type: "error", error: "extraction_failed", message: String(e) });
+      // The reason goes to the log; the line goes to a Czech screen, and
+      // String(e) put "Error: KV put failed…" in a reader's upload notes.
+      console.error(`stream failed: ${e instanceof Error ? e.message : String(e)}`);
+      await line({ type: "error", error: "extraction_failed", message: "Čtení stránky selhalo — zkuste to znovu." });
     } finally {
       await writer.close().catch(() => {});
     }
@@ -267,7 +270,7 @@ async function handleMap(request: Request, env: Env): Promise<Response> {
     .slice(0, MAX_MAP_CATALOG)
     .map((c: Record<string, unknown>) => ({ id: clip(c.id, 64), name: clip(c.name, 120), unit: clip(c.unit, 40) }))
     .filter((c) => /^[a-z0-9_]+$/.test(c.id));
-  if (names.length === 0 || catalog.length === 0) return json({ error: "missing_names" }, 400);
+  if (names.length === 0 || catalog.length === 0) return json({ error: "missing_names", message: "Není co přiřadit." }, 400);
 
   try {
     const r = await suggestCanonical(env.ANTHROPIC_API_KEY, MODEL_MAP, names, catalog);

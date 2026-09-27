@@ -124,6 +124,21 @@
     [4.11, 4.11, 5.6, "normal"],
     [5.6, 4.11, 5.6, "normal"]
   ],
+  "_censored_flag": "A result printed as a bound (\">200\") has no value to trend, but its flag is known when the bound is itself past the range: a CRP of \">200\" against 0-5 is high. Only that direction is judged — \"<1,0\" against 1,0-5,0 is a detection limit, and calling a good CRP low is the harm packages/lab-core/CLAUDE.md warns of, so \"<\" stays unknown.",
+  "censored_flag": [
+    [">200", 0, 5, "high"],
+    ["> 5,0", 0, 5, "high"],
+    ["≥ 90", 0, 60, "high"],
+    ["≥ 5,0", 0, 5, "unknown"],
+    [">= 5,0", 0, 5, "unknown"],
+    [">200 !", 0, 5, "high"],
+    [">10", 0, 20, "unknown"],
+    [">200", null, null, "unknown"],
+    ["<0,5", 0, 5, "unknown"],
+    ["<1,0", 1, 5, "unknown"],
+    ["neprovedeno", 0, 5, "unknown"],
+    ["5,4", 0, 5, "unknown"]
+  ],
   "_material_prefix": "The code a lab prints before the analyte name, or null. Underscore is generic (any 1-4 letters); slash and hyphen forms are allowlisted to known material codes because a generic rule would strip 'anti-' from anti-TPO. A spaced hyphen is the Czech abbreviation convention (ALP - alkalická fosfatasa), never a material. A digit after the separator (S-100 protein, 25-OH) is never a material either. 's,p' stays one code — the lab printed both — and is compatible with s and with p in mapping.",
   "material_prefix": [
     ["S_Glukóza", "s"],

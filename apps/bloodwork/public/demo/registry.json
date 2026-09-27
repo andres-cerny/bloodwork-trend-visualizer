@@ -34,7 +34,9 @@
    "Glukóza - žilní krev"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.0555
+  },
   "referenceRange": [
    3.9,
    5.6
@@ -92,7 +94,9 @@
    "S_Kreatinin (Jaffé)"
   ],
   "canonicalUnit": "µmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 88.42
+  },
   "referenceRange": [
    62,
    110
@@ -168,7 +172,9 @@
    "Kyselina močová v séru"
   ],
   "canonicalUnit": "µmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 59.48
+  },
   "referenceRange": [
    202,
    417
@@ -197,7 +203,9 @@
    "S_Bilirubin (celkový)"
   ],
   "canonicalUnit": "µmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 17.1
+  },
   "referenceRange": [
    3,
    21
@@ -230,7 +238,9 @@
    "Bilirubin konj."
   ],
   "canonicalUnit": "µmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 17.1
+  },
   "referenceRange": [
    0,
    3.4
@@ -262,7 +272,10 @@
    "AST v séru"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0.17,
    0.85
@@ -294,7 +307,10 @@
    "ALT v séru"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0.17,
    0.78
@@ -322,7 +338,10 @@
    "ALP v séru"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0.66,
    2.2
@@ -389,7 +408,10 @@
    "Glutamyltransferáza"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0.14,
    0.84
@@ -417,7 +439,10 @@
    "LDH v séru"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    2.25,
    3.75
@@ -448,7 +473,10 @@
    "CK v séru"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0.4,
    3.2
@@ -576,7 +604,10 @@
    "Amyláza (AMS)"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0.47,
    1.67
@@ -650,7 +681,9 @@
    "Bilirubín nepriamy"
   ],
   "canonicalUnit": "µmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 17.1
+  },
   "referenceRange": [
    0,
    17
@@ -818,7 +851,9 @@
    "Laktát v krvi"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.111
+  },
   "referenceRange": [
    0.5,
    2.2
@@ -1669,7 +1704,9 @@
    "Calcium celkové"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.2495
+  },
   "referenceRange": [
    2.15,
    2.55
@@ -1698,7 +1735,9 @@
    "Magnesium (Mg)"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.4114
+  },
   "referenceRange": [
    0.7,
    1.0
@@ -1763,7 +1802,9 @@
    "Fosfor anorganický - fosfáty"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.3229
+  },
   "referenceRange": [
    0.81,
    1.45
@@ -1891,7 +1932,9 @@
    "Chol"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.02586
+  },
   "referenceRange": [
    2.9,
    5.0
@@ -1920,7 +1963,9 @@
    "Triacylglycerol"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.01129
+  },
   "referenceRange": [
    0.45,
    1.7
@@ -1953,7 +1998,9 @@
    "Cholesterol HDL (přímé stanovení)"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.02586
+  },
   "referenceRange": [
    1.0,
    2.1
@@ -1996,7 +2043,9 @@
    "V_LDL cholesterol (Friedewald)"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.02586
+  },
   "referenceRange": [
    1.2,
    3.0
@@ -2032,7 +2081,9 @@
    "V_non-HDL cholesterol"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.02586
+  },
   "referenceRange": [
    0,
    3.8
@@ -2146,7 +2197,9 @@
    "Remnantní cholesterol - výpočet"
   ],
   "canonicalUnit": "mmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 0.02586
+  },
   "referenceRange": [
    0,
    0.8
@@ -2194,7 +2247,9 @@
    "Železo - Fe"
   ],
   "canonicalUnit": "µmol/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "µg/dl": 0.1791
+  },
   "referenceRange": [
    11,
    32
@@ -2888,7 +2943,9 @@
    "CRP - kvantitativně"
   ],
   "canonicalUnit": "mg/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "mg/dl": 10.0
+  },
   "referenceRange": [
    0,
    5
@@ -2925,7 +2982,9 @@
    "Protein celkový"
   ],
   "canonicalUnit": "g/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "g/dl": 10.0
+  },
   "referenceRange": [
    64,
    83
@@ -2950,7 +3009,9 @@
    "Albumin (sérum)"
   ],
   "canonicalUnit": "g/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "g/dl": 10.0
+  },
   "referenceRange": [
    35,
    52
@@ -4207,7 +4268,9 @@
    "Hemoglobin v plné krvi"
   ],
   "canonicalUnit": "g/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "g/dl": 10.0
+  },
   "referenceRange": [
    135,
    175
@@ -4334,7 +4397,9 @@
    "Stredná koncentrácia hemoglobínu v erytrocytoch"
   ],
   "canonicalUnit": "g/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "g/dl": 10.0
+  },
   "referenceRange": [
    320,
    360
@@ -8966,7 +9031,10 @@
    "Pankreatická lipáza"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0,
    1.1
@@ -8999,7 +9067,10 @@
    "Pankreatická amyláza (P-AMS)"
   ],
   "canonicalUnit": "µkat/l",
-  "unitConversions": {},
+  "unitConversions": {
+   "U/l": 0.01667,
+   "IU/l": 0.01667
+  },
   "referenceRange": [
    0,
    0.9

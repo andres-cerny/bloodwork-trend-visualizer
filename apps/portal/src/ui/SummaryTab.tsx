@@ -68,6 +68,7 @@ import {
   czNum,
   czRange,
   numericPoints,
+  latestCensoredOut,
   patientOverview,
   prettyUnit,
   summarizeChanges,
@@ -443,6 +444,18 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
   // twice: the tables show the latest draw's values instead of nothing.
   const latest = useMemo(() => (records.length === 0 ? latestRows(trends) : []), [records, trends]);
   const latestOut = latest.filter((r) => r.outOfRange);
+  // Readings left out of their series for a unit nothing converts
+  // (lab-core units.ts): a filtered value is not a normal one, so named.
+  const elsewhere = useMemo(() => [...trends.values()].filter((t) => t.otherUnits), [trends]);
+  // Newest results printed as a bound past the range (">200"): no number to
+  // compare, so no row in the tables below — named here instead.
+  const bounds = useMemo(
+    () =>
+      [...trends.values()]
+        .map((t) => ({ t, p: latestCensoredOut(t) }))
+        .filter((x): x is { t: Trend; p: NonNullable<ReturnType<typeof latestCensoredOut>> } => x.p !== null),
+    [trends],
+  );
   const latestIn = latest.filter((r) => !r.outOfRange);
   const latestNote = overview.lastDraw
     ? `${overview.draws > 1 ? "poslední odběr" : "jediný odběr"} · ${czDate(overview.lastDraw)}`
@@ -501,6 +514,36 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
               <button className="btn linkish" onClick={onOpenVerify}>
                 přejít na Ověření
               </button>
+              .
+            </p>
+          )}
+          {elsewhere.length > 0 && (
+            <p className="held-back">
+              ⚠ Měření v jednotce, kterou neumíme převést, nejsou v přehledu ani v grafu:{" "}
+              {elsewhere.map((t, i) => (
+                <span key={t.canonicalId}>
+                  {i > 0 && ", "}
+                  <button className="btn linkish" onClick={() => onOpenTrend?.(t.canonicalId)}>
+                    {t.displayName}
+                  </button>{" "}
+                  ({Object.keys(t.otherUnits!).map(prettyUnit).join(", ")})
+                </span>
+              ))}
+              .
+            </p>
+          )}
+          {bounds.length > 0 && (
+            <p className="held-back">
+              ⚠ Mimo rozmezí bez přesné hodnoty:{" "}
+              {bounds.map(({ t, p }, i) => (
+                <span key={t.canonicalId}>
+                  {i > 0 && ", "}
+                  <button className="btn linkish" onClick={() => onOpenTrend?.(t.canonicalId)}>
+                    {t.displayName}
+                  </button>{" "}
+                  {p.valueRaw} {prettyUnit(t.unit)} ({czDate(p.date)})
+                </span>
+              ))}
               .
             </p>
           )}

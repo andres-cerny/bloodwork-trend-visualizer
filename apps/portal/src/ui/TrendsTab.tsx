@@ -22,6 +22,7 @@ import {
   numericPoints,
   suspectPoints,
   unconfirmedPoints,
+  latestCensoredOut,
   type Trend,
   count,
   czDate,
@@ -39,6 +40,7 @@ function sortTrends(trends: Trend[]): Trend[] {
 }
 
 function outNow(t: Trend): boolean {
+  if (latestCensoredOut(t)) return true;
   const np = numericPoints(t);
   const last = np[np.length - 1];
   return !!last && (last.flag === "high" || last.flag === "low");
@@ -207,6 +209,18 @@ export default function TrendsTab({
                 </p>
               )}
 
+              {/* Readings in a unit nothing converts to this one: out of the
+                  chart, and said so, rather than drawn as a jump. */}
+              {t.otherUnits && (
+                <p className="held-back">
+                  ⚠ Mimo graf:{" "}
+                  {Object.entries(t.otherUnits)
+                    .map(([u, n]) => `${n} měření v jednotce ${prettyUnit(u)}`)
+                    .join(", ")}{" "}
+                  — {Object.keys(t.otherUnits).length > 1 ? "tyto jednotky" : "tuto jednotku"} neumíme převést na {prettyUnit(t.unit)}.
+                </p>
+              )}
+
               <StatLine trend={t} />
               <TrendChart trend={t} onVerify={onVerify && ((p) => onVerify(p.reportId, p.rawName))} />
               <details className="tc-table" style={{ marginTop: 8 }}>
@@ -239,6 +253,11 @@ export default function TrendsTab({
                               source, so it must not round. */}
                           <td className="num">
                             <strong className={out ? "out" : undefined}>{czExact(p.value, p.valueRaw)}</strong>
+                            {p.convertedFrom && (
+                              <span className="muted" style={{ display: "block", fontSize: "0.85em" }}>
+                                převedeno z {czExact(p.convertedFrom.value)} {prettyUnit(p.convertedFrom.unit)}
+                              </span>
+                            )}
                           </td>
                           <td className="muted num tc-range">
                             {p.refLow !== null || p.refHigh !== null ? czRange(p.refLow, p.refHigh) : "—"}
@@ -275,6 +294,22 @@ export default function TrendsTab({
 /** The current value, its status, the step since the previous draw, the range. */
 function StatLine({ trend }: { trend: Trend }) {
   const [older, newer] = latestTwo(trend);
+  // The newest result is a bound (">200"): it is the headline, not the older
+  // number behind it.
+  const bound = latestCensoredOut(trend);
+  if (bound)
+    return (
+      <div className="tc-stat">
+        <span className="big out">
+          {bound.valueRaw} <span className="unit">{prettyUnit(trend.unit)}</span>
+        </span>
+        <Flag flag={bound.flag} />
+        <span className="range">
+          {czDate(bound.date)}
+          {bound.refLow !== null || bound.refHigh !== null ? ` · rozmezí ${czRange(bound.refLow, bound.refHigh)}` : ""} · bez přesné hodnoty, v grafu není
+        </span>
+      </div>
+    );
   if (!newer) return null;
   const out = newer.flag === "high" || newer.flag === "low";
   const delta = older ? (newer.value as number) - (older.value as number) : null;

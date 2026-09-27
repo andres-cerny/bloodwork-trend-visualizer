@@ -27,3 +27,12 @@ describe("mergeSettings", () => {
     expect(JSON.stringify(cleared)).not.toContain("aiContext");
   });
 });
+
+describe("a save another tab beat", () => {
+  it("keeps the other tab's learned names and model answers, and lays this tab's change over them", async () => {
+    const { rebaseSettings } = await import("../src/lib/settings");
+    const fresh = { learned: { glukoza: ["GLU"] }, aiAsked: { X: { decision: "unknown" } }, _rev: 4 } as never;
+    const next = rebaseSettings(fresh, { learned: { kreatinin: ["KREA"] }, aiContext: { note: "a" } as never });
+    expect(next).toMatchObject({ learned: { glukoza: ["GLU"], kreatinin: ["KREA"] }, aiAsked: { X: { decision: "unknown" } }, aiContext: { note: "a" }, _rev: 4 });
+  });
+});

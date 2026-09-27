@@ -54,13 +54,17 @@
     // 5 ¢ a page is 6 USD; the text path is fractions of a cent. A person
     // who trips this sees the frozen sentence and waits for the month.
     "PORTAL_USD_LIMIT": "10",
+    // The public demo's own monthly ceiling, USD. Its visitors spent the
+    // owner's PORTAL_USD_LIMIT before 2026-09-27 — a stranger looping pages
+    // could freeze the owner's own uploads. Two dollars is ~40 pages.
+    "DEMO_USD_LIMIT": "2",
     // Real Czech reports are one to three pages — the speed bench read 33
-    // pages out of 30 files. Six leaves room for a long one and stops a
-    // hundred-page PDF from spending a month's ledger in a single upload;
-    // beyond it `prepareFile` truncates and the upload log says so
-    // ("Zpracováno prvních … zůstalo nepřečteno"), so nothing is dropped
-    // silently. Raise it the day a real report needs it.
-    "MAX_PAGES_PER_REPORT": "6",
+    // pages out of 30 files. Ten (Ondřej's call, 2026-09-27) leaves room for
+    // a long one; the browser asks whether anything over six pages is really
+    // one report, and refuses a file over ten before a document is spent
+    // (apps/portal/src/lib/fileChecks.ts) — a hundred-page PDF cannot spend
+    // a month's ledger in a single upload.
+    "MAX_PAGES_PER_REPORT": "10",
     // The open door (src/signup.ts). "false" — the state of this file — is
     // the invite-only worker: a stranger can register only with a code, the
     // login form asks for no Turnstile, and the mail routes answer 404.

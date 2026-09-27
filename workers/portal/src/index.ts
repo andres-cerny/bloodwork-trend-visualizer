@@ -39,13 +39,15 @@
  */
 import { mintSession } from "@bw/gate";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
+import { sweepAbandonedDocuments } from "./sweep";
+import { ipHash } from "./ratelimit";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
 import { errorCodeOf, recordEvent, routeLabel } from "./events";
 import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import { handleSignupMail, looksLikeEmail, openMailedAccount, requireHuman, signupStatus, type SignupEnv } from "./signup";
-import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageFailed, notePageRead, sendPage } from "./allowance";
+import { allowanceOf, handleAllowance, handleOpenDocument, handleEmptyDocument, handleReleaseDocument, notePageFailed, notePageRead, sendPage } from "./allowance";
 import { handleBuy, handleStripeWebhook, type StripeEnv } from "./stripe";
 import {
   clearCookieHeader,
@@ -89,6 +91,8 @@ export interface Env extends SignupEnv, StripeEnv {
    * priced in documents, and this only stops a runaway.
    */
   PORTAL_USD_LIMIT?: string;
+  /** The demo visitors' own monthly ceiling, USD (default 2). */
+  DEMO_USD_LIMIT?: string;
   MAX_PAGES_PER_REPORT?: string;
   /**
    * Workers AI, for the help desk's triage (src/triage.ts). Optional on
@@ -107,11 +111,28 @@ export interface Env extends SignupEnv, StripeEnv {
   TURNSTILE_HOSTNAMES?: string;
 }
 
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
+/**
+ * A refusal the app will show, in Czech, even where the route named only a
+ * code: the client prints `message` as it arrives, and a bare
+ * `{error:"not_found"}` used to reach the reader as „Chyba 404".
+ */
+const DEFAULT_MESSAGE: Record<number, string> = {
+  400: "Požadavek se nepodařilo zpracovat.",
+  404: "Nenalezeno — obnovte prosím stránku.",
+  413: "Požadavek je příliš velký.",
+  500: "Něco se pokazilo na serveru — zkuste to prosím znovu.",
+  502: "Zpracování se nezdařilo — zkuste to prosím znovu.",
+};
+const json = (data: unknown, status = 200) => {
+  if (status >= 400 && data && typeof data === "object" && !Array.isArray(data) && !("message" in data)) {
+    const message = DEFAULT_MESSAGE[status] ?? DEFAULT_MESSAGE[status >= 500 ? 500 : 400];
+    data = { ...(data as object), message };
+  }
+  return new Response(JSON.stringify(data), {
     status,
     headers: { "content-type": "application/json; charset=utf-8" },
   });
+};
 
 const sessionTtlSeconds = (env: Env) => (parseInt(env.SESSION_TTL_DAYS ?? "90", 10) || 90) * 86400;
 const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
@@ -125,8 +146,22 @@ const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
  * deliberate freeze and must not fall through to the default the way an
  * empty env var does.
  */
-const limitFor = (user: UserRow, env: Env) => user.budget_usd ?? usdLimit(env);
-const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "6", 10) || 6;
+/**
+ * The ledger a request spends from. A demo visitor spends from a ledger of
+ * its own, with a small ceiling (DEMO_USD_LIMIT): before, every stranger on
+ * the public demo link spent the owner's monthly fuse — and could freeze the
+ * owner's own uploads by looping pages. Marked per request, on the user row
+ * that request loaded.
+ */
+const demoPayer = new WeakSet<UserRow>();
+/** "0" is a deliberate freeze of the demo, not a fall-through to the default. */
+const demoUsdLimit = (env: Env) => {
+  const n = parseFloat(env.DEMO_USD_LIMIT ?? "2");
+  return Number.isFinite(n) && n >= 0 ? n : 2;
+};
+const ledgerKey = (user: UserRow) => (demoPayer.has(user) ? `demo_${user.id}` : user.id);
+const limitFor = (user: UserRow, env: Env) => (demoPayer.has(user) ? demoUsdLimit(env) : user.budget_usd ?? usdLimit(env));
+const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "10", 10) || 10;
 
 /**
  * A ceiling in Czech copy: "2,50", not "2.5". The same rule as lab-core's
@@ -159,9 +194,12 @@ const MAX_PASSWORD = 256;
  *  that a look around survives a closed tab, short enough that a borrowed or
  *  public computer forgets. Days, like SESSION_TTL_DAYS. */
 const DEMO_SESSION_TTL_DAYS = 1;
-/** Ten wrong tries on one e-mail in fifteen minutes, and that e-mail waits
- *  fifteen minutes — whether or not it has an account. */
+/** Ten wrong tries on one e-mail from one IP in fifteen minutes, and that
+ *  pair waits fifteen minutes — whether or not the address has an account.
+ *  Per IP, so a stranger who knows the address cannot keep its owner out;
+ *  LOCKOUT_FAILURES_ANY_IP still stops a guess spread over many addresses. */
 const LOCKOUT_FAILURES = 10;
+const LOCKOUT_FAILURES_ANY_IP = 100;
 const LOCKOUT_WINDOW_SECONDS = 15 * 60;
 
 const passwordOk = (s: unknown): s is string =>
@@ -338,8 +376,10 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   const normEmail = email.trim().toLowerCase();
 
   const since = now() - LOCKOUT_WINDOW_SECONDS;
-  const recent = await env.DB.prepare(SQL.countLoginFailures).bind(normEmail, since).first<{ n: number }>();
-  if ((recent?.n ?? 0) >= LOCKOUT_FAILURES) {
+  const ip = await ipHash(env, request);
+  const fromHere = await env.DB.prepare(SQL.countLoginFailuresFrom).bind(normEmail, since, ip).first<{ n: number }>();
+  const anywhere = await env.DB.prepare(SQL.countLoginFailures).bind(normEmail, since).first<{ n: number }>();
+  if ((fromHere?.n ?? 0) >= LOCKOUT_FAILURES || (anywhere?.n ?? 0) >= LOCKOUT_FAILURES_ANY_IP) {
     return json({ error: "locked", message: "Příliš mnoho pokusů. Zkuste to znovu za 15 minut." }, 429);
   }
 
@@ -352,7 +392,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
       : DUMMY_RECORD;
   const ok = (await verifyPassword(password, record)) && record !== DUMMY_RECORD;
   if (!ok || !user) {
-    await env.DB.prepare(SQL.insertLoginFailure).bind(normEmail, now()).run();
+    await env.DB.prepare(SQL.insertLoginFailure).bind(normEmail, now(), ip).run();
     await env.DB.prepare(SQL.pruneLoginFailures).bind(since).run();
     return badLogin();
   }
@@ -449,8 +489,10 @@ async function teachSynonym(request: Request, env: Env, user: UserRow): Promise<
   if (!rawName || rawName.length > MAX_RAW_NAME || !CANONICAL_ID.test(canonicalId)) {
     return json({ error: "bad_request", message: "Neplatné přiřazení." }, 400);
   }
-  await env.DB.prepare(SQL.upsertSynonym).bind(rawName, canonicalId, user.id, new Date().toISOString()).run();
-  return json({ ok: true });
+  const demo = await demoAccount(env);
+  const r = await env.DB.prepare(SQL.upsertSynonym).bind(rawName, canonicalId, user.id, new Date().toISOString(), demo?.id ?? null).run();
+  // `taught: false` — another account taught this name first, and it stays theirs.
+  return json({ ok: true, taught: !!r.meta && r.meta.changes === 1 });
 }
 
 /** Withdraw a spelling this account taught. Someone else's stays. */
@@ -474,9 +516,9 @@ async function forgetSynonym(request: Request, env: Env, user: UserRow): Promise
  * shut. Spend the extractor reports is booked against the person, and a
  * frozen person is refused here before anything is sent.
  */
-async function handleExtract(request: Request, env: Env, user: UserRow): Promise<Response> {
+async function handleExtract(request: Request, env: Env, user: UserRow, ctx?: ExecutionContext): Promise<Response> {
   const limit = limitFor(user, env);
-  const before = await userBudget(env.BUDGET, user.id, limit);
+  const before = await userBudget(env.BUDGET, ledgerKey(user), limit);
   if (before.frozen) {
     return json(
       {
@@ -522,11 +564,24 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   // that is the buffered answer. Lines pass through untouched except the
   // last, which is where the cost is booked and the person's budget added —
   // the same two things the buffered path does to its one object.
+  //
+  // The extractor's stream is read to its end here whatever happens to the
+  // browser, under waitUntil: settling used to live inside the stream the
+  // browser was reading, so a closed tab or a dropped connection cancelled it
+  // and the page stayed "in flight" for good — the document neither read nor
+  // failed, so never given back. And a stream that ends with no final line
+  // (the extractor killed mid-read) is settled as a failed page, for the
+  // same reason, with an error line so the browser is told.
   const type = res.headers.get("content-type") ?? "";
   if (res.ok && type.includes("x-ndjson") && res.body) {
+    const source = res.body;
     const enc = new TextEncoder();
     const dec = new TextDecoder();
-    let tail = "";
+    const out = new TransformStream<Uint8Array, Uint8Array>();
+    const writer = out.writable.getWriter();
+    // The browser may be gone; its half failing must not stop the settling.
+    const send = (line: string) => writer.write(enc.encode(line + "\n")).catch(() => undefined);
+    let settled = false;
     const rewrite = async (text: string): Promise<string> => {
       let ev: Record<string, unknown>;
       try {
@@ -535,6 +590,8 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
         return text;
       }
       if (ev.type !== "done" && ev.type !== "error") return text;
+      if (settled) return text;
+      settled = true;
       const { type: _t, ...data } = ev;
       const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer, docId);
       // The HTTP status is already 200 on a stream, so the refusal in its
@@ -544,28 +601,49 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
       }
       return JSON.stringify({ type: ev.type, ...shaped });
     };
-    const through = new TransformStream<Uint8Array, Uint8Array>({
-      async transform(chunk, ctrl) {
-        tail += dec.decode(chunk, { stream: true });
-        let nl: number;
-        while ((nl = tail.indexOf("\n")) >= 0) {
-          const one = tail.slice(0, nl);
-          tail = tail.slice(nl + 1);
-          ctrl.enqueue(enc.encode((await rewrite(one)) + "\n"));
+    const endedEarly = async () => {
+      if (settled) return;
+      settled = true;
+      const shaped = await settle(env, user, 502, { error: "stream_ended", message: "Čtení stránky se přerušilo — zkuste to znovu." }, docId);
+      await recordEvent(env, { route: "POST /api/extract", status: 502, code: "stream_ended", uid: user.id, requestId: request.headers.get("cf-ray") });
+      await send(JSON.stringify({ type: "error", ...shaped }));
+    };
+    const pump = (async () => {
+      let tail = "";
+      try {
+        const reader = source.getReader();
+        for (;;) {
+          const { value, done } = await reader.read();
+          tail += done ? dec.decode() : dec.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = tail.indexOf("\n")) >= 0) {
+            const one = tail.slice(0, nl);
+            tail = tail.slice(nl + 1);
+            await send(await rewrite(one));
+          }
+          if (done) break;
         }
-      },
-      async flush(ctrl) {
-        if (tail.trim()) ctrl.enqueue(enc.encode((await rewrite(tail)) + "\n"));
-      },
-    });
-    return new Response(res.body.pipeThrough(through), {
+        if (tail.trim()) await send(await rewrite(tail));
+      } catch (e) {
+        console.error(`extract stream broke: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      await endedEarly();
+      await writer.close().catch(() => undefined);
+    })();
+    ctx?.waitUntil(pump);
+    return new Response(out.readable, {
       status: 200,
       headers: { "content-type": type, "cache-control": "no-store" },
     });
   }
 
-  const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
-  return json(await settle(env, user, res.status, data, docId), res.status);
+  // Buffered: the same, the settling held open past a closed tab.
+  const work = (async () => {
+    const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
+    return json(await settle(env, user, res.status, data, docId), res.status);
+  })();
+  ctx?.waitUntil(work);
+  return work;
 }
 
 interface ExtractAnswer {
@@ -579,7 +657,7 @@ interface ExtractAnswer {
 async function settle(env: Env, user: UserRow, status: number, data: ExtractAnswer, docId?: string): Promise<Record<string, unknown>> {
   const limit = limitFor(user, env);
   if (status === 200 && typeof data.costUsd === "number") {
-    await recordUserSpendUsd(env.BUDGET, user.id, monthOf(), data.costUsd);
+    await recordUserSpendUsd(env.BUDGET, ledgerKey(user), monthOf(), data.costUsd);
     // A page read: from here on the document's slot is spent for good.
     if (docId) await notePageRead(env.DB, docId);
   } else if (status !== 200) {
@@ -602,7 +680,7 @@ async function settle(env: Env, user: UserRow, status: number, data: ExtractAnsw
     data.error === "budget_exhausted"
       ? "Zpracování je dočasně pozastaveno — společný limit je vyčerpán."
       : data.message;
-  return { ...data, ...(message !== undefined ? { message } : {}), budget: await userBudget(env.BUDGET, user.id, limit) };
+  return { ...data, ...(message !== undefined ? { message } : {}), budget: await userBudget(env.BUDGET, ledgerKey(user), limit) };
 }
 
 /* ---------------------------------------------------------------- reports */
@@ -667,17 +745,46 @@ async function listReports(env: Env, user: UserRow): Promise<Response> {
 async function putReport(request: Request, env: Env, user: UserRow, id: string): Promise<Response> {
   const text = await request.text();
   if (text.length > MAX_PAYLOAD_BYTES) return json({ error: "too_large", message: "Report je příliš velký." }, 413);
-  const report = sanitizeReport(id, JSON.parse(text.length ? text : "null"));
+  let body: unknown;
+  try {
+    body = JSON.parse(text.length ? text : "null");
+  } catch {
+    return json({ error: "bad_request", message: "Neplatný report." }, 400);
+  }
+  const report = sanitizeReport(id, body);
   if (!report) return json({ error: "bad_request", message: "Neplatný report." }, 400);
 
-  const saved = await env.DB.prepare(SQL.upsertReport)
-    .bind(id, user.id, report.reportDate, report.labName, JSON.stringify(report), new Date().toISOString())
-    .run();
-  // Zero changes on an upsert means the id exists and belongs to someone
-  // else: the conflict branch's WHERE refused it.
-  if (!saved.meta || saved.meta.changes !== 1) return json({ error: "forbidden", message: "Report nepatří k tomuto účtu." }, 403);
-  return json({ ok: true });
+  // The revision the writer last saw; absent means "write regardless".
+  const expected = revisionOf(request);
+  if (expected !== null && !(await ownedReport(env, user, id))) return reportConflict(true);
+  const { results } = await env.DB.prepare(SQL.upsertReport)
+    .bind(id, user.id, report.reportDate, report.labName, JSON.stringify(report), new Date().toISOString(), expected)
+    .all<{ rev: number | null }>();
+  // No row back from the upsert: the id is someone else's, or the writer's
+  // revision is stale — another tab or device saved this report since.
+  if (!results || results.length !== 1) {
+    return (await ownedReport(env, user, id)) ? reportConflict(false) : json({ error: "forbidden", message: "Report nepatří k tomuto účtu." }, 403);
+  }
+  return json({ ok: true, rev: results[0].rev ?? null });
 }
+
+/** The `If-Match` revision a write was made against, or null for none. */
+function revisionOf(request: Request): number | null {
+  const h = request.headers.get("if-match");
+  const n = h === null ? NaN : Number(h.replace(/"/g, ""));
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+const reportConflict = (gone: boolean) =>
+  json(
+    {
+      error: "conflict",
+      message: gone
+        ? "Report byl mezitím smazán v jiném okně nebo zařízení."
+        : "Report byl mezitím změněn v jiném okně nebo zařízení — načetli jsme novější verzi, změnu prosím zopakujte.",
+    },
+    409,
+  );
 
 /** The report row, if it is this user's. */
 async function ownedReport(env: Env, user: UserRow, id: string): Promise<boolean> {
@@ -721,6 +828,11 @@ async function deleteReport(env: Env, user: UserRow, id: string): Promise<Respon
   await Promise.all(results.map((p) => env.PAGES.delete(p.kv_key)));
   await env.DB.prepare(SQL.deletePages).bind(id).run();
   await env.DB.prepare(SQL.deleteReport).bind(id, user.id).run();
+  // The live AI page carries values from the reports; the app refreshes it
+  // after a delete (ui/ShareTab.tsx), but with the last report gone there is
+  // no tab left to do it, and the page would keep serving what was deleted.
+  const left = await env.DB.prepare(SQL.countReports).bind(user.id).first<{ n: number }>();
+  if (left && left.n === 0) await env.DB.prepare(SQL.revokeSharesForUser).bind(user.id, now()).run();
   return json({ ok: true, pagesDeleted: results.length });
 }
 
@@ -768,8 +880,11 @@ async function putSettings(request: Request, env: Env, user: UserRow): Promise<R
     return json({ error: "bad_request" }, 400);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return json({ error: "bad_request" }, 400);
-  await env.DB.prepare(SQL.saveSettings).bind(user.id, JSON.stringify(parsed)).run();
-  return json({ ok: true });
+  const { results } = await env.DB.prepare(SQL.saveSettings).bind(user.id, JSON.stringify(parsed), revisionOf(request)).all<{ rev: number | null }>();
+  // Stale: another tab saved the settings since this one read them. It
+  // reads them again and merges its change over them (apps/portal Portal.tsx).
+  if (!results || results.length !== 1) return json({ error: "conflict", message: "Nastavení se mezitím změnilo v jiném okně." }, 409);
+  return json({ ok: true, rev: results[0].rev ?? null });
 }
 
 /* ---------------------------------------------------------------- account */
@@ -996,7 +1111,7 @@ async function revokeShare(env: Env, user: UserRow): Promise<Response> {
  */
 async function handleMap(request: Request, env: Env, user: UserRow): Promise<Response> {
   const limit = limitFor(user, env);
-  const before = await userBudget(env.BUDGET, user.id, limit);
+  const before = await userBudget(env.BUDGET, ledgerKey(user), limit);
   if (before.frozen) {
     return json(
       { error: "budget_exhausted", message: frozenMessage(limit), budget: before },
@@ -1006,9 +1121,16 @@ async function handleMap(request: Request, env: Env, user: UserRow): Promise<Res
   const body = await request.text();
   if (body.length > MAX_EXTRACT_BYTES) return json({ error: "too_large", message: "Požadavek je příliš velký." }, 413);
   const session = await mintSession(env.EXTRACT_SESSION_SECRET, EXTRACT_SESSION_TTL, 1);
-  const res = await env.EXTRACT.fetch(
-    new Request("https://extract/api/map", { method: "POST", headers: { "content-type": "application/json", "x-demo-session": session }, body }),
-  );
+  let res: Response;
+  try {
+    res = await env.EXTRACT.fetch(
+      new Request("https://extract/api/map", { method: "POST", headers: { "content-type": "application/json", "x-demo-session": session }, body }),
+    );
+  } catch (e) {
+    // As on /api/extract: an unreachable binding is a Czech 502, not a crash.
+    console.error(`extract unreachable: ${e instanceof Error ? e.message : String(e)}`);
+    return json({ error: "extraction_failed", message: "Návrh přiřazení se nepodařilo získat — zkuste to znovu." }, 502);
+  }
   const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
   return json(await settle(env, user, res.status, data), res.status);
 }
@@ -1019,6 +1141,7 @@ const REPORT = /^\/api\/reports\/([^/]+)$/;
 const INVITE = /^\/api\/auth\/invite\/([^/]+)$/;
 const PAGE = /^\/api\/(?:reports|pages)\/([^/]+)\/(\d{1,3})$/;
 const DOCUMENT = /^\/api\/documents\/([^/]+)$/;
+const DOCUMENT_EMPTY = /^\/api\/documents\/([^/]+)\/empty$/;
 
 /** Which account a request turned out to belong to, for the events hook below. */
 const accountOf = new WeakMap<Request, string>();
@@ -1087,7 +1210,10 @@ const routes = {
     // Everything below is the account's own data.
     const session = await requireSession(request, env);
     if (!session) return unauthorized();
-    const { user } = session;
+    // A demo request gets its own copy of the row to carry the mark, so the
+    // mark cannot outlive the request on an object anything else holds.
+    const user = session.demo ? { ...session.user } : session.user;
+    if (session.demo) demoPayer.add(user);
     accountOf.set(request, user.id);
 
     switch (route) {
@@ -1097,21 +1223,21 @@ const routes = {
         // screens needs it. Their own login still reads it back.
         return json({ email: session.demo ? null : user.email, createdAt: user.created_at, demo: session.demo });
       case "GET /api/status":
-        return json({ budget: await userBudget(env.BUDGET, user.id, limitFor(user, env)), maxPages: maxPages(env), allowance: allowanceOf(user) });
+        return json({ budget: await userBudget(env.BUDGET, ledgerKey(user), limitFor(user, env)), maxPages: maxPages(env), allowance: allowanceOf(user) });
       case "GET /api/allowance":
         return handleAllowance(env.DB, user);
       // Open a document: where the one slot is taken. A frozen person is
       // refused here first, so the fuse tripping costs no document.
       case "POST /api/documents": {
         const limit = limitFor(user, env);
-        const before = await userBudget(env.BUDGET, user.id, limit);
+        const before = await userBudget(env.BUDGET, ledgerKey(user), limit);
         if (before.frozen) return json({ error: "budget_exhausted", message: frozenMessage(limit), budget: before }, 402);
         return handleOpenDocument(request, env.DB, user, session.demo);
       }
       case "POST /api/buy":
         return handleBuy(request, env, user, session.demo);
       case "POST /api/extract":
-        return handleExtract(request, env, user);
+        return handleExtract(request, env, user, ctx);
       case "POST /api/map":
         return handleMap(request, env, user);
       case "GET /api/reports":
@@ -1123,6 +1249,9 @@ const routes = {
       case "GET /api/synonyms":
         return listSynonyms(env, user);
       case "PUT /api/synonyms":
+        // A demo session is a stranger: their mapping stays in the demo
+        // account's own settings, and teaches no one else.
+        if (session.demo) return json({ error: "demo_readonly", message: "V demu se názvy ostatním účtům nepředávají." }, 403);
         return teachSynonym(request, env, user);
       case "DELETE /api/synonyms":
         return forgetSynonym(request, env, user);
@@ -1142,6 +1271,8 @@ const routes = {
 
     const doc = DOCUMENT.exec(url.pathname);
     if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1], session.demo);
+    const empty = DOCUMENT_EMPTY.exec(url.pathname);
+    if (empty && request.method === "POST" && REPORT_ID.test(empty[1])) return handleEmptyDocument(env.DB, user, empty[1]);
 
     const page = PAGE.exec(url.pathname);
     if (page) {
@@ -1167,7 +1298,16 @@ export default {
    * account's hash when the request had a session.
    */
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
-    const res = await routes.fetch(request, env, ctx);
+    let res: Response;
+    try {
+      res = await routes.fetch(request, env, ctx);
+    } catch (e) {
+      // Anything a route did not expect — a D1 overload, a constraint, a
+      // value over D1's size limit. Without this it was Cloudflare's own
+      // error page, no Czech sentence, and no events row to find it by.
+      console.error(`unhandled: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
+      res = json({ error: "server_error" }, 500);
+    }
     if (res.status >= 400) {
       const url = new URL(request.url);
       await recordEvent(env, {
@@ -1182,6 +1322,14 @@ export default {
   },
   /** The cron trigger in wrangler.jsonc, every 15 minutes (src/watch.ts). */
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runWatch(env));
+    ctx.waitUntil(
+      Promise.all([
+        runWatch(env),
+        sweepAbandonedDocuments(env.DB).then(
+          (n) => void (n && console.log(`sweep: ${n} abandoned documents given back`)),
+          (e) => console.error(`sweep failed: ${e instanceof Error ? e.message : String(e)}`),
+        ),
+      ]),
+    );
   },
 } satisfies ExportedHandler<Env>;

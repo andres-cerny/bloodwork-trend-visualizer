@@ -97,8 +97,10 @@ function fakeD1(t: Tables): D1Database {
       }
       case SQL.countLoginFailures:
         return { results: [{ n: t.failures.filter((f) => f.email === a[0] && f.at > (a[1] as number)).length }], changes: 0 };
+      case SQL.countLoginFailuresFrom:
+        return { results: [{ n: t.failures.filter((f) => f.email === a[0] && f.at > (a[1] as number) && (f as { ip?: string }).ip === a[2]).length }], changes: 0 };
       case SQL.insertLoginFailure:
-        t.failures.push({ email: a[0] as string, at: a[1] as number });
+        t.failures.push({ email: a[0] as string, at: a[1] as number, ip: a[2] as string } as (typeof t.failures)[number]);
         return { results: [], changes: 1 };
       case SQL.pruneLoginFailures: {
         const before = t.failures.length;
@@ -283,6 +285,18 @@ describe("login", () => {
     tables.invites.push(invite("RODINA-2"));
     await signup("b@example.com", "RODINA-2");
     expect((await login("b@example.com", PASSWORD)).status).toBe(200);
+  });
+
+  it("locks the address from the IP that guessed, not from everywhere — a stranger cannot keep its owner out", async () => {
+    await signup();
+    const from = (ip: string, password: string) => {
+      const req = post("/api/auth/login", { email: "andres@example.com", password });
+      req.headers.set("cf-connecting-ip", ip);
+      return worker.fetch(req, env);
+    };
+    for (let i = 0; i < 10; i++) expect((await from("203.0.113.9", "ne")).status).toBe(401);
+    expect((await from("203.0.113.9", PASSWORD)).status).toBe(429);
+    expect((await from("198.51.100.4", PASSWORD)).status).toBe(200);
   });
 
   it("counts misses on unknown e-mails too, so the lockout names no account", async () => {

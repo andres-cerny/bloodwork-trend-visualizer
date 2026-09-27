@@ -273,6 +273,37 @@ def compute_flag(
     return "normal"
 
 
+_CENSORED_ABOVE = re.compile(r"^\s*(>=|≥|>)\s*([0-9][0-9\s.,]*)$")
+
+
+def censored_flag(
+    value_raw: Optional[str],
+    low: Optional[float],
+    high: Optional[float],
+) -> Flag:
+    """The flag of a result printed as a lower bound (">200"), or "unknown".
+
+    Only "above the range" can be known: a result of ">X" with X at or past
+    the range's top is high whatever the exact value. "<X" is left unknown on
+    purpose — against a range that starts at X it is a detection limit, and
+    a low CRP is a good result (packages/lab-core/CLAUDE.md, "Ranges").
+    """
+    if value_raw is None or high is None:
+        return "unknown"
+    s = value_raw
+    for mark in _VALUE_MARKERS:
+        s = s.replace(mark, "")
+    m = _CENSORED_ABOVE.match(s.strip())
+    if not m:
+        return "unknown"
+    bound = parse_czech_number(m.group(2).strip())
+    if bound is None:
+        return "unknown"
+    # ">5" is past a top of 5; "≥5" may be exactly 5, which is in range.
+    past = bound >= high if m.group(1) == ">" else bound > high
+    return "high" if past else "unknown"
+
+
 # --- measurement ------------------------------------------------------------
 def normalize_measurement(m: Measurement) -> Measurement:
     """Fill the derived numeric fields on a Measurement in place."""
@@ -280,6 +311,8 @@ def normalize_measurement(m: Measurement) -> Measurement:
     m.unit = canonicalize_unit(m.unit_raw)
     m.ref_range_low, m.ref_range_high, m.ref_range_text = parse_range(m.ref_range_raw)
     m.flag = compute_flag(m.value, m.ref_range_low, m.ref_range_high)
+    if m.value is None:
+        m.flag = censored_flag(m.value_raw, m.ref_range_low, m.ref_range_high)
 
     # QA: downgrade confidence when a numeric-looking value failed to parse or a
     # numeric-looking range failed to parse — these are exactly the rows the

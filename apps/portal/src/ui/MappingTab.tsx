@@ -78,6 +78,8 @@ interface Props {
   onAskAgain: (rawNames: string[]) => void;
   /** The account's monthly ledger is spent; nothing runs, and the tab says so. */
   frozen?: boolean;
+  /** Every name this account filed by hand — settings.learned — each with its own way back. */
+  learned?: Record<string, string[]>;
 }
 
 const CONFIDENCE_CS: Record<AiAskedEntry["confidence"], string> = { high: "vysoká", medium: "střední", low: "nízká" };
@@ -683,6 +685,7 @@ export default function MappingTab({
   aiError,
   onAskAgain,
   frozen = false,
+  learned = {},
 }: Props) {
   const unmapped = useMemo(() => findUnmapped(reports).filter(trendable), [reports]);
   const stats = useMemo(() => observedStats(reports), [reports]);
@@ -719,6 +722,19 @@ export default function MappingTab({
         .map(([rawName, e]) => ({ rawName, canonicalId: e.canonicalId! })),
     [aiAsked, reports],
   );
+
+  // Every name this account filed that is still filed that way, apart from
+  // the model's (listed above them). One wrong pick used to be undoable only
+  // until the next pick or a reload; now each has its own „Vrátit zpět".
+  const mine = useMemo(() => {
+    const ai = new Set(aiApplied.map((x) => x.rawName));
+    const custom = new Set(customAnalytes.map((c) => c.canonicalId));
+    return Object.entries(learned)
+      .flatMap(([canonicalId, names]) => names.map((rawName) => ({ rawName, canonicalId })))
+      .filter((x) => !ai.has(x.rawName) && !custom.has(x.canonicalId))
+      .filter((x) => reports.some((r) => r.measurements.some((m) => m.rawAnalyteName === x.rawName && m.canonicalId === x.canonicalId)))
+      .sort((a, b) => a.rawName.localeCompare(b.rawName, "cs"));
+  }, [learned, aiApplied, customAnalytes, reports]);
 
   const assign = (rawName: string, canonicalId: string) => {
     onMap(rawName, canonicalId);
@@ -805,6 +821,26 @@ export default function MappingTab({
               ))}
             </ul>
           </div>
+        )}
+
+        {mine.length > 0 && (
+          <details className="mine-maps">
+            <summary className="muted" style={{ cursor: "pointer" }}>
+              Vaše přiřazení ({mine.length})
+            </summary>
+            <ul className="held-list">
+              {mine.map((x) => (
+                <li key={x.rawName}>
+                  <span>
+                    {x.rawName} → <strong>{registry.displayName(x.canonicalId)}</strong>
+                  </span>
+                  <button className="btn small" onClick={() => onUndoMap(x.rawName, x.canonicalId)}>
+                    Vrátit zpět
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {lastMap && (

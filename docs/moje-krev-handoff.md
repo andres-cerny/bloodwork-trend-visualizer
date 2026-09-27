@@ -462,8 +462,8 @@ cd workers/portal && npx wrangler d1 execute moje-krev --remote --file migration
 ## Ledger extraktoru
 
 `BUDGET_USD_LIMIT` on `moje-krev-extract` is **30 USD** — a free account
-can spend at most 5 documents × 6 pages × ~5 ¢ = 1,50 USD, so this is
-twenty new accounts' worst case in a month. It counts for the life of the
+can spend at most 5 documents × 10 pages × ~5 ¢ = 2,50 USD, so this is
+twelve new accounts' worst case in a month. It counts for the life of the
 KV namespace, not per month: nothing resets it on the first, and at 100 %
 every upload for everyone answers „společný limit je vyčerpán". The check
 tells you at 80 % and at 100 %, once each per calendar month. To start a

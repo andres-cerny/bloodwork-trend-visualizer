@@ -27,17 +27,29 @@ import type { PreparedFile } from "../src/lib/upload";
 const reads = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
 /** Report ids whose store fails, with the worker's sentence — read, not stored. */
 const storeFails = new Map<string, Error>();
+/** Rows a file's read returns, by name, where a test wants other than one distinct value. */
+const rowsFor = new Map<string, Array<[string, string]>>();
+/** Fingerprints by file name, for the same-file check. */
+const prints = new Map<string, string>();
 /** Photos by name, with the verdict their checks give. */
 const photoVerdicts = new Map<string, { outcome: "ok" | "warn" | "refuse"; reasons: string[] }>();
 
 vi.mock("../src/lib/upload", () => {
   const page = { pageNum: 1, imageUrl: "blob:p1", imageWidth: 100, imageHeight: 140, imageBase64: "", mediaType: "image/png", words: [], rows: [], hasTextLayer: true };
+  class ReadFailed extends Error {
+    constructor(message: string, readonly released: boolean) {
+      super(message);
+    }
+  }
+  class FileRefused extends Error {}
   return {
+    ReadFailed,
+    FileRefused,
     prepareFile: async (file: File): Promise<PreparedFile> => {
       const verdict = photoVerdicts.get(file.name);
       if (verdict)
         return { name: file.name, kind: "photo", pages: [page as never], hits: [], scanPages: [1], truncated: 0, photo: { verdict: verdict as never, ocr: "done" } };
-      return { name: file.name, kind: "pdf", pages: [page as never], hits: [], scanPages: [], truncated: 0 };
+      return { name: file.name, kind: "pdf", pages: [page as never], hits: [], scanPages: [], truncated: 0, fingerprint: prints.get(file.name) ?? null };
     },
     redactFile: async () => [{ ...page, blob: new Blob() }],
     checkRedaction: () => [],
@@ -47,7 +59,18 @@ vi.mock("../src/lib/upload", () => {
         reads.set(prepared.name, {
           resolve: () =>
             resolve({
-              report: { id, sourceFile: "report.pdf", reportDate: "2026-09-19", labName: null, patientName: null, patientId: null, pages: [], measurements: [] },
+              report: {
+                id,
+                sourceFile: "report.pdf",
+                reportDate: "2026-09-19",
+                labName: null,
+                patientName: null,
+                patientId: null,
+                pages: [],
+                // One value, distinct per file: an empty read and a same-day
+                // duplicate are their own paths (tests below).
+                measurements: (rowsFor.get(prepared.name) ?? [[`S_${prepared.name}`, "1"]]).map(([n, v]) => ({ rawAnalyteName: n, valueRaw: v, canonicalId: n }) as never),
+              },
               notes: [],
             }),
           reject,
@@ -69,6 +92,8 @@ let root: Root;
 
 beforeEach(() => {
   reads.clear();
+  rowsFor.clear();
+  prints.clear();
   photoVerdicts.clear();
   storeFails.clear();
   host = document.createElement("div");
@@ -125,7 +150,7 @@ async function fails(name: string) {
   await flush();
 }
 
-function mount(holding: boolean) {
+function mount(holding: boolean, reports: LabReport[] = [], onBatchEnd?: (n: number) => void) {
   const batches: Batch[] = [];
   const stored: string[] = [];
   /** What the parent saw, in order: a report handed up, or a batch step. */
@@ -148,6 +173,8 @@ function mount(holding: boolean) {
         order.push(`batch ${b.settled}/${b.total}`);
       }}
       holding={h}
+      reports={reports}
+      onBatchEnd={onBatchEnd}
     />
   );
   render(ui(holding));
@@ -155,6 +182,150 @@ function mount(holding: boolean) {
 }
 
 const line = () => host.querySelector(".batch-wait")?.textContent ?? null;
+
+describe("what is checked before and after a read", () => {
+  const empties: string[] = [];
+  beforeEach(() => {
+    empties.length = 0;
+    vi.stubGlobal("fetch", async (url: string) => {
+      empties.push(url);
+      return new Response(JSON.stringify({ ok: true, refunded: true, strike: 1, allowance: { free: 5, purchased: 0, used: 0, remaining: 5 } }), { status: 200 });
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+  const click = async (label: string) => {
+    const b = [...host.querySelectorAll("button")].find((x) => x.textContent === label)!;
+    await act(async () => {
+      b.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+  };
+  const held = (id: string, date: string, rows: Array<[string, string]>, fingerprint: string | null = null) =>
+    ({ id, reportDate: date, fingerprint, measurements: rows.map(([n, v]) => ({ rawAnalyteName: n, valueRaw: v, canonicalId: n })) }) as unknown as LabReport;
+
+  it("says why a file of another type was left out, instead of dropping it silently", async () => {
+    mount(false);
+    const input = host.querySelector<HTMLInputElement>("label.drop input[type=file]")!;
+    Object.defineProperty(input, "files", { value: [new File(["x"], "zprava.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" })], configurable: true });
+    await act(async () => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(host.querySelector("li.job.failed")?.textContent).toMatch(/zprava\.docx.*neumíme přečíst/);
+  });
+
+  it("recognises the same file picked again before anything is sent", async () => {
+    prints.set("a.pdf", "abc123");
+    mount(false, [held("r0", "2026-04-14", [["glukoza", "5"]], "abc123")]);
+    await pickFiles(["a.pdf"]);
+    expect(host.querySelector(".review")).toBeNull();
+    expect(host.querySelector("li.job.skipped")?.textContent).toMatch(/už máte nahraný.*14\. 4\. 2026/);
+  });
+
+  it("gives an empty read back instead of storing „uloženo“ over nothing", async () => {
+    rowsFor.set("a.pdf", []);
+    const p = mount(false);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await lands("a.pdf");
+    expect(p.stored).toHaveLength(0);
+    expect(empties).toEqual(["/api/documents/id-1/empty"]);
+    expect(host.querySelector("li.job.failed")?.textContent).toMatch(/žádné hodnoty.*vrátil do vašeho nároku/);
+  });
+
+  it("does not store a report the account already holds, and gives the document back", async () => {
+    rowsFor.set("a.pdf", [["glukoza", "5,3"], ["kreatinin", "81"]]);
+    const p = mount(false, [held("r0", "2026-09-19", [["glukoza", "5,3"], ["kreatinin", "81"]])]);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await lands("a.pdf");
+    expect(p.stored).toHaveLength(0);
+    expect(empties).toHaveLength(1);
+    expect(host.querySelector("li.job.failed")?.textContent).toMatch(/už máte/);
+  });
+
+  it("holds a same-day report with other values until the person says, and stores it on „Uložit i tak“", async () => {
+    rowsFor.set("a.pdf", [["glukoza", "7,9"], ["kreatinin", "95"]]);
+    const ends: number[] = [];
+    const p = mount(false, [held("r0", "2026-09-19", [["glukoza", "5,3"], ["kreatinin", "81"]])], (n) => ends.push(n));
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await lands("a.pdf");
+    expect(p.stored).toHaveLength(0);
+    expect(host.querySelector("li.job.waiting")?.textContent).toMatch(/stejného dne/);
+    // The batch ended with a file needing the person: the parent keeps them on Reporty.
+    expect(ends).toEqual([1]);
+    await click("Uložit i tak");
+    expect(p.stored).toEqual(["id-1"]);
+    expect(empties).toHaveLength(0);
+  });
+
+  it("ends a clean batch with no problems, so the parent may move on", async () => {
+    const ends: number[] = [];
+    mount(false, [], (n) => ends.push(n));
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await lands("a.pdf");
+    expect(ends).toEqual([0]);
+  });
+});
+
+describe("what a failure keeps", () => {
+  const click = async (label: string) => {
+    const b = [...host.querySelectorAll("button")].find((x) => x.textContent === label)!;
+    expect(b, label).toBeTruthy();
+    await act(async () => {
+      b.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+  };
+
+  it("a failed save keeps the read report, and „Uložit znovu“ saves it without reading again", async () => {
+    storeFails.set("id-1", new ApiError("Požadavek se nepodařilo vyřídit.", "unknown", 500));
+    const p = mount(false);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await lands("a.pdf");
+    expect(p.stored).toHaveLength(0);
+    storeFails.clear();
+    const readsBefore = reads.size;
+    await click("Uložit znovu");
+    expect(p.stored).toEqual(["id-1"]);
+    expect(reads.size).toBe(readsBefore);
+    expect(host.querySelectorAll("li.job.failed")).toHaveLength(0);
+    expect(host.querySelectorAll("li.job.done")).toHaveLength(1);
+    expect(p.batches.at(-1)).toEqual({ total: 0, settled: 0 });
+  });
+
+  it("a failed read offers „Zkusit znovu“, which reads the redacted pages again without a new review", async () => {
+    const p = mount(false);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await act(async () => reads.get("a.pdf")!.reject(new ApiError("Server neodpovídá.", "timeout", 0)));
+    await flush();
+    expect(host.querySelector("li.job.failed")?.textContent).toContain("Server neodpovídá.");
+    reads.delete("a.pdf");
+    await click("Zkusit znovu");
+    expect(reads.has("a.pdf")).toBe(true);
+    expect(host.querySelector(".review")).toBeNull();
+    await lands("a.pdf");
+    expect(p.stored).toHaveLength(1);
+  });
+
+  it("asks before the tab is closed while a file is being read, and not once it is done", async () => {
+    mount(false);
+    const unload = () => {
+      const e = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    expect(unload()).toBe(false);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    expect(unload()).toBe(true);
+    await lands("a.pdf");
+    expect(unload()).toBe(false);
+  });
+});
 
 describe("the queue and its batch", () => {
   it("a pick of three opens a batch of three; each landing steps it; the last closes it after its report went up", async () => {
@@ -221,7 +392,7 @@ describe("the queue and its batch", () => {
     expect(failed?.textContent).toContain("a.pdf");
     expect(failed?.querySelector(".job-note")?.textContent).toBe(storeFailedCopy("Report je příliš velký."));
     expect(storeFailedCopy("Report je příliš velký.")).toBe(
-      "Report se přečetl, ale nepodařilo se ho uložit: Report je příliš velký. Dokument z nároku je využitý.",
+      "Report se přečetl, ale nepodařilo se ho uložit: Report je příliš velký. Přečtené hodnoty držíme — zkuste uložit znovu, dokud je okno otevřené.",
     );
     await lands("b.pdf");
     expect(p.batches.at(-1)).toEqual({ total: 0, settled: 0 });

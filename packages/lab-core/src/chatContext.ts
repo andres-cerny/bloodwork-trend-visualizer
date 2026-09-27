@@ -35,7 +35,12 @@ export function contextTable(reports: LabReport[], trends: Map<string, Trend>, s
         return `${p.date}: ${czNum(p.value)}${s ? ` (${s})` : ""}`;
       })
       .join("; ");
-    lines.push(`${t.displayName} | ${t.unit || "—"} | ${ref} | ${series}`);
+    // Readings left out because their unit converts to nothing here: said,
+    // so the table's latest value is not read as the whole story.
+    const other = t.otherUnits
+      ? `; navíc ${Object.entries(t.otherUnits).map(([u, n]) => `${n}× v jednotce ${u}`).join(", ")} — nepřevoditelné, vynecháno`
+      : "";
+    lines.push(`${t.displayName} | ${t.unit || "—"} | ${ref} | ${series}${other}`);
   }
   return lines.join("\n");
 }

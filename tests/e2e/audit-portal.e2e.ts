@@ -14,6 +14,7 @@ import type { Page } from "playwright";
 import { audit, report, type Flaw } from "./lib/audit";
 import { DESKTOP, MOBILE, SMALL, TABLET, WIDE, errorsOn, setTheme, type Harness } from "./lib/harness";
 import { png } from "./lib/imageFixtures";
+import { textPdf } from "./lib/pdfFixtures";
 import { startPortal } from "./lib/portalHarness";
 
 let app: Harness;
@@ -157,6 +158,65 @@ const loggedOut = async (page: Page) => {
   await page.route("**/api/auth/demo", (route) => route.fulfill({ status: 200, json: { available: true } }));
 };
 
+/**
+ * A read that finds values and no draw date: the fake API has no extractor,
+ * so the page read is answered here — two readers agreeing on four rows of
+ * the identity fixture, neither naming a date — and the page image the
+ * store sends comes back as the demo's first page, so the date question has
+ * a picture beside it. What follows the store is the screen under audit.
+ */
+const datelessRead = async (page: Page) => {
+  const rows = [
+    { raw_analyte_name: "S_Glukóza", value_raw: "5,32", unit_raw: "mmol/l", ref_range_raw: "(4,11-5,60)" },
+    { raw_analyte_name: "S_Cholesterol", value_raw: "6,01", unit_raw: "mmol/l", ref_range_raw: "(2,90-5,00)" },
+    { raw_analyte_name: "S_ALT", value_raw: "0,93", unit_raw: "μkat/l", ref_range_raw: "(0,17-0,78)" },
+    { raw_analyte_name: "B_Hemoglobin", value_raw: "148", unit_raw: "g/l", ref_range_raw: "(135-175)" },
+  ];
+  const read = (model: string) => ({ model, report_date: null, lab_name: "Laboratoř Vzor a.s.", measurements: rows });
+  await page.route("**/api/extract", (route) =>
+    route.fulfill({
+      json: {
+        reads: [read("a"), read("b")],
+        mode: "text",
+        readersAttempted: 2,
+        costUsd: 0,
+        budget: { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" },
+      },
+    }),
+  );
+  await page.route(/\/api\/reports\/[^/]+\/\d+$/, (route) =>
+    route.request().method() === "PUT" ? route.fulfill({ json: { ok: true, imageUrl: "/api/pages/demo-0/1" } }) : route.fallback(),
+  );
+};
+
+/** The identity fixture, through its review, into a dateless read; the question is up when this returns. */
+const uploadDateless = async (page: Page) => {
+  await tab(page, "Reporty");
+  await page.locator('label.drop input[type="file"]').setInputFiles(FIXTURE);
+  await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+  await page.getByRole("button", { name: "Ano, nahrát" }).click();
+  await page.waitForSelector("#date-ask-title", { timeout: 20_000 });
+  await page.waitForFunction(() => {
+    const img = document.querySelector<HTMLImageElement>(".date-ask-img");
+    return !!img && img.complete && img.naturalWidth > 0;
+  }, undefined, { timeout: 10_000 });
+};
+
+/** The lines of an electricity bill: text enough for a text layer, nothing a lab prints. */
+const BILL = Array.from({ length: 20 }, (_, i) => `Polozka ${i + 1} odebrane mnozstvi podle smlouvy, cena bez DPH`);
+
+/** A modal sheet whole inside the viewport, and not scrolling sideways. */
+async function expectSheetInView(page: Page) {
+  const sheet = page.locator(".sheet");
+  const box = (await sheet.boundingBox())!;
+  const { width, height } = page.viewportSize()!;
+  expect(box.x, "left edge").toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width, "right edge").toBeLessThanOrEqual(width + 0.5);
+  expect(box.y, "top edge").toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height, "bottom edge").toBeLessThanOrEqual(height + 0.5);
+  expect(await sheet.evaluate((el) => el.scrollWidth - el.clientWidth), "the sheet scrolls sideways").toBe(0);
+}
+
 interface Screen {
   name: string;
   go: (page: Page) => Promise<void>;
@@ -244,7 +304,9 @@ const SCREENS: Screen[] = [
   // itself shares these classes and this card.
   { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
   { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
-  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
+  // Logged out: a dead link opened by someone already logged in goes on to
+  // the portal instead (ui/InvitePage.tsx — the link clicked twice).
+  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, prepare: loggedOut, go: async () => {} },
   // The open door (docs/plans/multi-user.md, Goal 6). The Turnstile widget
   // is Cloudflare's iframe and is not swept — its script is refused here so
   // the screens are the same with and without a site key in .env; what is
@@ -702,6 +764,126 @@ const SCREENS: Screen[] = [
       await page.getByRole("button", { name: "Začerněné pole 1" }).first().click();
       await page.waitForSelector(".review-x", { timeout: 5_000 });
       await page.waitForTimeout(200);
+    },
+  },
+  {
+    // A PDF the checks want a second look at before a document is spent
+    // (ui/FileCheck.tsx): two pages with two draw dates and nothing that
+    // reads as a lab sheet, so the card lists both reasons and its primary
+    // button asks the multi-date question.
+    name: "soubor — upozornění",
+    go: async (page) => {
+      await tab(page, "Reporty");
+      await page.locator('label.drop input[type="file"]').setInputFiles({
+        name: "vyuctovani-a-vysledky-dlouhy-nazev-souboru.pdf",
+        mimeType: "application/pdf",
+        // Twenty-odd lines a page: fewer and pdf.js's text layer counts as
+        // a scan, which the checks only measure for length.
+        buffer: textPdf([
+          ["Vyuctovani elektriny za obdobi 2025", "Datum odberu: 3. 2. 2026", ...BILL],
+          ["Vyuctovani elektriny, druha strana", "Datum odberu: 9. 3. 2026", ...BILL],
+        ]),
+      });
+      await page.waitForSelector("#file-check-h", { timeout: 20_000 });
+      await page.waitForTimeout(250);
+    },
+    check: async (page) => {
+      expect(await page.locator(".photo-check-reasons li").count(), "both reasons listed").toBe(2);
+      // Two reasons of two kinds (dates, not a lab sheet): the plain answer,
+      // since „jeden report" would answer only the first.
+      expect(await page.getByRole("button", { name: "Nahrát i tak" }).count()).toBe(1);
+      expect(await page.getByRole("button", { name: "Zrušit", exact: true }).count()).toBe(1);
+      for (const b of await page.locator(".photo-check .review-actions .btn").all()) {
+        expect((await b.boundingBox())!.height, "a FileCheck button's tap box").toBeGreaterThanOrEqual(24);
+      }
+    },
+  },
+  {
+    // A report stored without a date (ui/DateAsk.tsx): the sheet, the first
+    // page beside the question, the date field and its two ways on.
+    name: "datum odběru (dotaz)",
+    prepare: datelessRead,
+    go: async (page) => {
+      await uploadDateless(page);
+      await page.waitForTimeout(250);
+    },
+    check: async (page) => {
+      await expectSheetInView(page);
+      const save = page.getByRole("button", { name: "Uložit datum" });
+      expect(await save.isDisabled(), "nothing to save before a date is typed").toBe(true);
+      expect(await page.evaluate(() => (document.activeElement as HTMLInputElement | null)?.type), "the field has focus").toBe("date");
+      expect(await page.getByRole("button", { name: "Později" }).isVisible()).toBe(true);
+      await page.locator(".sheet input[type='date']").fill("2025-06-03");
+      expect(await save.isDisabled(), "a real date enables Uložit").toBe(false);
+    },
+  },
+  {
+    // „Později": the report waits in Reporty with its ⚠️ line. That line
+    // sits under an ellipsised .rl-meta, and it must wrap — and be drawn in
+    // the critical ink, which the legacy .rl-meta colour used to win over.
+    name: "reporty (datum chybí)",
+    prepare: datelessRead,
+    go: async (page) => {
+      await uploadDateless(page);
+      await page.getByRole("button", { name: "Později" }).click();
+      await page.waitForSelector("#date-ask-title", { state: "detached", timeout: 5_000 });
+      await tab(page, "Reporty");
+      await page.waitForSelector(".reportlist .rl-warn", { timeout: 5_000 });
+      await page.waitForTimeout(200);
+    },
+    check: async (page) => {
+      const warn = page.locator(".reportlist .rl-warn").first();
+      expect(await warn.evaluate((el) => el.scrollWidth - el.clientWidth), "the ⚠️ line is cut off").toBeLessThanOrEqual(0);
+      const [color, ink] = await warn.evaluate((el) => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--critical-ink)";
+        document.body.appendChild(probe);
+        const out = [getComputedStyle(el).color, getComputedStyle(probe).color];
+        probe.remove();
+        return out;
+      });
+      expect(color, "the ⚠️ line in the critical ink").toBe(ink);
+      const sideways = await page.locator("ul.reportlist").evaluate((ul) => ul.scrollWidth - ul.clientWidth);
+      expect(sideways, "the report list scrolls sideways").toBe(0);
+    },
+  },
+  {
+    // The same report opened from its row: Ověření leads with the date field
+    // (VerifyTab.tsx DateField) above the report picker.
+    name: "ověření (datum chybí)",
+    prepare: datelessRead,
+    go: async (page) => {
+      await uploadDateless(page);
+      await page.getByRole("button", { name: "Později" }).click();
+      await page.waitForSelector("#date-ask-title", { state: "detached", timeout: 5_000 });
+      await tab(page, "Reporty");
+      await page.locator(".reportlist .rl-warn").first().click();
+      await page.waitForSelector("form.date-field", { timeout: 5_000 });
+      await page.waitForTimeout(300);
+    },
+    check: async (page) => {
+      expect(await page.locator("form.date-field").evaluate((el) => el.scrollWidth - el.clientWidth), "the date field scrolls sideways").toBeLessThanOrEqual(0);
+      expect(await page.locator("form.date-field").getByRole("button", { name: "Uložit datum" }).isDisabled()).toBe(true);
+    },
+  },
+  {
+    // A read the server could not do: every try failed, and the log offers
+    // „Zkusit znovu" (the redacted pages are still held) — the button row
+    // under the entry's sentence.
+    name: "nahrání (čtení selhalo, zkusit znovu)",
+    prepare: async (page) => {
+      await page.route("**/api/extract", (route) => route.fulfill({ status: 503, json: { error: "unavailable", message: "Služba je dočasně nedostupná — zkuste to prosím za chvíli." } }));
+    },
+    go: async (page) => {
+      await tab(page, "Reporty");
+      await page.locator('label.drop input[type="file"]').setInputFiles(FIXTURE);
+      await page.waitForSelector(".review-canvas img", { timeout: 20_000 });
+      await page.getByRole("button", { name: "Ano, nahrát" }).click();
+      await page.waitForSelector(".job-actions .btn", { timeout: 30_000 });
+      await page.waitForTimeout(250);
+    },
+    check: async (page) => {
+      expect(await page.getByRole("button", { name: "Zkusit znovu" }).count()).toBe(1);
     },
   },
 ];

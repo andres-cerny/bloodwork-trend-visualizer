@@ -40,6 +40,10 @@ export interface Settings {
    * account, so a reload does not spend again (lib/aiMapping.ts).
    */
   aiAsked?: AiAsked;
+  /** The blob's revision, set by the worker on every save (If-Match on the next). */
+  _rev?: number;
+  /** The account's random salt for file fingerprints (lib/fileChecks.ts). */
+  fpSalt?: string;
 }
 
 export class ApiError extends Error {
@@ -48,16 +52,107 @@ export class ApiError extends Error {
   }
 }
 
-/** Errors after which every remaining page would fail the same way. */
-const FATAL = new Set(["budget_exhausted", "unauthorized", "no_document"]);
+/**
+ * Errors after which every remaining file would fail the same way.
+ * `no_documents` is the allowance at zero (402, POST /api/documents);
+ * `no_document` is a page sent for a document that is not open (409).
+ * They differ by one letter and both end a batch — the plural was missing
+ * once, and every queued file went through redaction only to be refused.
+ */
+const FATAL = new Set(["budget_exhausted", "unauthorized", "no_document", "no_documents"]);
 export const isFatalApiError = (e: unknown): boolean => e instanceof ApiError && FATAL.has(e.code);
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, init);
-  if (res.status === 204) return undefined as T;
+/** Worth another try: the request never got an answer, or the server was busy. */
+export const isTransientApiError = (e: unknown): boolean =>
+  e instanceof ApiError && (e.code === "network" || e.code === "timeout" || e.status === 429 || e.status === 502 || e.status === 503 || e.status === 504);
+
+/**
+ * A page read worth sending again: the server said it was too busy to start
+ * (429, 503), or the connection failed. Not a timeout and not a failed read
+ * — the worker keeps reading a page after the browser gives up (waitUntil),
+ * so sending it again would pay for the same page twice, and a page the
+ * readers could not read fails the same way the second time.
+ */
+export const isRetryablePage = (e: unknown): boolean =>
+  e instanceof ApiError && (e.code === "network" || e.status === 429 || e.status === 503);
+
+/** How long an ordinary call may take. A page read has its own, longer one. */
+export const REQUEST_TIMEOUT_MS = 20_000;
+export const EXTRACT_TIMEOUT_MS = 120_000;
+
+export const NETWORK_COPY = "Spojení se nezdařilo — zkontrolujte připojení k internetu a zkuste to znovu.";
+export const TIMEOUT_COPY = "Server neodpovídá — zkuste to prosím za chvíli znovu.";
+export const UNAVAILABLE_COPY = "Služba je dočasně nedostupná — zkuste to prosím za chvíli.";
+
+/**
+ * The session is gone (expired, or ended by a logout on another device).
+ * Announced once per request as a window event so the shell can send the
+ * reader to the door — every call site handling its own 401 is how the app
+ * came to blame the connection for an expired login.
+ */
+export const UNAUTHORIZED_EVENT = "mk:unauthorized";
+
+/**
+ * `fetch` with a deadline, and with its failures in Czech. The browser's own
+ * words for a dropped connection ("Failed to fetch", "Load failed") reached
+ * the upload log verbatim before this.
+ */
+export async function fetchChecked(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const ctl = new AbortController();
+  const outer = init.signal;
+  if (outer) {
+    if (outer.aborted) ctl.abort();
+    else outer.addEventListener("abort", () => ctl.abort(), { once: true });
+  }
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctl.abort();
+  }, timeoutMs);
+  try {
+    return await fetch(path, { ...init, signal: ctl.signal });
+  } catch (e) {
+    if (timedOut) throw new ApiError(TIMEOUT_COPY, "timeout", 0);
+    if (outer?.aborted) throw e;
+    throw new ApiError(NETWORK_COPY, "network", 0);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The refusal a response carries, in Czech whatever the body was. */
+export async function errorOf(res: Response, path: string): Promise<ApiError> {
   const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget; allowance?: Allowance };
-  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget, data.allowance);
-  return data as T;
+  if (res.status === 401 && data.error === "unauthorized" && !path.startsWith("/api/auth/") && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+  const fallback = res.status >= 500 || res.status === 429 ? UNAVAILABLE_COPY : `Požadavek se nepodařilo vyřídit (chyba ${res.status}).`;
+  return new ApiError(data.message ?? fallback, data.error ?? "unknown", res.status, data.budget, data.allowance);
+}
+
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  const res = await fetchChecked(path, init, timeoutMs);
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) throw await errorOf(res, path);
+  return (await res.json().catch(() => {
+    throw new ApiError(UNAVAILABLE_COPY, "bad_response", res.status);
+  })) as T;
+}
+
+/**
+ * The same call once more after a short wait, when the first failure was one
+ * a second try can fix — a dropped connection, a timeout, a busy server.
+ * Anything the server refused on purpose is thrown at once.
+ */
+export async function withRetry<T>(fn: () => Promise<T>, tries = 3, baseMs = 1000, retryable: (e: unknown) => boolean = isTransientApiError): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= tries - 1 || !retryable(e)) throw e;
+      await new Promise((r) => setTimeout(r, baseMs * 2 ** i + Math.random() * 250));
+    }
+  }
 }
 
 const jsonInit = (method: string, body: unknown): RequestInit => ({
@@ -125,6 +220,14 @@ export const releaseDocument = (id: string) =>
   request<{ ok: true; released: boolean; allowance: Allowance }>(`/api/documents/${id}`, { method: "DELETE" });
 
 /**
+ * The read of this document gave nothing to store — no values, or a report
+ * the account already holds. The worker gives it back, except every third
+ * such read in 30 days (workers/portal/src/allowance.ts refundEmpty).
+ */
+export const reportEmptyDocument = (id: string) =>
+  request<{ ok: true; refunded: boolean; strike: number; allowance: Allowance }>(`/api/documents/${id}/empty`, { method: "POST" });
+
+/**
  * The shop: a Checkout URL to send the browser to, or an ApiError — 503
  * `shop_closed` while the deployment has no Stripe account behind it.
  */
@@ -184,15 +287,37 @@ export async function extractPage(
   // The document rides in a header, not the body: the body goes to the
   // extractor as sent, and the extractor has no idea what a document is.
   const withDoc = (init: RequestInit): RequestInit => ({ ...init, headers: { ...(init.headers as Record<string, string>), "x-document": documentId } });
-  if (!onRow) return request<ExtractResult>("/api/extract", withDoc(jsonInit("POST", page)));
+  if (!onRow) return request<ExtractResult>("/api/extract", withDoc(jsonInit("POST", page)), EXTRACT_TIMEOUT_MS);
 
-  const res = await fetch("/api/extract", withDoc(jsonInit("POST", { ...page, stream: true })));
-  const type = res.headers.get("content-type") ?? "";
-  if (!res.ok || !type.includes("x-ndjson") || !res.body) {
-    const data = (await res.json().catch(() => ({}))) as ExtractResult & { message?: string; error?: string };
-    if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget);
-    return data;
+  // One deadline for the whole read, the stream included: a stream that
+  // stalls halfway left "strana 1 z 3" on screen for good before this.
+  const ctl = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctl.abort();
+  }, EXTRACT_TIMEOUT_MS);
+  try {
+    const res = await fetchChecked("/api/extract", { ...withDoc(jsonInit("POST", { ...page, stream: true })), signal: ctl.signal }, EXTRACT_TIMEOUT_MS);
+    const type = res.headers.get("content-type") ?? "";
+    if (!res.ok) throw await errorOf(res, "/api/extract");
+    if (!type.includes("x-ndjson") || !res.body) {
+      return (await res.json().catch(() => {
+        throw new ApiError(UNAVAILABLE_COPY, "bad_response", res.status);
+      })) as ExtractResult;
+    }
+    return await readStream(res.body, onRow);
+  } catch (e) {
+    if (timedOut) throw new ApiError(TIMEOUT_COPY, "timeout", 0);
+    if (e instanceof ApiError) throw e;
+    // A connection that drops mid-stream rejects the read, not the fetch.
+    throw new ApiError(NETWORK_COPY, "network", 0);
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+async function readStream(body: ReadableStream<Uint8Array>, onRow: (row: ProvisionalRow, model: string) => void): Promise<ExtractResult> {
 
   let final: ExtractResult | null = null;
   const handle = (text: string) => {
@@ -202,7 +327,7 @@ export async function extractPage(
     else if (ev.type === "done") final = ev as unknown as ExtractResult;
     else if (ev.type === "error") throw new ApiError(ev.message ?? "Čtení stránky selhalo.", ev.error ?? "unknown", 502, ev.budget);
   };
-  const reader = res.body.getReader();
+  const reader = body.getReader();
   const dec = new TextDecoder();
   let tail = "";
   for (;;) {
@@ -231,7 +356,12 @@ export const listReports = () => request<LabReport[]>("/api/reports");
  */
 export type ReportBody = Omit<LabReport, "pages"> & { pages: Array<Omit<LabReport["pages"][number], "imageUrl"> & { imageUrl?: string }> };
 
-export const putReport = (report: ReportBody) => request<{ ok: true }>(`/api/reports/${report.id}`, jsonInit("PUT", report));
+/** With `rev`, the save is refused (409 `conflict`) if another tab or device saved the report since. */
+export const putReport = (report: ReportBody, rev?: number | null) =>
+  request<{ ok: true; rev?: number | null }>(`/api/reports/${report.id}`, withRev(jsonInit("PUT", report), rev));
+
+const withRev = (init: RequestInit, rev?: number | null): RequestInit =>
+  rev === null || rev === undefined ? init : { ...init, headers: { ...(init.headers as Record<string, string>), "if-match": String(rev) } };
 
 export const putPage = (reportId: string, pageNum: number, blob: Blob, width: number, height: number) =>
   request<{ ok: true; imageUrl: string }>(`/api/reports/${reportId}/${pageNum}`, {
@@ -310,7 +440,7 @@ export const suggestWithAi = (names: NameToMap[], catalog: CatalogEntry[]) =>
   request<AiMapAnswer>("/api/map", jsonInit("POST", { names, catalog }));
 
 export const getSettings = () => request<Settings>("/api/settings");
-export const putSettings = (s: Settings) => request<{ ok: true }>("/api/settings", jsonInit("PUT", s));
+export const putSettings = (s: Settings, rev?: number | null) => request<{ ok: true; rev?: number | null }>("/api/settings", withRev(jsonInit("PUT", s), rev));
 
 export const logout = () => request<void>("/api/auth/logout", { method: "POST" });
 

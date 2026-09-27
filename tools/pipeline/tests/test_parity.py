@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.matching import abbreviation_key, norm_key  # noqa: E402
 from src.normalize import (  # noqa: E402
     canonicalize_unit,
+    censored_flag,
     compute_flag,
     material_prefix,
     parse_czech_number,
@@ -58,6 +59,7 @@ def main() -> int:
     # 0,5–2 (2026-09-08).
     failures += _check("parse_range", parse_range, CASES["parse_range"])
     failures += _check("compute_flag", compute_flag, CASES["compute_flag"])
+    failures += _check("censored_flag", censored_flag, CASES["censored_flag"])
     # Guard seen failing: with the naive ^[a-z]{1,4}[-/_] widening, anti-TPO
     # came back as "anti" and S,P-glukóza as null (2026-09-06).
     failures += _check("material_prefix", material_prefix, CASES["material_prefix"])

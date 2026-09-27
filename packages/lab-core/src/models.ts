@@ -20,6 +20,13 @@ export type Box = [number, number, number, number];
 export type Quad = [[number, number], [number, number], [number, number], [number, number]];
 
 export interface Measurement {
+  /**
+   * Why the date of the report this reading belongs to is in doubt — set
+   * only on the copies a trend is built from (apps/portal fileChecks.ts
+   * `forTrends`), never stored. review.ts reads it: a reading on a date the
+   * app itself doubts is plotted as unconfirmed, not as a solid point.
+   */
+  reportDateDoubt?: string | null;
   rawAnalyteName: string;
   valueRaw: string;
   unitRaw: string;
@@ -99,6 +106,21 @@ export interface LabReport {
   patientId: string | null; // rodné číslo
   pages: Page[];
   measurements: Measurement[];
+  /**
+   * SHA-256 of the file as it was picked, hex — computed in the browser, so
+   * the same file picked again is recognised before a document is spent.
+   * Absent on reports stored before it existed.
+   */
+  fingerprint?: string | null;
+  /**
+   * Why the date is in doubt, in Czech, when the readers disagreed on it or
+   * the pages carried different dates. Cleared once the person sets the
+   * date in Ověření. A missing or impossible date needs no note here — it
+   * is visible from `reportDate` itself (see `dateDoubtOf`).
+   */
+  dateDoubt?: string | null;
+  /** The stored revision (the worker's), sent back with the next save so a stale tab cannot overwrite a newer one. */
+  rev?: number | null;
 }
 
 export interface AnalyteDef {

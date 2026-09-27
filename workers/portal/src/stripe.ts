@@ -19,7 +19,7 @@
  * only the signed event does.
  */
 import { SQL, type UserRow } from "./db";
-import { creditDocuments, readAllowance } from "./allowance";
+import { readAllowance } from "./allowance";
 
 export interface StripeEnv {
   STRIPE_SECRET_KEY?: string;
@@ -215,17 +215,20 @@ export async function handleStripeWebhook(request: Request, env: StripeEnv & { D
   const bought = purchaseOf(event);
   if (!bought) return json({ received: true, ignored: true });
 
-  // The insert is the idempotency check: OR IGNORE on the event id, and only
-  // the call that wrote the row credits. Between the two statements there is
-  // no transaction; a worker dying exactly there leaves a purchases row that
-  // was never credited, which the table shows and the operator's
-  // --documents repairs. Credit-then-write would risk crediting twice on
-  // Stripe's retry, and that is the worse failure.
+  // The insert records the payment (OR IGNORE on the event id); the credit
+  // and its mark then run as one transaction, and only while the purchase is
+  // still unmarked. So a delivery is credited exactly once however many times
+  // it arrives, and a delivery that died after the insert is completed by
+  // Stripe's retry rather than written off as a duplicate.
   const wrote = await env.DB.prepare(SQL.insertPurchase)
     .bind(bought.eventId, bought.uid, bought.pkg, bought.amountCzk, nowIso())
     .run();
-  if (!wrote.meta || wrote.meta.changes !== 1) return json({ received: true, duplicate: true });
-  const credited = await creditDocuments(env.DB, bought.uid, PACKAGES[bought.pkg].documents);
+  const [credit] = await env.DB.batch([
+    env.DB.prepare(SQL.creditPurchase).bind(bought.uid, PACKAGES[bought.pkg].documents, bought.eventId),
+    env.DB.prepare(SQL.markPurchaseCredited).bind(bought.eventId, nowIso(), bought.uid),
+  ]);
+  const credited = !!credit?.meta && credit.meta.changes === 1;
+  if (!credited && (!wrote.meta || wrote.meta.changes !== 1)) return json({ received: true, duplicate: true });
   // An account deleted between paying and this delivery: the payment is on
   // record, nobody to credit. 200, or Stripe retries forever.
   if (!credited) console.error(`stripe: paid event ${bought.eventId} names no account`);

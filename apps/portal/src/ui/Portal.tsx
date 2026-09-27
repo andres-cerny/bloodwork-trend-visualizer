@@ -28,6 +28,7 @@ import {
   type AnalyteDef,
   type CustomAnalyte,
   type LabReport,
+  unitFactor,
   type Measurement,
   type UnmappedAnalyte,
   Registry,
@@ -42,13 +43,15 @@ import {
   trendable,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
+import DateAsk from "./DateAsk";
+import { dateDoubtOf, forTrends, newFingerprintSalt } from "../lib/fileChecks";
 import { type AiAsked, type Allowance, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
 import AllowanceChip from "./AllowanceChip";
 import BuySheet from "./BuySheet";
 import { type Judged, askingEntry, persistable, runAiMapping, withoutAsked } from "../lib/aiMapping";
 import { type Batch, holdsSummary } from "../lib/batch";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
-import { mergeSettings } from "../lib/settings";
+import { mergeSettings, rebaseSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
 import ShareTab from "./ShareTab";
 import SummaryTab from "./SummaryTab";
@@ -79,6 +82,23 @@ const TABS: Array<[TabId, string]> = [
  * than costing every label two points of type size.
  */
 const PHONE_TABS: TabId[] = ["summary", "trends", "reports"];
+
+/**
+ * The tab lives in the address (`?karta=trendy`), so the phone's back gesture
+ * goes to the previous tab rather than out of the app, a reload stays where
+ * it was, and a tab can be linked to. Czech slugs: the address is on screen.
+ */
+const TAB_SLUG: Record<TabId, string> = { summary: "souhrn", trends: "trendy", verify: "overeni", mapping: "prirazeni", reports: "reporty", share: "ai" };
+const tabFromUrl = (): TabId | null => {
+  const slug = new URLSearchParams(location.search).get("karta");
+  const hit = (Object.entries(TAB_SLUG) as Array<[TabId, string]>).find(([, v]) => v === slug);
+  return hit ? hit[0] : null;
+};
+const tabUrl = (id: TabId): string => {
+  const q = new URLSearchParams(location.search);
+  q.set("karta", TAB_SLUG[id]);
+  return `${location.pathname}?${q.toString()}${location.hash}`;
+};
 const onPhoneStrip = (id: TabId) => PHONE_TABS.includes(id);
 
 /**
@@ -137,7 +157,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // would leave the server with whichever landed last, not the newest.
   const settingsQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
-  const [tab, setTab] = useState<TabId>("summary");
+  const [tab, setTab] = useState<TabId>(() => tabFromUrl() ?? "summary");
   // The first batch: while it runs on an account that had no reports, the
   // switch to Souhrn waits for its last file (lib/batch.ts).
   const [holding, setHolding] = useState(false);
@@ -148,8 +168,13 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const [buyOpen, setBuyOpen] = useState(false);
   // The wrangler default, so the upload screen never promises more pages
   // than the worker accepts in the moment before /api/status answers.
-  const [maxPages, setMaxPages] = useState(6);
+  const [maxPages, setMaxPages] = useState(10);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [fpSalt, setFpSalt] = useState<string | null>(null);
+  // Reports stored without a date, asked about one at a time (DateAsk.tsx).
+  const [dateAsk, setDateAsk] = useState<string[]>([]);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);
   const [focus, setFocus] = useState<{ reportId: string; rawName: string; seq: number } | null>(null);
@@ -159,7 +184,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // The ⋯ row, on a phone. Open it when one of the tabs behind it is chosen
   // by any route — a keyboard arrow, or showSource sending the reader to
   // Ověření — so the strip never hides the tab it is showing.
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(() => {
+    const t = tabFromUrl();
+    return t ? !onPhoneStrip(t) : false;
+  });
 
   useEffect(() => {
     (async () => {
@@ -190,8 +218,15 @@ export default function Portal({ email, demo, onLogout }: Props) {
         registryRef.current = reg;
         setRegistry(reg);
         learnedRef.current = l;
+        setLearnedShown(l);
         setCustomAnalytes(custom);
         setAiContext(settingsRef.current.aiContext ?? null);
+        // The account's fingerprint salt, made once and kept with its settings.
+        if (settingsRef.current.fpSalt) setFpSalt(settingsRef.current.fpSalt);
+        else {
+          const salt = newFingerprintSalt();
+          saveSettings({ fpSalt: salt }).then(() => setFpSalt(salt), () => undefined);
+        }
         aiAskedRef.current = settingsRef.current.aiAsked ?? {};
         setAiAsked(aiAskedRef.current);
         // A catalog that grew since a report was uploaded reaches that
@@ -199,13 +234,17 @@ export default function Portal({ email, demo, onLogout }: Props) {
         // would otherwise stay null forever. Only null rows are touched — a
         // name the reader filed by hand keeps their choice — and a report
         // that changed is written back.
+        const changed: LabReport[] = [];
         const loaded = rs.map((r) => {
           const matched = rematchReport(r, reg);
-          if (matched) putReport(matched).catch(() => undefined);
+          if (matched) changed.push(matched);
           return matched ?? r;
         });
         reportsRef.current = loaded;
         setReports(loaded);
+        // Written back through the queue, so each comes back with its new
+        // revision and the next edit is not refused as stale.
+        for (const r of changed) persist(r);
         budgetRef.current = status.budget;
         setBudget(status.budget);
         setAllowance(status.allowance ?? null);
@@ -222,17 +261,57 @@ export default function Portal({ email, demo, onLogout }: Props) {
 
   /** Write a report back, and say so if that failed — a correction that
    *  only lived in this tab would be gone on the next device. */
+  //
+  // One report's saves go out one after another, each carrying the newest
+  // state and the revision the last save came back with: two quick edits
+  // otherwise crossed on the wire, and the older body could land last. A
+  // save refused because another tab or device saved first (409) reloads
+  // the reports and says so — before revisions, the stale tab simply won.
+  const persistQueue = useRef(new Map<string, Promise<void>>());
   const persist = useCallback((r: LabReport) => {
-    putReport(r).then(
-      () => setSaveError(null),
-      () => setSaveError("Změnu se nepodařilo uložit. Zkontrolujte připojení a zkuste to znovu."),
-    );
+    const before = persistQueue.current.get(r.id) ?? Promise.resolve();
+    const next = before.then(async () => {
+      const cur = reportsRef.current.find((x) => x.id === r.id);
+      if (!cur) return;
+      try {
+        const res = await putReport(cur, cur.rev ?? null);
+        const rev = res?.rev ?? null;
+        reportsRef.current = reportsRef.current.map((x) => (x.id === r.id ? { ...x, rev } : x));
+        setReports(reportsRef.current);
+        setSaveError(null);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) {
+          // Only this report is taken from the server: the others may carry
+          // edits still queued here, and a report stored meanwhile must stay.
+          const fresh = await listReports().catch(() => null);
+          if (fresh) {
+            const theirs = fresh.find((x) => x.id === r.id);
+            const reg = registryRef.current;
+            const next = theirs && reg ? rematchReport(theirs, reg) ?? theirs : theirs;
+            reportsRef.current = next ? reportsRef.current.map((x) => (x.id === r.id ? next : x)) : reportsRef.current.filter((x) => x.id !== r.id);
+            setReports(reportsRef.current);
+          }
+          setSaveError(e.message);
+          return;
+        }
+        setSaveError(
+          e instanceof ApiError && e.code !== "network" && e.code !== "timeout" && e.status < 500
+            ? `Změnu se nepodařilo uložit: ${e.message}`
+            : "Změnu se nepodařilo uložit. Zkontrolujte připojení a zkuste to znovu.",
+        );
+      }
+    });
+    persistQueue.current.set(r.id, next);
   }, []);
 
   const curatedRange = useCallback(
-    (cid: string | null) => {
-      const r = cid && registry ? registry.get(cid)?.referenceRange : null;
-      return r ? { low: r[0], high: r[1] } : null;
+    (cid: string | null, unit?: string | null) => {
+      const def = cid && registry ? registry.get(cid) : undefined;
+      const r = def?.referenceRange;
+      // The curated interval is in the canonical unit; a reading in another
+      // unit is checked against its own printed interval instead (review.ts).
+      if (!def || !r || (unit !== undefined && unitFactor(def, unit) !== 1)) return null;
+      return { low: r[0], high: r[1] };
     },
     [registry],
   );
@@ -241,11 +320,14 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // parameter has none and gets no button (AboutParam.tsx).
   const aboutOf = useCallback((cid: string) => registry?.get(cid)?.about, [registry]);
 
+  // The trend screens' reports: a doubted date marks its readings, a future
+  // one is held out until it is set (lib/fileChecks.ts forTrends).
+  const trendReports = useMemo(() => forTrends(reports), [reports]);
   const trends = useMemo(
     () =>
       registry
         ? buildTrends(
-            reports,
+            trendReports,
             (cid) => registry.displayName(cid),
             (m) => {
               const r = reviewOf(m, curatedRange);
@@ -255,9 +337,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
               const r = reviewOf(m, curatedRange);
               return r.level === "unconfirmed" ? r.reason : null;
             },
+            // Every reading in the parameter's own unit, converted where the
+            // catalog knows the factor (lab-core units.ts).
+            (cid) => registry.get(cid),
           )
         : new Map(),
-    [reports, registry, registryVersion, curatedRange],
+    [trendReports, registry, registryVersion, curatedRange],
   );
 
   /** Every change to the reports: through the ref, so a run that started a render ago sees the current ones. */
@@ -311,17 +396,52 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const remap = useCallback((rawName: string, canonicalId: string | null) => remapMany([{ rawName, canonicalId }]), [remapMany]);
 
   /** Every change to the learned names goes through the ref, so two in one tick both land. */
+  // Mirrored into state so the mapping tab's list of this account's names
+  // re-renders when it changes, not only when something else does.
+  const [learnedShown, setLearnedShown] = useState<Record<string, string[]>>({});
   const updateLearned = useCallback((fn: (cur: Record<string, string[]>) => Record<string, string[]>) => {
     learnedRef.current = fn(learnedRef.current);
+    setLearnedShown(learnedRef.current);
     return learnedRef.current;
   }, []);
   const setLearned = useCallback((next: Record<string, string[]>) => updateLearned(() => next), [updateLearned]);
 
   /** Every settings write: merge into what the account holds, then PUT the whole. */
+  //
+  // With its revision: a save refused because another tab saved first reads
+  // the settings again and lays this patch over them (lib/settings.ts
+  // rebaseSettings), once — instead of erasing what the other tab saved.
   const saveSettings = useCallback((patch: Partial<Settings>) => {
     settingsRef.current = mergeSettings(settingsRef.current, patch);
-    const whole = settingsRef.current;
-    const p = settingsQueue.current.then(() => putSettings(whole));
+    const put = async () => {
+      const res = await putSettings(settingsRef.current, settingsRef.current._rev ?? null);
+      settingsRef.current = { ...settingsRef.current, _rev: res?.rev ?? undefined };
+    };
+    const p = settingsQueue.current.then(async () => {
+      try {
+        await put();
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 409)) throw e;
+        // Everything this tab holds, laid over what the other tab saved — not
+        // only this call's patch, or a change queued a moment earlier would
+        // be dropped. Then the tab's own copies follow the merged result, or
+        // its next save would write the other tab's names away again.
+        const { _rev: _stale, ...mine } = settingsRef.current;
+        settingsRef.current = rebaseSettings(await getSettings(), mine);
+        const merged = settingsRef.current;
+        if (merged.learned) {
+          const reg = registryRef.current;
+          if (reg) for (const [cid, names] of Object.entries(merged.learned)) for (const n of names) reg.addSynonym(cid, n);
+          learnedRef.current = merged.learned;
+          setLearnedShown(merged.learned);
+        }
+        if (merged.aiAsked) {
+          aiAskedRef.current = merged.aiAsked;
+          setAiAsked(merged.aiAsked);
+        }
+        await put();
+      }
+    });
     settingsQueue.current = p.catch(() => undefined);
     return p;
   }, []);
@@ -368,9 +488,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
       // has looked at it yet, and a lesson for everyone takes a person. A
       // founded parameter exists in this account alone, so its names stay
       // here too. Best effort — the account's own mapping is already saved.
-      if (isShipped(canonicalId)) teachSynonym(rawName, canonicalId).catch(() => undefined);
+      // Not from the demo: a stranger's click must not relabel every family's names.
+      if (isShipped(canonicalId) && !demo) teachSynonym(rawName, canonicalId).catch(() => undefined);
     },
-    [registry, remap, saveLearned, isShipped],
+    [registry, remap, saveLearned, isShipped, demo],
   );
 
   /** The ledger as the last answer left it — the run reads it before spending. */
@@ -482,9 +603,34 @@ export default function Portal({ email, demo, onLogout }: Props) {
       });
       const mine = new Set(r.measurements.map((m) => m.rawAnalyteName));
       void runMapping(findUnmapped(reportsRef.current).filter((a) => mine.has(a.rawName)));
+      if (!r.reportDate) setDateAsk((q) => (q.includes(r.id) ? q : [...q, r.id]));
     },
     [commitReports, runMapping],
   );
+
+  /** The person set a report's date — here, or in Ověření. The doubt goes with it. */
+  const setReportDate = useCallback(
+    (reportId: string, isoDate: string) => {
+      commitReports((prev) =>
+        prev.map((r) => {
+          if (r.id !== reportId) return r;
+          const updated = { ...r, reportDate: isoDate, dateDoubt: null, sourceFile: `report-${isoDate}.pdf` };
+          persist(updated);
+          return updated;
+        }),
+      );
+      setDateAsk((q) => q.filter((id) => id !== reportId));
+    },
+    [commitReports, persist],
+  );
+
+  /** A batch ended with a failure or a note: stay where the log is, not on Souhrn. */
+  const onBatchEnd = useCallback((problems: number) => {
+    if (problems > 0) {
+      setTab("reports");
+      history.replaceState(null, "", tabUrl("reports"));
+    }
+  }, []);
 
   /**
    * The upload queue's batch changed. The count is read through the ref and
@@ -561,6 +707,18 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const goTab = useCallback((id: TabId) => {
     setTab(id);
     setMoreOpen(!onPhoneStrip(id));
+    if (tabFromUrl() !== id) history.pushState({ karta: id }, "", tabUrl(id));
+  }, []);
+
+  // Back and forward move between tabs.
+  useEffect(() => {
+    const onPop = () => {
+      const id = tabFromUrl() ?? "summary";
+      setTab(id);
+      setMoreOpen(!onPhoneStrip(id));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   const showSource = useCallback(
@@ -635,6 +793,9 @@ export default function Portal({ email, demo, onLogout }: Props) {
         onBudget={noteBudget}
         onBatch={onBatch}
         holding={holding}
+        reports={reports}
+        onBatchEnd={onBatchEnd}
+        fingerprintSalt={fpSalt}
       />
     </div>
   );
@@ -661,6 +822,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
                 <span className="rl-meta">
                   {r.labName ?? r.sourceFile} · {count(r.measurements.length, "hodnota", "hodnoty", "hodnot")}
                 </span>
+                {dateDoubtOf(r) && (
+                  <span className="rl-meta rl-warn" style={{ display: "block" }}>
+                    <span aria-hidden="true">⚠ </span>
+                    {r.reportDate ? "Datum ke kontrole — v Ověření" : "Chybí datum, bez něj není v trendech — doplníte ho v Ověření"}
+                  </span>
+                )}
               </button>
               {demo ? null : confirmDelete === r.id ? (
                 <span style={{ display: "inline-flex", gap: 6 }}>
@@ -752,16 +919,48 @@ export default function Portal({ email, demo, onLogout }: Props) {
         <ThemeSwitch />
         <button
           className="btn small"
-          onClick={() => {
-            logout().catch(() => null);
-            onLogout();
+          disabled={loggingOut}
+          onClick={async () => {
+            // Awaited: a logout that did not reach the server leaves the
+            // cookie, and a reload walks straight back into the health data —
+            // on the shared computer this button exists for.
+            setLoggingOut(true);
+            setLogoutError(null);
+            try {
+              await logout();
+              onLogout();
+            } catch (e) {
+              setLogoutError(`Odhlášení se nepodařilo. ${e instanceof ApiError ? e.message : "Zkuste to prosím znovu."}`);
+            } finally {
+              setLoggingOut(false);
+            }
           }}
         >
           Odhlásit se
         </button>
       </header>
 
+      {(() => {
+        // One report at a time; one whose date was set elsewhere meanwhile
+        // (Ověření, another tab) is simply skipped.
+        const asking = dateAsk.map((id) => reports.find((r) => r.id === id)).filter((r): r is LabReport => !!r && !r.reportDate);
+        if (asking.length === 0 || holding) return null;
+        return (
+          <DateAsk
+            report={asking[0]}
+            more={asking.length - 1}
+            onSave={(d) => setReportDate(asking[0].id, d)}
+            onLater={() => setDateAsk((q) => q.filter((id) => id !== asking[0].id))}
+          />
+        );
+      })()}
+
       <main className="mk-main">
+        {logoutError && (
+          <div className="banner warn" role="alert">
+            {logoutError}
+          </div>
+        )}
         {loadError && <div className="banner warn">{loadError}</div>}
         {saveError && <div className="banner warn">{saveError}</div>}
 
@@ -826,7 +1025,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
             <Panel id="summary" active={active} strip={hasData}>
               {hasData && (
                 <SummaryTab
-                  reports={reports}
+                  reports={trendReports}
                   trends={trends}
                   onOpenTrend={showTrend}
                   onOpenVerify={() => goTab("verify")}
@@ -838,7 +1037,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
               {hasData && <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} aboutOf={aboutOf} />}
             </Panel>
             <Panel id="verify" active={active} strip={hasData}>
-              {hasData && <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />}
+              {hasData && <VerifyTab reports={reports} onCorrect={correct} onSetDate={setReportDate} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} unitDef={(cid) => registry.get(cid)} />}
             </Panel>
             <Panel id="mapping" active={active} strip={hasData}>
               {hasData && (
@@ -855,11 +1054,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
                   aiError={aiError}
                   onAskAgain={askAgain}
                   frozen={frozen}
+                  learned={learnedShown}
                 />
               )}
             </Panel>
             <Panel id="share" active={active} strip={hasData}>
-              {hasData && <ShareTab reports={reports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />}
+              {hasData && <ShareTab reports={trendReports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />}
             </Panel>
             <Panel id="reports" active={active} strip={hasData}>
               {uploadCard}

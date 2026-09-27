@@ -81,6 +81,15 @@ describe("the migrations and schema.sql agree", () => {
   const declared = tablesFromSchema(SCHEMA);
   const dir = join(import.meta.dirname, "../migrations");
   const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+  /** Columns a migration after `file` adds to `table` — what its CREATE could not know of yet. */
+  const addedAfter = (file: string, table: string): string[] =>
+    files
+      .filter((f) => f > file)
+      .flatMap((f) =>
+        [...readFileSync(join(dir, f), "utf-8").replace(/--[^\n]*/g, "").matchAll(/ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)/gi)]
+          .filter((m) => m[1] === table)
+          .map((m) => m[2]),
+      );
 
   it("has the open-signup migration", () => {
     expect(files).toContain("2026-09-19-open-signup.sql");
@@ -94,7 +103,7 @@ describe("the migrations and schema.sql agree", () => {
         expect(declared.get(table), `${file}: ${table}.${column}`).toContain(column);
       }
       for (const [table, cols] of tablesFromSchema(sql)) {
-        expect(declared.get(table), `${file}: table ${table}`).toEqual(cols);
+        expect(declared.get(table), `${file}: table ${table}`).toEqual([...cols, ...addedAfter(file, table)]);
       }
     });
   }
@@ -114,7 +123,9 @@ describe("the documents migration says what schema.sql says", () => {
   it("creates documents and purchases exactly as declared", () => {
     const created = tablesFromSchema(MIGRATION);
     expect([...created.keys()].sort()).toEqual(["documents", "purchases"]);
-    for (const [table, cols] of created) expect(declared.get(table), table).toEqual(cols);
+    // purchases.credited_at arrived later (2026-09-27-edge-cases.sql).
+    const later: Record<string, string[]> = { purchases: ["credited_at"], documents: ["took_slot", "empty_at"] };
+    for (const [table, cols] of created) expect(declared.get(table), table).toEqual([...cols, ...(later[table] ?? [])]);
   });
 
   it("gives documents the three page counters, each starting at zero, in both files", () => {
@@ -122,7 +133,7 @@ describe("the documents migration says what schema.sql says", () => {
     // from "a page is still out at the extractor"; without the default an
     // existing row would compare NULL and never release.
     const bare = (sql: string) => sql.replace(/--[^\n]*/g, "").replace(/\s+/g, " ");
-    expect(tablesFromSchema(SCHEMA).get("documents")).toEqual(["id", "user_id", "created_at", "pages_sent", "pages_read", "pages_failed", "released_at"]);
+    expect(tablesFromSchema(SCHEMA).get("documents")).toEqual(["id", "user_id", "created_at", "pages_sent", "pages_read", "pages_failed", "released_at", "took_slot", "empty_at"]);
     for (const col of ["pages_sent", "pages_read", "pages_failed"]) {
       expect(bare(SCHEMA), `schema.sql ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);
       expect(bare(MIGRATION), `migration ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);

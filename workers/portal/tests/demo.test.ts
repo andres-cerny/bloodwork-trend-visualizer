@@ -40,7 +40,7 @@ function fakeD1(t: Tables): D1Database {
         const u = t.users.find((u) => u.id === a[0]);
         if (!u) return { results: [], changes: 0 };
         u.settings = a[1] as string;
-        return { results: [], changes: 1 };
+        return { results: [{ rev: 1 }], changes: 1 };
       }
       case SQL.reportsForUser:
         return { results: t.reports.filter((r) => r.user_id === a[0]).map((r) => ({ id: r.id, payload: r.payload })), changes: 0 };
@@ -53,6 +53,10 @@ function fakeD1(t: Tables): D1Database {
         t.pages = t.pages.filter((p) => p.report_id !== a[0]);
         return { results: [], changes: before - t.pages.length };
       }
+      case SQL.countReports:
+        return { results: [{ n: (t as { reports: Array<{ user_id: string }> }).reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
+      case SQL.revokeSharesForUser:
+        return { results: [], changes: 0 };
       case SQL.deleteReport: {
         const before = t.reports.length;
         t.reports = t.reports.filter((r) => !(r.id === a[0] && r.user_id === a[1]));

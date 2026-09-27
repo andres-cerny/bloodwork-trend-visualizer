@@ -41,6 +41,8 @@ interface Doc {
   pages_read: number;
   pages_failed: number;
   released_at: string | null;
+  took_slot?: number;
+  empty_at?: string | null;
 }
 interface Purchase {
   event_id: string;
@@ -48,6 +50,7 @@ interface Purchase {
   package: string;
   amount_czk: number;
   created_at: string;
+  credited_at?: string | null;
 }
 interface Tables {
   users: User[];
@@ -66,7 +69,7 @@ function fakeD1(t: Tables): D1Database {
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ doc_allowance: u.doc_allowance, doc_used: u.doc_used })), changes: 0 };
       case SQL.insertDocument: {
         if (t.documents.some((d) => d.id === a[0])) return { results: [], changes: 0 };
-        t.documents.push({ id: a[0] as string, user_id: a[1] as string, created_at: a[2] as string, pages_sent: 0, pages_read: 0, pages_failed: 0, released_at: null });
+        t.documents.push({ id: a[0] as string, user_id: a[1] as string, created_at: a[2] as string, pages_sent: 0, pages_read: 0, pages_failed: 0, released_at: null, took_slot: a[3] as number });
         return { results: [], changes: 1 };
       }
       case SQL.documentById:
@@ -83,7 +86,7 @@ function fakeD1(t: Tables): D1Database {
         return { results: [], changes: 1 };
       }
       case SQL.sendPage: {
-        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent < (a[2] as number));
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent - x.pages_failed < (a[2] as number) && x.pages_sent < (a[2] as number) * 3);
         if (!d) return { results: [], changes: 0 };
         d.pages_sent += 1;
         return { results: [], changes: 1 };
@@ -106,6 +109,20 @@ function fakeD1(t: Tables): D1Database {
         d.released_at = a[2] as string;
         return { results: [], changes: 1 };
       }
+      case SQL.markEmpty: {
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && !x.empty_at && x.released_at === null);
+        if (!d) return { results: [], changes: 0 };
+        d.empty_at = a[2] as string;
+        return { results: [], changes: 1 };
+      }
+      case SQL.countEmpty:
+        return { results: [{ n: t.documents.filter((x) => x.user_id === a[0] && x.empty_at && x.empty_at > (a[1] as string)).length }], changes: 0 };
+      case SQL.releaseEmpty: {
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && (x.took_slot ?? 1) === 1);
+        if (!d) return { results: [], changes: 0 };
+        d.released_at = a[2] as string;
+        return { results: [], changes: 1 };
+      }
       case SQL.giveBackDocument: {
         const u = t.users.find((x) => x.id === a[0]);
         if (!u || u.doc_used <= 0) return { results: [], changes: 0 };
@@ -115,6 +132,19 @@ function fakeD1(t: Tables): D1Database {
       case SQL.insertPurchase: {
         if (t.purchases.some((p) => p.event_id === a[0])) return { results: [], changes: 0 };
         t.purchases.push({ event_id: a[0] as string, user_id: a[1] as string, package: a[2] as string, amount_czk: a[3] as number, created_at: a[4] as string });
+        return { results: [], changes: 1 };
+      }
+      case SQL.creditPurchase: {
+        const p = t.purchases.find((x) => x.event_id === a[2] && !x.credited_at);
+        const u = t.users.find((x) => x.id === a[0]);
+        if (!p || !u) return { results: [], changes: 0 };
+        u.doc_allowance += a[1] as number;
+        return { results: [], changes: 1 };
+      }
+      case SQL.markPurchaseCredited: {
+        const p = t.purchases.find((x) => x.event_id === a[0] && !x.credited_at);
+        if (!p || !t.users.some((u) => u.id === a[2])) return { results: [], changes: 0 };
+        p.credited_at = a[1] as string;
         return { results: [], changes: 1 };
       }
       case SQL.creditDocuments: {
@@ -128,6 +158,10 @@ function fakeD1(t: Tables): D1Database {
       case SQL.pagesForReport:
         return { results: [], changes: 0 };
       case SQL.deletePages:
+        return { results: [], changes: 0 };
+      case SQL.countReports:
+        return { results: [{ n: (t as { reports: Array<{ user_id: string }> }).reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
+      case SQL.revokeSharesForUser:
         return { results: [], changes: 0 };
       case SQL.deleteReport: {
         const before = t.reports.length;
@@ -151,7 +185,15 @@ function fakeD1(t: Tables): D1Database {
       return { success: true, meta: { changes: r.changes } };
     },
   });
-  return { prepare: (sql: string) => make(sql, []) } as unknown as D1Database;
+  return {
+    prepare: (sql: string) => make(sql, []),
+    // D1's batch is a transaction; the fake runs the statements in order.
+    batch: async (stmts: Array<{ run(): Promise<unknown> }>) => {
+      const out = [];
+      for (const st of stmts) out.push(await st.run());
+      return out;
+    },
+  } as unknown as D1Database;
 }
 
 function fakeKv() {
@@ -331,8 +373,8 @@ describe("taking a document", () => {
   it("takes nothing from the demo account for a demo visitor's upload, and gives nothing back either", async () => {
     // The demo cookie is the owner's account for anyone who asks: five
     // strangers' uploads must not exhaust it for the sixth, and for the
-    // owner. The pages still go through the extractor and still count
-    // against the owner's USD fuse.
+    // owner. The pages still go through the extractor and count against
+    // the demo's own USD fuse.
     const extract = fakeExtract(() => 200);
     env.EXTRACT = extract.fetcher;
     const opened = await call(A, "POST", "/api/documents", { id: "demo-1" }, {}, true);
@@ -346,9 +388,15 @@ describe("taking a document", () => {
     const released = await call(A, "DELETE", "/api/documents/demo-2", undefined, {}, true);
     expect(((await released.json()) as { released: boolean }).released).toBe(false);
     expect(await allowance(A)).toMatchObject({ used: 0, remaining: 5 });
-    // And the fuse still applies: frozen, the demo opens nothing.
-    await recordUserSpendUsd(env.BUDGET, A.id, monthOf(), 10);
+    // A fuse still applies — the demo's own (DEMO_USD_LIMIT, 2 USD), not
+    // the owner's: strangers spent the owner's month before 2026-09-27.
+    await recordUserSpendUsd(env.BUDGET, `demo_${A.id}`, monthOf(), 2);
     expect((await call(A, "POST", "/api/documents", { id: "demo-3" }, {}, true)).status).toBe(402);
+    // The owner's own login is untouched by what the demo spent…
+    expect((await call(A, "POST", "/api/documents", { id: "own-1" })).status).toBe(200);
+    // …and the owner's fuse frozen does not freeze the demo's separately.
+    await recordUserSpendUsd(env.BUDGET, A.id, monthOf(), 10);
+    expect((await call(A, "POST", "/api/documents", { id: "own-2" })).status).toBe(402);
   });
 
   it("refuses a frozen person before taking, so the fuse costs no document", async () => {
@@ -472,6 +520,40 @@ describe("giving a document back", () => {
  * no route makes, and its floor — never under what is used — is the rule a
  * refund could otherwise break.
  */
+describe("a read with nothing in it", () => {
+  const empty = (user: { id: string }, id: string) => call(user, "POST", `/api/documents/${id}/empty`);
+
+  it("gives back two empty reads in 30 days and keeps the third", async () => {
+    const out: boolean[] = [];
+    for (const id of ["e1", "e2", "e3", "e4"]) {
+      await open(A, id);
+      await page(A, id);
+      const res = await empty(A, id);
+      expect(res.status).toBe(200);
+      out.push(((await res.json()) as { refunded: boolean }).refunded);
+    }
+    expect(out).toEqual([true, true, false, true]);
+    // Four opened, three given back.
+    expect(await allowance(A)).toMatchObject({ used: 1, remaining: 4 });
+  });
+
+  it("is said once per document, and only by its owner", async () => {
+    await open(A, "e1");
+    expect((await empty(A, "e1")).status).toBe(200);
+    expect((await empty(A, "e1")).status).toBe(404);
+    await open(A, "e2");
+    expect((await empty(B, "e2")).status).toBe(404);
+    expect(await allowance(A)).toMatchObject({ used: 1 });
+  });
+
+  it("gives the owner nothing back for a demo visitor's document, which took nothing", async () => {
+    await call(A, "POST", "/api/documents", { id: "d1" }, {}, true);
+    const res = await call(A, "POST", "/api/documents/d1/empty", undefined, {}, true);
+    expect(((await res.json()) as { refunded: boolean }).refunded).toBe(false);
+    expect(await allowance(A)).toMatchObject({ used: 0 });
+  });
+});
+
 describe("moje-krev-budget.mjs --documents", () => {
   it("adds to the allowance by e-mail, lowercased", () => {
     const { sql, says } = documentsSql({ email: " Kdo@Example.com ", n: 5 });
@@ -600,7 +682,7 @@ describe("the webhook", () => {
     const res = await webhook(completed("evt_1", A.id, "5"));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ received: true, credited: true, allowance: { free: 5, purchased: 5, used: 0, remaining: 10 } });
-    expect(tables.purchases).toEqual([{ event_id: "evt_1", user_id: A.id, package: "5", amount_czk: 49, created_at: expect.any(String) }]);
+    expect(tables.purchases).toEqual([{ event_id: "evt_1", user_id: A.id, package: "5", amount_czk: 49, created_at: expect.any(String), credited_at: expect.any(String) }]);
     expect(await allowance(A)).toEqual({ free: 5, purchased: 5, used: 0, remaining: 10 });
     // And the neighbour got nothing.
     expect(await allowance(B)).toMatchObject({ purchased: 0 });
@@ -618,6 +700,18 @@ describe("the webhook", () => {
     expect(await again.json()).toEqual({ received: true, duplicate: true });
     expect(await allowance(A)).toMatchObject({ purchased: 15 });
     expect(tables.purchases).toHaveLength(1);
+  });
+
+  it("finishes the credit on Stripe's retry when the first delivery died after recording the payment", async () => {
+    // The first delivery wrote the purchase row and then died before the
+    // credit: the row is there, unmarked, and the account has nothing.
+    tables.purchases.push({ event_id: "evt_1", user_id: A.id, package: "5", amount_czk: 49, created_at: "2026-09-01T00:00:00Z", credited_at: null });
+    const res = await webhook(completed("evt_1", A.id, "5"));
+    expect(await res.json()).toMatchObject({ received: true, credited: true });
+    expect(await allowance(A)).toMatchObject({ purchased: 5 });
+    // And a third delivery credits nothing more.
+    expect(await (await webhook(completed("evt_1", A.id, "5"))).json()).toEqual({ received: true, duplicate: true });
+    expect(await allowance(A)).toMatchObject({ purchased: 5 });
   });
 
   it("refuses a bad signature with 400 and writes nothing", async () => {

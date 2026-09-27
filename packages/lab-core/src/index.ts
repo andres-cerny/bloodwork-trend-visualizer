@@ -19,6 +19,7 @@
 export * from "./models";
 export * from "./normalize";
 export * from "./trends";
+export * from "./units";
 export * from "./registry";
 export * from "./mapping";
 export * from "./derived";

@@ -53,8 +53,13 @@ const COMPACT_BELOW = 300;
 /** How long the widget may take to appear before the box says it did not. */
 export const TURNSTILE_WAIT_MS = 8_000;
 
-/** The one sentence the box shows then. Muted: nothing the reader did was wrong. */
-export const TURNSTILE_FAILED = "Ověření, že nejste robot, se nenačetlo. Načtěte prosím stránku znovu.";
+/**
+ * The one sentence the box shows then. Muted: nothing the reader did was
+ * wrong. It names the usual cause, because „načtěte znovu" alone does not
+ * help when an ad blocker or a strict privacy mode is what stopped it.
+ */
+export const TURNSTILE_FAILED =
+  "Ověření, že nejste robot, se nenačetlo. Často ho zablokuje blokátor reklam nebo přísný soukromý režim prohlížeče — vypněte je pro tuto stránku a načtěte ji znovu. Když to nepůjde, napište nám.";
 
 export function useTurnstile(action: PortalTurnstileAction, enabled = true): TurnstileGate {
   const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
@@ -74,9 +79,18 @@ export function useTurnstile(action: PortalTurnstileAction, enabled = true): Tur
         sitekey: siteKey,
         action,
         size: el.clientWidth > 0 && el.clientWidth < COMPACT_BELOW ? "compact" : "flexible",
-        callback: (tok: string) => setToken(tok),
+        callback: (tok: string) => {
+          setToken(tok);
+          setFailed(false);
+        },
         "expired-callback": () => setToken(null),
-        "error-callback": () => setToken(null),
+        // The widget rendered and the challenge failed (privacy browsers,
+        // Firefox strict mode): the box has a child, so the deadline below
+        // would never say anything, and the form waited for good.
+        "error-callback": () => {
+          setToken(null);
+          setFailed(true);
+        },
       });
     };
     if (api()) render();
