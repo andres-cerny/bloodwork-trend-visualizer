@@ -79,8 +79,10 @@ export const SQL = {
     "INSERT INTO reports (id, user_id, report_date, lab_name, payload, created_at) VALUES (?1, ?2, ?3, ?4, json_set(?5, '$.rev', 1), ?6) " +
     "ON CONFLICT(id) DO UPDATE SET report_date = excluded.report_date, lab_name = excluded.lab_name, " +
     "payload = json_set(excluded.payload, '$.rev', COALESCE(json_extract(reports.payload, '$.rev'), 0) + 1) " +
-    "WHERE reports.user_id = ?2 AND (?7 IS NULL OR COALESCE(json_extract(reports.payload, '$.rev'), 0) = ?7)",
-  reportRev: "SELECT json_extract(payload, '$.rev') AS rev FROM reports WHERE id = ?1",
+    "WHERE reports.user_id = ?2 AND (?7 IS NULL OR COALESCE(json_extract(reports.payload, '$.rev'), 0) = ?7) " +
+    // The new revision from the write itself: a SELECT after it could read
+    // another tab's write that landed in between, and hand this writer that rev.
+    "RETURNING json_extract(payload, '$.rev') AS rev",
   deleteReport: "DELETE FROM reports WHERE id = ?1 AND user_id = ?2",
   pagesForReport: "SELECT page_num, kv_key, width, height FROM report_pages WHERE report_id = ?1 ORDER BY page_num",
   upsertPage:
@@ -91,7 +93,8 @@ export const SQL = {
   // The same revision rule for the settings blob, as `_rev` inside it.
   saveSettings:
     "UPDATE users SET settings = json_set(?2, '$._rev', COALESCE(json_extract(settings, '$._rev'), 0) + 1) " +
-    "WHERE id = ?1 AND (?3 IS NULL OR COALESCE(json_extract(settings, '$._rev'), 0) = ?3)",
+    "WHERE id = ?1 AND (?3 IS NULL OR COALESCE(json_extract(settings, '$._rev'), 0) = ?3) " +
+    "RETURNING json_extract(settings, '$._rev') AS rev",
 
   // Synonyms taught by anyone, read by everyone. The FIRST teacher of a name
   // owns the row, and only they can change or withdraw it: with the last

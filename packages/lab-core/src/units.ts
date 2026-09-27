@@ -10,10 +10,14 @@
  * and the trend says so (`Trend.otherUnits`).
  */
 import type { AnalyteDef } from "./models";
+import { canonicalizeUnit } from "./normalize";
 
 export type UnitDef = Pick<AnalyteDef, "canonicalUnit" | "unitConversions">;
 
-const fold = (u: string) => u.trim().toLowerCase();
+/** The same unit equality mapping.ts uses (`unitKey`): canonical spelling,
+ *  case and inner spaces ignored — one rule, so a unit the mapping accepts
+ *  as convertible is never refused here. */
+const fold = (u: string) => (canonicalizeUnit(u) ?? "").toLowerCase().replace(/\s+/g, "");
 
 /**
  * The factor from `unit` to the canonical unit: 1 for the canonical unit

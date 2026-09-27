@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Flag from "./Flag";
 import SearchParam from "./SearchParam";
-import { dateDoubtOf } from "../lib/fileChecks";
+import { dateDoubtOf, localToday } from "../lib/fileChecks";
 import type { PickerOption } from "./AnalytePicker";
 import {
   type LabReport,
@@ -582,7 +582,7 @@ export default function VerifyTab({ reports, onCorrect, onSetDate, focus, displa
  */
 function DateField({ report, onSet }: { report: LabReport; onSet: (isoDate: string) => void }) {
   const [value, setValue] = useState(report.reportDate ?? "");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(value) && value <= today && value >= "1990-01-01";
   return (
     <form

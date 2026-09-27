@@ -381,9 +381,16 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
             void storeInBackground(held, pages, name, notes, key, serious);
           },
         },
+        // „Neukládat" is the person saying it is the same report: treated
+        // like the duplicate the app would have caught without the misread —
+        // the document goes back, under the same every-third-kept rule.
         dismiss: {
           label: "Neukládat",
-          run: () => setLog((l) => l.map((x) => (x.key === key ? { ...x, status: "skipped", error: "Neuloženo.", retry: undefined, dismiss: undefined } : x))),
+          run: () => {
+            setLog((l) => l.filter((x) => x.key !== key));
+            publishBatch(pick(batchRef.current, 1));
+            void emptyRead(held.id, name, key, "Neuloženo.");
+          },
         },
       });
       return;
@@ -441,7 +448,11 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     // pages are already redacted, so the retry skips the review; a document
     // that went back is opened afresh, one still held is reused by its id.
     const retryable = e instanceof ReadFailed || (e instanceof ApiError && !isFatalApiError(e) && e.code !== "bad_request");
-    const retryId = e instanceof ReadFailed && e.released ? newReportId() : id;
+    // A document still held is reused by its id — unless the retry comes so
+    // late that the server's hourly sweep may have given it back, when the
+    // old id would be refused as "not open" and read as out of documents.
+    const failedAt = Date.now();
+    const retryId = () => (e instanceof ReadFailed && e.released) || Date.now() - failedAt > 30 * 60_000 ? newReportId() : id;
     addLog({
       key,
       name,
@@ -453,7 +464,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
             label: "Zkusit znovu",
             run: () => {
               reopen(key);
-              void extractInBackground(retryId, name, prepared, pages, key);
+              void extractInBackground(retryId(), name, prepared, pages, key);
             },
           }
         : undefined,

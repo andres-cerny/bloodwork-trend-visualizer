@@ -109,14 +109,12 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
   // The live link follows the data. A correction, a mapping, a new report or
   // a deleted one used to leave the page serving the old text for up to a
   // day — including values the person had deleted. Debounced, so a burst of
-  // confirmations is one write; the first text (the one the page already
-  // carries or will be minted with) is not written again.
+  // confirmations is one write.
+  // On mount too: the link may carry text from before changes made on
+  // another device, and nothing here knows what the server holds — so the
+  // first sight of a live link writes the current text once.
   const lastSent = useRef<string | null>(null);
   useEffect(() => {
-    if (lastSent.current === null) {
-      lastSent.current = text;
-      return;
-    }
     if (text === lastSent.current || !remote || !alive(remote.expiresAt)) return;
     const t = setTimeout(() => {
       updateAiShare(text).then(

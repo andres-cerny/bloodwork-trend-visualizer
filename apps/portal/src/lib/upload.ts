@@ -64,7 +64,7 @@ import {
   preparePhoto,
   withPageChecks,
 } from "@bw/lab-core/photo";
-import { type Allowance, ApiError, type ProvisionalRow, extractPage, isFatalApiError, openDocument, putPage, putReport, releaseDocument, withRetry } from "./api";
+import { type Allowance, ApiError, type ProvisionalRow, extractPage, isFatalApiError, isRetryablePage, openDocument, putPage, putReport, releaseDocument, withRetry } from "./api";
 import { type FileWarning, LONG_REPORT_PAGES, drawDates, fingerprintOf, tooManyPagesCopy } from "./fileChecks";
 import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
@@ -295,15 +295,20 @@ export async function extractReport(
         if (fatal) return;
         const isScan = prepared.scanPages.includes(page.pageNum);
         try {
-          // A dropped connection, a timeout or a busy reader gets two more
-          // tries before the page counts as failed; the worker lets a failed
-          // page be sent again (workers/portal/src/db.ts sendPage).
-          const res = await withRetry(() =>
-            extractPage(
-              isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
-              id,
-              onRow ? (row) => onRow(page.pageNum, row) : undefined,
-            ),
+          // A dropped connection or a server too busy to start gets two more
+          // tries before the page counts as failed (isRetryablePage: never a
+          // timeout or a failed read, which would pay for the page twice);
+          // the worker lets a failed page be sent again (db.ts sendPage).
+          const res = await withRetry(
+            () =>
+              extractPage(
+                isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
+                id,
+                onRow ? (row) => onRow(page.pageNum, row) : undefined,
+              ),
+            3,
+            1000,
+            isRetryablePage,
           );
           results[i] = interpretPage(
             res.reads,

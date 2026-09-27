@@ -152,7 +152,7 @@ export function buildTrends(
     // The series' unit: the canonical one when any reading is in it or was
     // converted to it; otherwise the unit most readings carry.
     let unit: string;
-    if (def && anySettled) unit = def.canonicalUnit;
+    if (anySettled) unit = def.canonicalUnit;
     else {
       const counts = new Map<string, number>();
       for (const p of t.points) if (p.unit) counts.set(p.unit.toLowerCase(), (counts.get(p.unit.toLowerCase()) ?? 0) + 1);

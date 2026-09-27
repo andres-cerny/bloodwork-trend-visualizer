@@ -757,16 +757,15 @@ async function putReport(request: Request, env: Env, user: UserRow, id: string):
   // The revision the writer last saw; absent means "write regardless".
   const expected = revisionOf(request);
   if (expected !== null && !(await ownedReport(env, user, id))) return reportConflict(true);
-  const saved = await env.DB.prepare(SQL.upsertReport)
+  const { results } = await env.DB.prepare(SQL.upsertReport)
     .bind(id, user.id, report.reportDate, report.labName, JSON.stringify(report), new Date().toISOString(), expected)
-    .run();
-  // Zero changes on an upsert: the id is someone else's, or the writer's
+    .all<{ rev: number | null }>();
+  // No row back from the upsert: the id is someone else's, or the writer's
   // revision is stale — another tab or device saved this report since.
-  if (!saved.meta || saved.meta.changes !== 1) {
+  if (!results || results.length !== 1) {
     return (await ownedReport(env, user, id)) ? reportConflict(false) : json({ error: "forbidden", message: "Report nepatří k tomuto účtu." }, 403);
   }
-  const row = await env.DB.prepare(SQL.reportRev).bind(id).first<{ rev: number | null }>();
-  return json({ ok: true, rev: row?.rev ?? null });
+  return json({ ok: true, rev: results[0].rev ?? null });
 }
 
 /** The `If-Match` revision a write was made against, or null for none. */
@@ -881,13 +880,11 @@ async function putSettings(request: Request, env: Env, user: UserRow): Promise<R
     return json({ error: "bad_request" }, 400);
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return json({ error: "bad_request" }, 400);
-  const { meta } = await env.DB.prepare(SQL.saveSettings).bind(user.id, JSON.stringify(parsed), revisionOf(request)).run();
+  const { results } = await env.DB.prepare(SQL.saveSettings).bind(user.id, JSON.stringify(parsed), revisionOf(request)).all<{ rev: number | null }>();
   // Stale: another tab saved the settings since this one read them. It
   // reads them again and merges its change over them (apps/portal Portal.tsx).
-  if (!meta || meta.changes !== 1) return json({ error: "conflict", message: "Nastavení se mezitím změnilo v jiném okně." }, 409);
-  const row = await env.DB.prepare(SQL.settingsForUser).bind(user.id).first<{ settings: string | null }>();
-  const rev = row?.settings ? ((JSON.parse(row.settings) as { _rev?: number })._rev ?? null) : null;
-  return json({ ok: true, rev });
+  if (!results || results.length !== 1) return json({ error: "conflict", message: "Nastavení se mezitím změnilo v jiném okně." }, 409);
+  return json({ ok: true, rev: results[0].rev ?? null });
 }
 
 /* ---------------------------------------------------------------- account */

@@ -59,14 +59,13 @@ function fakeD1(t: Tables): D1Database {
         if (existing) {
           if (existing.user_id !== uid) return { results: [], changes: 0 };
           if (expected !== null && revOf(existing.payload) !== expected) return { results: [], changes: 0 };
-          Object.assign(existing, { report_date: date, lab_name: lab, payload: JSON.stringify({ ...JSON.parse(payload), rev: revOf(existing.payload) + 1 }) });
-          return { results: [], changes: 1 };
+          const rev = revOf(existing.payload) + 1;
+          Object.assign(existing, { report_date: date, lab_name: lab, payload: JSON.stringify({ ...JSON.parse(payload), rev }) });
+          return { results: [{ rev }], changes: 1 };
         }
         t.reports.push({ id, user_id: uid, report_date: date, lab_name: lab, payload: JSON.stringify({ ...JSON.parse(payload), rev: 1 }), created_at: created });
-        return { results: [], changes: 1 };
+        return { results: [{ rev: 1 }], changes: 1 };
       }
-      case SQL.reportRev:
-        return { results: t.reports.filter((r) => r.id === a[0]).map((r) => ({ rev: (JSON.parse(r.payload) as { rev?: number }).rev ?? null })), changes: 0 };
       case SQL.countReports:
         return { results: [{ n: (t as { reports: Array<{ user_id: string }> }).reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
       case SQL.revokeSharesForUser:
@@ -98,7 +97,7 @@ function fakeD1(t: Tables): D1Database {
         const rev = u.settings ? ((JSON.parse(u.settings) as { _rev?: number })._rev ?? 0) : 0;
         if (a[2] !== null && a[2] !== undefined && a[2] !== rev) return { results: [], changes: 0 };
         u.settings = JSON.stringify({ ...JSON.parse(a[1] as string), _rev: rev + 1 });
-        return { results: [], changes: 1 };
+        return { results: [{ rev: rev + 1 }], changes: 1 };
       }
       // The document slot — only what the extract proxy needs here; the
       // allowance's own rules are tests/allowance.test.ts.

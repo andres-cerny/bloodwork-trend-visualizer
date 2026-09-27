@@ -182,3 +182,9 @@ export function forTrends(reports: LabReport[], today = new Date()): LabReport[]
     return [{ ...r, measurements: r.measurements.map((m) => ({ ...m, reportDateDoubt: doubt })) }];
   });
 }
+
+/** Today as the person's own calendar says it, "2026-09-28" — not UTC, which
+ *  is still yesterday for a Czech reader until 01:00 or 02:00. */
+export function localToday(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}

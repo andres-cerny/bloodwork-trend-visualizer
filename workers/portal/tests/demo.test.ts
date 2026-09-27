@@ -40,7 +40,7 @@ function fakeD1(t: Tables): D1Database {
         const u = t.users.find((u) => u.id === a[0]);
         if (!u) return { results: [], changes: 0 };
         u.settings = a[1] as string;
-        return { results: [], changes: 1 };
+        return { results: [{ rev: 1 }], changes: 1 };
       }
       case SQL.reportsForUser:
         return { results: t.reports.filter((r) => r.user_id === a[0]).map((r) => ({ id: r.id, payload: r.payload })), changes: 0 };

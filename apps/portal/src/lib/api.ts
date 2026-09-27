@@ -66,6 +66,16 @@ export const isFatalApiError = (e: unknown): boolean => e instanceof ApiError &&
 export const isTransientApiError = (e: unknown): boolean =>
   e instanceof ApiError && (e.code === "network" || e.code === "timeout" || e.status === 429 || e.status === 502 || e.status === 503 || e.status === 504);
 
+/**
+ * A page read worth sending again: the server said it was too busy to start
+ * (429, 503), or the connection failed. Not a timeout and not a failed read
+ * — the worker keeps reading a page after the browser gives up (waitUntil),
+ * so sending it again would pay for the same page twice, and a page the
+ * readers could not read fails the same way the second time.
+ */
+export const isRetryablePage = (e: unknown): boolean =>
+  e instanceof ApiError && (e.code === "network" || e.status === 429 || e.status === 503);
+
 /** How long an ordinary call may take. A page read has its own, longer one. */
 export const REQUEST_TIMEOUT_MS = 20_000;
 export const EXTRACT_TIMEOUT_MS = 120_000;
@@ -134,12 +144,12 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = REQU
  * a second try can fix — a dropped connection, a timeout, a busy server.
  * Anything the server refused on purpose is thrown at once.
  */
-export async function withRetry<T>(fn: () => Promise<T>, tries = 3, baseMs = 1000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, tries = 3, baseMs = 1000, retryable: (e: unknown) => boolean = isTransientApiError): Promise<T> {
   for (let i = 0; ; i++) {
     try {
       return await fn();
     } catch (e) {
-      if (i >= tries - 1 || !isTransientApiError(e)) throw e;
+      if (i >= tries - 1 || !retryable(e)) throw e;
       await new Promise((r) => setTimeout(r, baseMs * 2 ** i + Math.random() * 250));
     }
   }

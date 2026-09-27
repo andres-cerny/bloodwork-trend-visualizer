@@ -102,6 +102,8 @@ describe("the trend screens' view of doubted dates", () => {
     expect(r.level).toBe("unconfirmed");
     expect(r.chip).toBe("ověřit datum");
     expect(reviewOf(out[0].measurements[0] as never, () => null).level).toBe("ok");
+    // A confirmed value vouches for the value, not the date.
+    expect(reviewOf({ ...out[1].measurements[0], confirmed: true } as never, () => null).chip).toBe("ověřit datum");
   });
 });
 
@@ -113,5 +115,12 @@ describe("a file's fingerprint", () => {
     expect(a).toMatch(/^[0-9a-f]{16}$/);
     expect(await fingerprintOf(bytes, "salt-a")).toBe(a);
     expect(await fingerprintOf(bytes, "salt-b")).not.toBe(a);
+  });
+});
+
+describe("today", () => {
+  it("is the reader's own calendar day, not UTC's", async () => {
+    const { localToday } = await import("../src/lib/fileChecks");
+    expect(localToday(new Date(2026, 8, 28, 0, 30))).toBe("2026-09-28");
   });
 });

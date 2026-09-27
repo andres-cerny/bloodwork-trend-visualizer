@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import type { LabReport } from "@bw/lab-core";
+import { localToday } from "../lib/fileChecks";
 
 interface Props {
   report: LabReport;
@@ -23,7 +24,7 @@ export default function DateAsk({ report, more, onSave, onLater }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const laterRef = useRef(onLater);
   laterRef.current = onLater;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const page = report.pages[0];
 
   useEffect(() => {

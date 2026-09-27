@@ -17,7 +17,7 @@ vi.mock("../src/lib/api", async (importOriginal) => {
   return {
     ...actual,
     // No waiting between tries in a test.
-    withRetry: (fn: () => Promise<unknown>) => actual.withRetry(fn, 3, 0),
+    withRetry: (fn: () => Promise<unknown>, tries?: number, _ms?: number, retryable?: (e: unknown) => boolean) => actual.withRetry(fn, tries ?? 3, 0, retryable),
     openDocument: async () => ({ ok: true, already: false, allowance: { free: 5, purchased: 0, used: 1, remaining: 4 } }),
     releaseDocument: async () => {
       calls.release++;
@@ -53,6 +53,16 @@ describe("reading a document", () => {
     expect(calls.extract).toBe(2);
     expect(out.report.id).toBe("r1");
     expect(calls.release).toBe(0);
+  });
+
+  it("does not send again a page that timed out or that the readers failed — it would be paid twice", async () => {
+    extractAnswers = [async () => Promise.reject(new ApiError("x", "timeout", 0))];
+    await expect(extractReport("r1", prepared, [page as never], new Registry([]), () => {})).rejects.toBeInstanceOf(ReadFailed);
+    expect(calls.extract).toBe(1);
+    calls.extract = 0;
+    extractAnswers = [async () => Promise.reject(new ApiError("Čtení stránky selhalo.", "extraction_failed", 502))];
+    await expect(extractReport("r1", prepared, [page as never], new Registry([]), () => {})).rejects.toBeInstanceOf(ReadFailed);
+    expect(calls.extract).toBe(1);
   });
 
   it("does not retry a refusal the server meant", async () => {

@@ -281,10 +281,14 @@ export default function Portal({ email, demo, onLogout }: Props) {
         setSaveError(null);
       } catch (e) {
         if (e instanceof ApiError && e.status === 409) {
+          // Only this report is taken from the server: the others may carry
+          // edits still queued here, and a report stored meanwhile must stay.
           const fresh = await listReports().catch(() => null);
-          if (fresh && registryRef.current) {
+          if (fresh) {
+            const theirs = fresh.find((x) => x.id === r.id);
             const reg = registryRef.current;
-            reportsRef.current = fresh.map((x) => rematchReport(x, reg) ?? x);
+            const next = theirs && reg ? rematchReport(theirs, reg) ?? theirs : theirs;
+            reportsRef.current = next ? reportsRef.current.map((x) => (x.id === r.id ? next : x)) : reportsRef.current.filter((x) => x.id !== r.id);
             setReports(reportsRef.current);
           }
           setSaveError(e.message);
@@ -418,7 +422,23 @@ export default function Portal({ email, demo, onLogout }: Props) {
         await put();
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 409)) throw e;
-        settingsRef.current = rebaseSettings(await getSettings(), patch);
+        // Everything this tab holds, laid over what the other tab saved — not
+        // only this call's patch, or a change queued a moment earlier would
+        // be dropped. Then the tab's own copies follow the merged result, or
+        // its next save would write the other tab's names away again.
+        const { _rev: _stale, ...mine } = settingsRef.current;
+        settingsRef.current = rebaseSettings(await getSettings(), mine);
+        const merged = settingsRef.current;
+        if (merged.learned) {
+          const reg = registryRef.current;
+          if (reg) for (const [cid, names] of Object.entries(merged.learned)) for (const n of names) reg.addSynonym(cid, n);
+          learnedRef.current = merged.learned;
+          setLearnedShown(merged.learned);
+        }
+        if (merged.aiAsked) {
+          aiAskedRef.current = merged.aiAsked;
+          setAiAsked(merged.aiAsked);
+        }
         await put();
       }
     });

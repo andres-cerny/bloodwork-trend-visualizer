@@ -47,6 +47,12 @@ export function reviewOf(
   // recomputed from the value would otherwise reopen the question on every
   // render, which is why confirmation is a stored fact and not a same-value
   // correction.
+  // The report's date is in doubt: the value may be right, the day it is
+  // drawn on may not be — so it is plotted, hollow, and named. Before the
+  // confirmation below, which vouches for the value and not for the date.
+  if (m.reportDateDoubt) {
+    return { level: "unconfirmed", chip: "ověřit datum", reason: `${m.reportDateDoubt} Datum doplníte nebo potvrdíte v záložce Ověření.` };
+  }
   if (m.confirmed) return OK;
 
   const range =
@@ -64,12 +70,6 @@ export function reviewOf(
       // correction.
       reason: `${implausible.reason} ${ASK_CORRECT_OR_CONFIRM}`,
     };
-  }
-
-  // The report's date is in doubt: the value may be right, the day it is
-  // drawn on may not be — so it is plotted, hollow, and named.
-  if (m.reportDateDoubt) {
-    return { level: "unconfirmed", chip: "ověřit datum", reason: `${m.reportDateDoubt} Datum doplníte nebo potvrdíte v záložce Ověření.` };
   }
 
   if (m.disagreement) {
