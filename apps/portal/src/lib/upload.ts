@@ -22,12 +22,22 @@
  *
  * **A photograph enters through that same door, and through no other.** It has
  * no text layer either — not because a scanner lost it but because a camera
- * never had one — so `prepareFile` gives it the identical shape a scan gets:
- * no words, `canRedact` false, no hits, its page number in `scanPages`. There
- * is deliberately no path on which a photograph is reported as "nothing found":
- * detection did not fail on it, detection could not run. The only thing that
- * differs is the word on screen, because telling someone their phone snapshot
- * is a "sken" is telling them something false about their own file.
+ * never had one — so `prepareFile` gives it the shape a scan gets: no words,
+ * its page number in `scanPages`, drawing on at the review. The word on screen
+ * differs, because telling someone their phone snapshot is a "sken" is telling
+ * them something false about their own file.
+ *
+ * **What a photograph gets that a scan does not (2026-09-26, Ondřej's yes):**
+ * a local OCR pass — the sheet found and flattened, Tesseract in a Web Worker
+ * (`./ocr`, its own lazy chunk), `identityFromOcr` — whose hits arrive at the
+ * review as *suggested* boxes. This overrides the 2026-09-09 rule "do not run
+ * detection on photos"; that rule's reason — an empty result looking clean —
+ * is kept by the copy and the review, not by not running: the pencil stays
+ * on, the page still needs the reader's yes, and no hits reads "nic jsme
+ * nenašli — zkontrolujte ručně", never "nic tam není". The same pass scores
+ * whether the text looks like a lab sheet, and the photo checks
+ * (photoQuality.ts) turn all of it into a verdict the flow shows before the
+ * review: warn → "Vyfotit znovu" / "Nahrát i tak", refuse → only the first.
  */
 import {
   type IdentityHit,
@@ -42,7 +52,18 @@ import {
   survivingIdentity,
 } from "@bw/lab-core";
 import type { PageAssets, RedactedPage } from "@bw/lab-core/pdf";
-import { isPhotoFile, photoAssets } from "@bw/lab-core/photo";
+import {
+  type OcrLine,
+  type PhotoVerdict,
+  type PreparedPhoto,
+  identityFromOcr,
+  isPhotoFile,
+  labSheetScore,
+  ocrLineTexts,
+  photoPage,
+  preparePhoto,
+  withPageChecks,
+} from "@bw/lab-core/photo";
 import { type Allowance, type ProvisionalRow, extractPage, isFatalApiError, openDocument, putPage, putReport, releaseDocument } from "./api";
 import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
@@ -59,21 +80,26 @@ export interface PreparedFile {
   scanPages: number[];
   /** Pages past the per-report cap, left unread. */
   truncated: number;
+  /** Photos only: what the checks and the local OCR said. */
+  photo?: PhotoFindings;
+}
+
+export interface PhotoFindings {
+  /** ok, warn (the person may send it anyway) or refuse (they may not). */
+  verdict: PhotoVerdict;
+  /** Whether the OCR pass ran: its hits are only suggestions either way, and
+   *  "failed" (the files did not load, an old browser) is said as such. */
+  ocr: "done" | "failed" | "skipped";
 }
 
 /** Pages are read one at a time: each holds a rendered canvas, and a phone
  *  opening a thirty-page report is the memory case that matters.
  *
- *  A photograph short-circuits all of it: one page, decoded and enhanced by
- *  `photoAssets`, no pdf.js (~1.4 MB that someone photographing a sheet on a
- *  phone should not download), and — the part that matters — no `findIdentity`
- *  call at all. Running the detector over an empty word list would return an
- *  empty `hits` that is indistinguishable from a clean page. */
+ *  A photograph goes its own way: one page, no pdf.js (~1.4 MB that someone
+ *  photographing a sheet on a phone should not download), and the OCR chunk
+ *  instead — see `preparePhotoFile`. */
 export async function prepareFile(file: File, maxPages: number): Promise<PreparedFile> {
-  if (isPhotoFile(file)) {
-    const page = await photoAssets(file);
-    return { name: file.name, kind: "photo", pages: [page], hits: [], scanPages: [page.pageNum], truncated: 0 };
-  }
+  if (isPhotoFile(file)) return preparePhotoFile(file);
   const { loadPdf, pageAssets } = await import("@bw/lab-core/pdf");
   const doc = await loadPdf(file);
   const n = Math.min(doc.numPages, maxPages);
@@ -83,6 +109,33 @@ export async function prepareFile(file: File, maxPages: number): Promise<Prepare
   const scanPages = pages.filter((p) => !p.hasTextLayer || !canRedact(p.words)).map((p) => p.pageNum);
   const { hits } = findIdentity(pages.map((p) => ({ pageNum: p.pageNum, words: p.words })));
   return { name: file.name, kind: "pdf", pages, hits, scanPages, truncated: doc.numPages - n };
+}
+
+/**
+ * A photograph: the checks, then — unless they refuse it — local OCR for the
+ * identity suggestions and the lab-sheet score. `recognize` is injectable so a
+ * test can stand in for Tesseract; the app always takes the lazy chunk.
+ *
+ * The readers get `shot`, the unflattened encode, exactly as before
+ * (`preparePhoto`); OCR boxes found on the flattened page come back in that
+ * image's pixels. A failed OCR costs the suggestions, never the upload.
+ */
+export async function preparePhotoFile(
+  file: File,
+  recognize: (img: PreparedPhoto["ocr"]) => Promise<OcrLine[]> = async (img) => (await import("./ocr")).recognize(img),
+): Promise<PreparedFile> {
+  const p = await preparePhoto(file);
+  const page = photoPage(p.shot);
+  const base = { name: file.name, kind: "photo" as const, pages: [page], scanPages: [page.pageNum], truncated: 0 };
+  if (p.quality.outcome === "refuse") return { ...base, hits: [], photo: { verdict: p.quality, ocr: "skipped" } };
+  try {
+    const lines = await recognize(p.ocr);
+    const hits = identityFromOcr(lines, p.toPhoto, page.pageNum);
+    const verdict = withPageChecks(p.quality, p.page, labSheetScore(ocrLineTexts(lines)));
+    return { ...base, hits, photo: { verdict, ocr: "done" } };
+  } catch {
+    return { ...base, hits: [], photo: { verdict: withPageChecks(p.quality, p.page, null), ocr: "failed" } };
+  }
 }
 
 /** Paint the boxes the reader confirmed, and strip their strings everywhere. */
