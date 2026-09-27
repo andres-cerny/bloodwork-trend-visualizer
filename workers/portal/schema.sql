@@ -180,7 +180,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   user_id    TEXT,
   package    TEXT NOT NULL,             -- "5" | "15"
   amount_czk INTEGER NOT NULL,          -- whole crowns, as Stripe reported
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  credited_at TEXT                      -- set in the same transaction as the credit
 );
 
 CREATE INDEX IF NOT EXISTS purchases_by_user ON purchases (user_id, created_at);

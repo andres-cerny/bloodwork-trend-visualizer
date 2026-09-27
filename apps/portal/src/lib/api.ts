@@ -48,16 +48,97 @@ export class ApiError extends Error {
   }
 }
 
-/** Errors after which every remaining page would fail the same way. */
-const FATAL = new Set(["budget_exhausted", "unauthorized", "no_document"]);
+/**
+ * Errors after which every remaining file would fail the same way.
+ * `no_documents` is the allowance at zero (402, POST /api/documents);
+ * `no_document` is a page sent for a document that is not open (409).
+ * They differ by one letter and both end a batch — the plural was missing
+ * once, and every queued file went through redaction only to be refused.
+ */
+const FATAL = new Set(["budget_exhausted", "unauthorized", "no_document", "no_documents"]);
 export const isFatalApiError = (e: unknown): boolean => e instanceof ApiError && FATAL.has(e.code);
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, init);
-  if (res.status === 204) return undefined as T;
+/** Worth another try: the request never got an answer, or the server was busy. */
+export const isTransientApiError = (e: unknown): boolean =>
+  e instanceof ApiError && (e.code === "network" || e.code === "timeout" || e.status === 429 || e.status === 502 || e.status === 503 || e.status === 504);
+
+/** How long an ordinary call may take. A page read has its own, longer one. */
+export const REQUEST_TIMEOUT_MS = 20_000;
+export const EXTRACT_TIMEOUT_MS = 120_000;
+
+export const NETWORK_COPY = "Spojení se nezdařilo — zkontrolujte připojení k internetu a zkuste to znovu.";
+export const TIMEOUT_COPY = "Server neodpovídá — zkuste to prosím za chvíli znovu.";
+export const UNAVAILABLE_COPY = "Služba je dočasně nedostupná — zkuste to prosím za chvíli.";
+
+/**
+ * The session is gone (expired, or ended by a logout on another device).
+ * Announced once per request as a window event so the shell can send the
+ * reader to the door — every call site handling its own 401 is how the app
+ * came to blame the connection for an expired login.
+ */
+export const UNAUTHORIZED_EVENT = "mk:unauthorized";
+
+/**
+ * `fetch` with a deadline, and with its failures in Czech. The browser's own
+ * words for a dropped connection ("Failed to fetch", "Load failed") reached
+ * the upload log verbatim before this.
+ */
+export async function fetchChecked(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const ctl = new AbortController();
+  const outer = init.signal;
+  if (outer) {
+    if (outer.aborted) ctl.abort();
+    else outer.addEventListener("abort", () => ctl.abort(), { once: true });
+  }
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctl.abort();
+  }, timeoutMs);
+  try {
+    return await fetch(path, { ...init, signal: ctl.signal });
+  } catch (e) {
+    if (timedOut) throw new ApiError(TIMEOUT_COPY, "timeout", 0);
+    if (outer?.aborted) throw e;
+    throw new ApiError(NETWORK_COPY, "network", 0);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The refusal a response carries, in Czech whatever the body was. */
+export async function errorOf(res: Response, path: string): Promise<ApiError> {
   const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string; budget?: Budget; allowance?: Allowance };
-  if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget, data.allowance);
-  return data as T;
+  if (res.status === 401 && data.error === "unauthorized" && !path.startsWith("/api/auth/") && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+  const fallback = res.status >= 500 || res.status === 429 ? UNAVAILABLE_COPY : `Požadavek se nepodařilo vyřídit (chyba ${res.status}).`;
+  return new ApiError(data.message ?? fallback, data.error ?? "unknown", res.status, data.budget, data.allowance);
+}
+
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  const res = await fetchChecked(path, init, timeoutMs);
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) throw await errorOf(res, path);
+  return (await res.json().catch(() => {
+    throw new ApiError(UNAVAILABLE_COPY, "bad_response", res.status);
+  })) as T;
+}
+
+/**
+ * The same call once more after a short wait, when the first failure was one
+ * a second try can fix — a dropped connection, a timeout, a busy server.
+ * Anything the server refused on purpose is thrown at once.
+ */
+export async function withRetry<T>(fn: () => Promise<T>, tries = 3, baseMs = 1000): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= tries - 1 || !isTransientApiError(e)) throw e;
+      await new Promise((r) => setTimeout(r, baseMs * 2 ** i + Math.random() * 250));
+    }
+  }
 }
 
 const jsonInit = (method: string, body: unknown): RequestInit => ({
@@ -184,15 +265,37 @@ export async function extractPage(
   // The document rides in a header, not the body: the body goes to the
   // extractor as sent, and the extractor has no idea what a document is.
   const withDoc = (init: RequestInit): RequestInit => ({ ...init, headers: { ...(init.headers as Record<string, string>), "x-document": documentId } });
-  if (!onRow) return request<ExtractResult>("/api/extract", withDoc(jsonInit("POST", page)));
+  if (!onRow) return request<ExtractResult>("/api/extract", withDoc(jsonInit("POST", page)), EXTRACT_TIMEOUT_MS);
 
-  const res = await fetch("/api/extract", withDoc(jsonInit("POST", { ...page, stream: true })));
-  const type = res.headers.get("content-type") ?? "";
-  if (!res.ok || !type.includes("x-ndjson") || !res.body) {
-    const data = (await res.json().catch(() => ({}))) as ExtractResult & { message?: string; error?: string };
-    if (!res.ok) throw new ApiError(data.message ?? `Chyba ${res.status}`, data.error ?? "unknown", res.status, data.budget);
-    return data;
+  // One deadline for the whole read, the stream included: a stream that
+  // stalls halfway left "strana 1 z 3" on screen for good before this.
+  const ctl = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctl.abort();
+  }, EXTRACT_TIMEOUT_MS);
+  try {
+    const res = await fetchChecked("/api/extract", { ...withDoc(jsonInit("POST", { ...page, stream: true })), signal: ctl.signal }, EXTRACT_TIMEOUT_MS);
+    const type = res.headers.get("content-type") ?? "";
+    if (!res.ok) throw await errorOf(res, "/api/extract");
+    if (!type.includes("x-ndjson") || !res.body) {
+      return (await res.json().catch(() => {
+        throw new ApiError(UNAVAILABLE_COPY, "bad_response", res.status);
+      })) as ExtractResult;
+    }
+    return await readStream(res.body, onRow);
+  } catch (e) {
+    if (timedOut) throw new ApiError(TIMEOUT_COPY, "timeout", 0);
+    if (e instanceof ApiError) throw e;
+    // A connection that drops mid-stream rejects the read, not the fetch.
+    throw new ApiError(NETWORK_COPY, "network", 0);
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+async function readStream(body: ReadableStream<Uint8Array>, onRow: (row: ProvisionalRow, model: string) => void): Promise<ExtractResult> {
 
   let final: ExtractResult | null = null;
   const handle = (text: string) => {
@@ -202,7 +305,7 @@ export async function extractPage(
     else if (ev.type === "done") final = ev as unknown as ExtractResult;
     else if (ev.type === "error") throw new ApiError(ev.message ?? "Čtení stránky selhalo.", ev.error ?? "unknown", 502, ev.budget);
   };
-  const reader = res.body.getReader();
+  const reader = body.getReader();
   const dec = new TextDecoder();
   let tail = "";
   for (;;) {

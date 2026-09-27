@@ -21,7 +21,11 @@ type Who = { kind: "asking" } | { kind: "known"; me: Me | null };
 export default function ContactPage() {
   const [who, setWho] = useState<Who>({ kind: "asking" });
   useEffect(() => {
-    void fetchMe().then((me) => setWho({ kind: "known", me }));
+    // Unknown (offline, server down) is treated as logged out: the form then
+    // asks for an address, which works either way.
+    void fetchMe()
+      .catch(() => null)
+      .then((me) => setWho({ kind: "known", me }));
   }, []);
   if (who.kind === "asking") return null;
   return <ContactForm me={who.me} />;

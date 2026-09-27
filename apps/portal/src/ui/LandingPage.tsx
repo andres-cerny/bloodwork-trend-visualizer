@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import { processorPhrase, RETENTION_NOTE } from "@bw/ui-kit";
 import { demoOffered, enterDemo, getProcessors } from "../lib/api";
-import { fetchMe, messageOf, type Me } from "./Door";
+import { COOKIES_BLOCKED, fetchMe, messageOf, type Me } from "./Door";
 import { ALLOWANCE, LegalFooter, PRIVACY_PATH } from "./legal";
 
 /** The login form's own path, so „Přihlásit" is a link and a back button works. */
@@ -47,7 +47,7 @@ export default function LandingPage({ onDone }: { onDone: (me: Me) => void }) {
       await enterDemo();
       const me = await fetchMe();
       if (me) onDone(me);
-      else setError("Přihlášení se nezdařilo. Zkuste to prosím znovu.");
+      else setError(COOKIES_BLOCKED);
     } catch (err) {
       setError(messageOf(err));
     } finally {

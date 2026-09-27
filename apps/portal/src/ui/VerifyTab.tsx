@@ -85,6 +85,11 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   const [reportId, setReportId] = useState(focus?.reportId ?? reports[0]?.id ?? "");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
+  // Which report `picked` indexes into. A row number alone outlived its
+  // report: opening another report from the list, or deleting the one on
+  // screen, left row i selected in a different report with the old draft
+  // typed in — and one click on Opravit wrote it there.
+  const [pickedIn, setPickedIn] = useState<string | null>(null);
   const [draft, setDraft] = useState<string>("");
   // The last „Potvrdit všechny řádky k ověření": the rows as they were, so
   // one Zpět restores the whole batch. Any other change to the report —
@@ -113,7 +118,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   const [zoomed, setZoomed] = useState(false);
 
   const report = reports.find((r) => r.id === reportId) ?? reports[0];
-  const sel = picked !== null ? report?.measurements[picked] ?? null : null;
+  const sel = picked !== null && pickedIn === report?.id ? report?.measurements[picked] ?? null : null;
   const check = checkCorrection(draft, sel?.unitRaw ?? "");
 
   // Single authority for "can this row be trusted, and why". The table chips,
@@ -155,7 +160,11 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
     const i = r?.measurements.findIndex((m) => m.rawAnalyteName === focus.rawName) ?? -1;
     if (i >= 0) {
       setPicked(i);
+      setPickedIn(focus.reportId);
       setDraft(r!.measurements[i].valueRaw);
+    } else {
+      setPicked(null);
+      setDraft("");
     }
   }, [focus, reports]);
 
@@ -204,6 +213,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
 
   function pick(i: number) {
     setPicked(i);
+    setPickedIn(report.id);
     setDraft(report.measurements[i].valueRaw);
   }
 
@@ -231,7 +241,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   }
 
   function save() {
-    if (picked === null) return;
+    if (picked === null || !sel) return;
     const base = report.measurements[picked];
     if (checkCorrection(draft, base.unitRaw).severity === "reject") return;
     const next = normalizeMeasurement({
@@ -255,7 +265,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   }
 
   function undo() {
-    if (picked === null) return;
+    if (picked === null || !sel) return;
     const base = report.measurements[picked];
     const orig = base.original;
     if (!orig) return;
@@ -276,7 +286,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   }
 
   function confirmValue() {
-    if (picked === null) return;
+    if (picked === null || !sel) return;
     setBatch(null);
     onCorrect(report.id, [{ index: picked, next: confirmedRow(report.measurements[picked]) }]);
   }
@@ -360,7 +370,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                   <tr
                     key={i}
                     className="row-pick"
-                    aria-selected={picked === i}
+                    aria-selected={sel !== null && picked === i}
                     onClick={() => pick(i)}
                     ref={(el) => {
                       if (el) rowRefs.current.set(i, el);

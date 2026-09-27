@@ -107,11 +107,28 @@ export interface Env extends SignupEnv, StripeEnv {
   TURNSTILE_HOSTNAMES?: string;
 }
 
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
+/**
+ * A refusal the app will show, in Czech, even where the route named only a
+ * code: the client prints `message` as it arrives, and a bare
+ * `{error:"not_found"}` used to reach the reader as „Chyba 404".
+ */
+const DEFAULT_MESSAGE: Record<number, string> = {
+  400: "Požadavek se nepodařilo zpracovat.",
+  404: "Nenalezeno — obnovte prosím stránku.",
+  413: "Požadavek je příliš velký.",
+  500: "Něco se pokazilo na serveru — zkuste to prosím znovu.",
+  502: "Zpracování se nezdařilo — zkuste to prosím znovu.",
+};
+const json = (data: unknown, status = 200) => {
+  if (status >= 400 && data && typeof data === "object" && !Array.isArray(data) && !("message" in data)) {
+    const message = DEFAULT_MESSAGE[status] ?? DEFAULT_MESSAGE[status >= 500 ? 500 : 400];
+    data = { ...(data as object), message };
+  }
+  return new Response(JSON.stringify(data), {
     status,
     headers: { "content-type": "application/json; charset=utf-8" },
   });
+};
 
 const sessionTtlSeconds = (env: Env) => (parseInt(env.SESSION_TTL_DAYS ?? "90", 10) || 90) * 86400;
 const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
@@ -667,7 +684,13 @@ async function listReports(env: Env, user: UserRow): Promise<Response> {
 async function putReport(request: Request, env: Env, user: UserRow, id: string): Promise<Response> {
   const text = await request.text();
   if (text.length > MAX_PAYLOAD_BYTES) return json({ error: "too_large", message: "Report je příliš velký." }, 413);
-  const report = sanitizeReport(id, JSON.parse(text.length ? text : "null"));
+  let body: unknown;
+  try {
+    body = JSON.parse(text.length ? text : "null");
+  } catch {
+    return json({ error: "bad_request", message: "Neplatný report." }, 400);
+  }
+  const report = sanitizeReport(id, body);
   if (!report) return json({ error: "bad_request", message: "Neplatný report." }, 400);
 
   const saved = await env.DB.prepare(SQL.upsertReport)
@@ -1006,9 +1029,16 @@ async function handleMap(request: Request, env: Env, user: UserRow): Promise<Res
   const body = await request.text();
   if (body.length > MAX_EXTRACT_BYTES) return json({ error: "too_large", message: "Požadavek je příliš velký." }, 413);
   const session = await mintSession(env.EXTRACT_SESSION_SECRET, EXTRACT_SESSION_TTL, 1);
-  const res = await env.EXTRACT.fetch(
-    new Request("https://extract/api/map", { method: "POST", headers: { "content-type": "application/json", "x-demo-session": session }, body }),
-  );
+  let res: Response;
+  try {
+    res = await env.EXTRACT.fetch(
+      new Request("https://extract/api/map", { method: "POST", headers: { "content-type": "application/json", "x-demo-session": session }, body }),
+    );
+  } catch (e) {
+    // As on /api/extract: an unreachable binding is a Czech 502, not a crash.
+    console.error(`extract unreachable: ${e instanceof Error ? e.message : String(e)}`);
+    return json({ error: "extraction_failed", message: "Návrh přiřazení se nepodařilo získat — zkuste to znovu." }, 502);
+  }
   const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
   return json(await settle(env, user, res.status, data), res.status);
 }
@@ -1167,7 +1197,16 @@ export default {
    * account's hash when the request had a session.
    */
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
-    const res = await routes.fetch(request, env, ctx);
+    let res: Response;
+    try {
+      res = await routes.fetch(request, env, ctx);
+    } catch (e) {
+      // Anything a route did not expect — a D1 overload, a constraint, a
+      // value over D1's size limit. Without this it was Cloudflare's own
+      // error page, no Czech sentence, and no events row to find it by.
+      console.error(`unhandled: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
+      res = json({ error: "server_error" }, 500);
+    }
     if (res.status >= 400) {
       const url = new URL(request.url);
       await recordEvent(env, {

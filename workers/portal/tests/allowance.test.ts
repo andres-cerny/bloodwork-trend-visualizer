@@ -48,6 +48,7 @@ interface Purchase {
   package: string;
   amount_czk: number;
   created_at: string;
+  credited_at?: string | null;
 }
 interface Tables {
   users: User[];
@@ -117,6 +118,19 @@ function fakeD1(t: Tables): D1Database {
         t.purchases.push({ event_id: a[0] as string, user_id: a[1] as string, package: a[2] as string, amount_czk: a[3] as number, created_at: a[4] as string });
         return { results: [], changes: 1 };
       }
+      case SQL.creditPurchase: {
+        const p = t.purchases.find((x) => x.event_id === a[2] && !x.credited_at);
+        const u = t.users.find((x) => x.id === a[0]);
+        if (!p || !u) return { results: [], changes: 0 };
+        u.doc_allowance += a[1] as number;
+        return { results: [], changes: 1 };
+      }
+      case SQL.markPurchaseCredited: {
+        const p = t.purchases.find((x) => x.event_id === a[0] && !x.credited_at);
+        if (!p || !t.users.some((u) => u.id === a[2])) return { results: [], changes: 0 };
+        p.credited_at = a[1] as string;
+        return { results: [], changes: 1 };
+      }
       case SQL.creditDocuments: {
         const u = t.users.find((x) => x.id === a[0]);
         if (u) u.doc_allowance += a[1] as number;
@@ -151,7 +165,15 @@ function fakeD1(t: Tables): D1Database {
       return { success: true, meta: { changes: r.changes } };
     },
   });
-  return { prepare: (sql: string) => make(sql, []) } as unknown as D1Database;
+  return {
+    prepare: (sql: string) => make(sql, []),
+    // D1's batch is a transaction; the fake runs the statements in order.
+    batch: async (stmts: Array<{ run(): Promise<unknown> }>) => {
+      const out = [];
+      for (const st of stmts) out.push(await st.run());
+      return out;
+    },
+  } as unknown as D1Database;
 }
 
 function fakeKv() {
@@ -600,7 +622,7 @@ describe("the webhook", () => {
     const res = await webhook(completed("evt_1", A.id, "5"));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ received: true, credited: true, allowance: { free: 5, purchased: 5, used: 0, remaining: 10 } });
-    expect(tables.purchases).toEqual([{ event_id: "evt_1", user_id: A.id, package: "5", amount_czk: 49, created_at: expect.any(String) }]);
+    expect(tables.purchases).toEqual([{ event_id: "evt_1", user_id: A.id, package: "5", amount_czk: 49, created_at: expect.any(String), credited_at: expect.any(String) }]);
     expect(await allowance(A)).toEqual({ free: 5, purchased: 5, used: 0, remaining: 10 });
     // And the neighbour got nothing.
     expect(await allowance(B)).toMatchObject({ purchased: 0 });
@@ -618,6 +640,18 @@ describe("the webhook", () => {
     expect(await again.json()).toEqual({ received: true, duplicate: true });
     expect(await allowance(A)).toMatchObject({ purchased: 15 });
     expect(tables.purchases).toHaveLength(1);
+  });
+
+  it("finishes the credit on Stripe's retry when the first delivery died after recording the payment", async () => {
+    // The first delivery wrote the purchase row and then died before the
+    // credit: the row is there, unmarked, and the account has nothing.
+    tables.purchases.push({ event_id: "evt_1", user_id: A.id, package: "5", amount_czk: 49, created_at: "2026-09-01T00:00:00Z", credited_at: null });
+    const res = await webhook(completed("evt_1", A.id, "5"));
+    expect(await res.json()).toMatchObject({ received: true, credited: true });
+    expect(await allowance(A)).toMatchObject({ purchased: 5 });
+    // And a third delivery credits nothing more.
+    expect(await (await webhook(completed("evt_1", A.id, "5"))).json()).toEqual({ received: true, duplicate: true });
+    expect(await allowance(A)).toMatchObject({ purchased: 5 });
   });
 
   it("refuses a bad signature with 400 and writes nothing", async () => {

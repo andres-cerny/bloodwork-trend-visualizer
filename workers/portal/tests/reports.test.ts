@@ -340,6 +340,36 @@ describe("reports", () => {
     expect((await call(A, "PUT", "/api/reports/r-1", "nonsense")).status).toBe(400);
     expect((await call(A, "PUT", "/api/reports/../etc", report("../etc"))).status).toBe(404);
   });
+
+  it("answers a body that is not JSON with a Czech 400, not a crash", async () => {
+    const res = await call(A, "PUT", "/api/reports/r-1", new TextEncoder().encode("{not json").buffer as ArrayBuffer);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad_request", message: "Neplatný report." });
+  });
+
+  it("gives a refusal that named only a code a Czech sentence", async () => {
+    const res = await call(A, "GET", "/api/nothing-here");
+    expect(res.status).toBe(404);
+    expect(await res.json()).toMatchObject({ error: "not_found", message: expect.stringMatching(/obnovte/) });
+  });
+
+  it("turns an exception no route expected into a Czech 500", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const prepare = env.DB.prepare;
+    (env.DB as { prepare: unknown }).prepare = () => {
+      throw new Error("D1_ERROR: overloaded");
+    };
+    try {
+      const res = await call(A, "GET", "/api/reports");
+      expect(res.status).toBe(500);
+      const body = await res.json();
+      expect(body).toMatchObject({ error: "server_error" });
+      expect(JSON.stringify(body)).not.toContain("D1_ERROR");
+    } finally {
+      (env.DB as { prepare: unknown }).prepare = prepare;
+      spy.mockRestore();
+    }
+  });
 });
 
 describe("page images", () => {

@@ -146,6 +146,17 @@ export const SQL = {
   insertPurchase:
     "INSERT OR IGNORE INTO purchases (event_id, user_id, package, amount_czk, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
   creditDocuments: "UPDATE users SET doc_allowance = doc_allowance + ?2 WHERE id = ?1",
+  // The webhook's credit and its mark, run as one D1 batch (a transaction):
+  // the account is credited only while the purchase is unmarked, and marked
+  // only while the account exists. A delivery that died between insert and
+  // credit is therefore finished by Stripe's retry instead of being taken
+  // for a duplicate — which is how a paid purchase once could go uncredited.
+  creditPurchase:
+    "UPDATE users SET doc_allowance = doc_allowance + ?2 WHERE id = ?1 " +
+    "AND EXISTS (SELECT 1 FROM purchases WHERE event_id = ?3 AND credited_at IS NULL)",
+  markPurchaseCredited:
+    "UPDATE purchases SET credited_at = ?2 WHERE event_id = ?1 AND credited_at IS NULL " +
+    "AND EXISTS (SELECT 1 FROM users WHERE id = ?3)",
 
   // „Napište nám" (src/helpdesk.ts): stored whole, read by the operator with
   // tools/scripts/moje-krev-helpdesk.mjs. The worker never reads one back.

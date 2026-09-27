@@ -150,6 +150,8 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // than the worker accepts in the moment before /api/status answers.
   const [maxPages, setMaxPages] = useState(6);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);
   const [focus, setFocus] = useState<{ reportId: string; rawName: string; seq: number } | null>(null);
@@ -752,9 +754,21 @@ export default function Portal({ email, demo, onLogout }: Props) {
         <ThemeSwitch />
         <button
           className="btn small"
-          onClick={() => {
-            logout().catch(() => null);
-            onLogout();
+          disabled={loggingOut}
+          onClick={async () => {
+            // Awaited: a logout that did not reach the server leaves the
+            // cookie, and a reload walks straight back into the health data —
+            // on the shared computer this button exists for.
+            setLoggingOut(true);
+            setLogoutError(null);
+            try {
+              await logout();
+              onLogout();
+            } catch (e) {
+              setLogoutError(`Odhlášení se nepodařilo. ${e instanceof ApiError ? e.message : "Zkuste to prosím znovu."}`);
+            } finally {
+              setLoggingOut(false);
+            }
           }}
         >
           Odhlásit se
@@ -762,6 +776,11 @@ export default function Portal({ email, demo, onLogout }: Props) {
       </header>
 
       <main className="mk-main">
+        {logoutError && (
+          <div className="banner warn" role="alert">
+            {logoutError}
+          </div>
+        )}
         {loadError && <div className="banner warn">{loadError}</div>}
         {saveError && <div className="banner warn">{saveError}</div>}
 
