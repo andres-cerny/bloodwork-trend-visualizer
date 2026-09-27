@@ -54,12 +54,15 @@ import {
 import type { PageAssets, RedactedPage } from "@bw/lab-core/pdf";
 import {
   type OcrLine,
+  type PhotoRowSource,
   type PhotoVerdict,
   type PreparedPhoto,
   identityFromOcr,
   isPhotoFile,
+  photoRowGuard,
   labSheetScore,
   ocrLineTexts,
+  ocrRows,
   photoPage,
   preparePhoto,
   withPageChecks,
@@ -90,6 +93,14 @@ export interface PhotoFindings {
   /** Whether the OCR pass ran: its hits are only suggestions either way, and
    *  "failed" (the files did not load, an old browser) is said as such. */
   ocr: "done" | "failed" | "skipped";
+  /**
+   * Where each printed row sits, for the Ověření highlight (photoRows.ts):
+   * the OCR rows in the OCR picture's pixels, the way back to the photo, and
+   * the two-sheet guard. **Memory only.** The rows are text read from the
+   * unredacted photo, so they are never stored, sent, or put in a report —
+   * only the numeric frames `interpretPage` derives from them are.
+   */
+  rows?: PhotoRowSource;
 }
 
 /** Pages are read one at a time: each holds a rendered canvas, and a phone
@@ -152,7 +163,14 @@ export async function preparePhotoFile(
     const lines = await within(recognize(p.ocr), OCR_TIMEOUT_MS);
     const hits = identityFromOcr(lines, p.toPhoto, page.pageNum);
     const verdict = withPageChecks(p.quality, p.page, labSheetScore(ocrLineTexts(lines)));
-    return { ...base, hits, photo: { verdict, ocr: "done" } };
+    // The highlight's policy (docs/plans/photo-capture.md, Phase E): a found
+    // portrait page is located on the flattened picture and carried back
+    // through toPhoto; no page found means OCR read the photo itself
+    // (toPhoto null). Two sheets — found as one page or filling the frame —
+    // and text read tilted get no frames at all (`photoRowGuard`).
+    const withhold = photoRowGuard(p.page, p.toPhoto !== null, lines, p.ocr.width, p.ocr.height);
+    const rows: PhotoRowSource = { rows: ocrRows(lines), toPhoto: p.toPhoto, withhold };
+    return { ...base, hits, photo: { verdict, ocr: "done", rows } };
   } catch {
     return { ...base, hits: [], photo: { verdict: withPageChecks(p.quality, p.page, null), ocr: "failed" } };
   }
@@ -257,6 +275,7 @@ export async function extractReport(
             // "Glukóza" under Moč is refused the serum analyte.
             (raw, mat) => registry.match(raw, mat),
             res.readersAttempted,
+            prepared.kind === "photo" ? prepared.photo?.rows : null,
           );
         } catch (e) {
           if (isFatalApiError(e)) {

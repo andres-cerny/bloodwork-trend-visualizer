@@ -1620,3 +1620,75 @@ on angle was `mistral_ocr`, which is not in the deployed pair. A homography in
 the browser would add a slow, failure-prone step in front of two readers that
 demonstrably do not need it. It is written into `photo.ts` as a comment so the
 next person does not rebuild it on the strength of the plan alone.
+
+## Photo highlight — which locator frames the right row (2026-09-26, $1.88)
+
+Plan: [photo-highlight](plans/photo-highlight.md). The question is where on a
+photo the row sits for each value the reader returned, so that Ověření can
+draw a frame around it. The rows come from Sonnet (`sonnet_vision_dF`),
+3,649 rows on the 133 simulated photos. Truth is exact: the simulator's
+transforms are replayed byte-identically, and each row's glyph box on the
+source PDF is mapped onto the photo (`tests/bench/highlight/`). A box is
+**wrong** if its centre is off the true row, if another row covers over half
+of it, or (strict rule) if the true row holds under ⅔ of the printed rows
+inside it. Both counts are kept. They differ only on unflattened shots.
+Flattening is the simulator's own inverse ("oracle"), because photo-capture
+Phase C is not built. Only the 33 angle and two-page photos change when
+flattened. The other 100 are the same image.
+
+**All 133 photos, flattened, 3,649 rows.** Wrong must be 0. Coverage comes second.
+
+| Arm | Wrong (plan / strict) | Coverage | Angle, flattened | Runtime cost per page |
+|---|---|---|---|---|
+| T: Tesseract `ces` + phrase adapter | **0 / 0** | 82.1 % | 61.1 % | $0; 2.6 s OCR on an M4 Max; a phone is unmeasured |
+| M: numbered OCR rows, Claude picks the number (subagents) | 5 / 5 | 95.8 % | 86.6 % | ≈ $0.028 Sonnet, estimated, not measured |
+| MG: the same with Gemini 3.8 Flash | 6 / 7 | 94.6 % | 81.1 % | $0.0046, measured (167 calls, $0.775) |
+| G: Gemini box coordinates | 38 / 43 | 98.3 % | 99.9 % | $0.0066, measured (167 calls, $1.10) |
+| V(T+M) | **0 / 0** | 81.8 % | 60.4 % | ≈ $0.028 |
+| V(T+G) | **0 / 0** | 80.7 % | 61.0 % | $0.0066 |
+| V(MG+T) | **0 / 0** | 81.7 % | 60.0 % | $0.0046 |
+| V(M+MG) | **0 / 0** | 93.6 % | 77.6 % | ≈ $0.033 |
+| **V(M+G)** | **0 / 0** | **94.3 %** | 86.5 % | ≈ $0.035 |
+
+The M estimate: about 4,800 image tokens plus about 2,000 prompt and row
+tokens in, and about 500 out (MG's median), at Sonnet's $3 / $15 per million.
+It was never run on the API.
+
+**Unflattened**, every arm frames wrong rows on angle shots. Strict wrong
+counts over all 133: T 73, M 57 (5 angle photos only), MG 415, G 839. So
+flattening is a precondition for any arm.
+
+Arm C (Claude box coordinates, subagents) was dropped at tier 1: 304 of 648
+boxes wrong even after flattening. It estimates rows from line spacing.
+
+**Why each arm is wrong.** Classes named from the cases, no threshold tuned on them:
+
+- **G, drift (37 boxes).** Box height and x are right, but the error in y grows
+  down the page: 19 px at the top of a page, 69 px at the bottom (pitch
+  52 px). The box ends up half a row off, then a full row. 27 of the 37 are on
+  one page.
+- **G, wrong block (5).** A contiguous run of rows is boxed about 850 px up, on
+  another table of the same page.
+- **G, spanning box (1).** A 614 px box over a dozen rows.
+- **M and MG, margin fragment (5 each, the same 5 rows).** On two dark shots,
+  Tesseract finds a 20–36 px strip in the left margin at the height of the
+  row. It gets a number, and both models pick it. This comes from the marked
+  image, not the model. A mark drawn only for an OCR row that carries text
+  would remove it. That filter is untested, so it is not counted.
+- **MG, misread number (1).** A mark four rows up.
+- **MG, OCR row across two lines (1).** A partial OCR row whose box reaches into
+  the next line: 63 % share.
+
+**Recommendation.** Ship **T on the flattened page**: 0 wrong, 82 % of rows
+framed, no call and no cost, local to the browser as photo-capture Phase D
+plans. Nothing paid beats it on the column that decides. Every paired
+zero-wrong arm below 90 % (V(T+G), V(MG+T), V(T+M)) covers no more than T
+alone. The one upgrade that buys coverage is **V(M+G)**: 0 wrong, 94 %, for
+about $0.035 per page and two extra calls. Take it only if the missing 12
+points show up in real use. Before either ships: flattening must exist
+(Phase C), T must be timed on a phone (D5), and the arm must be repeated on
+real phone shots (A3). All of the above is simulated photos with oracle
+flattening.
+
+Spend: G + MG full run, $1.8767 (334 Gemini calls). Claude arms ran on
+subagents only; no Anthropic API gate run.

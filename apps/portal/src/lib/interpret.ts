@@ -36,6 +36,7 @@ import {
   rowTextAt,
   unclaimedRows,
 } from "@bw/lab-core";
+import { type PhotoRowSource, locatePhotoRows } from "@bw/lab-core/photo";
 
 export interface PageResult {
   measurements: Measurement[];
@@ -70,6 +71,12 @@ export function interpretPage(
    * agreed on, and every row comes back confirmed.
    */
   readersAttempted?: number,
+  /**
+   * A photograph's own OCR rows (upload.ts, `preparePhotoFile`): where a
+   * read's printed row sits on the photo, found by name and value, else
+   * nowhere. Absent on a PDF, a scan and a photo whose OCR did not run.
+   */
+  photoRows?: PhotoRowSource | null,
 ): PageResult {
   const out: PageResult = {
     measurements: [],
@@ -86,7 +93,10 @@ export function interpretPage(
     out.labName = out.labName ?? read.lab_name ?? null;
   }
   const claimed: number[] = [];
-  for (const m of reconcile(reads, { expected: readersAttempted })) {
+  const merged = reconcile(reads, { expected: readersAttempted });
+  // All reads of the page at once: a printed row two reads claim frames neither.
+  const onPhoto = photoRows ? locatePhotoRows(merged, photoRows) : null;
+  for (const [mi, m] of merged.entries()) {
     let rowIndex = m.rowIndex;
     let rawAnalyteName = m.rawAnalyteName;
     if (!isScan) {
@@ -129,7 +139,8 @@ export function interpretPage(
       // under Moč is refused the serum glukoza (Registry.match). The index is
       // the repaired one, so the material comes from the row the value is on.
       canonicalId: match(rawAnalyteName, isScan ? null : printedMaterial(rows, rowIndex)?.code ?? null),
-      bbox: isScan ? null : rowBoxAt(rowIndex, rows) ?? rowBoxFor(rawAnalyteName, rows),
+      bbox: isScan ? (onPhoto?.[mi]?.bbox ?? null) : rowBoxAt(rowIndex, rows) ?? rowBoxFor(rawAnalyteName, rows),
+      ...(isScan && onPhoto?.[mi] ? { quad: onPhoto[mi]!.quad } : {}),
     });
   }
 
