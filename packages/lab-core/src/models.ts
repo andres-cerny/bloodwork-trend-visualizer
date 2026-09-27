@@ -27,6 +27,13 @@ export interface Measurement {
    * app itself doubts is plotted as unconfirmed, not as a solid point.
    */
   reportDateDoubt?: string | null;
+  /**
+   * The value is the text of its own printed row (a born-digital page's text
+   * layer, checked at upload) — false for a scan or photo, whose value a
+   * reader transcribed from pixels. Absent on rows stored before 2026-09-27;
+   * review.ts infers it for those.
+   */
+  printedOnPage?: boolean;
   rawAnalyteName: string;
   valueRaw: string;
   unitRaw: string;

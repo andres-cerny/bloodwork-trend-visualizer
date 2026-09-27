@@ -19,6 +19,7 @@
  */
 import type { Measurement } from "./models";
 import { checkImplausible } from "./implausible";
+import { parseValue } from "./normalize";
 
 export type ReviewLevel = "ok" | "unconfirmed" | "withheld";
 
@@ -42,18 +43,25 @@ export function reviewOf(
    */
   curatedRange: (canonicalId: string | null, unit?: string | null) => { low: number; high: number } | null,
 ): Review {
-  // A human vouched for this exact value against the printed page. That
-  // answers every kind of doubt below at once — an implausibility check
-  // recomputed from the value would otherwise reopen the question on every
-  // render, which is why confirmation is a stored fact and not a same-value
-  // correction.
   // The report's date is in doubt: the value may be right, the day it is
   // drawn on may not be — so it is plotted, hollow, and named. Before the
   // confirmation below, which vouches for the value and not for the date.
   if (m.reportDateDoubt) {
     return { level: "unconfirmed", chip: "ověřit datum", reason: `${m.reportDateDoubt} Datum doplníte nebo potvrdíte v záložce Ověření.` };
   }
+  // A human vouched for this exact value against the printed page. That
+  // answers every kind of doubt below at once — an implausibility check
+  // recomputed from the value would otherwise reopen the question on every
+  // render, which is why confirmation is a stored fact and not a same-value
+  // correction.
   if (m.confirmed) return OK;
+
+  // A result the lab printed as text ("negativní", "málo materiálu", an
+  // index), taken from the page's own text layer rather than from a reader:
+  // it is exactly what the page says, and has no number to misread. It was
+  // marked low-confidence to surface it, and so asked for a check on every
+  // row of every report (2026-09-27, 36 of one account's 87 asks).
+  if (m.extractedBy === "printed-row" && m.value === null) return OK;
 
   const range =
     curatedRange(m.canonicalId, m.unit) ??
@@ -61,7 +69,17 @@ export function reviewOf(
       ? { low: m.refRangeLow, high: m.refRangeHigh }
       : null);
 
-  const implausible = checkImplausible(m, range);
+  // Two things rule a misread out, and without them the check asked about
+  // every value moderately outside a wide range — a CK at twice its upper
+  // limit divides by ten into the range, so it read as a slipped decimal:
+  //   - the value sits inside the interval printed beside it: the lab's own
+  //     range holds it, so it is not a slip of an in-range value (and a
+  //     curated interval an order of magnitude off — trombokrit — cannot
+  //     overrule the page);
+  //   - the value is the text of its own printed row (a born-digital PDF's
+  //     text layer, checked against the page at upload): it was copied, not
+  //     transcribed from pixels, and a copy does not move a decimal point.
+  const implausible = insidePrinted(m) || printedOnPage(m) ? null : checkImplausible(m, range);
   if (implausible) {
     return {
       level: "withheld",
@@ -72,7 +90,9 @@ export function reviewOf(
     };
   }
 
-  if (m.disagreement) {
+  // Two readings that differ only in decoration — "0,87 !" and "0,87", the
+  // lab's out-of-range mark copied by one reader and not the other — agree.
+  if (m.disagreement && !sameReadings(m.disagreement)) {
     return {
       // The chip carries the readings themselves. "neshoda" alone reads as a
       // housekeeping note and hides the one fact that matters — which two
@@ -149,4 +169,32 @@ function disagreementReason(disagreement: string): string {
 /** Rows a reviewer must look at. Matches exactly what the table chips show. */
 export function needsReview(r: Review): boolean {
   return r.level !== "ok";
+}
+
+/** Inside the interval printed on the report, where one was printed. */
+function insidePrinted(m: Pick<Measurement, "value" | "refRangeLow" | "refRangeHigh">): boolean {
+  if (m.value === null || (m.refRangeLow === null && m.refRangeHigh === null)) return false;
+  return (m.refRangeLow === null || m.value >= m.refRangeLow) && (m.refRangeHigh === null || m.value <= m.refRangeHigh);
+}
+
+/**
+ * The value is its printed row's own text. Set at upload for every row
+ * (`printedOnPage`); a row stored before that is judged the way the upload
+ * judged it — on the text path (it has a row box) and its value is a token
+ * of its row's text. A scan's or photo's snippet is the reader's, never
+ * trusted here: those rows carry `printedOnPage: false`, or no box.
+ */
+function printedOnPage(m: Pick<Measurement, "printedOnPage" | "bbox" | "sourceSnippet" | "valueRaw">): boolean {
+  if (m.printedOnPage !== undefined) return m.printedOnPage === true;
+  if (!m.bbox || !m.sourceSnippet) return false;
+  const clean = (s: string) => s.replace(/[!*↑↓]/g, " ").trim();
+  const value = clean(m.valueRaw).replace(/\s+/g, " ");
+  if (!value) return false;
+  return ` ${clean(m.sourceSnippet).replace(/\s+/g, " ")} `.includes(` ${value} `);
+}
+
+/** Every reading in a stored disagreement is the same number. */
+function sameReadings(disagreement: string): boolean {
+  const parts = readingsOf(disagreement).map((p) => parseValue(p));
+  return parts.length >= 2 && parts.every((v) => v !== null && v === parts[0]);
 }
