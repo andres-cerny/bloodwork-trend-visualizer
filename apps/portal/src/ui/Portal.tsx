@@ -218,6 +218,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
         registryRef.current = reg;
         setRegistry(reg);
         learnedRef.current = l;
+        setLearnedShown(l);
         setCustomAnalytes(custom);
         setAiContext(settingsRef.current.aiContext ?? null);
         // The account's fingerprint salt, made once and kept with its settings.
@@ -391,8 +392,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const remap = useCallback((rawName: string, canonicalId: string | null) => remapMany([{ rawName, canonicalId }]), [remapMany]);
 
   /** Every change to the learned names goes through the ref, so two in one tick both land. */
+  // Mirrored into state so the mapping tab's list of this account's names
+  // re-renders when it changes, not only when something else does.
+  const [learnedShown, setLearnedShown] = useState<Record<string, string[]>>({});
   const updateLearned = useCallback((fn: (cur: Record<string, string[]>) => Record<string, string[]>) => {
     learnedRef.current = fn(learnedRef.current);
+    setLearnedShown(learnedRef.current);
     return learnedRef.current;
   }, []);
   const setLearned = useCallback((next: Record<string, string[]>) => updateLearned(() => next), [updateLearned]);
@@ -799,7 +804,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
                 </span>
                 {dateDoubtOf(r) && (
                   <span className="rl-meta rl-warn" style={{ display: "block" }}>
-                    <span aria-hidden="true">⚠️ </span>
+                    <span aria-hidden="true">⚠ </span>
                     {r.reportDate ? "Datum ke kontrole — v Ověření" : "Chybí datum, bez něj není v trendech — doplníte ho v Ověření"}
                   </span>
                 )}
@@ -1029,7 +1034,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
                   aiError={aiError}
                   onAskAgain={askAgain}
                   frozen={frozen}
-                  learned={learnedRef.current}
+                  learned={learnedShown}
                 />
               )}
             </Panel>

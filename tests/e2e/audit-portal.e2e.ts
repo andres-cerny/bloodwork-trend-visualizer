@@ -202,6 +202,9 @@ const uploadDateless = async (page: Page) => {
   }, undefined, { timeout: 10_000 });
 };
 
+/** The lines of an electricity bill: text enough for a text layer, nothing a lab prints. */
+const BILL = Array.from({ length: 20 }, (_, i) => `Polozka ${i + 1} odebrane mnozstvi podle smlouvy, cena bez DPH`);
+
 /** A modal sheet whole inside the viewport, and not scrolling sideways. */
 async function expectSheetInView(page: Page) {
   const sheet = page.locator(".sheet");
@@ -774,9 +777,11 @@ const SCREENS: Screen[] = [
       await page.locator('label.drop input[type="file"]').setInputFiles({
         name: "vyuctovani-a-vysledky-dlouhy-nazev-souboru.pdf",
         mimeType: "application/pdf",
+        // Twenty-odd lines a page: fewer and pdf.js's text layer counts as
+        // a scan, which the checks only measure for length.
         buffer: textPdf([
-          ["Vyuctovani elektriny za obdobi 2025", "Datum odberu: 3. 2. 2026", "Celkem k uhrade 1234 Kc"],
-          ["Druha strana vyuctovani", "Datum odberu: 9. 3. 2026"],
+          ["Vyuctovani elektriny za obdobi 2025", "Datum odberu: 3. 2. 2026", ...BILL],
+          ["Vyuctovani elektriny, druha strana", "Datum odberu: 9. 3. 2026", ...BILL],
         ]),
       });
       await page.waitForSelector("#file-check-h", { timeout: 20_000 });
@@ -806,7 +811,7 @@ const SCREENS: Screen[] = [
       expect(await save.isDisabled(), "nothing to save before a date is typed").toBe(true);
       expect(await page.evaluate(() => (document.activeElement as HTMLInputElement | null)?.type), "the field has focus").toBe("date");
       expect(await page.getByRole("button", { name: "Později" }).isVisible()).toBe(true);
-      await page.getByLabel("Datum odběru").fill("2025-06-03");
+      await page.locator(".sheet input[type='date']").fill("2025-06-03");
       expect(await save.isDisabled(), "a real date enables Uložit").toBe(false);
     },
   },

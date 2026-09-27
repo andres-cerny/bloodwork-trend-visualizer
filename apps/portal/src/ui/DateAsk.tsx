@@ -31,9 +31,26 @@ export default function DateAsk({ report, more, onSave, onLater }: Props) {
     inputRef.current?.focus();
   }, [report.id]);
 
+  const sheetRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") laterRef.current();
+      if (e.key === "Escape") {
+        laterRef.current();
+        return;
+      }
+      // aria-modal promises Tab stays inside; the DOM does not keep that
+      // promise on its own (the same join as BuySheet.tsx).
+      if (e.key !== "Tab" || !sheetRef.current) return;
+      const controls = [...sheetRef.current.querySelectorAll<HTMLElement>("input, button:not([disabled])")];
+      if (controls.length === 0) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      const active = document.activeElement;
+      const inside = active instanceof Node && sheetRef.current.contains(active);
+      if (e.shiftKey ? active === first || !inside : active === last || !inside) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -43,7 +60,7 @@ export default function DateAsk({ report, more, onSave, onLater }: Props) {
 
   return (
     <div className="sheet-back">
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="date-ask-title">
+      <div ref={sheetRef} className="sheet" role="dialog" aria-modal="true" aria-labelledby="date-ask-title">
         <div className="sheet-head">
           <h2 id="date-ask-title">Doplňte datum odběru</h2>
         </div>

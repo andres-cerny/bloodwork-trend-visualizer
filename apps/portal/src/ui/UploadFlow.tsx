@@ -748,7 +748,8 @@ function JobLog({ log }: { log: LogEntry[] }) {
               {n}
             </span>
           ))}
-          {j.error && <span className="job-note err">{j.error}</span>}
+          {/* A question waiting on the person is not an error, and is not drawn as one. */}
+          {j.error && <span className={j.status === "waiting" ? "job-note" : "job-note err"}>{j.error}</span>}
           {(j.retry || j.dismiss) && (
             <span className="job-note job-actions">
               {j.retry && (

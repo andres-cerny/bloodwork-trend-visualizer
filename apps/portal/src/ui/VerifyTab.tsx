@@ -593,7 +593,7 @@ function DateField({ report, onSet }: { report: LabReport; onSet: (isoDate: stri
       }}
     >
       <p style={{ margin: "0 0 6px" }}>
-        <span aria-hidden="true">⚠️ </span>
+        <span aria-hidden="true">⚠ </span>
         {dateDoubtOf(report)}
       </p>
       <span className="date-ask-row" style={{ marginTop: 0 }}>

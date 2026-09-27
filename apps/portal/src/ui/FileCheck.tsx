@@ -36,7 +36,9 @@ export default function FileCheck({ prepared, onSendAnyway, onCancel }: Props) {
           Zrušit
         </button>
         <button type="button" className="btn primary" onClick={onSendAnyway}>
-          {warnings.includes("long") || warnings.includes("multi_date") ? "Ano, je to jeden report" : "Nahrát i tak"}
+          {/* „jeden report" answers only the length and the dates; with any
+              other reason beside them the plain answer covers all of them. */}
+          {warnings.every((w) => w === "long" || w === "multi_date") ? "Ano, je to jeden report" : "Nahrát i tak"}
         </button>
       </div>
     </section>
