@@ -789,7 +789,9 @@ const SCREENS: Screen[] = [
     },
     check: async (page) => {
       expect(await page.locator(".photo-check-reasons li").count(), "both reasons listed").toBe(2);
-      expect(await page.getByRole("button", { name: "Ano, je to jeden report" }).count()).toBe(1);
+      // Two reasons of two kinds (dates, not a lab sheet): the plain answer,
+      // since „jeden report" would answer only the first.
+      expect(await page.getByRole("button", { name: "Nahrát i tak" }).count()).toBe(1);
       expect(await page.getByRole("button", { name: "Zrušit", exact: true }).count()).toBe(1);
       for (const b of await page.locator(".photo-check .review-actions .btn").all()) {
         expect((await b.boundingBox())!.height, "a FileCheck button's tap box").toBeGreaterThanOrEqual(24);
