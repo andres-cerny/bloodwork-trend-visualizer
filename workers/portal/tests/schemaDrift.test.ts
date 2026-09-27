@@ -124,7 +124,7 @@ describe("the documents migration says what schema.sql says", () => {
     const created = tablesFromSchema(MIGRATION);
     expect([...created.keys()].sort()).toEqual(["documents", "purchases"]);
     // purchases.credited_at arrived later (2026-09-27-edge-cases.sql).
-    const later: Record<string, string[]> = { purchases: ["credited_at"] };
+    const later: Record<string, string[]> = { purchases: ["credited_at"], documents: ["took_slot"] };
     for (const [table, cols] of created) expect(declared.get(table), table).toEqual([...cols, ...(later[table] ?? [])]);
   });
 
@@ -133,7 +133,7 @@ describe("the documents migration says what schema.sql says", () => {
     // from "a page is still out at the extractor"; without the default an
     // existing row would compare NULL and never release.
     const bare = (sql: string) => sql.replace(/--[^\n]*/g, "").replace(/\s+/g, " ");
-    expect(tablesFromSchema(SCHEMA).get("documents")).toEqual(["id", "user_id", "created_at", "pages_sent", "pages_read", "pages_failed", "released_at"]);
+    expect(tablesFromSchema(SCHEMA).get("documents")).toEqual(["id", "user_id", "created_at", "pages_sent", "pages_read", "pages_failed", "released_at", "took_slot"]);
     for (const col of ["pages_sent", "pages_read", "pages_failed"]) {
       expect(bare(SCHEMA), `schema.sql ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);
       expect(bare(MIGRATION), `migration ${col}`).toContain(`${col} INTEGER NOT NULL DEFAULT 0`);

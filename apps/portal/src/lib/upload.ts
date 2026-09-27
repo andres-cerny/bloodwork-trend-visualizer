@@ -64,7 +64,7 @@ import {
   preparePhoto,
   withPageChecks,
 } from "@bw/lab-core/photo";
-import { type Allowance, type ProvisionalRow, extractPage, isFatalApiError, openDocument, putPage, putReport, releaseDocument } from "./api";
+import { type Allowance, ApiError, type ProvisionalRow, extractPage, isFatalApiError, openDocument, putPage, putReport, releaseDocument, withRetry } from "./api";
 import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
 
@@ -188,6 +188,17 @@ export interface ExtractOutcome {
 }
 
 /**
+ * A read that produced no report. `released` says whether the document went
+ * back to the allowance: a retry then opens a new one, and otherwise reuses
+ * this id — opening the same id again takes nothing (POST /api/documents).
+ */
+export class ReadFailed extends Error {
+  constructor(message: string, readonly released: boolean, readonly cause?: unknown) {
+    super(message);
+  }
+}
+
+/**
  * How many pages are in flight at once — across every file being read, not
  * per file. A confirmed file extracts in the background while the reader
  * reviews the next one, so their pages share this ceiling. Eight is what the
@@ -219,11 +230,16 @@ export async function extractReport(
   // moment it is taken, once, whatever the page count. At zero the worker
   // refuses here — an ApiError `no_documents` with the allowance on it — and
   // nothing has been sent. Given back below if no page could be read.
-  const opened = await openDocument(id);
+  // Same id on every try: a second open of it takes nothing.
+  const opened = await withRetry(() => openDocument(id));
   onAllowance?.(opened.allowance);
-  const giveBack = async () => {
-    const r = await releaseDocument(id).catch(() => null);
+  const giveBack = async (): Promise<boolean> => {
+    // Retried: this is the call that returns a document, and a dropped
+    // connection here used to keep it spent. The hourly sweep on the server
+    // is the net under this one (workers/portal/src/sweep.ts).
+    const r = await withRetry(() => releaseDocument(id)).catch(() => null);
     if (r) onAllowance?.(r.allowance);
+    return !!r?.released;
   };
 
   const results: Array<PageResult | undefined> = new Array(pages.length);
@@ -243,10 +259,15 @@ export async function extractReport(
         if (fatal) return;
         const isScan = prepared.scanPages.includes(page.pageNum);
         try {
-          const res = await extractPage(
-            isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
-            id,
-            onRow ? (row) => onRow(page.pageNum, row) : undefined,
+          // A dropped connection, a timeout or a busy reader gets two more
+          // tries before the page counts as failed; the worker lets a failed
+          // page be sent again (workers/portal/src/db.ts sendPage).
+          const res = await withRetry(() =>
+            extractPage(
+              isScan ? { imageBase64: page.imageBase64, mediaType: page.mediaType } : { rowsText: rowsAsText(page.rows) },
+              id,
+              onRow ? (row) => onRow(page.pageNum, row) : undefined,
+            ),
           );
           results[i] = interpretPage(
             res.reads,
@@ -264,7 +285,9 @@ export async function extractReport(
             return;
           }
           failed.push(page.pageNum);
-          firstError = firstError ?? (e instanceof Error ? e.message : String(e));
+          // Only an ApiError's message is written for a reader; anything
+          // else is a bug's text, and the screen gets a sentence instead.
+          firstError = firstError ?? (e instanceof ApiError ? e.message : "Čtení stránky selhalo.");
         }
         onProgress(++done, pages.length);
       }),
@@ -280,8 +303,11 @@ export async function extractReport(
   // One failed page is a note on a report; every page failed is no report.
   // Storing an empty row would show "uloženo" over nothing.
   if (!results.some(Boolean)) {
-    await giveBack();
-    throw new Error(`žádnou stranu se nepodařilo přečíst — report nebyl uložen${firstError ? ` (${firstError})` : ""}`);
+    const released = await giveBack();
+    throw new ReadFailed(
+      `Žádnou stranu se nepodařilo přečíst — report nebyl uložen.${firstError ? ` ${firstError}` : ""}${released ? " Dokument se vrátil do vašeho nároku." : ""}`,
+      released,
+    );
   }
 
   const measurements: Measurement[] = [];

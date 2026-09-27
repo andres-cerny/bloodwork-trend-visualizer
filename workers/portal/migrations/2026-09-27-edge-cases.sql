@@ -9,3 +9,9 @@
 -- exists today was credited (or repaired by hand), so it is marked as such.
 ALTER TABLE purchases ADD COLUMN credited_at TEXT;
 UPDATE purchases SET credited_at = created_at WHERE credited_at IS NULL;
+
+-- Documents a demo visitor opened took no slot; the hourly sweep that gives
+-- back abandoned documents must know which, or it would hand the owner a
+-- document nobody took. Every existing row is counted as having taken one:
+-- a demo document from before this column is at worst given back once.
+ALTER TABLE documents ADD COLUMN took_slot INTEGER NOT NULL DEFAULT 1;

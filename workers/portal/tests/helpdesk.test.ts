@@ -100,7 +100,7 @@ function fakeD1(t: Tables): D1Database {
       case SQL.allowanceForUser:
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ doc_allowance: u.doc_allowance, doc_used: u.doc_used })), changes: 0 };
       case SQL.sendPage: {
-        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent < (a[2] as number));
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent - x.pages_failed < (a[2] as number) && x.pages_sent < (a[2] as number) * 3);
         if (!d) return { results: [], changes: 0 };
         d.pages_sent += 1;
         return { results: [], changes: 1 };

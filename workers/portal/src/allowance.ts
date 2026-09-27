@@ -72,7 +72,7 @@ export type OpenOutcome =
  * UPDATE, and at most `remaining` of them succeed.
  */
 export async function openDocument(db: D1Database, user: UserRow, id: string, nowIso: string, takeSlot = true): Promise<OpenOutcome> {
-  const made = await db.prepare(SQL.insertDocument).bind(id, user.id, nowIso).run();
+  const made = await db.prepare(SQL.insertDocument).bind(id, user.id, nowIso, takeSlot ? 1 : 0).run();
   if (!made.meta || made.meta.changes !== 1) {
     const row = await db.prepare(SQL.documentById).bind(id).first<DocumentRow>();
     return row && row.user_id === user.id ? { kind: "already" } : { kind: "foreign" };

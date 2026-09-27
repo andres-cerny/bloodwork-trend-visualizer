@@ -122,14 +122,20 @@ export const SQL = {
   // OR IGNORE and meta.changes say whether this call was the one that made
   // it — and the conditional UPDATE on the user row is the claim on the
   // slot: it moves doc_used only while one is left.
-  insertDocument: "INSERT OR IGNORE INTO documents (id, user_id, created_at) VALUES (?1, ?2, ?3)",
+  // took_slot is 0 for a demo document: the sweep below must not give the
+  // owner back a document a stranger's visit never took.
+  insertDocument: "INSERT OR IGNORE INTO documents (id, user_id, created_at, took_slot) VALUES (?1, ?2, ?3, ?4)",
   documentById: "SELECT id, user_id, pages_sent, pages_read, pages_failed, released_at FROM documents WHERE id = ?1",
   deleteDocument: "DELETE FROM documents WHERE id = ?1",
   takeDocument: "UPDATE users SET doc_used = doc_used + 1 WHERE id = ?1 AND doc_used < doc_allowance",
   // One page more on this document, if it is the owner's, still open, and
-  // under the page cap. Zero changes is any of the three, refused.
+  // under the page cap. Zero changes is any of the three, refused. The cap
+  // counts pages that did not fail, so a page that failed (a dropped
+  // connection, a busy reader) can be sent again; the second bound keeps
+  // retries to twice the cap, so a document cannot become a free loop.
   sendPage:
-    "UPDATE documents SET pages_sent = pages_sent + 1 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL AND pages_sent < ?3",
+    "UPDATE documents SET pages_sent = pages_sent + 1 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL " +
+    "AND pages_sent - pages_failed < ?3 AND pages_sent < ?3 * 3",
   notePageRead: "UPDATE documents SET pages_read = pages_read + 1 WHERE id = ?1",
   notePageFailed: "UPDATE documents SET pages_failed = pages_failed + 1 WHERE id = ?1",
   // The slot goes back only for a document nothing was read from, and only
@@ -140,6 +146,11 @@ export const SQL = {
   releaseDocument:
     "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND pages_read = 0 AND pages_failed = pages_sent AND released_at IS NULL",
   giveBackDocument: "UPDATE users SET doc_used = doc_used - 1 WHERE id = ?1 AND doc_used > 0",
+  // The sweep (src/sweep.ts): a document opened an hour ago with nothing
+  // read will never be read — the tab was closed after the open, or its
+  // pages' answers were lost. Released, and its slot given back if it took one.
+  sweepDocuments:
+    "UPDATE documents SET released_at = ?1 WHERE pages_read = 0 AND released_at IS NULL AND created_at < ?2 RETURNING user_id, took_slot",
   allowanceForUser: "SELECT doc_allowance, doc_used FROM users WHERE id = ?1",
 
   // Purchases (src/stripe.ts): the event id is the idempotency key.

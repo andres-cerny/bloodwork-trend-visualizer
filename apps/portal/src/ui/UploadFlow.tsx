@@ -34,14 +34,15 @@
  * which also keeps it out of the tab order on a desktop, where it would open
  * a file dialog labelled as a camera.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type IdentityHit, type LabReport, type Registry, count } from "@bw/lab-core";
 import { PHOTO_TYPES, PhotoError, isPhotoFile } from "@bw/lab-core/photo";
-import { type Allowance, type Budget, ApiError, isFatalApiError } from "../lib/api";
+import { type Allowance, type Budget, ApiError, isFatalApiError, withRetry } from "../lib/api";
 import { type Batch, NO_BATCH, pick, settle, waitingLine } from "../lib/batch";
 import { exhaustedCopy } from "./AllowanceChip";
 import {
   type PreparedFile,
+  ReadFailed,
   checkRedaction,
   extractReport,
   newReportId,
@@ -97,7 +98,24 @@ const ACCEPT = ["application/pdf", ...PHOTO_TYPES].join(",");
  * `reason` is the worker's own sentence where it gave one.
  */
 export const storeFailedCopy = (reason: string) =>
-  `Report se přečetl, ale nepodařilo se ho uložit: ${reason.replace(/\.?$/, ".")} Dokument z nároku je využitý.`;
+  `Report se přečetl, ale nepodařilo se ho uložit: ${reason.replace(/\.?$/, ".")} Přečtené hodnoty držíme — zkuste uložit znovu, dokud je okno otevřené.`;
+
+/**
+ * Why a file would not open, in a sentence the person can act on. pdf.js
+ * names its failures by class — the log used to print them as they came:
+ * „PasswordException: No password given".
+ */
+export function openFailedCopy(e: unknown): string {
+  const name = e && typeof e === "object" && "name" in e ? String((e as { name: unknown }).name) : "";
+  const text = e instanceof Error ? e.message : String(e);
+  if (name === "PasswordException" || /password/i.test(text))
+    return "PDF je chráněné heslem. Otevřete ho, uložte kopii bez hesla (Tisk → Uložit jako PDF) a nahrajte ji.";
+  if (name === "InvalidPDFException" || name === "MissingPDFException" || /invalid pdf|empty/i.test(text))
+    return "Soubor není čitelné PDF — je poškozený, prázdný, nebo jde o jiný typ souboru přejmenovaný na .pdf.";
+  if (/dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(text))
+    return "Aplikace se mezitím aktualizovala. Obnovte prosím stránku a nahrajte soubor znovu.";
+  return "Soubor se nepodařilo otevřít. Zkuste ho prosím nahrát znovu, případně ho uložte znovu jako PDF.";
+}
 
 /** What the machine is doing — as many files as have been confirmed. */
 interface Running {
@@ -113,10 +131,19 @@ interface Running {
 }
 
 interface LogEntry {
+  /** Stable across a retry, so the entry is replaced rather than duplicated. */
+  key: string;
   name: string;
   status: "done" | "failed" | "skipped";
   notes: string[];
   error: string | null;
+  /**
+   * What „Zkusit znovu" does, when a second try can succeed without the
+   * person redoing anything: the redacted pages (and, after a failed save,
+   * the read report) are still held in memory. Gone on reload — which is
+   * why the page asks before it is left while anything is held.
+   */
+  retry?: { label: string; run: () => void };
 }
 
 export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding }: Props) {
@@ -141,10 +168,30 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
   };
   // One entry per file, whichever way it ended — so one entry is one file
   // settled, and the batch is stepped here and nowhere else.
-  const addLog = (e: LogEntry) => {
-    setLog((l) => [e, ...l]);
+  const addLog = (e: Omit<LogEntry, "key"> & { key?: string }) => {
+    const entry = { ...e, key: e.key ?? `${Date.now()}-${Math.random()}` };
+    setLog((l) => [entry, ...l.filter((x) => x.key !== entry.key)]);
     publishBatch(settle(batchRef.current));
   };
+  /** A retry takes its entry off the log and puts its file back into the batch. */
+  const reopen = (key: string) => {
+    setLog((l) => l.filter((x) => x.key !== key));
+    publishBatch(pick(batchRef.current, 1));
+  };
+
+  // Closing or reloading the tab mid-read used to lose the file without a
+  // word — and the redacted pages a retry needs. The browser's own dialog is
+  // the only thing that can stop that; its text is the browser's, not ours.
+  const holdsWork = stage.kind !== "idle" || running.length > 0 || queued.length > 0 || log.some((j) => j.retry);
+  useEffect(() => {
+    if (!holdsWork) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [holdsWork]);
   const updateRunning = (id: string, patch: Partial<Running>) =>
     setRunning((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const dropRunning = (id: string) => setRunning((rs) => rs.filter((r) => r.id !== id));
@@ -164,7 +211,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     } catch (e) {
       // A PhotoError already carries the sentence the person needs — which
       // format it was and what to send instead. Wrapping it would bury it.
-      const error = e instanceof PhotoError ? e.message : `Soubor se nepodařilo otevřít: ${e}`;
+      const error = e instanceof PhotoError ? e.message : openFailedCopy(e);
       addLog({ name: file.name, status: "failed", notes: [], error });
       finish();
     }
@@ -190,27 +237,32 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         throw new Error(`anonymizace se nezdařila — v textu zůstalo: ${survived.slice(0, 3).join(", ")}`);
       }
       const id = newReportId();
-      setRunning((rs) => [...rs, { id, name, phase: "extracting", done: 0, total: pages.length, rows: 0, latest: [] }]);
       // Not awaited: the next file's review must not wait for this read.
       void extractInBackground(id, name, prepared, pages);
     } catch (e) {
-      addLog({ name, status: "failed", notes: [], error: `Nepodařilo se zpracovat PDF: ${e instanceof Error ? e.message : e}` });
+      addLog({ name, status: "failed", notes: [], error: `Soubor se nepodařilo zpracovat: ${e instanceof Error ? e.message : e}` });
     }
     finish();
   }
 
   /** The machine's half: read every page under the shared ceiling, store. */
-  async function extractInBackground(id: string, name: string, prepared: PreparedFile, pages: Awaited<ReturnType<typeof redactFile>>) {
+  async function extractInBackground(
+    id: string,
+    name: string,
+    prepared: PreparedFile,
+    pages: Awaited<ReturnType<typeof redactFile>>,
+    key = `${id}`,
+  ) {
+    setRunning((rs) => [...rs, { id, name, phase: "extracting", done: 0, total: pages.length, rows: 0, latest: [] }]);
     // Rows arrive as the readers write them, both readers, out of order
     // across pages. One line per printed row is enough for the screen: the
     // first reader to name it wins, and the count is of distinct rows.
     const seen = new Set<string>();
     const latest: string[] = [];
-    // True once the read has returned: from here a failure is a failed
-    // store, the document is spent, and the sentence says so.
-    let read = false;
+    let report: LabReport | null = null;
+    let notes: string[] = [];
     try {
-      const { report, notes } = await extractReport(
+      ({ report, notes } = await extractReport(
         id,
         prepared,
         pages,
@@ -219,36 +271,95 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         (pageNum, row) => {
           const name = (row.raw_analyte_name ?? "").trim();
           if (!name) return;
-          const key = `${pageNum}:${name.toLowerCase()}`;
-          if (seen.has(key)) return;
-          seen.add(key);
+          const k = `${pageNum}:${name.toLowerCase()}`;
+          if (seen.has(k)) return;
+          seen.add(k);
           latest.push([name, row.value_raw ?? "", row.unit_raw ?? ""].filter(Boolean).join(" "));
           if (latest.length > 4) latest.shift();
           updateRunning(id, { rows: seen.size, latest: [...latest] });
         },
         onAllowance,
-      );
-      read = true;
-      updateRunning(id, { phase: "storing" });
-      const stored = await storeReport(report, pages);
-      onStored(stored);
-      addLog({ name, status: "done", notes, error: null });
+      ));
     } catch (e) {
-      const reason = e instanceof ApiError || e instanceof Error ? e.message : String(e);
-      const message = read ? storeFailedCopy(reason) : e instanceof ApiError ? e.message : `Nepodařilo se zpracovat PDF: ${reason}`;
-      addLog({ name, status: "failed", notes: [], error: message });
-      if (e instanceof ApiError && e.budget) onBudget(e.budget);
-      if (e instanceof ApiError && e.allowance) onAllowance(e.allowance);
-      if (isFatalApiError(e)) {
-        // Every file still waiting would fail the same way; say so instead
-        // of leaving them queued and silent. A file already under review is
-        // left to the reader — its own read will say the same thing.
-        for (const f of queueRef.current) addLog({ name: f.name, status: "skipped", notes: [], error: "Nezpracováno — předchozí soubor narazil na limit." });
-        queueRef.current = [];
-        publishQueue();
-      }
+      dropRunning(id);
+      failedRead(e, id, name, prepared, pages, key);
+      return;
     }
     dropRunning(id);
+    await storeInBackground(report, pages, name, notes, key);
+  }
+
+  /** Persist a read report; on failure keep it, and offer to save it again. */
+  async function storeInBackground(report: LabReport, pages: Awaited<ReturnType<typeof redactFile>>, name: string, notes: string[], key: string) {
+    setRunning((rs) => [...rs, { id: report.id, name, phase: "storing", done: 0, total: 0, rows: 0, latest: [] }]);
+    try {
+      const stored = await withRetry(() => storeReport(report, pages));
+      onStored(stored);
+      addLog({ key, name, status: "done", notes, error: null });
+    } catch (e) {
+      const reason = e instanceof ApiError ? e.message : "Neznámá chyba.";
+      addLog({
+        key,
+        name,
+        status: "failed",
+        notes,
+        error: storeFailedCopy(reason),
+        // The document is spent and the values are read: saving again costs
+        // nothing, and PUT of the same report id is safe to repeat.
+        retry: {
+          label: "Uložit znovu",
+          run: () => {
+            reopen(key);
+            void storeInBackground(report, pages, name, notes, key);
+          },
+        },
+      });
+      if (isFatalApiError(e)) skipQueued(e);
+    }
+    dropRunning(report.id);
+  }
+
+  function failedRead(e: unknown, id: string, name: string, prepared: PreparedFile, pages: Awaited<ReturnType<typeof redactFile>>, key: string) {
+    const message = e instanceof ApiError || e instanceof ReadFailed ? e.message : `Soubor se nepodařilo zpracovat: ${e instanceof Error ? e.message : String(e)}`;
+    if (e instanceof ApiError && e.budget) onBudget(e.budget);
+    if (e instanceof ApiError && e.allowance) onAllowance(e.allowance);
+    // Worth a second try when nothing the person can change caused it. The
+    // pages are already redacted, so the retry skips the review; a document
+    // that went back is opened afresh, one still held is reused by its id.
+    const retryable = e instanceof ReadFailed || (e instanceof ApiError && !isFatalApiError(e) && e.code !== "bad_request");
+    const retryId = e instanceof ReadFailed && e.released ? newReportId() : id;
+    addLog({
+      key,
+      name,
+      status: "failed",
+      notes: [],
+      error: message,
+      retry: retryable
+        ? {
+            label: "Zkusit znovu",
+            run: () => {
+              reopen(key);
+              void extractInBackground(retryId, name, prepared, pages, key);
+            },
+          }
+        : undefined,
+    });
+    if (isFatalApiError(e)) skipQueued(e);
+  }
+
+  /** Every file still waiting would fail the same way; say so instead of
+   *  leaving them queued and silent. A file already under review is left to
+   *  the reader — its own read will say the same thing. */
+  function skipQueued(e: unknown) {
+    const why =
+      e instanceof ApiError && e.code === "unauthorized"
+        ? "Nezpracováno — přihlášení vypršelo. Přihlaste se znovu a soubor nahrajte."
+        : e instanceof ApiError && (e.code === "no_documents" || e.code === "no_document")
+          ? "Nezpracováno — došly dokumenty v nároku."
+          : "Nezpracováno — předchozí soubor narazil na limit.";
+    for (const f of queueRef.current) addLog({ name: f.name, status: "skipped", notes: [], error: why });
+    queueRef.current = [];
+    publishQueue();
   }
 
   /**
@@ -288,8 +399,8 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         </p>
         {log.length > 0 && (
           <ul className="joblist">
-            {log.map((j, i) => (
-              <li key={i} className={`job ${j.status}`}>
+            {log.map((j) => (
+              <li key={j.key} className={`job ${j.status}`}>
                 <span className="job-head">
                   <span className="job-mark" aria-hidden="true">
                     {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
@@ -470,8 +581,8 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
 
       {log.length > 0 && (
         <ul className="joblist">
-          {log.map((j, i) => (
-            <li key={i} className={`job ${j.status}`}>
+          {log.map((j) => (
+            <li key={j.key} className={`job ${j.status}`}>
               <span className="job-head">
                 <span className="job-mark" aria-hidden="true">
                   {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
@@ -489,6 +600,13 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
                 </span>
               ))}
               {j.error && <span className="job-note err">{j.error}</span>}
+              {j.retry && (
+                <span className="job-note">
+                  <button type="button" className="btn small" onClick={j.retry.run}>
+                    {j.retry.label}
+                  </button>
+                </span>
+              )}
             </li>
           ))}
         </ul>

@@ -103,7 +103,7 @@ function fakeD1(t: Tables): D1Database {
       case SQL.allowanceForUser:
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ doc_allowance: u.doc_allowance, doc_used: u.doc_used })), changes: 0 };
       case SQL.sendPage: {
-        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent < (a[2] as number));
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent - x.pages_failed < (a[2] as number) && x.pages_sent < (a[2] as number) * 3);
         if (!d) return { results: [], changes: 0 };
         d.pages_sent += 1;
         return { results: [], changes: 1 };
@@ -290,6 +290,50 @@ describe("extract proxy", () => {
     // cost has been booked by the time the stream closes.
     expect(lines[1]).toMatchObject({ type: "done", costUsd: 0.0123, budget: { spentUsd: 0.0123, budgetUsd: 5 } });
     expect((await userBudget(env.BUDGET, A.id, 5)).spentUsd).toBe(0.0123);
+  });
+
+  it("settles a stream that ends without its final line as a failed page, and says so", async () => {
+    const stream = fakeExtractStream([{ type: "row", model: "claude-haiku-4-5", row: { raw_analyte_name: "S_Glukóza", value_raw: "5,32" } }]);
+    env.EXTRACT = stream.fetcher;
+    const res = await extractPage(A, { rowsText: "x", stream: true });
+    const lines = (await res.text()).trim().split("\n").map((l) => JSON.parse(l));
+    expect(lines.at(-1)).toMatchObject({ type: "error", error: "stream_ended", message: expect.stringMatching(/přerušilo/) });
+    // Counted failed, not left in flight: the release can now give it back.
+    expect(tables.documents[0]).toMatchObject({ pages_sent: 1, pages_failed: 1, pages_read: 0 });
+  });
+
+  it("books a streamed read even when the browser stops listening halfway", async () => {
+    let waited: Promise<unknown> | null = null;
+    const ctx = { waitUntil: (p: Promise<unknown>) => void (waited = p), passThroughOnException: () => {} } as unknown as ExecutionContext;
+    const stream = fakeExtractStream([
+      { type: "row", model: "m", row: { raw_analyte_name: "S_Glukóza", value_raw: "5,32" } },
+      { type: "done", reads: [], mode: "text", costUsd: 0.02, budget: {} },
+    ]);
+    env.EXTRACT = stream.fetcher;
+    await call(A, "POST", "/api/documents", { id: "d-1" });
+    const res = await worker.fetch(
+      new Request("https://portal/api/extract", { method: "POST", headers: { ...(await as(A)), "content-type": "application/json", "x-document": "d-1" }, body: JSON.stringify({ rowsText: "x", stream: true }) }),
+      env,
+      ctx,
+    );
+    // The tab closes: the body is cancelled before a line is read.
+    await res.body!.cancel();
+    expect(waited).not.toBeNull();
+    await waited;
+    expect(tables.documents[0]).toMatchObject({ pages_read: 1 });
+    expect((await userBudget(env.BUDGET, A.id, 5)).spentUsd).toBe(0.02);
+  });
+
+  it("lets a failed page be sent again, and bounds the retries", async () => {
+    extract = fakeExtract({ status: 502, body: { error: "extraction_failed", message: "no" } });
+    env.EXTRACT = extract.fetcher;
+    await call(A, "POST", "/api/documents", { id: "d-1" });
+    const statuses: number[] = [];
+    // The cap is 6 pages; a page that failed does not count against it, and
+    // retries stop at three times the cap.
+    for (let i = 0; i < 20; i++) statuses.push((await call(A, "POST", "/api/extract", { rowsText: "x" }, { "x-document": "d-1" })).status);
+    expect(statuses.filter((s) => s === 502)).toHaveLength(18);
+    expect(statuses.slice(18)).toEqual([409, 409]);
   });
 
   it("freezes the person who spent the month's allowance, and nobody else", async () => {

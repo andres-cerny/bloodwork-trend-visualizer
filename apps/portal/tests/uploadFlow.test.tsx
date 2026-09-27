@@ -32,7 +32,13 @@ const photoVerdicts = new Map<string, { outcome: "ok" | "warn" | "refuse"; reaso
 
 vi.mock("../src/lib/upload", () => {
   const page = { pageNum: 1, imageUrl: "blob:p1", imageWidth: 100, imageHeight: 140, imageBase64: "", mediaType: "image/png", words: [], rows: [], hasTextLayer: true };
+  class ReadFailed extends Error {
+    constructor(message: string, readonly released: boolean) {
+      super(message);
+    }
+  }
   return {
+    ReadFailed,
     prepareFile: async (file: File): Promise<PreparedFile> => {
       const verdict = photoVerdicts.get(file.name);
       if (verdict)
@@ -156,6 +162,64 @@ function mount(holding: boolean) {
 
 const line = () => host.querySelector(".batch-wait")?.textContent ?? null;
 
+describe("what a failure keeps", () => {
+  const click = async (label: string) => {
+    const b = [...host.querySelectorAll("button")].find((x) => x.textContent === label)!;
+    expect(b, label).toBeTruthy();
+    await act(async () => {
+      b.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+  };
+
+  it("a failed save keeps the read report, and „Uložit znovu“ saves it without reading again", async () => {
+    storeFails.set("id-1", new ApiError("Požadavek se nepodařilo vyřídit.", "unknown", 500));
+    const p = mount(false);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await lands("a.pdf");
+    expect(p.stored).toHaveLength(0);
+    storeFails.clear();
+    const readsBefore = reads.size;
+    await click("Uložit znovu");
+    expect(p.stored).toEqual(["id-1"]);
+    expect(reads.size).toBe(readsBefore);
+    expect(host.querySelectorAll("li.job.failed")).toHaveLength(0);
+    expect(host.querySelectorAll("li.job.done")).toHaveLength(1);
+    expect(p.batches.at(-1)).toEqual({ total: 0, settled: 0 });
+  });
+
+  it("a failed read offers „Zkusit znovu“, which reads the redacted pages again without a new review", async () => {
+    const p = mount(false);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    await act(async () => reads.get("a.pdf")!.reject(new ApiError("Server neodpovídá.", "timeout", 0)));
+    await flush();
+    expect(host.querySelector("li.job.failed")?.textContent).toContain("Server neodpovídá.");
+    reads.delete("a.pdf");
+    await click("Zkusit znovu");
+    expect(reads.has("a.pdf")).toBe(true);
+    expect(host.querySelector(".review")).toBeNull();
+    await lands("a.pdf");
+    expect(p.stored).toHaveLength(1);
+  });
+
+  it("asks before the tab is closed while a file is being read, and not once it is done", async () => {
+    mount(false);
+    const unload = () => {
+      const e = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    expect(unload()).toBe(false);
+    await pickFiles(["a.pdf"]);
+    await confirm("a.pdf");
+    expect(unload()).toBe(true);
+    await lands("a.pdf");
+    expect(unload()).toBe(false);
+  });
+});
+
 describe("the queue and its batch", () => {
   it("a pick of three opens a batch of three; each landing steps it; the last closes it after its report went up", async () => {
     const p = mount(true);
@@ -221,7 +285,7 @@ describe("the queue and its batch", () => {
     expect(failed?.textContent).toContain("a.pdf");
     expect(failed?.querySelector(".job-note")?.textContent).toBe(storeFailedCopy("Report je příliš velký."));
     expect(storeFailedCopy("Report je příliš velký.")).toBe(
-      "Report se přečetl, ale nepodařilo se ho uložit: Report je příliš velký. Dokument z nároku je využitý.",
+      "Report se přečetl, ale nepodařilo se ho uložit: Report je příliš velký. Přečtené hodnoty držíme — zkuste uložit znovu, dokud je okno otevřené.",
     );
     await lands("b.pdf");
     expect(p.batches.at(-1)).toEqual({ total: 0, settled: 0 });

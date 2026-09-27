@@ -84,7 +84,7 @@ function fakeD1(t: Tables): D1Database {
         return { results: [], changes: 1 };
       }
       case SQL.sendPage: {
-        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent < (a[2] as number));
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && x.pages_sent - x.pages_failed < (a[2] as number) && x.pages_sent < (a[2] as number) * 3);
         if (!d) return { results: [], changes: 0 };
         d.pages_sent += 1;
         return { results: [], changes: 1 };

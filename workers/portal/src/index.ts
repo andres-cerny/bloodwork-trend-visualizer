@@ -39,6 +39,7 @@
  */
 import { mintSession } from "@bw/gate";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
+import { sweepAbandonedDocuments } from "./sweep";
 import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
 import { errorCodeOf, recordEvent, routeLabel } from "./events";
 import { handleHelpdesk } from "./helpdesk";
@@ -491,7 +492,7 @@ async function forgetSynonym(request: Request, env: Env, user: UserRow): Promise
  * shut. Spend the extractor reports is booked against the person, and a
  * frozen person is refused here before anything is sent.
  */
-async function handleExtract(request: Request, env: Env, user: UserRow): Promise<Response> {
+async function handleExtract(request: Request, env: Env, user: UserRow, ctx?: ExecutionContext): Promise<Response> {
   const limit = limitFor(user, env);
   const before = await userBudget(env.BUDGET, user.id, limit);
   if (before.frozen) {
@@ -539,11 +540,24 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
   // that is the buffered answer. Lines pass through untouched except the
   // last, which is where the cost is booked and the person's budget added —
   // the same two things the buffered path does to its one object.
+  //
+  // The extractor's stream is read to its end here whatever happens to the
+  // browser, under waitUntil: settling used to live inside the stream the
+  // browser was reading, so a closed tab or a dropped connection cancelled it
+  // and the page stayed "in flight" for good — the document neither read nor
+  // failed, so never given back. And a stream that ends with no final line
+  // (the extractor killed mid-read) is settled as a failed page, for the
+  // same reason, with an error line so the browser is told.
   const type = res.headers.get("content-type") ?? "";
   if (res.ok && type.includes("x-ndjson") && res.body) {
+    const source = res.body;
     const enc = new TextEncoder();
     const dec = new TextDecoder();
-    let tail = "";
+    const out = new TransformStream<Uint8Array, Uint8Array>();
+    const writer = out.writable.getWriter();
+    // The browser may be gone; its half failing must not stop the settling.
+    const send = (line: string) => writer.write(enc.encode(line + "\n")).catch(() => undefined);
+    let settled = false;
     const rewrite = async (text: string): Promise<string> => {
       let ev: Record<string, unknown>;
       try {
@@ -552,6 +566,8 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
         return text;
       }
       if (ev.type !== "done" && ev.type !== "error") return text;
+      if (settled) return text;
+      settled = true;
       const { type: _t, ...data } = ev;
       const shaped = await settle(env, user, ev.type === "done" ? 200 : 502, data as ExtractAnswer, docId);
       // The HTTP status is already 200 on a stream, so the refusal in its
@@ -561,28 +577,49 @@ async function handleExtract(request: Request, env: Env, user: UserRow): Promise
       }
       return JSON.stringify({ type: ev.type, ...shaped });
     };
-    const through = new TransformStream<Uint8Array, Uint8Array>({
-      async transform(chunk, ctrl) {
-        tail += dec.decode(chunk, { stream: true });
-        let nl: number;
-        while ((nl = tail.indexOf("\n")) >= 0) {
-          const one = tail.slice(0, nl);
-          tail = tail.slice(nl + 1);
-          ctrl.enqueue(enc.encode((await rewrite(one)) + "\n"));
+    const endedEarly = async () => {
+      if (settled) return;
+      settled = true;
+      const shaped = await settle(env, user, 502, { error: "stream_ended", message: "Čtení stránky se přerušilo — zkuste to znovu." }, docId);
+      await recordEvent(env, { route: "POST /api/extract", status: 502, code: "stream_ended", uid: user.id, requestId: request.headers.get("cf-ray") });
+      await send(JSON.stringify({ type: "error", ...shaped }));
+    };
+    const pump = (async () => {
+      let tail = "";
+      try {
+        const reader = source.getReader();
+        for (;;) {
+          const { value, done } = await reader.read();
+          tail += done ? dec.decode() : dec.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = tail.indexOf("\n")) >= 0) {
+            const one = tail.slice(0, nl);
+            tail = tail.slice(nl + 1);
+            await send(await rewrite(one));
+          }
+          if (done) break;
         }
-      },
-      async flush(ctrl) {
-        if (tail.trim()) ctrl.enqueue(enc.encode((await rewrite(tail)) + "\n"));
-      },
-    });
-    return new Response(res.body.pipeThrough(through), {
+        if (tail.trim()) await send(await rewrite(tail));
+      } catch (e) {
+        console.error(`extract stream broke: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      await endedEarly();
+      await writer.close().catch(() => undefined);
+    })();
+    ctx?.waitUntil(pump);
+    return new Response(out.readable, {
       status: 200,
       headers: { "content-type": type, "cache-control": "no-store" },
     });
   }
 
-  const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
-  return json(await settle(env, user, res.status, data, docId), res.status);
+  // Buffered: the same, the settling held open past a closed tab.
+  const work = (async () => {
+    const data = (await res.json().catch(() => ({}))) as ExtractAnswer;
+    return json(await settle(env, user, res.status, data, docId), res.status);
+  })();
+  ctx?.waitUntil(work);
+  return work;
 }
 
 interface ExtractAnswer {
@@ -1141,7 +1178,7 @@ const routes = {
       case "POST /api/buy":
         return handleBuy(request, env, user, session.demo);
       case "POST /api/extract":
-        return handleExtract(request, env, user);
+        return handleExtract(request, env, user, ctx);
       case "POST /api/map":
         return handleMap(request, env, user);
       case "GET /api/reports":
@@ -1221,6 +1258,14 @@ export default {
   },
   /** The cron trigger in wrangler.jsonc, every 15 minutes (src/watch.ts). */
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runWatch(env));
+    ctx.waitUntil(
+      Promise.all([
+        runWatch(env),
+        sweepAbandonedDocuments(env.DB).then(
+          (n) => void (n && console.log(`sweep: ${n} abandoned documents given back`)),
+          (e) => console.error(`sweep failed: ${e instanceof Error ? e.message : String(e)}`),
+        ),
+      ]),
+    );
   },
 } satisfies ExportedHandler<Env>;
