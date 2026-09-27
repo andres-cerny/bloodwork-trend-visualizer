@@ -15,7 +15,10 @@ import { homography, type PhotoRowSource } from "@bw/lab-core/photo";
 
 const sent: unknown[] = [];
 
-vi.mock("../src/lib/api", () => ({
+// Partial: the pipeline also uses the module's own helpers (ApiError,
+// withRetry, isRetryablePage) — only the network calls are stood in for.
+vi.mock("../src/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/lib/api")>()),
   putReport: async (report: LabReport) => {
     sent.push(structuredClone(report));
     return { ok: true };
