@@ -11,6 +11,10 @@ import type { OcrLine } from "../src/photoOcr";
 import { homography, type PageQuad } from "../src/photoPage";
 import {
   isTwoSheets,
+  MAX_TEXT_SKEW_DEG,
+  photoRowGuard,
+  textInTwoBlocks,
+  textSkewDeg,
   locatePhotoRows,
   matchReadRows,
   ocrRows,
@@ -82,6 +86,74 @@ describe("matchReadRows — name and value on one OCR row, else nothing", () => 
   });
 });
 
+describe("rowHasName — whole tokens, Czech included", () => {
+  it("does not match a short name inside a longer word: Fe is not Ferritin", () => {
+    const iron = ocrRows([line(100, "Železo", "18"), line(152, "Ferritin", "15")]);
+    expect(matchReadRows([{ rawAnalyteName: "Fe", valueRaw: "15" }], iron)).toEqual([-1]);
+    expect(rowHasName("Ferritin 15 ug/l", "Fe")).toBe(false);
+  });
+
+  it("does not match a prefixed code inside another: S-K is not S-Kreatinin", () => {
+    expect(rowHasName("S-Kreatinin 84 umol/l", "S-K")).toBe(false);
+    expect(rowHasName("S-K 4,1 mmol/l", "S-K")).toBe(true);
+  });
+
+  it("still matches across Czech letters, a dropped separator and an OCR typo", () => {
+    expect(rowHasName("Železo 18 umol/l", "Železo")).toBe(true);
+    expect(rowHasName("S_Glukóza 5,1 mmol/l", "S_Glukóza")).toBe(true);
+    expect(rowHasName("SGlukoza 5,1 mmol/l", "S_Glukóza")).toBe(true);
+    expect(rowHasName("Saturace transferlnu železem 29,4 %", "Saturace transferinu železem")).toBe(true);
+  });
+});
+
+describe("photoRowGuard — no frames at all on a photo that cannot be framed safely", () => {
+  /** Twelve printed rows, each tilted by `deg`, three words wide. */
+  const tilted = (deg: number, x0 = 100): OcrLine[] =>
+    Array.from({ length: 12 }, (_, r) => {
+      const t = Math.tan((deg * Math.PI) / 180);
+      const y = 100 + r * 52;
+      return { words: [0, 350, 700].map((dx, i) => w(`slovo${i}`, [x0 + dx, y + dx * t, x0 + dx + 120, y + dx * t + 30])) };
+    });
+
+  it("reads the tilt from the OCR word centres", () => {
+    expect(textSkewDeg(tilted(0))).toBeCloseTo(0, 5);
+    expect(textSkewDeg(tilted(3))).toBeCloseTo(3, 1);
+    expect(textSkewDeg([])).toBeNull();
+  });
+
+  it("withholds on text tilted past the limit when the picture was not flattened", () => {
+    expect(MAX_TEXT_SKEW_DEG).toBeCloseTo((Math.atan(2.25 / 160) * 180) / Math.PI, 1);
+    expect(photoRowGuard(null, false, tilted(0.3), 1200, 1700)).toBeNull();
+    expect(photoRowGuard(null, false, tilted(2), 1200, 1700)).toBe("skewed");
+    // A flattened picture was straightened by its homography; its OCR tilt is not the photo's.
+    expect(photoRowGuard(portrait, true, tilted(0.3), 1200, 1700)).toBeNull();
+  });
+
+  it("withholds on two sheets: found as one page, a landscape frame, or text in two blocks", () => {
+    expect(photoRowGuard(spread, true, tilted(0), 2400, 1700)).toBe("two-sheets");
+    expect(photoRowGuard(null, false, tilted(0), 1700, 1200)).toBe("two-sheets");
+    const twoBlocks = [...tilted(0, 60), ...tilted(0, 1300)];
+    expect(textInTwoBlocks(twoBlocks, 2200)).toBe(true);
+    expect(photoRowGuard(null, false, twoBlocks, 2200, 2400)).toBe("two-sheets");
+  });
+
+  it("lets a single level sheet through, a page-wide title crossing the middle", () => {
+    const one = [...tilted(0), { words: [w("Laboratoř", [100, 40, 500, 70]), w("klinické", [520, 40, 800, 70]), w("biochemie", [820, 40, 1100, 70])] }];
+    expect(textInTwoBlocks(one, 1200)).toBe(false);
+    expect(photoRowGuard(null, false, one, 1200, 1700)).toBeNull();
+  });
+});
+
+describe("toPhotoQuad — a tenth of a pixel is enough", () => {
+  it("rounds the corners to one decimal", () => {
+    const toPhoto = homography([[0, 0], [1200, 0], [1200, 1700], [0, 1700]], portrait.corners);
+    for (const [x, y] of toPhotoQuad([100.123, 152.456, 1060.789, 182.01], toPhoto)) {
+      expect(Math.round(x * 10) / 10).toBe(x);
+      expect(Math.round(y * 10) / 10).toBe(y);
+    }
+  });
+});
+
 describe("isTwoSheets — the guard", () => {
   it("is false for a portrait page and for no page", () => {
     expect(isTwoSheets(portrait)).toBe(false);
@@ -100,14 +172,14 @@ describe("locatePhotoRows", () => {
   ];
 
   it("returns a quad and its bounds for a match, null for no match", () => {
-    const out = locatePhotoRows(reads, { rows, toPhoto: null, twoSheets: false });
+    const out = locatePhotoRows(reads, { rows, toPhoto: null, withhold: null });
     expect(out[0]?.quad).toEqual([[100, 152], [1060, 152], [1060, 182], [100, 182]]);
     expect(out[0]?.bbox).toEqual([100, 152, 1060, 182]);
     expect(out[1]).toBeNull();
   });
 
   it("gives no highlight at all on two sheets, even where a row would match", () => {
-    expect(locatePhotoRows(reads, { rows, toPhoto: null, twoSheets: true })).toEqual([null, null]);
+    expect(locatePhotoRows(reads, { rows, toPhoto: null, withhold: "two-sheets" })).toEqual([null, null]);
   });
 
   it("gives none without an OCR pass", () => {
@@ -117,7 +189,7 @@ describe("locatePhotoRows", () => {
   it("carries the flattened-frame box back to the photo as a quadrilateral", () => {
     // Flattened 1200×1700 frame → a skewed page on the photo.
     const toPhoto = homography([[0, 0], [1200, 0], [1200, 1700], [0, 1700]], portrait.corners);
-    const src: PhotoRowSource = { rows, toPhoto, twoSheets: false };
+    const src: PhotoRowSource = { rows, toPhoto, withhold: null };
     const q = locatePhotoRows(reads, src)[0]!.quad;
     expect(q).toEqual(toPhotoQuad(rows[1].box, toPhoto));
     // A skewed quad: its top edge is not horizontal.

@@ -8,14 +8,16 @@
  * `lumaFromRgba` → `flattenPhoto` → `evenLight`, Tesseract (`ces`,
  * 4.0.0_best_int, the traineddata the portal self-hosts) on that picture, and
  * `toPhoto` from the found corners when the page was warped. Then what the app
- * does with it: `ocrRows` → `locatePhotoRows` with `isTwoSheets(page)`. The
- * quad it returns is on the photo — the picture Ověření shows — and is judged
- * there (`judgeQuad`).
+ * does with it: `ocrRows` → `locatePhotoRows` with `photoRowGuard`. The quad
+ * it returns is on the photo — the picture Ověření shows — and is judged there
+ * (`judgeQuad`).
  *
  * The policy, decided 2026-09-27: page found and portrait → located on the
  * flattened OCR picture and carried back; no page found → OCR ran on the
- * original and locates there; page found but wider than tall → two sheets, no
- * highlight on that photo.
+ * original and locates there. No highlight on the photo at all for two sheets
+ * (a found page wider than tall; or, with no page found, a landscape picture
+ * or text in two blocks) and for text read tilted past MAX_TEXT_SKEW_DEG.
+ * HL_NO_GUARD=1 turns the photo-level guard off, to show what it prevents.
  *
  * Truth: each printed row's glyph band (truth.ts) mapped source PDF → original
  * photo (the replayed simulator transform; for the bad-photo set, the page
@@ -40,7 +42,7 @@ import {
   evenLight,
   flattenPhoto,
   homography,
-  isTwoSheets,
+  photoRowGuard,
   locatePhotoRows,
   lumaFromRgba,
   ocrRows,
@@ -235,9 +237,9 @@ const NO_INK = new Set(["blur", "motion", "tiny", "micro"]);
 const noGuard = process.env.HL_NO_GUARD === "1";
 
 async function score() {
-  type Cell = { photos: number; noPage: number; twoSheets: number; rows: number; right: number; wrong: number; wrongStrict: number; cases: string[] };
+  type Cell = { photos: number; noPage: number; twoSheets: number; skewed: number; rows: number; right: number; wrong: number; wrongStrict: number; cases: string[] };
   const cells = new Map<string, Cell>();
-  const cell = (k: string) => cells.get(k) ?? (cells.set(k, { photos: 0, noPage: 0, twoSheets: 0, rows: 0, right: 0, wrong: 0, wrongStrict: 0, cases: [] }), cells.get(k)!);
+  const cell = (k: string) => cells.get(k) ?? (cells.set(k, { photos: 0, noPage: 0, twoSheets: 0, skewed: 0, rows: 0, right: 0, wrong: 0, wrongStrict: 0, cases: [] }), cells.get(k)!);
   const inkOff: string[] = [];
   const ocrOf = (it: Item): Ocr => JSON.parse(readFileSync(join(OCR_DIR, `${key(it)}.json`), "utf8"));
   const simByName = new Map(items.filter((i) => i.set === "sim").map((i) => [i.name, i]));
@@ -263,11 +265,13 @@ async function score() {
     const page = o.corners ? ({ corners: o.corners } as unknown as PageQuad) : null;
     const [fw, fh] = o.flatSize;
     const toPhoto = o.warped && o.corners ? homography([[0, 0], [fw, 0], [fw, fh], [0, fh]], o.corners) : null;
-    const twoSheets = !noGuard && o.found && isTwoSheets(page);
+    const guard = photoRowGuard(page, o.warped, o.lines, fw, fh);
+    const withhold = noGuard ? null : guard;
     if (!o.found) c.noPage++;
-    if (twoSheets) c.twoSheets++;
+    if (withhold === "two-sheets") c.twoSheets++;
+    if (withhold === "skewed") c.skewed++;
     const reads = it.reads.map((r) => ({ rawAnalyteName: r.raw_analyte_name, valueRaw: r.value_raw }));
-    const boxes = locatePhotoRows(reads, { rows: ocrRows(o.lines), toPhoto, twoSheets });
+    const boxes = locatePhotoRows(reads, { rows: ocrRows(o.lines), toPhoto, withhold });
 
     it.readerTruth.forEach((tr, i) => {
       const b = boxes[i];
@@ -284,16 +288,16 @@ async function score() {
   }
 
   const ORACLE: Record<string, string> = { flat: "0 · 94.3 %", dark: "0 · 87.6 %", glare: "0 · 82.4 %", crop: "0 · 93.6 %", angle: "0 · 61.1 %", twopage: "0 · 100 %" };
-  const lines = ["| set | condition | photos | no page | two sheets | rows | wrong (plan) | wrong (strict) | coverage | oracle T |", "|---|---|---|---|---|---|---|---|---|---|"];
+  const lines = ["| set | condition | photos | no page | two sheets | skewed | rows | wrong (plan) | wrong (strict) | coverage | oracle T |", "|---|---|---|---|---|---|---|---|---|---|---|"];
   const tot: Record<string, Cell> = {};
   for (const [k, c] of [...cells].sort()) {
     const [set, cond] = k.split("|");
-    lines.push(`| ${set} | ${cond} | ${c.photos} | ${c.noPage} | ${c.twoSheets} | ${c.rows} | ${c.wrong} | ${c.wrongStrict} | ${((100 * c.right) / Math.max(1, c.rows)).toFixed(1)} % | ${set === "sim" ? ORACLE[cond] ?? "" : "—"} |`);
-    const s = (tot[set] ??= { photos: 0, noPage: 0, twoSheets: 0, rows: 0, right: 0, wrong: 0, wrongStrict: 0, cases: [] });
-    for (const f of ["photos", "noPage", "twoSheets", "rows", "right", "wrong", "wrongStrict"] as const) s[f] += c[f];
+    lines.push(`| ${set} | ${cond} | ${c.photos} | ${c.noPage} | ${c.twoSheets} | ${c.skewed} | ${c.rows} | ${c.wrong} | ${c.wrongStrict} | ${((100 * c.right) / Math.max(1, c.rows)).toFixed(1)} % | ${set === "sim" ? ORACLE[cond] ?? "" : "—"} |`);
+    const s = (tot[set] ??= { photos: 0, noPage: 0, twoSheets: 0, skewed: 0, rows: 0, right: 0, wrong: 0, wrongStrict: 0, cases: [] });
+    for (const f of ["photos", "noPage", "twoSheets", "skewed", "rows", "right", "wrong", "wrongStrict"] as const) s[f] += c[f];
   }
   for (const [set, c] of Object.entries(tot))
-    lines.push(`| **${set}** | **all** | ${c.photos} | ${c.noPage} | ${c.twoSheets} | ${c.rows} | **${c.wrong}** | **${c.wrongStrict}** | **${((100 * c.right) / c.rows).toFixed(1)} %** | ${set === "sim" ? "0 · 82.1 %" : "—"} |`);
+    lines.push(`| **${set}** | **all** | ${c.photos} | ${c.noPage} | ${c.twoSheets} | ${c.skewed} | ${c.rows} | **${c.wrong}** | **${c.wrongStrict}** | **${((100 * c.right) / c.rows).toFixed(1)} %** | ${set === "sim" ? "0 · 82.1 %" : "—"} |`);
   console.log(lines.join("\n"));
   console.log(`bad-set ink check: ${inkOff.length ? "peak moved on " + inkOff.join(", ") : "every page peaks where its flat shot does"}`);
   const cases = Object.fromEntries([...cells].filter(([, c]) => c.cases.length).map(([k, c]) => [k, c.cases]));

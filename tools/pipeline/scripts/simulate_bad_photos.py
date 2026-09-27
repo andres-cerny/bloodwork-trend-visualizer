@@ -334,6 +334,57 @@ def twopage_shots(pdfs: list[Path], baseline: set[str]) -> list[tuple[Path, int,
     return out[:TWOPAGE_COUNT]
 
 
+# ------------------------------------------------- sheets filling the frame
+# No page edge in the picture, so the page finder cannot find it and OCR reads
+# the photo as it is (docs/plans/photo-highlight.md, the no-page guards).
+
+FILL_TILTS = (2.0, 3.0, 5.0)
+FILL_PER_TILT = 3
+FILL_TWOPAGE_COUNT = 3
+
+
+def rotated_quad(theta_deg: float, frame: tuple[int, int], page: tuple[int, int], scale: float, cx: float = 0.5, cy: float = 0.5) -> Quad:
+    """A page of `page` size scaled by `scale`, turned by theta about (cx, cy),
+    as corners in fractions of `frame`, clockwise from top-left."""
+    fw, fh = frame
+    pw, ph = page[0] * scale, page[1] * scale
+    t = np.radians(theta_deg)
+    c, s = np.cos(t), np.sin(t)
+    out: Quad = []
+    for dx, dy in ((-pw / 2, -ph / 2), (pw / 2, -ph / 2), (pw / 2, ph / 2), (-pw / 2, ph / 2)):
+        x = cx * fw + dx * c - dy * s
+        y = cy * fh + dx * s + dy * c
+        out.append((float(x / fw), float(y / fh)))
+    return out
+
+
+def cond_fill_tilt(im: Image.Image, theta: float, rng: random.Random):
+    """The sheet held a few degrees off level and so close it fills the frame:
+    scaled just enough that the frame lies wholly inside the turned page."""
+    w, h = im.size
+    t = np.radians(abs(theta))
+    scale = max(np.cos(t) + (h / w) * np.sin(t), (w / h) * np.sin(t) + np.cos(t)) * 1.01
+    quad = rotated_quad(theta, (w, h), (w, h), scale)
+    return cond_flat(place(im, (w, h), quad), rng), quad
+
+
+def cond_fill_twopage(pages: list[Image.Image], rng: random.Random):
+    """Two sheets side by side, so close that no outer page edge is in frame:
+    the frame shows the inner 90 % of their height and cuts both outer sides.
+    A sliver of desk may show between them."""
+    w, h = pages[0].size
+    gap = rng.uniform(0.0, 0.02) * w
+    fw, fh = round(2 * w * 0.93 + gap), round(h * 0.9)
+    quads: list[Quad] = []
+    for i in range(2):
+        cx = (fw / 2 + (-1 if i == 0 else 1) * (gap / 2 + w / 2)) / fw
+        quads.append(rotated_quad(rng.uniform(-0.6, 0.6), (fw, fh), (w, h), 1.0, cx, 0.5 + rng.uniform(-0.01, 0.01)))
+    frame = Image.new("RGB", (fw, fh), DESK)
+    for page, quad in zip(pages, quads):
+        frame = place(page, (fw, fh), quad, frame)
+    return cond_flat(frame, rng), quads
+
+
 # --------------------------------------------------------- angle truth corners
 
 def angle_quad(source: str, n: int) -> Quad:
@@ -386,6 +437,29 @@ def main() -> int:
         name = f"{pdf.name[:-4]}_p{a}-{b}_twopage.jpg"
         to_phone(out).save(OUT / name, "JPEG", quality=JPEG_QUALITY, optimize=True)
         manifest[name] = {"source_file": pdf.name, "pages": [a, b], "condition": "twopage", "expected": "ok",
+                          "corners": None, "page_corners": [[list(map(float, c)) for c in q] for q in quads]}
+    # Sheets filling the frame: tilted a few degrees, and two sheets side by side.
+    fill_sources = [p for p in pdfs if f"{p.name}#1" in baseline] if baseline else pdfs
+    k = 0
+    for theta in FILL_TILTS:
+        for j in range(FILL_PER_TILT):
+            pdf = fill_sources[(k * 5 + 2) % len(fill_sources)]
+            k += 1
+            rng = random.Random(f"{pdf.name}#1#bad#fill_tilt{theta}#{j}")
+            signed = theta if rng.random() < 0.5 else -theta
+            out, quad = cond_fill_tilt(render(pymupdf.open(pdf)[0]), signed, rng)
+            cond = f"fill_tilt{int(theta)}"
+            name = f"{pdf.name[:-4]}_p1_{cond}.jpg"
+            to_phone(out).save(OUT / name, "JPEG", quality=JPEG_QUALITY, optimize=True)
+            manifest[name] = {"source_file": pdf.name, "pages": [1], "condition": cond, "expected": "ok",
+                              "corners": [list(map(float, c)) for c in quad]}
+    for pdf, a, b in twopage_shots(pdfs, baseline)[-FILL_TWOPAGE_COUNT:]:
+        doc = pymupdf.open(pdf)
+        rng = random.Random(f"{pdf.name}#{a}-{b}#bad#fill_twopage")
+        out, quads = cond_fill_twopage([render(doc[a - 1]), render(doc[b - 1])], rng)
+        name = f"{pdf.name[:-4]}_p{a}-{b}_fill_twopage.jpg"
+        to_phone(out).save(OUT / name, "JPEG", quality=JPEG_QUALITY, optimize=True)
+        manifest[name] = {"source_file": pdf.name, "pages": [a, b], "condition": "fill_twopage", "expected": "ok",
                           "corners": None, "page_corners": [[list(map(float, c)) for c in q] for q in quads]}
     for kind, expected in BLANK_EXPECTED.items():
         name = f"blank_{kind}.jpg"

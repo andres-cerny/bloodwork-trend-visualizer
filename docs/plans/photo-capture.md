@@ -313,6 +313,10 @@ Where it is located:
 | found, portrait | the flattened OCR picture | through `toPhoto`, as a quadrilateral |
 | not found (the page fills the frame) | the photo itself — OCR read it | as is |
 | found, **wider than tall** | nowhere: two sheets side by side, taken for one | — |
+| not found, and the picture landscape or its text in two blocks | nowhere: two sheets filling the frame | — |
+| not flattened, and the text tilted past 0.8° | nowhere: every row box would reach its neighbour | — |
+
+The name must sit on the row as whole tokens, so "Fe" never frames "Ferritin".
 
 The page shown and stored stays the **original photo** (the readers' input is
 unchanged). A frame is stored as numbers only — `quad` on the measurement,
@@ -322,11 +326,12 @@ they stay in memory and never enter a request or a report (a test sends both
 and looks).
 
 **Gate, through the final function** (`tests/bench/highlight/gate.ts`, strict
-rule): **0 wrong** on 133 simulated photos (90.4 % of rows framed), 54 bad
-photos and 10 new two-sheet shots. The two-sheet guard was designed after the
-one two-sheet photo failed, so it was proven on new data: without it the ten
-new shots get 121 wrong frames; with it, none (no frame at all). Scanned PDF
-pages are unchanged.
+rule): **0 wrong** on 133 simulated photos (90.3 % of rows framed), 54 bad
+photos, 10 two-sheet shots and 12 frame-filling shots (tilted 2°, 3° and 5°,
+and two sheets with no page edge). Each guard was designed after a failure, so
+each was proven on new data. Without them those shots get 122 and 171 wrong
+frames; with them, none (no frame at all). On level photos the no-page guard
+costs no coverage. Scanned PDF pages are unchanged.
 
 ## Phase F — the guided camera
 

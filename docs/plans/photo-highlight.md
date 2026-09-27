@@ -140,11 +140,25 @@ page found but wider than tall → no highlight. The guard came after the
 failure, so it was proven on ten new two-sheet shots (`simulate_bad_photos.py`,
 per-page truth). Without the guard: 121 wrong. With it: none.
 
-| Set | Photos | No page | Two sheets | Wrong (strict) | Framed |
-|---|---|---|---|---|---|
-| simulated | 133 | 100 | 1 | **0** | 90.4 % |
-| bad photos | 54 | 30 | 0 | **0** | 42.5 % |
-| new two-sheet shots | 10 | 0 | 10 | **0** | 0 % |
+**After review (PR #5).** Two more guards. The name now has to match as
+whole tokens: "Fe" used to frame the Ferritin row, and "S-K" matched inside
+"S-Kreatinin". And when no page is found, the photo is guarded too. The text's
+tilt is read from the OCR (the median slope of word centres over lines with
+three or more words). The limit is 0.8°, derived from the page: at that angle a
+160 mm row drifts half of its 4.5 mm pitch. Two sheets that fill the frame are
+caught by a landscape picture, or by text in two blocks that no printed row
+crosses. Proof on new frame-filling shots with no page edge (3 each at 2°, 3°,
+5°, and 3 two-sheet shots): without the guard, 171 wrong frames (77 at 3°, 91
+at 5°, 3 on two sheets). With it, 0. On the level no-page photos the guard costs
+nothing: flat, dark, glare and crop coverage is identical with and without it.
+
+| Set | Photos | No page | Two sheets | Skewed | Wrong (strict) | Framed |
+|---|---|---|---|---|---|---|
+| simulated | 133 | 100 | 1 | 0 | **0** | 90.3 % |
+| bad photos | 54 | 30 | 0 | 0 | **0** | 42.1 % |
+| two-sheet shots | 10 | 0 | 10 | 0 | **0** | 0 % |
+| frame-filling, tilted 2°/3°/5° | 9 | 9 | 0 | 9 | **0** | 0 % |
+| frame-filling, two sheets | 3 | 3 | 3 | 0 | **0** | 0 % |
 
 Built as photo-capture Phase E: `locatePhotoRows` in `@bw/lab-core/photo`, the
 quad in Ověření. Still open: real phone shots (photo-capture A3) and OCR timing

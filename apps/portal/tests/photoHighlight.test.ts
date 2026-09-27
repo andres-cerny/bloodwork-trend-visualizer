@@ -92,7 +92,7 @@ beforeEach(() => {
 
 describe("interpretPage on a photo", () => {
   it("frames the row that carries the read's name and value, as a quad with its bounds", () => {
-    const out = interpretPage([read("Draslík", "4,2")], [], 1, true, () => null, 1, { rows, toPhoto, twoSheets: false });
+    const out = interpretPage([read("Draslík", "4,2")], [], 1, true, () => null, 1, { rows, toPhoto, withhold: null });
     const m = out.measurements[0];
     expect(m.quad).toHaveLength(4);
     const xs = m.quad!.map((p) => p[0]);
@@ -101,8 +101,8 @@ describe("interpretPage on a photo", () => {
   });
 
   it("gives no frame where no OCR row carries both, and none at all on two sheets", () => {
-    expect(interpretPage([read("Hořčík", "0,9")], [], 1, true, () => null, 1, { rows, toPhoto, twoSheets: false }).measurements[0].bbox).toBeNull();
-    const two = interpretPage([read("Draslík", "4,2")], [], 1, true, () => null, 1, { rows, toPhoto, twoSheets: true }).measurements[0];
+    expect(interpretPage([read("Hořčík", "0,9")], [], 1, true, () => null, 1, { rows, toPhoto, withhold: null }).measurements[0].bbox).toBeNull();
+    const two = interpretPage([read("Draslík", "4,2")], [], 1, true, () => null, 1, { rows, toPhoto, withhold: "two-sheets" }).measurements[0];
     expect(two.bbox).toBeNull();
     expect(two.quad).toBeUndefined();
   });
@@ -116,7 +116,7 @@ describe("interpretPage on a photo", () => {
 
 describe("a photo's OCR text never leaves the browser", () => {
   it("is in no request and no stored report — only the numeric frame is", async () => {
-    const { report } = await extractReport("r-1", prepared({ rows, toPhoto, twoSheets: false }), [photoPage], registry, () => {});
+    const { report } = await extractReport("r-1", prepared({ rows, toPhoto, withhold: null }), [photoPage], registry, () => {});
     const stored = await storeReport(report, [photoPage]);
 
     const potassium = stored.measurements.find((m) => m.rawAnalyteName === "Draslík")!;

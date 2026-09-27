@@ -59,7 +59,7 @@ import {
   type PreparedPhoto,
   identityFromOcr,
   isPhotoFile,
-  isTwoSheets,
+  photoRowGuard,
   labSheetScore,
   ocrLineTexts,
   ocrRows,
@@ -166,8 +166,10 @@ export async function preparePhotoFile(
     // The highlight's policy (docs/plans/photo-capture.md, Phase E): a found
     // portrait page is located on the flattened picture and carried back
     // through toPhoto; no page found means OCR read the photo itself
-    // (toPhoto null); a found page wider than tall is two sheets and gets none.
-    const rows: PhotoRowSource = { rows: ocrRows(lines), toPhoto: p.toPhoto, twoSheets: isTwoSheets(p.page) };
+    // (toPhoto null). Two sheets — found as one page or filling the frame —
+    // and text read tilted get no frames at all (`photoRowGuard`).
+    const withhold = photoRowGuard(p.page, p.toPhoto !== null, lines, p.ocr.width, p.ocr.height);
+    const rows: PhotoRowSource = { rows: ocrRows(lines), toPhoto: p.toPhoto, withhold };
     return { ...base, hits, photo: { verdict, ocr: "done", rows } };
   } catch {
     return { ...base, hits: [], photo: { verdict: withPageChecks(p.quality, p.page, null), ocr: "failed" } };

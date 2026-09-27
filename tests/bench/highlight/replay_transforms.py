@@ -217,24 +217,26 @@ def main() -> int:
     Image.Image.transform = rec_transform
     Image.Image.rotate = rec_rotate
     Image.Image.crop = rec_crop
-    try:
-        rc = sim.main()
-    finally:
-        Image.Image.transform = _orig_transform
-        Image.Image.rotate = _orig_rotate
-        Image.Image.crop = _orig_crop
-    if rc:
-        return rc
-
     manifest = json.loads((PHOTOS / "manifest.json").read_text(encoding="utf-8"))
-    replayed = json.loads((scratch / "manifest.json").read_text(encoding="utf-8"))
-    if list(manifest) != list(replayed) or manifest != replayed:
-        raise SystemExit("replayed manifest differs from data/photos-sim/manifest.json")
-    if len(REC.done) != len(manifest):
-        raise SystemExit(f"recorded {len(REC.done)} emits for {len(manifest)} photos")
-    mismatched = [n for n in manifest if not filecmp.cmp(PHOTOS / n, scratch / n, shallow=False)]
-    # The re-made photos are patient pages; they do not outlive the comparison.
-    shutil.rmtree(scratch, ignore_errors=True)
+    # The re-made photos are patient pages: they do not outlive the comparison,
+    # whatever happens on the way — an exception, a mismatch, an early return.
+    try:
+        try:
+            rc = sim.main()
+        finally:
+            Image.Image.transform = _orig_transform
+            Image.Image.rotate = _orig_rotate
+            Image.Image.crop = _orig_crop
+        if rc:
+            return rc
+        replayed = json.loads((scratch / "manifest.json").read_text(encoding="utf-8"))
+        if list(manifest) != list(replayed) or manifest != replayed:
+            raise SystemExit("replayed manifest differs from data/photos-sim/manifest.json")
+        if len(REC.done) != len(manifest):
+            raise SystemExit(f"recorded {len(REC.done)} emits for {len(manifest)} photos")
+        mismatched = [n for n in manifest if not filecmp.cmp(PHOTOS / n, scratch / n, shallow=False)]
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
     if mismatched:
         raise SystemExit(f"{len(mismatched)} replayed photos are not byte-identical, e.g. {mismatched[:3]}")
 
