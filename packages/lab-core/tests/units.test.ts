@@ -58,11 +58,22 @@ describe("a trend across two units", () => {
     expect(t.otherUnits).toEqual({ "mmol/l": 1 });
   });
 
-  it("without a catalog entry keeps the unit most readings carry, never both on one axis", () => {
-    const t = buildTrends([rep("a", "2026-01-10", 80, "µmol/l", 44, 104), rep("b", "2026-02-10", 82, "µmol/l", 44, 104), rep("c", "2026-04-10", 0.9, "mg/dl", 0.6, 1.2)]).get("kreatinin")!;
-    expect(t.unit).toBe("µmol/l");
-    expect(t.points.map((p) => p.value)).toEqual([80, 82]);
-    expect(t.otherUnits).toEqual({ "mg/dl": 1 });
+  it("without a catalog, filters nothing — a caller that did not ask keeps every reading", () => {
+    const t = buildTrends([rep("a", "2026-01-10", 80, "µmol/l", 44, 104), rep("c", "2026-04-10", 0.9, "mg/dl", 0.6, 1.2)]).get("kreatinin")!;
+    expect(t.points).toHaveLength(2);
+    expect(t.otherUnits).toBeUndefined();
+  });
+
+  it("converts a bound's number too, so the canonical unit is never printed beside the lab's figure", async () => {
+    const { normalizeMeasurement, makeMeasurement } = await import("../src");
+    const r = {
+      id: "b",
+      reportDate: "2026-04-10",
+      measurements: [{ ...normalizeMeasurement(makeMeasurement({ rawAnalyteName: "Kreatinin", valueRaw: ">2,0", unitRaw: "mg/dl", refRangeRaw: "0,6 - 1,2" })), canonicalId: "kreatinin" }],
+    } as unknown as LabReport;
+    const p = buildTrends([r], undefined, undefined, undefined, () => KREATININ).get("kreatinin")!.points[0];
+    expect(p.valueRaw).toBe(">176,8");
+    expect(p.flag).toBe("high");
   });
 });
 

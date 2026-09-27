@@ -124,6 +124,6 @@ describe("parity with src/normalize.py", () => {
       CASES.abbreviation_key.length;
     // Matches the count tests/test_parity.py reports, so neither side can
     // quietly stop reading part of the fixture.
-    expect(total).toBe(165);
+    expect(total).toBe(167);
   });
 });

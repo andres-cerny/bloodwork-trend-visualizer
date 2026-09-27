@@ -1,6 +1,7 @@
 /** Assemble per-analyte time series across reports. Ported from src/trends.py. */
 import type { Flag, LabReport } from "./models";
-import { type UnitDef, inCanonicalUnit } from "./units";
+import { type UnitDef, inCanonicalUnit, roundConverted, unitFactor } from "./units";
+import { parseCzechNumber } from "./normalize";
 
 export interface TrendPoint {
   date: string; // ISO date of the report
@@ -112,6 +113,7 @@ export function buildTrends(
         };
         trends.set(m.canonicalId, t);
       }
+      if (!t.unit && m.unit) t.unit = m.unit;
       const def = unitDefFn(m.canonicalId);
       const c = def ? inCanonicalUnit(m, def) : null;
       const point: TrendPoint = {
@@ -125,7 +127,7 @@ export function buildTrends(
         // every screen prints `valueRaw` as the value "as printed", and the
         // printed 0,9 beside a µmol/l axis would be the wrong number in the
         // right place. The print itself is kept in `convertedFrom`.
-        valueRaw: c?.from && c.value !== null ? String(c.value).replace(".", ",") : m.valueRaw,
+        valueRaw: c?.from ? convertedText(m.valueRaw, c.value, c.from, m.unit, unitDefFn(m.canonicalId)) : m.valueRaw,
         reportId: report.id,
         rawName: m.rawAnalyteName,
         suspect: suspectFn(m),
@@ -138,6 +140,14 @@ export function buildTrends(
   }
   for (const t of trends.values()) {
     const def = unitDefFn(t.canonicalId);
+    // Opt-in: a caller that passes no catalog (the demo app, the agent's
+    // tools) gets every reading as before, and keeps its own unit handling.
+    // Dropping readings it never asked to drop would be a filter nobody
+    // names — "a filtered value is not a normal one".
+    if (!def) {
+      t.points.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+      continue;
+    }
     const anySettled = t.points.some((p) => settled.has(p));
     // The series' unit: the canonical one when any reading is in it or was
     // converted to it; otherwise the unit most readings carry.
@@ -165,6 +175,21 @@ export function buildTrends(
   // series at all; it has no points left, and no card.
   for (const [cid, t] of trends) if (t.points.length === 0) trends.delete(cid);
   return trends;
+}
+
+/**
+ * The text a converted reading is shown with. A number is the converted
+ * number; a bound (">2,0" mg/dl) keeps its sign and converts its number, so
+ * the canonical unit beside it is never printed over the lab's own figure.
+ */
+function convertedText(raw: string, value: number | null, from: { unit: string }, unit: string | null, def: UnitDef | null | undefined): string {
+  if (value !== null) return String(value).replace(".", ",");
+  const f = def ? unitFactor(def, unit ?? from.unit) : null;
+  const m = /([0-9][0-9\s.,]*)/.exec(raw);
+  if (!f || !m) return raw;
+  const n = parseCzechNumber(m[1].trim());
+  if (n === null) return raw;
+  return raw.slice(0, m.index) + String(roundConverted(n * f)).replace(".", ",") + raw.slice(m.index + m[1].length).replace(/^\s*/, "");
 }
 
 /** The two most recent points carrying a numeric value, as [older, newer]. */

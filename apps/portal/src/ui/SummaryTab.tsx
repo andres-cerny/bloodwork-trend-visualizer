@@ -444,6 +444,9 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
   // twice: the tables show the latest draw's values instead of nothing.
   const latest = useMemo(() => (records.length === 0 ? latestRows(trends) : []), [records, trends]);
   const latestOut = latest.filter((r) => r.outOfRange);
+  // Readings left out of their series for a unit nothing converts
+  // (lab-core units.ts): a filtered value is not a normal one, so named.
+  const elsewhere = useMemo(() => [...trends.values()].filter((t) => t.otherUnits), [trends]);
   // Newest results printed as a bound past the range (">200"): no number to
   // compare, so no row in the tables below — named here instead.
   const bounds = useMemo(
@@ -511,6 +514,21 @@ export default function SummaryTab({ reports, trends, onOpenTrend, onOpenVerify,
               <button className="btn linkish" onClick={onOpenVerify}>
                 přejít na Ověření
               </button>
+              .
+            </p>
+          )}
+          {elsewhere.length > 0 && (
+            <p className="held-back">
+              ⚠ Měření v jednotce, kterou neumíme převést, nejsou v přehledu ani v grafu:{" "}
+              {elsewhere.map((t, i) => (
+                <span key={t.canonicalId}>
+                  {i > 0 && ", "}
+                  <button className="btn linkish" onClick={() => onOpenTrend?.(t.canonicalId)}>
+                    {t.displayName}
+                  </button>{" "}
+                  ({Object.keys(t.otherUnits!).map(prettyUnit).join(", ")})
+                </span>
+              ))}
               .
             </p>
           )}

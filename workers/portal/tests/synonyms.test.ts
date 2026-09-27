@@ -26,8 +26,8 @@ function fakeD1(t: Tables): D1Database {
       case SQL.upsertSynonym: {
         const [raw, cid, by, at] = a as [string, string, string, string];
         const existing = t.synonyms.find((s) => s.raw_name === raw);
-        if (existing && existing.taught_by !== by) return { results: [], changes: 0 };
-        if (existing) Object.assign(existing, { canonical_id: cid, created_at: at });
+        if (existing && existing.taught_by !== by && existing.taught_by !== null && existing.taught_by !== a[4]) return { results: [], changes: 0 };
+        if (existing) Object.assign(existing, { canonical_id: cid, taught_by: by, created_at: at });
         else t.synonyms.push({ raw_name: raw, canonical_id: cid, taught_by: by, created_at: at });
         return { results: [], changes: 1 };
       }
@@ -109,6 +109,14 @@ describe("taught spellings", () => {
     expect(current.synonyms).toEqual([expect.objectContaining({ raw_name: "S_Na", canonical_id: "sodik", taught_by: "u-a" })]);
     await as("u-a", "PUT", "/api/synonyms", { rawName: "S_Na", canonicalId: "chloridy" });
     expect(current.synonyms[0]).toMatchObject({ canonical_id: "chloridy", taught_by: "u-a" });
+  });
+
+  it("can be put right when its teacher is gone", async () => {
+    current = fresh();
+    current.synonyms.push({ raw_name: "S_Na", canonical_id: "draslik", taught_by: null as unknown as string, created_at: "2026-01-01" });
+    const res = (await (await as("u-b", "PUT", "/api/synonyms", { rawName: "S_Na", canonicalId: "sodik" })).json()) as { taught: boolean };
+    expect(res.taught).toBe(true);
+    expect(current.synonyms[0]).toMatchObject({ canonical_id: "sodik", taught_by: "u-b" });
   });
 
   it("is not taught from the demo", async () => {

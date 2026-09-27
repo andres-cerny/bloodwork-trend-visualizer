@@ -100,8 +100,11 @@ export const SQL = {
   allSynonyms: "SELECT raw_name, canonical_id, taught_by FROM synonyms ORDER BY created_at",
   upsertSynonym:
     "INSERT INTO synonyms (raw_name, canonical_id, taught_by, created_at) VALUES (?1, ?2, ?3, ?4) " +
-    "ON CONFLICT(raw_name) DO UPDATE SET canonical_id = excluded.canonical_id, created_at = excluded.created_at " +
-    "WHERE synonyms.taught_by = excluded.taught_by",
+    "ON CONFLICT(raw_name) DO UPDATE SET canonical_id = excluded.canonical_id, taught_by = excluded.taught_by, created_at = excluded.created_at " +
+    // Or nobody's any more: a teacher who deleted their account (taught_by
+    // NULL), or the public demo account (?5) — strangers taught under it
+    // before it was refused. Otherwise such a name could never be put right.
+    "WHERE synonyms.taught_by = excluded.taught_by OR synonyms.taught_by IS NULL OR synonyms.taught_by = ?5",
   deleteSynonym: "DELETE FROM synonyms WHERE raw_name = ?1 AND taught_by = ?2",
 
   // AI konzultace: the snapshot is stored as sent and served as stored. The

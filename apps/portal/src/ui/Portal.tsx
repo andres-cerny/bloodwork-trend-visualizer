@@ -44,7 +44,7 @@ import {
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
 import DateAsk from "./DateAsk";
-import { dateDoubtOf } from "../lib/fileChecks";
+import { dateDoubtOf, forTrends, newFingerprintSalt } from "../lib/fileChecks";
 import { type AiAsked, type Allowance, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
 import AllowanceChip from "./AllowanceChip";
 import BuySheet from "./BuySheet";
@@ -170,6 +170,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // than the worker accepts in the moment before /api/status answers.
   const [maxPages, setMaxPages] = useState(10);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [fpSalt, setFpSalt] = useState<string | null>(null);
   // Reports stored without a date, asked about one at a time (DateAsk.tsx).
   const [dateAsk, setDateAsk] = useState<string[]>([]);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -219,6 +220,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
         learnedRef.current = l;
         setCustomAnalytes(custom);
         setAiContext(settingsRef.current.aiContext ?? null);
+        // The account's fingerprint salt, made once and kept with its settings.
+        if (settingsRef.current.fpSalt) setFpSalt(settingsRef.current.fpSalt);
+        else {
+          const salt = newFingerprintSalt();
+          saveSettings({ fpSalt: salt }).then(() => setFpSalt(salt), () => undefined);
+        }
         aiAskedRef.current = settingsRef.current.aiAsked ?? {};
         setAiAsked(aiAskedRef.current);
         // A catalog that grew since a report was uploaded reaches that
@@ -308,11 +315,14 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // parameter has none and gets no button (AboutParam.tsx).
   const aboutOf = useCallback((cid: string) => registry?.get(cid)?.about, [registry]);
 
+  // The trend screens' reports: a doubted date marks its readings, a future
+  // one is held out until it is set (lib/fileChecks.ts forTrends).
+  const trendReports = useMemo(() => forTrends(reports), [reports]);
   const trends = useMemo(
     () =>
       registry
         ? buildTrends(
-            reports,
+            trendReports,
             (cid) => registry.displayName(cid),
             (m) => {
               const r = reviewOf(m, curatedRange);
@@ -327,7 +337,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
             (cid) => registry.get(cid),
           )
         : new Map(),
-    [reports, registry, registryVersion, curatedRange],
+    [trendReports, registry, registryVersion, curatedRange],
   );
 
   /** Every change to the reports: through the ref, so a run that started a render ago sees the current ones. */
@@ -760,6 +770,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
         holding={holding}
         reports={reports}
         onBatchEnd={onBatchEnd}
+        fingerprintSalt={fpSalt}
       />
     </div>
   );
@@ -789,7 +800,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
                 {dateDoubtOf(r) && (
                   <span className="rl-meta rl-warn" style={{ display: "block" }}>
                     <span aria-hidden="true">⚠️ </span>
-                    {r.reportDate ? "Zkontrolujte datum — Doplnit v Ověření" : "Chybí datum — bez něj není v trendech · Doplnit datum"}
+                    {r.reportDate ? "Datum ke kontrole — v Ověření" : "Chybí datum, bez něj není v trendech — doplníte ho v Ověření"}
                   </span>
                 )}
               </button>
@@ -989,7 +1000,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
             <Panel id="summary" active={active} strip={hasData}>
               {hasData && (
                 <SummaryTab
-                  reports={reports}
+                  reports={trendReports}
                   trends={trends}
                   onOpenTrend={showTrend}
                   onOpenVerify={() => goTab("verify")}
@@ -1023,7 +1034,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
               )}
             </Panel>
             <Panel id="share" active={active} strip={hasData}>
-              {hasData && <ShareTab reports={reports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />}
+              {hasData && <ShareTab reports={trendReports} trends={trends} context={aiContext} onSaveContext={saveAiContext} />}
             </Panel>
             <Panel id="reports" active={active} strip={hasData}>
               {uploadCard}

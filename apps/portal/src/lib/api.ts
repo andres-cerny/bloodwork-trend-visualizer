@@ -42,6 +42,8 @@ export interface Settings {
   aiAsked?: AiAsked;
   /** The blob's revision, set by the worker on every save (If-Match on the next). */
   _rev?: number;
+  /** The account's random salt for file fingerprints (lib/fileChecks.ts). */
+  fpSalt?: string;
 }
 
 export class ApiError extends Error {

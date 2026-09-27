@@ -75,6 +75,8 @@ interface Props {
   reports?: LabReport[];
   /** A batch ended; `problems` is how many of its files failed or carry notes. */
   onBatchEnd?: (problems: number) => void;
+  /** The account's salt for file fingerprints (lib/fileChecks.ts fingerprintOf). */
+  fingerprintSalt?: string | null;
 }
 
 /** What the reader is doing — one file at a time. */
@@ -159,7 +161,7 @@ interface LogEntry {
   retry?: { label: string; run: () => void };
 }
 
-export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding, reports = [], onBatchEnd }: Props) {
+export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding, reports = [], onBatchEnd, fingerprintSalt = null }: Props) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [queued, setQueued] = useState<File[]>([]);
   const [running, setRunning] = useState<Running[]>([]);
@@ -246,7 +248,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     busyRef.current = true;
     setStage({ kind: "preparing", name: file.name, photo: isPhotoFile(file) });
     try {
-      const prepared = await prepareFile(file, maxPages);
+      const prepared = await prepareFile(file, maxPages, fingerprintSalt);
       // The same file again — already stored, or already on its way in this
       // tab — is said before a document is spent on it.
       const fp = prepared.fingerprint;
@@ -525,26 +527,10 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
             Přikoupit
           </button>
         </p>
-        {log.length > 0 && (
-          <ul className="joblist">
-            {log.map((j) => (
-              <li key={j.key} className={`job ${j.status}`}>
-                <span className="job-head">
-                  <span className="job-mark" aria-hidden="true">
-                    {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
-                  </span>
-                  <span className="job-name" title={j.name}>
-                    {j.name}
-                  </span>
-                  <span className="job-state">
-                    {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : "přeskočeno"}
-                  </span>
-                </span>
-                {j.error && <span className="job-note err">{j.error}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* The same log as below the picker: a file waiting on the person, or
+            one read and not stored, keeps its question and its buttons when
+            the file that spent the last document is the one that ended. */}
+        <JobLog log={log} />
       </div>
     );
 
@@ -719,45 +705,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         </ul>
       )}
 
-      {log.length > 0 && (
-        <ul className="joblist">
-          {log.map((j) => (
-            <li key={j.key} className={`job ${j.status}`}>
-              <span className="job-head">
-                <span className="job-mark" aria-hidden="true">
-                  {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : j.status === "waiting" ? "?" : "–"}
-                </span>
-                <span className="job-name" title={j.name}>
-                  {j.name}
-                </span>
-                <span className="job-state">
-                  {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : j.status === "waiting" ? "čeká na vás" : "přeskočeno"}
-                </span>
-              </span>
-              {j.notes.map((n, k) => (
-                <span className="job-note" key={k}>
-                  {n}
-                </span>
-              ))}
-              {j.error && <span className="job-note err">{j.error}</span>}
-              {(j.retry || j.dismiss) && (
-                <span className="job-note job-actions">
-                  {j.retry && (
-                    <button type="button" className="btn small" onClick={j.retry.run}>
-                      {j.retry.label}
-                    </button>
-                  )}
-                  {j.dismiss && (
-                    <button type="button" className="btn small" onClick={j.dismiss.run}>
-                      {j.dismiss.label}
-                    </button>
-                  )}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <JobLog log={log} />
 
       {/*
         The claim has to survive a photograph, and the old one did not: it said
@@ -773,5 +721,50 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         stránek a vytištěné řádky s hodnotami. Původní soubor se nikam neukládá.
       </p>
     </>
+  );
+}
+
+/** One entry per file, however it ended — with its notes and, where a second
+ *  try or a choice is open, its buttons. */
+function JobLog({ log }: { log: LogEntry[] }) {
+  if (log.length === 0) return null;
+  return (
+    <ul className="joblist">
+      {log.map((j) => (
+        <li key={j.key} className={`job ${j.status}`}>
+          <span className="job-head">
+            <span className="job-mark" aria-hidden="true">
+              {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : j.status === "waiting" ? "?" : "–"}
+            </span>
+            <span className="job-name" title={j.name}>
+              {j.name}
+            </span>
+            <span className="job-state">
+              {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : j.status === "waiting" ? "čeká na vás" : "přeskočeno"}
+            </span>
+          </span>
+          {j.notes.map((n, k) => (
+            <span className="job-note" key={k}>
+              {n}
+            </span>
+          ))}
+          {j.error && <span className="job-note err">{j.error}</span>}
+          {(j.retry || j.dismiss) && (
+            <span className="job-note job-actions">
+              {j.retry && (
+                <button type="button" className="btn small" onClick={j.retry.run}>
+                  {j.retry.label}
+                </button>
+              )}
+              {j.dismiss && (
+                <button type="button" className="btn small" onClick={j.dismiss.run}>
+                  {j.dismiss.label}
+                </button>
+              )}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }

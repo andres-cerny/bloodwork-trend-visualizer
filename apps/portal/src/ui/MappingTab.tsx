@@ -826,7 +826,7 @@ export default function MappingTab({
         {mine.length > 0 && (
           <details className="mine-maps">
             <summary className="muted" style={{ cursor: "pointer" }}>
-              Vaše přiřazení ({mine.length}) — zkontrolovat nebo vrátit
+              Vaše přiřazení ({mine.length})
             </summary>
             <ul className="held-list">
               {mine.map((x) => (

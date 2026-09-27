@@ -16,6 +16,13 @@ import type { TextRow } from "./pdf/rows";
 export type Box = [number, number, number, number];
 
 export interface Measurement {
+  /**
+   * Why the date of the report this reading belongs to is in doubt — set
+   * only on the copies a trend is built from (apps/portal fileChecks.ts
+   * `forTrends`), never stored. review.ts reads it: a reading on a date the
+   * app itself doubts is plotted as unconfirmed, not as a solid point.
+   */
+  reportDateDoubt?: string | null;
   rawAnalyteName: string;
   valueRaw: string;
   unitRaw: string;

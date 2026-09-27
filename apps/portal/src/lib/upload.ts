@@ -107,8 +107,9 @@ export interface PhotoFindings {
  *  A photograph goes its own way: one page, no pdf.js (~1.4 MB that someone
  *  photographing a sheet on a phone should not download), and the OCR chunk
  *  instead — see `preparePhotoFile`. */
-export async function prepareFile(file: File, maxPages: number): Promise<PreparedFile> {
-  const fingerprint = await fingerprintOf(await file.arrayBuffer()).catch(() => null);
+export async function prepareFile(file: File, maxPages: number, fingerprintSalt?: string | null): Promise<PreparedFile> {
+  // No salt yet (settings still loading): no fingerprint, never an unsalted one.
+  const fingerprint = fingerprintSalt ? await fingerprintOf(await file.arrayBuffer(), fingerprintSalt).catch(() => null) : null;
   if (isPhotoFile(file)) return { ...(await preparePhotoFile(file)), fingerprint };
   const { loadPdf, pageAssets } = await import("@bw/lab-core/pdf");
   const doc = await loadPdf(file);
@@ -368,12 +369,13 @@ export async function extractReport(
 
   // The date is the one thing every value of the report hangs on; a doubt
   // about it travels with the report so Ověření asks instead of trusting.
-  const cz = (iso: string) => iso.split("-").reverse().map((x) => String(Number(x))).join(". ");
+  // The candidate dates are not written into it: one of them may be a birth
+  // date a reader took for the draw, and the note is stored on the server.
   const dateDoubt =
     pageDates.size > 1
-      ? `Strany reportu nesou různá data (${[...pageDates].sort().map(cz).join(", ")}) — zkontrolujte, které je datum odběru.`
+      ? "Strany reportu nesou různá data — zkontrolujte na stránce, které je datum odběru."
       : conflicts.size > 1
-        ? `Čtení se na datu neshodla (${[...conflicts].map(cz).join(" / ")}) — zkontrolujte ho prosím.`
+        ? "Čtení se na datu odběru neshodla — zkontrolujte ho prosím na stránce."
         : null;
 
   const notes: string[] = [];

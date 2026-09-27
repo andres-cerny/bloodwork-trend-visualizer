@@ -273,7 +273,7 @@ def compute_flag(
     return "normal"
 
 
-_CENSORED_ABOVE = re.compile(r"^\s*(?:>=|≥|>)\s*([0-9][0-9\s.,]*)$")
+_CENSORED_ABOVE = re.compile(r"^\s*(>=|≥|>)\s*([0-9][0-9\s.,]*)$")
 
 
 def censored_flag(
@@ -296,10 +296,12 @@ def censored_flag(
     m = _CENSORED_ABOVE.match(s.strip())
     if not m:
         return "unknown"
-    bound = parse_czech_number(m.group(1).strip())
+    bound = parse_czech_number(m.group(2).strip())
     if bound is None:
         return "unknown"
-    return "high" if bound >= high else "unknown"
+    # ">5" is past a top of 5; "≥5" may be exactly 5, which is in range.
+    past = bound >= high if m.group(1) == ">" else bound > high
+    return "high" if past else "unknown"
 
 
 # --- measurement ------------------------------------------------------------

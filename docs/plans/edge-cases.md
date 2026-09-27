@@ -26,7 +26,10 @@ with a Czech sentence saying what to do. Asked (FileCheck, „Nahrát i tak"):
 over 6 pages, two different draw dates on the pages (only dates printed
 after a draw label count — a birth date is not a second report), text that
 does not read as a lab sheet, a photo whose local reading failed. The same
-file again is recognised by its SHA-256 (`report.fingerprint`).
+file again is recognised by its fingerprint (`report.fingerprint`): a
+SHA-256 salted with a random value of the account's own (`settings.fpSalt`)
+and cut to 64 bits, so a copy of the original named PDF cannot be matched
+against a stored, de-identified report.
 
 **Not built, on purpose (#8):** a per-page tick before sending a photo with
 no redaction boxes. Ondřej: too much gating; the review's one confirmation
@@ -48,7 +51,10 @@ stays the person's responsibility.
 - **No date** — a pop-up with the page asks for it; „Později" leaves ⚠️ in
   Reporty and a field in Ověření. The field also appears when the readers or
   the pages disagreed on the date, or it is in the future or before 1990.
-  Otherwise dates are not editable.
+  Otherwise dates are not editable. On the trend screens a future-dated
+  report is held out until its date is set, and a disputed one's readings
+  are plotted unconfirmed („ověřit datum", through `review.ts`). The note
+  never repeats the candidate dates — one may be a misread birth date.
 
 ## Numbers the person is shown
 

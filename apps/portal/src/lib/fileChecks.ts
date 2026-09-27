@@ -85,11 +85,26 @@ export function drawDates(pages: string[][]): string[] {
   return out;
 }
 
-/** SHA-256 of the bytes, hex. */
-export async function fingerprintOf(bytes: ArrayBuffer): Promise<string> {
-  const h = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+/**
+ * The same file, recognised — without a key back to it. The fingerprint is
+ * stored on the report, and a plain SHA-256 of the original, named PDF would
+ * let anyone holding that PDF (the lab, a forwarded e-mail) confirm which
+ * de-identified report is whose. So it is salted with a random value of the
+ * account's own (settings.fpSalt) and cut to 64 bits: plenty to tell one
+ * account's few hundred files apart, and nothing a copy of the file can be
+ * matched against without the account's settings too.
+ */
+export async function fingerprintOf(bytes: ArrayBuffer, salt: string): Promise<string> {
+  const s = new TextEncoder().encode(salt);
+  const all = new Uint8Array(s.length + bytes.byteLength);
+  all.set(s, 0);
+  all.set(new Uint8Array(bytes), s.length);
+  const h = await crypto.subtle.digest("SHA-256", all);
+  return [...new Uint8Array(h)].slice(0, 8).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/** A fresh account salt for `fingerprintOf`. */
+export const newFingerprintSalt = (): string => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 /* ------------------------------------------------------ after the read */
 
@@ -147,4 +162,23 @@ export function dateDoubtOf(report: Pick<LabReport, "reportDate" | "dateDoubt">,
   if (d.getTime() > today.getTime() + 86_400_000) return "Datum odběru je v budoucnosti — nejspíš je špatně přečtené.";
   if (d.getUTCFullYear() < 1990) return "Datum odběru je nezvykle staré — zkontrolujte ho prosím.";
   return null;
+}
+
+/**
+ * The reports as the trend screens see them. A report dated in the future is
+ * left out, like one with no date: it would become "the latest draw" that
+ * every summary sentence speaks about. A report whose date is otherwise in
+ * doubt stays in, each reading marked (`reportDateDoubt`) so review.ts plots
+ * it unconfirmed and says why. Ověření and Reporty keep the reports as they
+ * are — that is where the date is set.
+ */
+export function forTrends(reports: LabReport[], today = new Date()): LabReport[] {
+  return reports.flatMap((r) => {
+    if (!r.reportDate) return [r];
+    const doubt = dateDoubtOf(r, today);
+    if (!doubt) return [r];
+    const d = new Date(`${r.reportDate}T00:00:00Z`);
+    if (Number.isNaN(d.getTime()) || d.getTime() > today.getTime() + 86_400_000) return [];
+    return [{ ...r, measurements: r.measurements.map((m) => ({ ...m, reportDateDoubt: doubt })) }];
+  });
 }

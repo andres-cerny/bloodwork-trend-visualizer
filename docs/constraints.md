@@ -59,7 +59,10 @@ under one label, is a 99 % drop that never happened. `buildTrends` puts every
 reading in the analyte's canonical unit where the registry declares the
 factor (`packages/lab-core/src/units.ts`), and leaves a reading in a unit
 nothing converts **out** of the series, counted in `Trend.otherUnits` and
-named on the card — it never guesses a factor. A converted point's
+named on every surface that summarises it (Trendy, Souhrn, the AI text) —
+it never guesses a factor. The filtering is opt-in (`unitDefFn`): a caller
+that passes no catalog gets every reading, because a filter nobody names is
+a claim nobody made. A converted point's
 `valueRaw` is the converted number, because every screen prints `valueRaw`;
 the print is kept in `convertedFrom`. The misread check compares with the
 curated interval only for a reading in the canonical unit.
@@ -67,7 +70,8 @@ curated interval only for a reading in the canonical unit.
 A result printed as a bound ("> 200") has no value to plot, but its flag is
 known when the bound is past the range's top: `censoredFlag` (both sides of
 the parity fixture) calls it high. "< X" is deliberately left unknown — see
-the ranges table above. Pinned by `packages/lab-core/tests/units.test.ts`
+the ranges table above; "≥ X" is high only when X is past the top, since
+it may equal it. Pinned by `packages/lab-core/tests/units.test.ts`
 and the parity cases.
 
 ## Every doubt must reach the screen a patient is shown

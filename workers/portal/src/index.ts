@@ -154,7 +154,11 @@ const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
  * that request loaded.
  */
 const demoPayer = new WeakSet<UserRow>();
-const demoUsdLimit = (env: Env) => parseFloat(env.DEMO_USD_LIMIT ?? "2") || 2;
+/** "0" is a deliberate freeze of the demo, not a fall-through to the default. */
+const demoUsdLimit = (env: Env) => {
+  const n = parseFloat(env.DEMO_USD_LIMIT ?? "2");
+  return Number.isFinite(n) && n >= 0 ? n : 2;
+};
 const ledgerKey = (user: UserRow) => (demoPayer.has(user) ? `demo_${user.id}` : user.id);
 const limitFor = (user: UserRow, env: Env) => (demoPayer.has(user) ? demoUsdLimit(env) : user.budget_usd ?? usdLimit(env));
 const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "10", 10) || 10;
@@ -485,7 +489,8 @@ async function teachSynonym(request: Request, env: Env, user: UserRow): Promise<
   if (!rawName || rawName.length > MAX_RAW_NAME || !CANONICAL_ID.test(canonicalId)) {
     return json({ error: "bad_request", message: "Neplatné přiřazení." }, 400);
   }
-  const r = await env.DB.prepare(SQL.upsertSynonym).bind(rawName, canonicalId, user.id, new Date().toISOString()).run();
+  const demo = await demoAccount(env);
+  const r = await env.DB.prepare(SQL.upsertSynonym).bind(rawName, canonicalId, user.id, new Date().toISOString(), demo?.id ?? null).run();
   // `taught: false` — another account taught this name first, and it stays theirs.
   return json({ ok: true, taught: !!r.meta && r.meta.changes === 1 });
 }

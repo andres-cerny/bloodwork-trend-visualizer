@@ -66,6 +66,12 @@ export function reviewOf(
     };
   }
 
+  // The report's date is in doubt: the value may be right, the day it is
+  // drawn on may not be — so it is plotted, hollow, and named.
+  if (m.reportDateDoubt) {
+    return { level: "unconfirmed", chip: "ověřit datum", reason: `${m.reportDateDoubt} Datum doplníte nebo potvrdíte v záložce Ověření.` };
+  }
+
   if (m.disagreement) {
     return {
       // The chip carries the readings themselves. "neshoda" alone reads as a

@@ -213,11 +213,11 @@ export default function TrendsTab({
                   chart, and said so, rather than drawn as a jump. */}
               {t.otherUnits && (
                 <p className="held-back">
-                  ⚠{" "}
+                  ⚠ Mimo graf:{" "}
                   {Object.entries(t.otherUnits)
-                    .map(([u, n]) => `${n === 1 ? "1 měření" : n < 5 ? `${n} měření` : `${n} měření`} v jednotce ${prettyUnit(u)}`)
+                    .map(([u, n]) => `${n} měření v jednotce ${prettyUnit(u)}`)
                     .join(", ")}{" "}
-                  není v grafu — tuto jednotku neumíme převést na {prettyUnit(t.unit)}.
+                  — {Object.keys(t.otherUnits).length > 1 ? "tyto jednotky" : "tuto jednotku"} neumíme převést na {prettyUnit(t.unit)}.
                 </p>
               )}
 

@@ -278,7 +278,7 @@ export function computeFlag(
   return "normal";
 }
 
-const CENSORED_ABOVE = /^\s*(?:>=|≥|>)\s*([0-9][0-9\s.,]*)$/;
+const CENSORED_ABOVE = /^\s*(>=|≥|>)\s*([0-9][0-9\s.,]*)$/;
 
 /**
  * The flag of a result printed as a lower bound (">200"), or "unknown".
@@ -295,9 +295,11 @@ export function censoredFlag(valueRaw: string | null, low: number | null, high: 
   for (const mark of VALUE_MARKERS) s = s.split(mark).join("");
   const m = CENSORED_ABOVE.exec(s.trim());
   if (!m) return "unknown";
-  const bound = parseCzechNumber(m[1].trim());
+  const bound = parseCzechNumber(m[2].trim());
   if (bound === null) return "unknown";
-  return bound >= high ? "high" : "unknown";
+  // ">5" is past a top of 5; "≥5" may be exactly 5, which is in range.
+  const past = m[1] === ">" ? bound >= high : bound > high;
+  return past ? "high" : "unknown";
 }
 
 /**

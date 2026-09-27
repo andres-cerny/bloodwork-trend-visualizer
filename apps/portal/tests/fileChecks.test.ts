@@ -82,3 +82,36 @@ describe("a date in doubt", () => {
     expect(dateDoubtOf({ reportDate: "2026-04-14" }, today)).toBeNull();
   });
 });
+
+describe("the trend screens' view of doubted dates", () => {
+  it("holds a future-dated report out and marks a disputed one's readings unconfirmed, through review.ts", async () => {
+    const { forTrends } = await import("../src/lib/fileChecks");
+    const { reviewOf } = await import("@bw/lab-core");
+    const today = new Date("2026-09-27T12:00:00Z");
+    const m = { canonicalId: "glukoza", rawAnalyteName: "Glu", valueRaw: "5,1", value: 5.1, unit: "mmol/l", refRangeLow: 3.9, refRangeHigh: 5.6 };
+    const out = forTrends(
+      [
+        { id: "ok", reportDate: "2026-04-14", measurements: [m] },
+        { id: "future", reportDate: "2062-04-14", measurements: [m] },
+        { id: "disputed", reportDate: "2026-04-17", dateDoubt: "Čtení se na datu odběru neshodla.", measurements: [m] },
+      ] as never,
+      today,
+    );
+    expect(out.map((r) => r.id)).toEqual(["ok", "disputed"]);
+    const r = reviewOf(out[1].measurements[0] as never, () => null);
+    expect(r.level).toBe("unconfirmed");
+    expect(r.chip).toBe("ověřit datum");
+    expect(reviewOf(out[0].measurements[0] as never, () => null).level).toBe("ok");
+  });
+});
+
+describe("a file's fingerprint", () => {
+  it("depends on the account's salt, so the same file under another account — or unsalted — does not match", async () => {
+    const { fingerprintOf } = await import("../src/lib/fileChecks");
+    const bytes = new TextEncoder().encode("%PDF-1.4 the same file").buffer as ArrayBuffer;
+    const a = await fingerprintOf(bytes, "salt-a");
+    expect(a).toMatch(/^[0-9a-f]{16}$/);
+    expect(await fingerprintOf(bytes, "salt-a")).toBe(a);
+    expect(await fingerprintOf(bytes, "salt-b")).not.toBe(a);
+  });
+});
