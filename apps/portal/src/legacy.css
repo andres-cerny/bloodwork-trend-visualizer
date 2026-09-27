@@ -590,8 +590,11 @@ ul.summary li:last-child { border-bottom: none; }
     0 0 0 100vmax rgba(15, 15, 12, 0.14);
 }
 
-/* A photo row's frame: the same ring and dimming, as a polygon, because a
-   photographed row is rarely level (VerifyTab, `quad`). The SVG covers the
+/* A photo row's frame: the same ring, as a polygon, because a photographed
+   row is rarely level (VerifyTab, `quad`). The dimming is drawn from --scrim,
+   so it matches the rectangle's in the light palette and follows the token
+   (a little darker) in the dark one, where the rectangle's older literal does
+   not. The SVG covers the
    image and its viewBox is the image's own pixels. The anchor is the row's
    bounding box, invisible — it is only there to be scrolled to. */
 .srcimg .hl-anchor { position: absolute; pointer-events: none; }

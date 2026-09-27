@@ -38,7 +38,11 @@ import {
 export function padQuad(q: Quad): Quad {
   const [tl, tr, br, bl] = q;
   const along = (a: [number, number], b: [number, number], t: number): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  return [along(tl, bl, -0.12), along(tr, br, -0.12), along(br, tr, -0.28), along(bl, tl, -0.28)];
+  // The same floors as the rectangle (2 px above, 3 px below), per side.
+  const side = (a: [number, number], b: [number, number]) => Math.max(1, Math.hypot(b[0] - a[0], b[1] - a[1]));
+  const up = (a: [number, number], b: [number, number]) => -Math.max(0.12, 2 / side(a, b));
+  const down = (a: [number, number], b: [number, number]) => -Math.max(0.28, 3 / side(a, b));
+  return [along(tl, bl, up(tl, bl)), along(tr, br, up(tr, br)), along(br, tr, down(br, tr)), along(bl, tl, down(bl, tl))];
 }
 
 /** A row of a report, replaced. */
