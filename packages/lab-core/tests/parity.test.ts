@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import {
   abbreviationKey,
   canonicalizeUnit,
+  censoredFlag,
   computeFlag,
   materialPrefix,
   normKey,
@@ -33,6 +34,7 @@ const CASES = JSON.parse(
   canonicalize_unit: Array<[string, string]>;
   parse_range: Array<[string, [number | null, number | null, string | null]]>;
   compute_flag: Array<[number | null, number | null, number | null, string]>;
+  censored_flag: Array<[string, number | null, number | null, string]>;
   material_prefix: Array<[string, string | null]>;
   norm_key: Array<[string, string]>;
   abbreviation_key: Array<[string, string | null]>;
@@ -81,6 +83,12 @@ describe("parity with src/normalize.py", () => {
     }
   });
 
+  it("censoredFlag", () => {
+    for (const [raw, low, high, expected] of CASES.censored_flag) {
+      expect(censoredFlag(raw, low, high), `censoredFlag(${JSON.stringify(raw)}, ${low}, ${high})`).toBe(expected);
+    }
+  });
+
   // Guard seen failing: with the naive ^[a-z]{1,4}[-/_] widening, anti-TPO
   // came back as "anti" and S,P-glukóza as null (2026-09-06).
   it("materialPrefix", () => {
@@ -110,11 +118,12 @@ describe("parity with src/normalize.py", () => {
       CASES.canonicalize_unit.length +
       CASES.parse_range.length +
       CASES.compute_flag.length +
+      CASES.censored_flag.length +
       CASES.material_prefix.length +
       CASES.norm_key.length +
       CASES.abbreviation_key.length;
     // Matches the count tests/test_parity.py reports, so neither side can
     // quietly stop reading part of the fixture.
-    expect(total).toBe(155);
+    expect(total).toBe(165);
   });
 });

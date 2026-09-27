@@ -35,12 +35,14 @@
  * a file dialog labelled as a camera.
  */
 import { useEffect, useRef, useState } from "react";
-import { type IdentityHit, type LabReport, type Registry, count } from "@bw/lab-core";
+import { type IdentityHit, type LabReport, type Registry, count, czDate } from "@bw/lab-core";
 import { PHOTO_TYPES, PhotoError, isPhotoFile } from "@bw/lab-core/photo";
-import { type Allowance, type Budget, ApiError, isFatalApiError, withRetry } from "../lib/api";
+import { type Allowance, type Budget, ApiError, isFatalApiError, reportEmptyDocument, withRetry } from "../lib/api";
+import { UNSUPPORTED_COPY, sameDayCheck, sizeRefusal } from "../lib/fileChecks";
 import { type Batch, NO_BATCH, pick, settle, waitingLine } from "../lib/batch";
 import { exhaustedCopy } from "./AllowanceChip";
 import {
+  FileRefused,
   type PreparedFile,
   ReadFailed,
   checkRedaction,
@@ -50,6 +52,7 @@ import {
   redactFile,
   storeReport,
 } from "../lib/upload";
+import FileCheck from "./FileCheck";
 import PhotoCheck from "./PhotoCheck";
 import RedactReview from "./RedactReview";
 
@@ -68,6 +71,10 @@ interface Props {
   onBatch: (b: Batch) => void;
   /** The parent is holding Souhrn for this batch — say so under the queue. */
   holding: boolean;
+  /** What the account holds — for the same file, or the same report, picked again. */
+  reports?: LabReport[];
+  /** A batch ended; `problems` is how many of its files failed or carry notes. */
+  onBatchEnd?: (problems: number) => void;
 }
 
 /** What the reader is doing — one file at a time. */
@@ -76,6 +83,8 @@ type Stage =
   | { kind: "preparing"; name: string; photo: boolean }
   /** A photo the checks warned on or refused — before its review. */
   | { kind: "photoCheck"; prepared: PreparedFile }
+  /** A file the checks warn on (lib/fileChecks.ts) — before its review. */
+  | { kind: "fileCheck"; prepared: PreparedFile }
   | { kind: "review"; prepared: PreparedFile }
   | { kind: "redacting"; name: string };
 
@@ -134,9 +143,13 @@ interface LogEntry {
   /** Stable across a retry, so the entry is replaced rather than duplicated. */
   key: string;
   name: string;
-  status: "done" | "failed" | "skipped";
+  status: "done" | "failed" | "skipped" | "waiting";
   notes: string[];
   error: string | null;
+  /** Stored, but with a note the person should read (ExtractOutcome.serious). */
+  serious?: boolean;
+  /** A second choice beside `retry` — „Neukládat" beside „Uložit i tak". */
+  dismiss?: { label: string; run: () => void };
   /**
    * What „Zkusit znovu" does, when a second try can succeed without the
    * person redoing anything: the redacted pages (and, after a failed save,
@@ -146,7 +159,7 @@ interface LogEntry {
   retry?: { label: string; run: () => void };
 }
 
-export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding }: Props) {
+export default function UploadFlow({ registry, maxPages, frozen, allowance, onAllowance, onBuy, onStored, onBudget, onBatch, holding, reports = [], onBatchEnd }: Props) {
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [queued, setQueued] = useState<File[]>([]);
   const [running, setRunning] = useState<Running[]>([]);
@@ -159,6 +172,12 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
   const queueRef = useRef<File[]>([]);
   const batchRef = useRef<Batch>(NO_BATCH);
   const busyRef = useRef(false);
+  // Read from async code that outlives the render: the account's reports as
+  // they are now, and the files of this tab's session already on their way.
+  const reportsRef = useRef<LabReport[]>(reports);
+  reportsRef.current = reports;
+  const underway = useRef(new Set<string>());
+  const problemsRef = useRef(0);
 
   const publishQueue = () => setQueued([...queueRef.current]);
   const publishBatch = (b: Batch) => {
@@ -171,13 +190,36 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
   const addLog = (e: Omit<LogEntry, "key"> & { key?: string }) => {
     const entry = { ...e, key: e.key ?? `${Date.now()}-${Math.random()}` };
     setLog((l) => [entry, ...l.filter((x) => x.key !== entry.key)]);
-    publishBatch(settle(batchRef.current));
+    if (entry.status === "failed" || entry.status === "waiting" || entry.serious) problemsRef.current += 1;
+    const next = settle(batchRef.current);
+    const closed = next.total === 0 && batchRef.current.total > 0;
+    publishBatch(next);
+    if (closed) {
+      onBatchEnd?.(problemsRef.current);
+      problemsRef.current = 0;
+    }
   };
   /** A retry takes its entry off the log and puts its file back into the batch. */
   const reopen = (key: string) => {
     setLog((l) => l.filter((x) => x.key !== key));
     publishBatch(pick(batchRef.current, 1));
   };
+
+  // A file dropped anywhere but the target — or while the review is up and
+  // the target is not drawn at all — made the browser open it in place of
+  // the app, and every file in flight went with the page. Caught at the
+  // window, the drop target still gets its own events first.
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+    };
+    window.addEventListener("dragover", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", stop);
+      window.removeEventListener("drop", stop);
+    };
+  }, []);
 
   // Closing or reloading the tab mid-read used to lose the file without a
   // word — and the redacted pages a retry needs. The browser's own dialog is
@@ -205,17 +247,35 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     setStage({ kind: "preparing", name: file.name, photo: isPhotoFile(file) });
     try {
       const prepared = await prepareFile(file, maxPages);
-      // A photo the checks did not pass stops first, and the person decides.
+      // The same file again — already stored, or already on its way in this
+      // tab — is said before a document is spent on it.
+      const fp = prepared.fingerprint;
+      const held = fp ? reportsRef.current.find((r) => r.fingerprint === fp) : undefined;
+      if (held || (fp && underway.current.has(fp))) {
+        addLog({
+          name: file.name,
+          status: "skipped",
+          notes: [],
+          error: held ? `Tento soubor už máte nahraný (report z ${czDate(held.reportDate)}) — nic se neposílalo.` : "Tento soubor se už nahrává — nic se neposílalo podruhé.",
+        });
+        finish();
+        return;
+      }
+      // A photo the checks did not pass stops first, and the person decides;
+      // then the file's own warnings; then the review.
       const checked = prepared.photo && prepared.photo.verdict.outcome !== "ok";
-      setStage(checked ? { kind: "photoCheck", prepared } : { kind: "review", prepared });
+      setStage(checked ? { kind: "photoCheck", prepared } : afterPhotoCheck(prepared));
     } catch (e) {
       // A PhotoError already carries the sentence the person needs — which
       // format it was and what to send instead. Wrapping it would bury it.
-      const error = e instanceof PhotoError ? e.message : openFailedCopy(e);
+      const error = e instanceof PhotoError || e instanceof FileRefused ? e.message : openFailedCopy(e);
       addLog({ name: file.name, status: "failed", notes: [], error });
       finish();
     }
   }
+
+  const afterPhotoCheck = (prepared: PreparedFile): Stage =>
+    prepared.warnings?.length ? { kind: "fileCheck", prepared } : { kind: "review", prepared };
 
   function finish() {
     busyRef.current = false;
@@ -237,6 +297,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
         throw new Error(`anonymizace se nezdařila — v textu zůstalo: ${survived.slice(0, 3).join(", ")}`);
       }
       const id = newReportId();
+      if (prepared.fingerprint) underway.current.add(prepared.fingerprint);
       // Not awaited: the next file's review must not wait for this read.
       void extractInBackground(id, name, prepared, pages);
     } catch (e) {
@@ -261,8 +322,9 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
     const latest: string[] = [];
     let report: LabReport | null = null;
     let notes: string[] = [];
+    let serious = false;
     try {
-      ({ report, notes } = await extractReport(
+      ({ report, notes, serious = false } = await extractReport(
         id,
         prepared,
         pages,
@@ -282,20 +344,70 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
       ));
     } catch (e) {
       dropRunning(id);
+      if (prepared.fingerprint) underway.current.delete(prepared.fingerprint);
       failedRead(e, id, name, prepared, pages, key);
       return;
     }
     dropRunning(id);
-    await storeInBackground(report, pages, name, notes, key);
+    if (prepared.fingerprint) underway.current.delete(prepared.fingerprint);
+
+    // Nothing to store, or something already stored: the read happened, and
+    // the document goes back — except every third time in 30 days.
+    if (report.measurements.length === 0) {
+      await emptyRead(report.id, name, key, "V reportu jsme nenašli žádné hodnoty — nic se neuložilo.");
+      return;
+    }
+    const same = sameDayCheck(report, reportsRef.current);
+    if (same.kind === "duplicate") {
+      await emptyRead(report.id, name, key, `Tento report už máte (${czDate(same.other.reportDate)}, stejné hodnoty) — podruhé jsme ho neuložili.`);
+      return;
+    }
+    if (same.kind === "repeat") {
+      // Same day, same parameters, other values: a second draw that day is
+      // real, and so is a misread. Held until the person says which.
+      const held = report;
+      addLog({
+        key,
+        name,
+        status: "waiting",
+        notes,
+        error: `Report ze stejného dne (${czDate(same.other.reportDate)}) už máte a hodnoty se liší. Jde o další odběr téhož dne? Pokud ano, uložte ho — v trendech budou obě hodnoty.`,
+        retry: {
+          label: "Uložit i tak",
+          run: () => {
+            reopen(key);
+            void storeInBackground(held, pages, name, notes, key, serious);
+          },
+        },
+        dismiss: {
+          label: "Neukládat",
+          run: () => setLog((l) => l.map((x) => (x.key === key ? { ...x, status: "skipped", error: "Neuloženo.", retry: undefined, dismiss: undefined } : x))),
+        },
+      });
+      return;
+    }
+    await storeInBackground(report, pages, name, notes, key, serious);
+  }
+
+  /** A read with nothing to store: tell the worker, and say what came of it. */
+  async function emptyRead(id: string, name: string, key: string, what: string) {
+    const r = await withRetry(() => reportEmptyDocument(id)).catch(() => null);
+    if (r) onAllowance(r.allowance);
+    const after = !r
+      ? " Dokument se nepodařilo vrátit — napište nám prosím."
+      : r.refunded
+        ? " Dokument se vrátil do vašeho nároku."
+        : " Dokument se tentokrát nevrací: je to třetí takové nahrání za posledních 30 dní.";
+    addLog({ key, name, status: "failed", notes: [], error: what + after });
   }
 
   /** Persist a read report; on failure keep it, and offer to save it again. */
-  async function storeInBackground(report: LabReport, pages: Awaited<ReturnType<typeof redactFile>>, name: string, notes: string[], key: string) {
+  async function storeInBackground(report: LabReport, pages: Awaited<ReturnType<typeof redactFile>>, name: string, notes: string[], key: string, serious = false) {
     setRunning((rs) => [...rs, { id: report.id, name, phase: "storing", done: 0, total: 0, rows: 0, latest: [] }]);
     try {
       const stored = await withRetry(() => storeReport(report, pages));
       onStored(stored);
-      addLog({ key, name, status: "done", notes, error: null });
+      addLog({ key, name, status: "done", notes, error: null, serious });
     } catch (e) {
       const reason = e instanceof ApiError ? e.message : "Neznámá chyba.";
       addLog({
@@ -310,7 +422,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
           label: "Uložit znovu",
           run: () => {
             reopen(key);
-            void storeInBackground(report, pages, name, notes, key);
+            void storeInBackground(report, pages, name, notes, key, serious);
           },
         },
       });
@@ -370,10 +482,26 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
    * queue, each one reviewed in turn.
    */
   function enqueue(files: File[]) {
-    const usable = files.filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name) || isPhotoFile(f));
+    const usable: File[] = [];
+    for (const f of files) {
+      const photo = isPhotoFile(f);
+      const pdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+      // Each refused file is said, once, instead of vanishing from a mixed
+      // selection without a word.
+      const why = !photo && !pdf ? UNSUPPORTED_COPY : sizeRefusal(f, photo);
+      if (why) {
+        setLog((l) => [{ key: `${Date.now()}-${Math.random()}`, name: f.name, status: "failed", notes: [], error: why }, ...l]);
+        continue;
+      }
+      usable.push(f);
+    }
     if (usable.length === 0) return;
+    // A photo's local reading needs ~6 MB of files; start fetching them
+    // now, while the person is still on the first screen.
+    if (usable.some(isPhotoFile)) void import("../lib/ocr").then((m) => m.preload()).catch(() => undefined);
     queueRef.current.push(...usable);
     publishQueue();
+    if (batchRef.current.total === 0) problemsRef.current = 0;
     publishBatch(pick(batchRef.current, usable.length));
     void startNext();
   }
@@ -436,6 +564,18 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
           addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
           finish();
         }}
+        onSendAnyway={() => setStage(afterPhotoCheck(stage.prepared))}
+        onCancel={() => {
+          addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
+          finish();
+        }}
+      />
+    );
+
+  if (stage.kind === "fileCheck")
+    return (
+      <FileCheck
+        prepared={stage.prepared}
         onSendAnyway={() => setStage({ kind: "review", prepared: stage.prepared })}
         onCancel={() => {
           addLog({ name: stage.prepared.name, status: "skipped", notes: [], error: null });
@@ -495,7 +635,7 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
             ? queued.length > 0
               ? `Nechte okno otevřené · ve frontě ${count(queued.length, "soubor", "soubory", "souborů")}`
               : "Nechte okno otevřené."
-            : `nebo klepněte a vyberte — i více najednou · nejvýše ${count(maxPages, "strana", "strany", "stran")} na report`}
+            : `nebo klepněte a vyberte — i více najednou · nejvýše ${count(maxPages, "strana", "strany", "stran")} na report, PDF do 20 MB`}
         </span>
         {/*
           The picker half of the pair: no `capture`, so iOS offers Fotky and
@@ -585,13 +725,13 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
             <li key={j.key} className={`job ${j.status}`}>
               <span className="job-head">
                 <span className="job-mark" aria-hidden="true">
-                  {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : "–"}
+                  {j.status === "done" ? "✓" : j.status === "failed" ? "✕" : j.status === "waiting" ? "?" : "–"}
                 </span>
                 <span className="job-name" title={j.name}>
                   {j.name}
                 </span>
                 <span className="job-state">
-                  {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : "přeskočeno"}
+                  {j.status === "done" ? "uloženo" : j.status === "failed" ? "chyba" : j.status === "waiting" ? "čeká na vás" : "přeskočeno"}
                 </span>
               </span>
               {j.notes.map((n, k) => (
@@ -600,11 +740,18 @@ export default function UploadFlow({ registry, maxPages, frozen, allowance, onAl
                 </span>
               ))}
               {j.error && <span className="job-note err">{j.error}</span>}
-              {j.retry && (
-                <span className="job-note">
-                  <button type="button" className="btn small" onClick={j.retry.run}>
-                    {j.retry.label}
-                  </button>
+              {(j.retry || j.dismiss) && (
+                <span className="job-note job-actions">
+                  {j.retry && (
+                    <button type="button" className="btn small" onClick={j.retry.run}>
+                      {j.retry.label}
+                    </button>
+                  )}
+                  {j.dismiss && (
+                    <button type="button" className="btn small" onClick={j.dismiss.run}>
+                      {j.dismiss.label}
+                    </button>
+                  )}
                 </span>
               )}
             </li>

@@ -329,11 +329,11 @@ describe("extract proxy", () => {
     env.EXTRACT = extract.fetcher;
     await call(A, "POST", "/api/documents", { id: "d-1" });
     const statuses: number[] = [];
-    // The cap is 6 pages; a page that failed does not count against it, and
+    // The cap is 10 pages; a page that failed does not count against it, and
     // retries stop at three times the cap.
-    for (let i = 0; i < 20; i++) statuses.push((await call(A, "POST", "/api/extract", { rowsText: "x" }, { "x-document": "d-1" })).status);
-    expect(statuses.filter((s) => s === 502)).toHaveLength(18);
-    expect(statuses.slice(18)).toEqual([409, 409]);
+    for (let i = 0; i < 32; i++) statuses.push((await call(A, "POST", "/api/extract", { rowsText: "x" }, { "x-document": "d-1" })).status);
+    expect(statuses.filter((s) => s === 502)).toHaveLength(30);
+    expect(statuses.slice(30)).toEqual([409, 409]);
   });
 
   it("freezes the person who spent the month's allowance, and nobody else", async () => {

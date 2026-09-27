@@ -102,3 +102,18 @@ describe("interpretPage", () => {
     expect(out.measurements[0].rawAnalyteName).toBe("S_Bilirubin konjugovany-x");
   });
 });
+
+describe("the date two readers give", () => {
+  it("keeps the first and carries the doubt when they differ", () => {
+    const a = { ...read("a", []), report_date: "2026-04-14" };
+    const b = { ...read("b", []), report_date: "2026-04-17" };
+    const out = interpretPage([a, b], rows, 1, false, match);
+    expect(out.reportDate).toBe("2026-04-14");
+    expect(out.dateConflict).toEqual(["2026-04-14", "2026-04-17"]);
+  });
+  it("carries no doubt when they agree, or one says nothing", () => {
+    const a = { ...read("a", []), report_date: "2026-04-14" };
+    expect(interpretPage([a, { ...read("b", []), report_date: "2026-04-14" }], rows, 1, false, match).dateConflict).toBeNull();
+    expect(interpretPage([a, { ...read("b", []), report_date: null }], rows, 1, false, match).dateConflict).toBeNull();
+  });
+});

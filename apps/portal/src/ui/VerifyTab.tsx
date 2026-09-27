@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Flag from "./Flag";
 import SearchParam from "./SearchParam";
+import { dateDoubtOf } from "../lib/fileChecks";
 import type { PickerOption } from "./AnalytePicker";
 import {
   type LabReport,
@@ -25,6 +26,9 @@ import {
   czDate,
   plural,
   prettyUnit,
+  type UnitDef,
+  czNum,
+  inCanonicalUnit,
 } from "@bw/lab-core";
 
 /** A row of a report, replaced. */
@@ -37,6 +41,8 @@ interface Props {
   reports: LabReport[];
   /** One row or many, of one report, saved as one change. */
   onCorrect: (reportId: string, changes: ReadonlyArray<RowChange>) => void;
+  /** The person set the report's date (shown only while it is in doubt). */
+  onSetDate?: (reportId: string, isoDate: string) => void;
   /**
    * Arriving from another tab: open this report with this row selected. `seq`
    * distinguishes two jumps to the same row, so asking for it twice works.
@@ -48,7 +54,9 @@ interface Props {
    * Curated interval for an analyte, used only to spot a misread value.
    * Falls back to the interval printed on the report when absent.
    */
-  curatedRange: (canonicalId: string | null) => { low: number; high: number } | null;
+  curatedRange: (canonicalId: string | null, unit?: string | null) => { low: number; high: number } | null;
+  /** The parameter's canonical unit and factors — for the „převedeno" line. */
+  unitDef?: (canonicalId: string) => UnitDef | undefined;
 }
 
 /** Padding around the magnified row crop, in rendered pixels. */
@@ -81,7 +89,7 @@ export function confirmedSentence(n: number): string {
   return `${plural(n, "Potvrzena", "Potvrzeny", "Potvrzeno")} ${count(n, "hodnota", "hodnoty", "hodnot")}.`;
 }
 
-export default function VerifyTab({ reports, onCorrect, focus, displayName, curatedRange }: Props) {
+export default function VerifyTab({ reports, onCorrect, onSetDate, focus, displayName, curatedRange, unitDef }: Props) {
   const [reportId, setReportId] = useState(focus?.reportId ?? reports[0]?.id ?? "");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
@@ -313,6 +321,7 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
   return (
     <>
       <div className="card">
+        {onSetDate && dateDoubtOf(report) && <DateField key={report.id} report={report} onSet={(d) => onSetDate(report.id, d)} />}
         <div className="toolbar">
           <label htmlFor="report" className="muted">Report</label>
           <select
@@ -423,6 +432,21 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
               {(() => {
                 const r = review(sel);
                 return r.reason ? <p className="err" style={{ margin: "0 0 8px" }}>⚠ {r.reason}</p> : null;
+              })()}
+              {(() => {
+                // A reading in another unit than the parameter's: say what the
+                // trends show for it, or that they cannot show it.
+                const def = sel.canonicalId ? unitDef?.(sel.canonicalId) : undefined;
+                if (!def || sel.value === null) return null;
+                const c = inCanonicalUnit(sel, def);
+                if (c && !c.from) return null;
+                return (
+                  <p className="muted unit-note" style={{ margin: "0 0 8px" }}>
+                    {c
+                      ? `V trendech převedeno z ${czNum(sel.value)} ${prettyUnit(sel.unit)} na ${czNum(c.value!)} ${prettyUnit(def.canonicalUnit)}.`
+                      : `Jednotku ${prettyUnit(sel.unit)} neumíme převést na ${prettyUnit(def.canonicalUnit)} — v grafu se tato hodnota neukáže.`}
+                  </p>
+                );
               })()}
               <div className="row">
                 <input
@@ -547,5 +571,40 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * The report's date, when it is missing or in doubt (lib/fileChecks.ts
+ * dateDoubtOf): the reason, and a field to set it. Not shown for a date
+ * nobody doubts — correcting one is not a thing a reader needs to do, and a
+ * field on every report invites changing a right date to a wrong one.
+ */
+function DateField({ report, onSet }: { report: LabReport; onSet: (isoDate: string) => void }) {
+  const [value, setValue] = useState(report.reportDate ?? "");
+  const today = new Date().toISOString().slice(0, 10);
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(value) && value <= today && value >= "1990-01-01";
+  return (
+    <form
+      className="banner warn date-field"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) onSet(value);
+      }}
+    >
+      <p style={{ margin: "0 0 6px" }}>
+        <span aria-hidden="true">⚠️ </span>
+        {dateDoubtOf(report)}
+      </p>
+      <span className="date-ask-row" style={{ marginTop: 0 }}>
+        <label>
+          Datum odběru
+          <input type="date" value={value} max={today} min="1990-01-01" onChange={(e) => setValue(e.target.value)} required />
+        </label>
+        <button className="btn small primary" disabled={!valid}>
+          {report.reportDate ? "Potvrdit datum" : "Uložit datum"}
+        </button>
+      </span>
+    </form>
   );
 }

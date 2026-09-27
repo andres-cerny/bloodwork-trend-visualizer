@@ -6,7 +6,7 @@
  * Every sentence is checkable against the code: the two readers are the
  * extractor's pair (packages/extraction), the five free documents and the
  * two packages are workers/portal/src/allowance.ts and stripe.ts, the page
- * cap is MAX_PAGES_PER_REPORT in workers/portal/wrangler.jsonc (6), and what
+ * cap is MAX_PAGES_PER_REPORT in workers/portal/wrangler.jsonc (10), and what
  * a deletion does to the count is tests/allowance.test.ts. The numbers come
  * from legal.tsx's ALLOWANCE — the one constant the landing, the terms and
  * the buy sheet also read — rather than being fetched, because the page has

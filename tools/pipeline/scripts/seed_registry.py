@@ -1432,6 +1432,45 @@ EXTRA_CONVERSIONS: dict[str, dict[str, float]] = {
     "anti_hbs": {"IU/l": 1.0, "mIU/ml": 1.0},
 }
 
+# Conventional (US-style) units a foreign or private lab prints, to the SI
+# canonical Czech labs use (2026-09-27): without them a creatinine of 0,9 mg/dl
+# was plotted beside 80 µmol/l on one axis. Standard conversion factors
+# (molar masses; 1 U/l = 1/60 µkat/l). Urea is left out on purpose: "mg/dl"
+# there is either urea or BUN, and the factors differ by half.
+SI_CONVERSIONS: dict[str, dict[str, float]] = {
+    "glukoza": {"mg/dl": 0.0555},
+    "kreatinin": {"mg/dl": 88.42},
+    "cholesterol": {"mg/dl": 0.02586},
+    "hdl": {"mg/dl": 0.02586},
+    "ldl": {"mg/dl": 0.02586},
+    "non_hdl": {"mg/dl": 0.02586},
+    "remnantni_cholesterol": {"mg/dl": 0.02586},
+    "triacylglyceroly": {"mg/dl": 0.01129},
+    "bilirubin_celkovy": {"mg/dl": 17.1},
+    "bilirubin_konjugovany": {"mg/dl": 17.1},
+    "bilirubin_nekonjugovany": {"mg/dl": 17.1},
+    "kyselina_mocova": {"mg/dl": 59.48},
+    "hemoglobin": {"g/dl": 10.0},
+    "mchc": {"g/dl": 10.0},
+    "albumin": {"g/dl": 10.0},
+    "celkova_bilkovina": {"g/dl": 10.0},
+    "vapnik": {"mg/dl": 0.2495},
+    "fosfor": {"mg/dl": 0.3229},
+    "horcik": {"mg/dl": 0.4114},
+    "zelezo": {"µg/dl": 0.1791},
+    "crp": {"mg/dl": 10.0},
+    "laktat": {"mg/dl": 0.111},
+    "alt": {"U/l": 0.01667, "IU/l": 0.01667},
+    "ast": {"U/l": 0.01667, "IU/l": 0.01667},
+    "ggt": {"U/l": 0.01667, "IU/l": 0.01667},
+    "alp": {"U/l": 0.01667, "IU/l": 0.01667},
+    "ck": {"U/l": 0.01667, "IU/l": 0.01667},
+    "ldh": {"U/l": 0.01667, "IU/l": 0.01667},
+    "amylaza": {"U/l": 0.01667, "IU/l": 0.01667},
+    "lipaza": {"U/l": 0.01667, "IU/l": 0.01667},
+    "amylaza_pankreaticka": {"U/l": 0.01667, "IU/l": 0.01667},
+}
+
 # Genuinely new analytes present only in the other labs' panels.
 NEW_ANALYTES: list[tuple] = [
     ("egfr_mdrd", "eGFR (MDRD)", ["odhad GF (MDRD)"], "ml/s/1,73 m2", {}),
@@ -1498,7 +1537,7 @@ def build() -> list[dict]:
             "display_name_cs": disp,
             "synonyms": merged,
             "canonical_unit": unit,
-            "unit_conversions": {**conv, **EXTRA_CONVERSIONS.get(cid, {})},
+            "unit_conversions": {**conv, **EXTRA_CONVERSIONS.get(cid, {}), **SI_CONVERSIONS.get(cid, {})},
         })
     return out
 

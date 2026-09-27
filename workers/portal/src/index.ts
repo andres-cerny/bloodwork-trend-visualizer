@@ -46,7 +46,7 @@ import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
 import { DUMMY_RECORD, hashPassword, verifyPassword } from "./password";
 import { handleSignupMail, looksLikeEmail, openMailedAccount, requireHuman, signupStatus, type SignupEnv } from "./signup";
-import { allowanceOf, handleAllowance, handleOpenDocument, handleReleaseDocument, notePageFailed, notePageRead, sendPage } from "./allowance";
+import { allowanceOf, handleAllowance, handleOpenDocument, handleEmptyDocument, handleReleaseDocument, notePageFailed, notePageRead, sendPage } from "./allowance";
 import { handleBuy, handleStripeWebhook, type StripeEnv } from "./stripe";
 import {
   clearCookieHeader,
@@ -144,7 +144,7 @@ const usdLimit = (env: Env) => parseFloat(env.PORTAL_USD_LIMIT ?? "10") || 10;
  * empty env var does.
  */
 const limitFor = (user: UserRow, env: Env) => user.budget_usd ?? usdLimit(env);
-const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "6", 10) || 6;
+const maxPages = (env: Env) => parseInt(env.MAX_PAGES_PER_REPORT ?? "10", 10) || 10;
 
 /**
  * A ceiling in Czech copy: "2,50", not "2.5". The same rule as lab-core's
@@ -1086,6 +1086,7 @@ const REPORT = /^\/api\/reports\/([^/]+)$/;
 const INVITE = /^\/api\/auth\/invite\/([^/]+)$/;
 const PAGE = /^\/api\/(?:reports|pages)\/([^/]+)\/(\d{1,3})$/;
 const DOCUMENT = /^\/api\/documents\/([^/]+)$/;
+const DOCUMENT_EMPTY = /^\/api\/documents\/([^/]+)\/empty$/;
 
 /** Which account a request turned out to belong to, for the events hook below. */
 const accountOf = new WeakMap<Request, string>();
@@ -1209,6 +1210,8 @@ const routes = {
 
     const doc = DOCUMENT.exec(url.pathname);
     if (doc && request.method === "DELETE" && REPORT_ID.test(doc[1])) return handleReleaseDocument(env.DB, user, doc[1], session.demo);
+    const empty = DOCUMENT_EMPTY.exec(url.pathname);
+    if (empty && request.method === "POST" && REPORT_ID.test(empty[1])) return handleEmptyDocument(env.DB, user, empty[1]);
 
     const page = PAGE.exec(url.pathname);
     if (page) {

@@ -34,7 +34,13 @@ const OK: Review = { level: "ok", chip: "", reason: "" };
 
 export function reviewOf(
   m: Measurement,
-  curatedRange: (canonicalId: string | null) => { low: number; high: number } | null,
+  /**
+   * The curated interval, in the analyte's canonical unit. Given the
+   * reading's unit too, so a caller can refuse to answer for a reading in
+   * another unit — comparing 150 mg/dl of triglycerides with 0,45–1,7
+   * mmol/l would call a normal value impossible.
+   */
+  curatedRange: (canonicalId: string | null, unit?: string | null) => { low: number; high: number } | null,
 ): Review {
   // A human vouched for this exact value against the printed page. That
   // answers every kind of doubt below at once — an implausibility check
@@ -44,7 +50,7 @@ export function reviewOf(
   if (m.confirmed) return OK;
 
   const range =
-    curatedRange(m.canonicalId) ??
+    curatedRange(m.canonicalId, m.unit) ??
     (m.refRangeLow !== null && m.refRangeHigh !== null
       ? { low: m.refRangeLow, high: m.refRangeHigh }
       : null);

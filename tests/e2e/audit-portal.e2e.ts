@@ -244,7 +244,9 @@ const SCREENS: Screen[] = [
   // itself shares these classes and this card.
   { name: "registrace (živý odkaz)", at: { path: "/registrace?kod=audit-registrace", ready: ".door form" }, go: async () => {} },
   { name: "heslo (živý odkaz)", at: { path: "/heslo?kod=audit-heslo", ready: ".door form" }, go: async () => {} },
-  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, go: async () => {} },
+  // Logged out: a dead link opened by someone already logged in goes on to
+  // the portal instead (ui/InvitePage.tsx — the link clicked twice).
+  { name: "registrace (mrtvý odkaz)", at: { path: "/registrace?kod=mrtvy", ready: ".door .notice" }, prepare: loggedOut, go: async () => {} },
   // The open door (docs/plans/multi-user.md, Goal 6). The Turnstile widget
   // is Cloudflare's iframe and is not swept — its script is refused here so
   // the screens are the same with and without a site key in .env; what is

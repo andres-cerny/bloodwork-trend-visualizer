@@ -146,6 +146,12 @@ export const SQL = {
   releaseDocument:
     "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND pages_read = 0 AND pages_failed = pages_sent AND released_at IS NULL",
   giveBackDocument: "UPDATE users SET doc_used = doc_used - 1 WHERE id = ?1 AND doc_used > 0",
+  // An empty read (src/allowance.ts refundEmpty): marked once, then counted
+  // over 30 days. The refund itself releases the document the way a failed
+  // read is released, but with pages read — which only this route may do.
+  markEmpty: "UPDATE documents SET empty_at = ?3 WHERE id = ?1 AND user_id = ?2 AND empty_at IS NULL AND released_at IS NULL",
+  countEmpty: "SELECT COUNT(*) AS n FROM documents WHERE user_id = ?1 AND empty_at IS NOT NULL AND empty_at > ?2",
+  releaseEmpty: "UPDATE documents SET released_at = ?3 WHERE id = ?1 AND user_id = ?2 AND released_at IS NULL AND took_slot = 1",
   // The sweep (src/sweep.ts): a document opened an hour ago with nothing
   // read will never be read — the tab was closed after the open, or its
   // pages' answers were lost. Released, and its slot given back if it took one.

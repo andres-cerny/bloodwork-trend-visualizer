@@ -206,6 +206,14 @@ export const releaseDocument = (id: string) =>
   request<{ ok: true; released: boolean; allowance: Allowance }>(`/api/documents/${id}`, { method: "DELETE" });
 
 /**
+ * The read of this document gave nothing to store — no values, or a report
+ * the account already holds. The worker gives it back, except every third
+ * such read in 30 days (workers/portal/src/allowance.ts refundEmpty).
+ */
+export const reportEmptyDocument = (id: string) =>
+  request<{ ok: true; refunded: boolean; strike: number; allowance: Allowance }>(`/api/documents/${id}/empty`, { method: "POST" });
+
+/**
  * The shop: a Checkout URL to send the browser to, or an ApiError — 503
  * `shop_closed` while the deployment has no Stripe account behind it.
  */

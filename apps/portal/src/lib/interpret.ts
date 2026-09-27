@@ -50,6 +50,8 @@ export interface PageResult {
   /** Qualitative printed rows no read returned, added as unparsed rows. */
   qualitative: number;
   reportDate: string | null;
+  /** The readers named different dates for this page — both, as read. */
+  dateConflict: string[] | null;
   labName: string | null;
 }
 
@@ -79,12 +81,18 @@ export function interpretPage(
     unread: [],
     qualitative: 0,
     reportDate: null,
+    dateConflict: null,
     labName: null,
   };
+  const dates = new Set<string>();
   for (const read of reads) {
     out.reportDate = out.reportDate ?? read.report_date ?? null;
     out.labName = out.labName ?? read.lab_name ?? null;
+    if (read.report_date) dates.add(read.report_date);
   }
+  // Two readers, two dates: the first one is kept, and the doubt travels
+  // with the report so Ověření asks for the date instead of trusting it.
+  if (dates.size > 1) out.dateConflict = [...dates].sort();
   const claimed: number[] = [];
   for (const m of reconcile(reads, { expected: readersAttempted })) {
     let rowIndex = m.rowIndex;

@@ -53,10 +53,16 @@ afterAll(async () => {
 
 const BUDGET = { spentUsd: 0.12, budgetUsd: 5, frozen: false, remainingUsd: 4.88, month: "2026-08" };
 
-/** One page's worth of what a reader returns, in the Worker's `reads` shape. */
-const read = (model: string) => ({
+/**
+ * One page's worth of what a reader returns, in the Worker's `reads` shape.
+ * `n` sets the date apart per page read: two uploads answering the same
+ * date and value would be one report stored twice, which the upload now
+ * refuses (lib/fileChecks.ts sameDayCheck) — right for a person, wrong for
+ * a fixture meant to be two sheets.
+ */
+const read = (model: string, n = 0) => ({
   model,
-  report_date: "2024-05-06",
+  report_date: `2024-05-${String(6 + n).padStart(2, "0")}`,
   lab_name: "Zkušební laboratoř",
   measurements: [
     { raw_analyte_name: "Glukóza", value_raw: "5,10", unit_raw: "mmol/l", ref_range_raw: null, row_index: 0, source_snippet: "Glukóza 5,10 mmol/l" },
@@ -79,7 +85,8 @@ function stub() {
   const install = async (page: Page) => {
     await page.route("**/api/extract", async (r: Route) => {
       requests.push(JSON.parse(r.request().postData() ?? "{}") as Seen);
-      await r.fulfill({ json: { reads: [read("sonnet"), read("gemini")], mode: "vision", readersAttempted: 2, costUsd: 0.004, budget: BUDGET } });
+      const n = requests.length;
+      await r.fulfill({ json: { reads: [read("sonnet", n), read("gemini", n)], mode: "vision", readersAttempted: 2, costUsd: 0.004, budget: BUDGET } });
     });
     // A stored page answers with the route its image will be served from;
     // the fake account API acknowledges writes but does not mint one.
@@ -118,7 +125,8 @@ function firstUploadStub() {
         await r.fulfill({ status: 500, json: { error: "reader_failed", message: "Čtečka neodpověděla." } });
         return;
       }
-      await r.fulfill({ json: { reads: [read("sonnet"), read("gemini")], mode: "vision", readersAttempted: 2, costUsd: 0.004, budget: BUDGET } });
+      const n = served;
+      await r.fulfill({ json: { reads: [read("sonnet", n), read("gemini", n)], mode: "vision", readersAttempted: 2, costUsd: 0.004, budget: BUDGET } });
     });
   };
   return {
@@ -152,7 +160,10 @@ async function openUpload(viewport: { width: number; height: number }, s: Return
 const pick = (page: Page, files: Array<{ name: string; mimeType: string; buffer: Buffer }>, selector = "label.drop input[type=file]") =>
   page.setInputFiles(selector, files);
 
-const shot = (name = "IMG_0042.jpg") => ({ name, mimeType: "image/jpeg", buffer: png(3000, 4000) });
+/** Two shots of two sheets are two files: a height one pixel apart per name
+ *  keeps their bytes apart, or the upload's same-file check would take the
+ *  second for the first picked again (lib/fileChecks.ts). */
+const shot = (name = "IMG_0042.jpg") => ({ name, mimeType: "image/jpeg", buffer: png(3000, 4000 + (Number(name.replace(/\D/g, "")) % 7)) });
 
 /** A born-digital sheet with a printed header, so the detector has something
  *  to find — the other half of the mixed selection below. */
@@ -174,7 +185,12 @@ async function toReview(page: Page, name = "IMG_0042.jpg", timeout = 40_000) {
         ? "review"
         : "";
   await expect.poll(at, { timeout }).not.toBe("");
-  if ((await at()) === "check") await page.getByRole("button", { name: "Nahrát i tak" }).click();
+  // A photo can meet two checks in turn — the photo's own, then the file's
+  // (lib/fileChecks.ts: its local reading failed) — each with „Nahrát i tak".
+  for (let i = 0; i < 2 && (await at()) === "check"; i++) {
+    await page.getByRole("button", { name: /^(Nahrát i tak|Ano, je to jeden report)$/ }).first().click();
+    await expect.poll(at, { timeout }).not.toBe("");
+  }
   await expect.poll(at, { timeout }).toBe("review");
   await page.waitForSelector(".review-canvas img", { timeout });
 }
@@ -306,7 +322,7 @@ describe("a selection of both kinds at once", () => {
     const page = await openUpload(MOBILE, s, true);
 
     await pick(page, [sheet(), shot()]);
-    await page.waitForSelector(".review-canvas img", { timeout: 30_000 });
+    await toReview(page, "vysledky.pdf");
 
     // The PDF first, in the order they were picked: boxes found, and the
     // caption claims nothing about a missing text layer.
@@ -384,7 +400,7 @@ describe("the first upload, several files at once", () => {
     await page.close();
   });
 
-  it("does not wait on a failure: the switch comes when the last one ends, and the failed file stays listed with its message", async () => {
+  it("does not wait on a failure: the strip comes when the last one ends, and the reader stays on Reporty where the failed file is listed with its message", async () => {
     const s = firstUploadStub();
     const page = await openEmpty(s);
 
@@ -401,9 +417,10 @@ describe("the first upload, several files at once", () => {
     s.failTheHeld();
     s.release();
     await page.waitForSelector("[role=tab][aria-selected=true]", { timeout: 30_000 });
-    expect(await page.getByRole("tab", { selected: true }).textContent()).toBe("Souhrn");
+    // A batch that ended with a failure keeps the reader where its log is
+    // (2026-09-27): Souhrn would have hidden the failed file on another tab.
+    expect(await page.getByRole("tab", { selected: true }).textContent()).toBe("Reporty");
 
-    await page.getByRole("tab", { name: "Reporty", exact: true }).click();
     const failed = page.locator("li.job.failed");
     expect(await failed.count()).toBe(1);
     const text = (await failed.textContent()) ?? "";

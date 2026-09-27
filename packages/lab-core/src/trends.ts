@@ -1,5 +1,6 @@
 /** Assemble per-analyte time series across reports. Ported from src/trends.py. */
 import type { Flag, LabReport } from "./models";
+import { type UnitDef, inCanonicalUnit } from "./units";
 
 export interface TrendPoint {
   date: string; // ISO date of the report
@@ -23,6 +24,8 @@ export interface TrendPoint {
    * marked: dropping it would hide real data.
    */
   unconfirmed: string | null;
+  /** The reading as printed, when it was converted to the trend's unit (units.ts). */
+  convertedFrom?: { value: number | null; unit: string } | null;
 }
 
 export interface Trend {
@@ -30,6 +33,12 @@ export interface Trend {
   displayName: string;
   unit: string;
   points: TrendPoint[];
+  /**
+   * Readings left out of the series because they are in a unit nothing
+   * converts to this one — by unit, how many. Plotting them on the same axis
+   * would draw a jump that never happened; the card names them instead.
+   */
+  otherUnits?: Record<string, number>;
 }
 
 /**
@@ -44,6 +53,19 @@ export interface Trend {
  */
 export function numericPoints(t: Trend): TrendPoint[] {
   return t.points.filter((p) => p.value !== null && p.suspect === null);
+}
+
+/**
+ * The newest reading when it is a bound past the range — ">200" against 0–5 —
+ * and so has no number to plot but is a result all the same. Without this
+ * the newest CRP of ">200" was invisible: the headline showed the older
+ * numeric value, and nothing said "out of range".
+ */
+export function latestCensoredOut(t: Trend): TrendPoint | null {
+  const last = t.points[t.points.length - 1];
+  if (!last || last.value !== null || last.suspect !== null) return null;
+  if (last.flag !== "high" && last.flag !== "low") return null;
+  return last;
 }
 
 /** Readings held out of the series pending verification. */
@@ -64,8 +86,18 @@ export function buildTrends(
   suspectFn: (m: LabReport["measurements"][number]) => string | null = () => null,
   /** Returns a reason when a reading is plotted but unconfirmed, else null. */
   unconfirmedFn: (m: LabReport["measurements"][number]) => string | null = () => null,
+  /**
+   * The parameter's canonical unit and conversion factors (units.ts). With
+   * it, every reading is put in the canonical unit; without it, the series
+   * keeps the unit most of its readings carry. Either way a reading in a
+   * unit that cannot be put on the same axis is left out and counted in
+   * `otherUnits` — never plotted beside the others.
+   */
+  unitDefFn: (cid: string) => UnitDef | null | undefined = () => null,
 ): Map<string, Trend> {
   const trends = new Map<string, Trend>();
+  /** Points whose unit is the series' by construction: converted, or already canonical. */
+  const settled = new Set<TrendPoint>();
   for (const report of reports) {
     if (!report.reportDate) continue;
     for (const m of report.measurements) {
@@ -80,25 +112,58 @@ export function buildTrends(
         };
         trends.set(m.canonicalId, t);
       }
-      if (!t.unit && m.unit) t.unit = m.unit;
-      t.points.push({
+      const def = unitDefFn(m.canonicalId);
+      const c = def ? inCanonicalUnit(m, def) : null;
+      const point: TrendPoint = {
         date: report.reportDate,
-        value: m.value,
-        unit: m.unit,
+        value: c ? c.value : m.value,
+        unit: c ? c.unit : m.unit,
         flag: m.flag,
-        refLow: m.refRangeLow,
-        refHigh: m.refRangeHigh,
-        valueRaw: m.valueRaw,
+        refLow: c ? c.refLow : m.refRangeLow,
+        refHigh: c ? c.refHigh : m.refRangeHigh,
+        // A converted reading carries its converted number as its text too:
+        // every screen prints `valueRaw` as the value "as printed", and the
+        // printed 0,9 beside a µmol/l axis would be the wrong number in the
+        // right place. The print itself is kept in `convertedFrom`.
+        valueRaw: c?.from && c.value !== null ? String(c.value).replace(".", ",") : m.valueRaw,
         reportId: report.id,
         rawName: m.rawAnalyteName,
         suspect: suspectFn(m),
         unconfirmed: unconfirmedFn(m),
-      });
+        convertedFrom: c?.from ?? null,
+      };
+      if (c) settled.add(point);
+      t.points.push(point);
     }
   }
   for (const t of trends.values()) {
+    const def = unitDefFn(t.canonicalId);
+    const anySettled = t.points.some((p) => settled.has(p));
+    // The series' unit: the canonical one when any reading is in it or was
+    // converted to it; otherwise the unit most readings carry.
+    let unit: string;
+    if (def && anySettled) unit = def.canonicalUnit;
+    else {
+      const counts = new Map<string, number>();
+      for (const p of t.points) if (p.unit) counts.set(p.unit.toLowerCase(), (counts.get(p.unit.toLowerCase()) ?? 0) + 1);
+      const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+      unit = top ? t.points.find((p) => p.unit?.toLowerCase() === top)!.unit! : t.unit;
+    }
+    const kept: TrendPoint[] = [];
+    const other: Record<string, number> = {};
+    for (const p of t.points) {
+      const fits = settled.has(p) || !p.unit || p.unit.toLowerCase() === unit.toLowerCase();
+      if (fits) kept.push(p);
+      else other[p.unit!] = (other[p.unit!] ?? 0) + 1;
+    }
+    t.unit = unit;
+    t.points = kept;
+    if (Object.keys(other).length) t.otherUnits = other;
     t.points.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   }
+  // A parameter whose every reading was in a unit nothing converts is not a
+  // series at all; it has no points left, and no card.
+  for (const [cid, t] of trends) if (t.points.length === 0) trends.delete(cid);
   return trends;
 }
 

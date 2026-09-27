@@ -15,3 +15,9 @@ UPDATE purchases SET credited_at = created_at WHERE credited_at IS NULL;
 -- document nobody took. Every existing row is counted as having taken one:
 -- a demo document from before this column is at worst given back once.
 ALTER TABLE documents ADD COLUMN took_slot INTEGER NOT NULL DEFAULT 1;
+
+-- A read that produced nothing to store — no values, or a report the
+-- account already holds — is marked here. Two in 30 days are given back;
+-- every third is kept (apps/portal: „třetí takové nahrání za 30 dní se
+-- počítá"), so a document cannot become a free read on demand.
+ALTER TABLE documents ADD COLUMN empty_at TEXT;

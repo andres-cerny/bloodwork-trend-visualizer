@@ -28,6 +28,7 @@ import {
   type AnalyteDef,
   type CustomAnalyte,
   type LabReport,
+  unitFactor,
   type Measurement,
   type UnmappedAnalyte,
   Registry,
@@ -42,6 +43,8 @@ import {
   trendable,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
+import DateAsk from "./DateAsk";
+import { dateDoubtOf } from "../lib/fileChecks";
 import { type AiAsked, type Allowance, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
 import AllowanceChip from "./AllowanceChip";
 import BuySheet from "./BuySheet";
@@ -148,8 +151,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const [buyOpen, setBuyOpen] = useState(false);
   // The wrangler default, so the upload screen never promises more pages
   // than the worker accepts in the moment before /api/status answers.
-  const [maxPages, setMaxPages] = useState(6);
+  const [maxPages, setMaxPages] = useState(10);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Reports stored without a date, asked about one at a time (DateAsk.tsx).
+  const [dateAsk, setDateAsk] = useState<string[]>([]);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -232,9 +237,13 @@ export default function Portal({ email, demo, onLogout }: Props) {
   }, []);
 
   const curatedRange = useCallback(
-    (cid: string | null) => {
-      const r = cid && registry ? registry.get(cid)?.referenceRange : null;
-      return r ? { low: r[0], high: r[1] } : null;
+    (cid: string | null, unit?: string | null) => {
+      const def = cid && registry ? registry.get(cid) : undefined;
+      const r = def?.referenceRange;
+      // The curated interval is in the canonical unit; a reading in another
+      // unit is checked against its own printed interval instead (review.ts).
+      if (!def || !r || (unit !== undefined && unitFactor(def, unit) !== 1)) return null;
+      return { low: r[0], high: r[1] };
     },
     [registry],
   );
@@ -257,6 +266,9 @@ export default function Portal({ email, demo, onLogout }: Props) {
               const r = reviewOf(m, curatedRange);
               return r.level === "unconfirmed" ? r.reason : null;
             },
+            // Every reading in the parameter's own unit, converted where the
+            // catalog knows the factor (lab-core units.ts).
+            (cid) => registry.get(cid),
           )
         : new Map(),
     [reports, registry, registryVersion, curatedRange],
@@ -484,9 +496,31 @@ export default function Portal({ email, demo, onLogout }: Props) {
       });
       const mine = new Set(r.measurements.map((m) => m.rawAnalyteName));
       void runMapping(findUnmapped(reportsRef.current).filter((a) => mine.has(a.rawName)));
+      if (!r.reportDate) setDateAsk((q) => (q.includes(r.id) ? q : [...q, r.id]));
     },
     [commitReports, runMapping],
   );
+
+  /** The person set a report's date — here, or in Ověření. The doubt goes with it. */
+  const setReportDate = useCallback(
+    (reportId: string, isoDate: string) => {
+      commitReports((prev) =>
+        prev.map((r) => {
+          if (r.id !== reportId) return r;
+          const updated = { ...r, reportDate: isoDate, dateDoubt: null, sourceFile: `report-${isoDate}.pdf` };
+          persist(updated);
+          return updated;
+        }),
+      );
+      setDateAsk((q) => q.filter((id) => id !== reportId));
+    },
+    [commitReports, persist],
+  );
+
+  /** A batch ended with a failure or a note: stay where the log is, not on Souhrn. */
+  const onBatchEnd = useCallback((problems: number) => {
+    if (problems > 0) setTab("reports");
+  }, []);
 
   /**
    * The upload queue's batch changed. The count is read through the ref and
@@ -637,6 +671,8 @@ export default function Portal({ email, demo, onLogout }: Props) {
         onBudget={noteBudget}
         onBatch={onBatch}
         holding={holding}
+        reports={reports}
+        onBatchEnd={onBatchEnd}
       />
     </div>
   );
@@ -663,6 +699,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
                 <span className="rl-meta">
                   {r.labName ?? r.sourceFile} · {count(r.measurements.length, "hodnota", "hodnoty", "hodnot")}
                 </span>
+                {dateDoubtOf(r) && (
+                  <span className="rl-meta rl-warn" style={{ display: "block" }}>
+                    <span aria-hidden="true">⚠️ </span>
+                    {r.reportDate ? "Zkontrolujte datum — Doplnit v Ověření" : "Chybí datum — bez něj není v trendech · Doplnit datum"}
+                  </span>
+                )}
               </button>
               {demo ? null : confirmDelete === r.id ? (
                 <span style={{ display: "inline-flex", gap: 6 }}>
@@ -775,6 +817,21 @@ export default function Portal({ email, demo, onLogout }: Props) {
         </button>
       </header>
 
+      {(() => {
+        // One report at a time; one whose date was set elsewhere meanwhile
+        // (Ověření, another tab) is simply skipped.
+        const asking = dateAsk.map((id) => reports.find((r) => r.id === id)).filter((r): r is LabReport => !!r && !r.reportDate);
+        if (asking.length === 0 || holding) return null;
+        return (
+          <DateAsk
+            report={asking[0]}
+            more={asking.length - 1}
+            onSave={(d) => setReportDate(asking[0].id, d)}
+            onLater={() => setDateAsk((q) => q.filter((id) => id !== asking[0].id))}
+          />
+        );
+      })()}
+
       <main className="mk-main">
         {logoutError && (
           <div className="banner warn" role="alert">
@@ -857,7 +914,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
               {hasData && <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} aboutOf={aboutOf} />}
             </Panel>
             <Panel id="verify" active={active} strip={hasData}>
-              {hasData && <VerifyTab reports={reports} onCorrect={correct} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} />}
+              {hasData && <VerifyTab reports={reports} onCorrect={correct} onSetDate={setReportDate} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} unitDef={(cid) => registry.get(cid)} />}
             </Panel>
             <Panel id="mapping" active={active} strip={hasData}>
               {hasData && (

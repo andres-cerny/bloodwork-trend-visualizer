@@ -9,7 +9,7 @@
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type LabReport, type Measurement, makeMeasurement, normalizeMeasurement } from "@bw/lab-core";
 import VerifyTab from "../src/ui/VerifyTab";
 
@@ -57,4 +57,30 @@ it("drops the selection when the report on screen is deleted", () => {
   draw([B], { reportId: "r1", rawName: "S_Urea", seq: 1 });
   expect(selected()).toBe(0);
   expect(draftShown("7,77")).toBe(false);
+});
+
+describe("the report's date in Ověření", () => {
+  const dateless = { ...A, id: "r3", reportDate: null } as unknown as LabReport;
+  it("asks for a missing date and hands the one typed to the parent; a date nobody doubts gets no field", () => {
+    const set: Array<[string, string]> = [];
+    act(() =>
+      root.render(<VerifyTab reports={[dateless, B]} onCorrect={() => undefined} onSetDate={(id, d) => set.push([id, d])} focus={{ reportId: "r3", rawName: "", seq: 1 }} displayName={(c) => c} curatedRange={() => null} />),
+    );
+    const form = host.querySelector("form.date-field")!;
+    expect(form.textContent).toMatch(/nenašlo/);
+    const input = form.querySelector<HTMLInputElement>("input[type=date]")!;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      setter.call(input, "2026-04-14");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => {
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(set).toEqual([["r3", "2026-04-14"]]);
+    act(() =>
+      root.render(<VerifyTab reports={[dateless, B]} onCorrect={() => undefined} onSetDate={() => undefined} focus={{ reportId: "r2", rawName: "", seq: 2 }} displayName={(c) => c} curatedRange={() => null} />),
+    );
+    expect(host.querySelector("form.date-field")).toBeNull();
+  });
 });

@@ -278,6 +278,28 @@ export function computeFlag(
   return "normal";
 }
 
+const CENSORED_ABOVE = /^\s*(?:>=|≥|>)\s*([0-9][0-9\s.,]*)$/;
+
+/**
+ * The flag of a result printed as a lower bound (">200"), or "unknown".
+ *
+ * Only "above the range" can be known: ">X" with X at or past the range's
+ * top is high whatever the exact value. "<X" is left unknown on purpose —
+ * against a range that starts at X it is a detection limit, and a low CRP is
+ * a good result (CLAUDE.md, "Ranges"). Mirrors normalize.py censored_flag.
+ */
+export function censoredFlag(valueRaw: string | null, low: number | null, high: number | null): Flag {
+  void low;
+  if (valueRaw === null || high === null) return "unknown";
+  let s = valueRaw;
+  for (const mark of VALUE_MARKERS) s = s.split(mark).join("");
+  const m = CENSORED_ABOVE.exec(s.trim());
+  if (!m) return "unknown";
+  const bound = parseCzechNumber(m[1].trim());
+  if (bound === null) return "unknown";
+  return bound >= high ? "high" : "unknown";
+}
+
 /**
  * Fill the derived numeric fields on a measurement, returning a new object.
  *
@@ -289,7 +311,7 @@ export function normalizeMeasurement(m: Measurement): Measurement {
   const value = parseValue(m.valueRaw);
   const unit = canonicalizeUnit(m.unitRaw);
   const { low, high, text } = parseRange(m.refRangeRaw);
-  const flag = computeFlag(value, low, high);
+  const flag = value === null ? censoredFlag(m.valueRaw, low, high) : computeFlag(value, low, high);
 
   // QA: a numeric-looking value that failed to parse is exactly the row the
   // verify UI must surface.

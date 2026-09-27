@@ -36,6 +36,7 @@ export async function userHash(uid: string): Promise<string> {
 const ID_ROUTES: Array<[RegExp, string]> = [
   [/^\/api\/(reports|pages)\/[^/]+\/\d+$/, "/api/$1/:id/:n"],
   [/^\/api\/(reports|documents)\/[^/]+$/, "/api/$1/:id"],
+  [/^\/api\/documents\/[^/]+\/empty$/, "/api/documents/:id/empty"],
   [/^\/api\/auth\/invite\/[^/]+$/, "/api/auth/invite/:id"],
   [/^\/ai\/.+$/, "/ai/:token"],
 ];

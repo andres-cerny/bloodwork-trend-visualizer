@@ -65,6 +65,7 @@ import {
   withPageChecks,
 } from "@bw/lab-core/photo";
 import { type Allowance, ApiError, type ProvisionalRow, extractPage, isFatalApiError, openDocument, putPage, putReport, releaseDocument, withRetry } from "./api";
+import { type FileWarning, LONG_REPORT_PAGES, drawDates, fingerprintOf, tooManyPagesCopy } from "./fileChecks";
 import { createLimiter } from "./inflight";
 import { type PageResult, interpretPage } from "./interpret";
 
@@ -78,11 +79,19 @@ export interface PreparedFile {
   /** Pages with no usable text layer: nothing was found on them automatically,
    *  the reader must redact by hand, and they are read from the image. */
   scanPages: number[];
-  /** Pages past the per-report cap, left unread. */
+  /** Pages past the per-report cap, left unread. Always 0 now: a file over
+   *  the cap is refused before anything is read (`FileRefused`). */
   truncated: number;
   /** Photos only: what the checks and the local OCR said. */
   photo?: PhotoFindings;
+  /** SHA-256 of the picked file — the same file picked again is recognised. */
+  fingerprint?: string | null;
+  /** What the person is asked about before the review (lib/fileChecks.ts). */
+  warnings?: FileWarning[];
 }
+
+/** A file that cannot be uploaded as it is — the message says what to do. */
+export class FileRefused extends Error {}
 
 export interface PhotoFindings {
   /** ok, warn (the person may send it anyway) or refuse (they may not). */
@@ -99,16 +108,36 @@ export interface PhotoFindings {
  *  photographing a sheet on a phone should not download), and the OCR chunk
  *  instead — see `preparePhotoFile`. */
 export async function prepareFile(file: File, maxPages: number): Promise<PreparedFile> {
-  if (isPhotoFile(file)) return preparePhotoFile(file);
+  const fingerprint = await fingerprintOf(await file.arrayBuffer()).catch(() => null);
+  if (isPhotoFile(file)) return { ...(await preparePhotoFile(file)), fingerprint };
   const { loadPdf, pageAssets } = await import("@bw/lab-core/pdf");
   const doc = await loadPdf(file);
-  const n = Math.min(doc.numPages, maxPages);
+  // Over the cap is refused, not cut: reading the first pages of a longer
+  // file used to spend the document and say so only afterwards, in a note.
+  if (doc.numPages > maxPages) {
+    await doc.destroy();
+    throw new FileRefused(tooManyPagesCopy(doc.numPages, maxPages));
+  }
   const pages: PageAssets[] = [];
-  for (let p = 1; p <= n; p++) pages.push(await pageAssets(doc, p));
+  for (let p = 1; p <= doc.numPages; p++) pages.push(await pageAssets(doc, p));
   await doc.destroy();
   const scanPages = pages.filter((p) => !p.hasTextLayer || !canRedact(p.words)).map((p) => p.pageNum);
   const { hits } = findIdentity(pages.map((p) => ({ pageNum: p.pageNum, words: p.words })));
-  return { name: file.name, kind: "pdf", pages, hits, scanPages, truncated: doc.numPages - n };
+  return { name: file.name, kind: "pdf", pages, hits, scanPages, truncated: 0, fingerprint, warnings: pdfWarnings(pages, scanPages) };
+}
+
+/**
+ * What a PDF's own text says before anything is sent: long, several draw
+ * dates, or not a lab sheet at all. A page without a text layer says
+ * nothing either way, so a scan is only ever checked for length.
+ */
+export function pdfWarnings(pages: Array<Pick<PageAssets, "pageNum" | "rows">>, scanPages: number[]): FileWarning[] {
+  const out: FileWarning[] = [];
+  if (pages.length > LONG_REPORT_PAGES) out.push("long");
+  const texts = pages.filter((p) => !scanPages.includes(p.pageNum)).map((p) => p.rows.map((r) => r.cells.join(" ")));
+  if (drawDates(texts).length > 1) out.push("multi_date");
+  if (texts.length > 0 && !labSheetScore(texts.flat()).lab) out.push("not_lab");
+  return out;
 }
 
 /**
@@ -154,7 +183,10 @@ export async function preparePhotoFile(
     const verdict = withPageChecks(p.quality, p.page, labSheetScore(ocrLineTexts(lines)));
     return { ...base, hits, photo: { verdict, ocr: "done" } };
   } catch {
-    return { ...base, hits: [], photo: { verdict: withPageChecks(p.quality, p.page, null), ocr: "failed" } };
+    // A job that timed out is still running in the worker, and the next
+    // photo would queue behind it and time out too: that worker goes.
+    void import("./ocr").then((m) => m.reset()).catch(() => undefined);
+    return { ...base, hits: [], photo: { verdict: withPageChecks(p.quality, p.page, null), ocr: "failed" }, warnings: ["unverified"] };
   }
 }
 
@@ -185,6 +217,9 @@ export function checkRedaction(pages: RedactedPage[], hits: IdentityHit[]): stri
 export interface ExtractOutcome {
   report: LabReport;
   notes: string[];
+  /** A note that needs the person — a page not read, printed rows no read
+   *  returned — as against the routine ones (a photo has no text layer). */
+  serious?: boolean;
 }
 
 /**
@@ -317,8 +352,12 @@ export async function extractReport(
   const unread: string[] = [];
   let reportDate: string | null = null;
   let labName: string | null = null;
+  const pageDates = new Set<string>();
+  const conflicts = new Set<string>();
   for (const [i, r] of results.entries()) {
     if (!r) continue;
+    if (r.reportDate) pageDates.add(r.reportDate);
+    for (const d of r.dateConflict ?? []) conflicts.add(d);
     measurements.push(...r.measurements);
     unverified += r.unverified;
     qualitative += r.qualitative;
@@ -326,6 +365,16 @@ export async function extractReport(
     reportDate = reportDate ?? r.reportDate;
     labName = labName ?? r.labName;
   }
+
+  // The date is the one thing every value of the report hangs on; a doubt
+  // about it travels with the report so Ověření asks instead of trusting.
+  const cz = (iso: string) => iso.split("-").reverse().map((x) => String(Number(x))).join(". ");
+  const dateDoubt =
+    pageDates.size > 1
+      ? `Strany reportu nesou různá data (${[...pageDates].sort().map(cz).join(", ")}) — zkontrolujte, které je datum odběru.`
+      : conflicts.size > 1
+        ? `Čtení se na datu neshodla (${[...conflicts].map(cz).join(" / ")}) — zkontrolujte ho prosím.`
+        : null;
 
   const notes: string[] = [];
   // A photograph has no text layer by definition, so calling it a sken would
@@ -369,8 +418,11 @@ export async function extractReport(
       patientId: null,
       pages: pages.map((p) => ({ pageNum: p.pageNum, imageUrl: p.imageUrl, imageWidth: p.imageWidth, imageHeight: p.imageHeight })),
       measurements,
+      fingerprint: prepared.fingerprint ?? null,
+      dateDoubt,
     },
     notes,
+    serious: failed.length > 0 || unread.length > 0 || unverified > 0 || dateDoubt !== null,
   };
 }
 

@@ -196,3 +196,39 @@ export async function handleReleaseDocument(db: D1Database, user: UserRow, id: s
   const released = demo ? false : await releaseDocument(db, user, id, new Date().toISOString());
   return json({ ok: true, released, allowance: await readAllowance(db, user.id) });
 }
+
+/** Every this-many empty reads in 30 days is kept rather than given back. */
+export const EMPTY_STRIKE = 3;
+export const EMPTY_WINDOW_MS = 30 * 86_400_000;
+
+/**
+ * A read that produced nothing to store — no values at all, or the same
+ * report the account already holds. The browser says so; the server cannot
+ * check it (it never sees the rows), which is why the refund is bounded:
+ * two such reads in 30 days are given back, every third is kept. Honest
+ * mistakes cost nothing twice; a loop of free reads costs a document per
+ * three.
+ */
+export async function refundEmpty(db: D1Database, user: UserRow, id: string, now = Date.now()): Promise<{ refunded: boolean; strike: number } | null> {
+  const nowIso = new Date(now).toISOString();
+  const marked = await db.prepare(SQL.markEmpty).bind(id, user.id, nowIso).run();
+  if (!marked.meta || marked.meta.changes !== 1) return null;
+  const row = await db.prepare(SQL.countEmpty).bind(user.id, new Date(now - EMPTY_WINDOW_MS).toISOString()).first<{ n: number }>();
+  const strike = row?.n ?? 1;
+  if (strike % EMPTY_STRIKE === 0) return { refunded: false, strike };
+  const released = await db.prepare(SQL.releaseEmpty).bind(id, user.id, nowIso).run();
+  if (!released.meta || released.meta.changes !== 1) return { refunded: false, strike };
+  await db.prepare(SQL.giveBackDocument).bind(user.id).run();
+  return { refunded: true, strike };
+}
+
+/**
+ * `POST /api/documents/:id/empty` — the read of this document gave nothing
+ * to store. 200 with `refunded` and the allowance; 404 for a document that
+ * is not this account's open one, or was already reported.
+ */
+export async function handleEmptyDocument(db: D1Database, user: UserRow, id: string): Promise<Response> {
+  const out = await refundEmpty(db, user, id);
+  if (!out) return json({ error: "not_found", message: "Dokument nenalezen." }, 404);
+  return json({ ok: true, ...out, allowance: await readAllowance(db, user.id) });
+}

@@ -41,6 +41,8 @@ interface Doc {
   pages_read: number;
   pages_failed: number;
   released_at: string | null;
+  took_slot?: number;
+  empty_at?: string | null;
 }
 interface Purchase {
   event_id: string;
@@ -67,7 +69,7 @@ function fakeD1(t: Tables): D1Database {
         return { results: t.users.filter((u) => u.id === a[0]).map((u) => ({ doc_allowance: u.doc_allowance, doc_used: u.doc_used })), changes: 0 };
       case SQL.insertDocument: {
         if (t.documents.some((d) => d.id === a[0])) return { results: [], changes: 0 };
-        t.documents.push({ id: a[0] as string, user_id: a[1] as string, created_at: a[2] as string, pages_sent: 0, pages_read: 0, pages_failed: 0, released_at: null });
+        t.documents.push({ id: a[0] as string, user_id: a[1] as string, created_at: a[2] as string, pages_sent: 0, pages_read: 0, pages_failed: 0, released_at: null, took_slot: a[3] as number });
         return { results: [], changes: 1 };
       }
       case SQL.documentById:
@@ -103,6 +105,20 @@ function fakeD1(t: Tables): D1Database {
         // The slot goes back only when nothing was read and nothing is still
         // out at the extractor: every page sent has come back failed.
         const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.pages_read === 0 && x.pages_failed === x.pages_sent && x.released_at === null);
+        if (!d) return { results: [], changes: 0 };
+        d.released_at = a[2] as string;
+        return { results: [], changes: 1 };
+      }
+      case SQL.markEmpty: {
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && !x.empty_at && x.released_at === null);
+        if (!d) return { results: [], changes: 0 };
+        d.empty_at = a[2] as string;
+        return { results: [], changes: 1 };
+      }
+      case SQL.countEmpty:
+        return { results: [{ n: t.documents.filter((x) => x.user_id === a[0] && x.empty_at && x.empty_at > (a[1] as string)).length }], changes: 0 };
+      case SQL.releaseEmpty: {
+        const d = t.documents.find((x) => x.id === a[0] && x.user_id === a[1] && x.released_at === null && (x.took_slot ?? 1) === 1);
         if (!d) return { results: [], changes: 0 };
         d.released_at = a[2] as string;
         return { results: [], changes: 1 };
@@ -494,6 +510,40 @@ describe("giving a document back", () => {
  * no route makes, and its floor — never under what is used — is the rule a
  * refund could otherwise break.
  */
+describe("a read with nothing in it", () => {
+  const empty = (user: { id: string }, id: string) => call(user, "POST", `/api/documents/${id}/empty`);
+
+  it("gives back two empty reads in 30 days and keeps the third", async () => {
+    const out: boolean[] = [];
+    for (const id of ["e1", "e2", "e3", "e4"]) {
+      await open(A, id);
+      await page(A, id);
+      const res = await empty(A, id);
+      expect(res.status).toBe(200);
+      out.push(((await res.json()) as { refunded: boolean }).refunded);
+    }
+    expect(out).toEqual([true, true, false, true]);
+    // Four opened, three given back.
+    expect(await allowance(A)).toMatchObject({ used: 1, remaining: 4 });
+  });
+
+  it("is said once per document, and only by its owner", async () => {
+    await open(A, "e1");
+    expect((await empty(A, "e1")).status).toBe(200);
+    expect((await empty(A, "e1")).status).toBe(404);
+    await open(A, "e2");
+    expect((await empty(B, "e2")).status).toBe(404);
+    expect(await allowance(A)).toMatchObject({ used: 1 });
+  });
+
+  it("gives the owner nothing back for a demo visitor's document, which took nothing", async () => {
+    await call(A, "POST", "/api/documents", { id: "d1" }, {}, true);
+    const res = await call(A, "POST", "/api/documents/d1/empty", undefined, {}, true);
+    expect(((await res.json()) as { refunded: boolean }).refunded).toBe(false);
+    expect(await allowance(A)).toMatchObject({ used: 0 });
+  });
+});
+
 describe("moje-krev-budget.mjs --documents", () => {
   it("adds to the allowance by e-mail, lowercased", () => {
     const { sql, says } = documentsSql({ email: " Kdo@Example.com ", n: 5 });

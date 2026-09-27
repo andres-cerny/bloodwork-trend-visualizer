@@ -71,3 +71,19 @@ export async function recognize(img: { rgba: Uint8ClampedArray; width: number; h
         lines.push({ words: l.words.map((wd) => ({ text: wd.text, conf: wd.confidence, box: [wd.bbox.x0, wd.bbox.y0, wd.bbox.x1, wd.bbox.y1] })) });
   return lines;
 }
+
+/**
+ * Start loading the worker and the Czech data now, before the photo needs
+ * them: on a slow line the ~6 MB download used to eat the whole OCR budget.
+ * Called when a photo is picked; nothing happens if it is already loading.
+ */
+export function preload(): void {
+  void getWorker().catch(() => undefined);
+}
+
+/** Drop the worker — after a job that did not finish in time, whose next job would wait behind it. */
+export function reset(): void {
+  const w = worker;
+  worker = null;
+  void w?.then((x) => x.terminate()).catch(() => undefined);
+}

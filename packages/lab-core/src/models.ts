@@ -89,6 +89,19 @@ export interface LabReport {
   patientId: string | null; // rodné číslo
   pages: Page[];
   measurements: Measurement[];
+  /**
+   * SHA-256 of the file as it was picked, hex — computed in the browser, so
+   * the same file picked again is recognised before a document is spent.
+   * Absent on reports stored before it existed.
+   */
+  fingerprint?: string | null;
+  /**
+   * Why the date is in doubt, in Czech, when the readers disagreed on it or
+   * the pages carried different dates. Cleared once the person sets the
+   * date in Ověření. A missing or impossible date needs no note here — it
+   * is visible from `reportDate` itself (see `dateDoubtOf`).
+   */
+  dateDoubt?: string | null;
 }
 
 export interface AnalyteDef {

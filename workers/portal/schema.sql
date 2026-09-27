@@ -167,7 +167,8 @@ CREATE TABLE IF NOT EXISTS documents (
   pages_read   INTEGER NOT NULL DEFAULT 0,
   pages_failed INTEGER NOT NULL DEFAULT 0,
   released_at  TEXT,                    -- set when the slot was given back
-  took_slot    INTEGER NOT NULL DEFAULT 1 -- 0 for a demo document, which took none
+  took_slot    INTEGER NOT NULL DEFAULT 1, -- 0 for a demo document, which took none
+  empty_at     TEXT                     -- read, and nothing in it (or a report already held)
 );
 
 CREATE INDEX IF NOT EXISTS documents_by_user ON documents (user_id, created_at);
