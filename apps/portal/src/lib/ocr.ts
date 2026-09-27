@@ -36,6 +36,10 @@ function getWorker(): Promise<Worker> {
       gzip: true,
       // A blob: URL wrapper would need worker-src blob:; the file is ours anyway.
       workerBlobURL: false,
+      // Without a handler tesseract re-throws a rejected job inside its
+      // message listener: an uncaught console error even though the caller
+      // already handled the rejection.
+      errorHandler: () => {},
     }).catch((e: unknown) => {
       worker = null;
       throw e;
@@ -51,7 +55,15 @@ export async function recognize(img: { rgba: Uint8ClampedArray; width: number; h
   canvas.height = img.height;
   canvas.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(img.rgba), img.width, img.height), 0, 0);
   const w = await getWorker();
-  const { data } = await w.recognize(canvas, {}, { blocks: true });
+  let data: Awaited<ReturnType<Worker["recognize"]>>["data"];
+  try {
+    ({ data } = await w.recognize(canvas, {}, { blocks: true }));
+  } catch (e) {
+    // A worker that failed a job is not trusted with the next photo.
+    worker = null;
+    void w.terminate().catch(() => {});
+    throw e;
+  }
   const lines: OcrLine[] = [];
   for (const b of data.blocks ?? [])
     for (const p of b.paragraphs)

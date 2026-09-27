@@ -112,6 +112,26 @@ export async function prepareFile(file: File, maxPages: number): Promise<Prepare
 }
 
 /**
+ * How long local OCR may take before the photo goes on without suggestions.
+ * The first photo downloads ~6 MB (worker core + Czech data) and then reads
+ * a page on the phone's CPU; a slow line or a weak phone must not leave
+ * "Kontroluji fotku…" up for ever. Worse, a worker the browser kills mid-job
+ * (out of memory) never settles its promise at all — tesseract only rejects
+ * a failed *creation*. On timeout the photo is treated as a failed OCR: no
+ * suggestions, the pencil, "fotku se nepodařilo přečíst — začerněte ručně".
+ */
+export const OCR_TIMEOUT_MS = 60_000;
+
+/** `p`, or a rejection after `ms` — whichever comes first. */
+export function within<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`OCR did not finish within ${ms} ms`)), ms);
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
+/**
  * A photograph: the checks, then — unless they refuse it — local OCR for the
  * identity suggestions and the lab-sheet score. `recognize` is injectable so a
  * test can stand in for Tesseract; the app always takes the lazy chunk.
@@ -129,7 +149,7 @@ export async function preparePhotoFile(
   const base = { name: file.name, kind: "photo" as const, pages: [page], scanPages: [page.pageNum], truncated: 0 };
   if (p.quality.outcome === "refuse") return { ...base, hits: [], photo: { verdict: p.quality, ocr: "skipped" } };
   try {
-    const lines = await recognize(p.ocr);
+    const lines = await within(recognize(p.ocr), OCR_TIMEOUT_MS);
     const hits = identityFromOcr(lines, p.toPhoto, page.pageNum);
     const verdict = withPageChecks(p.quality, p.page, labSheetScore(ocrLineTexts(lines)));
     return { ...base, hits, photo: { verdict, ocr: "done" } };
