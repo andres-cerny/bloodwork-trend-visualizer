@@ -82,12 +82,15 @@ export const SQL = {
   settingsForUser: "SELECT settings FROM users WHERE id = ?1",
   saveSettings: "UPDATE users SET settings = ?2 WHERE id = ?1",
 
-  // Synonyms taught by anyone, read by everyone. The last teacher of a name
-  // wins the row; a delete is the teacher's alone.
+  // Synonyms taught by anyone, read by everyone. The FIRST teacher of a name
+  // owns the row, and only they can change or withdraw it: with the last
+  // teacher winning, one wrong click — or a stranger in the demo — silently
+  // relabelled that name for every family (2026-09-27).
   allSynonyms: "SELECT raw_name, canonical_id, taught_by FROM synonyms ORDER BY created_at",
   upsertSynonym:
     "INSERT INTO synonyms (raw_name, canonical_id, taught_by, created_at) VALUES (?1, ?2, ?3, ?4) " +
-    "ON CONFLICT(raw_name) DO UPDATE SET canonical_id = excluded.canonical_id, taught_by = excluded.taught_by, created_at = excluded.created_at",
+    "ON CONFLICT(raw_name) DO UPDATE SET canonical_id = excluded.canonical_id, created_at = excluded.created_at " +
+    "WHERE synonyms.taught_by = excluded.taught_by",
   deleteSynonym: "DELETE FROM synonyms WHERE raw_name = ?1 AND taught_by = ?2",
 
   // AI konzultace: the snapshot is stored as sent and served as stored. The
@@ -98,6 +101,8 @@ export const SQL = {
   shareByHash: "SELECT snapshot, expires_at, revoked_at FROM ai_shares WHERE token_hash = ?1",
   liveShareForUser:
     "SELECT expires_at FROM ai_shares WHERE user_id = ?1 AND revoked_at IS NULL AND expires_at > ?2 ORDER BY created_at DESC LIMIT 1",
+  // After a report is deleted: none left means the AI page has nothing true to say.
+  countReports: "SELECT COUNT(*) AS n FROM reports WHERE user_id = ?1",
   revokeSharesForUser: "UPDATE ai_shares SET revoked_at = ?2 WHERE user_id = ?1 AND revoked_at IS NULL",
   // The live link's text replaced in place: the URL the person may already
   // have pasted somewhere keeps working, now with the newer text.

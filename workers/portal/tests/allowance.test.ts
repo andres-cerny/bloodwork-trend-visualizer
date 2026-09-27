@@ -159,6 +159,10 @@ function fakeD1(t: Tables): D1Database {
         return { results: [], changes: 0 };
       case SQL.deletePages:
         return { results: [], changes: 0 };
+      case SQL.countReports:
+        return { results: [{ n: (t as { reports: Array<{ user_id: string }> }).reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
+      case SQL.revokeSharesForUser:
+        return { results: [], changes: 0 };
       case SQL.deleteReport: {
         const before = t.reports.length;
         t.reports = t.reports.filter((r) => !(r.id === a[0] && r.user_id === a[1]));

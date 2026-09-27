@@ -26,7 +26,8 @@ function fakeD1(t: Tables): D1Database {
       case SQL.upsertSynonym: {
         const [raw, cid, by, at] = a as [string, string, string, string];
         const existing = t.synonyms.find((s) => s.raw_name === raw);
-        if (existing) Object.assign(existing, { canonical_id: cid, taught_by: by, created_at: at });
+        if (existing && existing.taught_by !== by) return { results: [], changes: 0 };
+        if (existing) Object.assign(existing, { canonical_id: cid, created_at: at });
         else t.synonyms.push({ raw_name: raw, canonical_id: cid, taught_by: by, created_at: at });
         return { results: [], changes: 1 };
       }
@@ -69,8 +70,8 @@ function env(t: Tables): Env {
   } as unknown as Env;
 }
 
-async function as(uid: string, method: string, path: string, body?: unknown): Promise<Response> {
-  const cookie = `mojekrev_session=${await mintCookieToken(SECRET, uid, 90 * 86400)}`;
+async function as(uid: string, method: string, path: string, body?: unknown, demo = false): Promise<Response> {
+  const cookie = `mojekrev_session=${await mintCookieToken(SECRET, uid, 90 * 86400, demo)}`;
   return worker.fetch(
     new Request(`https://portal${path}`, {
       method,
@@ -98,6 +99,23 @@ describe("taught spellings", () => {
     expect(seenByB).toEqual([{ rawName: "S_Na", canonicalId: "sodik", mine: false }]);
     const seenByA = (await (await as("u-a", "GET", "/api/synonyms")).json()) as Array<{ mine: boolean }>;
     expect(seenByA[0].mine).toBe(true);
+  });
+
+  it("belongs to its first teacher: another account cannot relabel it, the teacher can", async () => {
+    current = fresh();
+    await as("u-a", "PUT", "/api/synonyms", { rawName: "S_Na", canonicalId: "sodik" });
+    const byB = (await (await as("u-b", "PUT", "/api/synonyms", { rawName: "S_Na", canonicalId: "draslik" })).json()) as { taught: boolean };
+    expect(byB.taught).toBe(false);
+    expect(current.synonyms).toEqual([expect.objectContaining({ raw_name: "S_Na", canonical_id: "sodik", taught_by: "u-a" })]);
+    await as("u-a", "PUT", "/api/synonyms", { rawName: "S_Na", canonicalId: "chloridy" });
+    expect(current.synonyms[0]).toMatchObject({ canonical_id: "chloridy", taught_by: "u-a" });
+  });
+
+  it("is not taught from the demo", async () => {
+    current = fresh();
+    const res = await as("u-a", "PUT", "/api/synonyms", { rawName: "S_Na", canonicalId: "sodik" }, true);
+    expect(res.status).toBe(403);
+    expect(current.synonyms).toHaveLength(0);
   });
 
   it("only the teacher can withdraw it", async () => {

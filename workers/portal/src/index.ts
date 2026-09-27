@@ -467,8 +467,9 @@ async function teachSynonym(request: Request, env: Env, user: UserRow): Promise<
   if (!rawName || rawName.length > MAX_RAW_NAME || !CANONICAL_ID.test(canonicalId)) {
     return json({ error: "bad_request", message: "Neplatné přiřazení." }, 400);
   }
-  await env.DB.prepare(SQL.upsertSynonym).bind(rawName, canonicalId, user.id, new Date().toISOString()).run();
-  return json({ ok: true });
+  const r = await env.DB.prepare(SQL.upsertSynonym).bind(rawName, canonicalId, user.id, new Date().toISOString()).run();
+  // `taught: false` — another account taught this name first, and it stays theirs.
+  return json({ ok: true, taught: !!r.meta && r.meta.changes === 1 });
 }
 
 /** Withdraw a spelling this account taught. Someone else's stays. */
@@ -781,6 +782,11 @@ async function deleteReport(env: Env, user: UserRow, id: string): Promise<Respon
   await Promise.all(results.map((p) => env.PAGES.delete(p.kv_key)));
   await env.DB.prepare(SQL.deletePages).bind(id).run();
   await env.DB.prepare(SQL.deleteReport).bind(id, user.id).run();
+  // The live AI page carries values from the reports; the app refreshes it
+  // after a delete (ui/ShareTab.tsx), but with the last report gone there is
+  // no tab left to do it, and the page would keep serving what was deleted.
+  const left = await env.DB.prepare(SQL.countReports).bind(user.id).first<{ n: number }>();
+  if (left && left.n === 0) await env.DB.prepare(SQL.revokeSharesForUser).bind(user.id, now()).run();
   return json({ ok: true, pagesDeleted: results.length });
 }
 
@@ -1191,6 +1197,9 @@ const routes = {
       case "GET /api/synonyms":
         return listSynonyms(env, user);
       case "PUT /api/synonyms":
+        // A demo session is a stranger: their mapping stays in the demo
+        // account's own settings, and teaches no one else.
+        if (session.demo) return json({ error: "demo_readonly", message: "V demu se názvy ostatním účtům nepředávají." }, 403);
         return teachSynonym(request, env, user);
       case "DELETE /api/synonyms":
         return forgetSynonym(request, env, user);

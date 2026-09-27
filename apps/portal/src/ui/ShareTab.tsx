@@ -29,9 +29,9 @@
  * "Nezakončuj každou odpověď stejným upozorněním", and a screen that repeats
  * a disclaimer in all four states argues with its own prompt.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type AiContext, type LabReport, type Trend, buildAiShare, count, isEmptyAiContext } from "@bw/lab-core";
-import { type AiShare, createAiShare, getAiShare, revokeAiShare, updateAiShare } from "../lib/api";
+import { type AiShare, ApiError, createAiShare, getAiShare, revokeAiShare, updateAiShare } from "../lib/api";
 import AiContextCard from "./AiContextCard";
 
 interface Props {
@@ -106,6 +106,35 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
     getAiShare().then(setRemote, () => setRemote(null));
   }, []);
 
+  // The live link follows the data. A correction, a mapping, a new report or
+  // a deleted one used to leave the page serving the old text for up to a
+  // day — including values the person had deleted. Debounced, so a burst of
+  // confirmations is one write; the first text (the one the page already
+  // carries or will be minted with) is not written again.
+  const lastSent = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastSent.current === null) {
+      lastSent.current = text;
+      return;
+    }
+    if (text === lastSent.current || !remote || !alive(remote.expiresAt)) return;
+    const t = setTimeout(() => {
+      updateAiShare(text).then(
+        () => {
+          lastSent.current = text;
+          const k = readKept();
+          if (k && k.expiresAt === remote.expiresAt) {
+            const next = { ...k, text };
+            writeKept(next);
+            setKept(next);
+          }
+        },
+        () => undefined,
+      );
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [text, remote]);
+
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 2500);
@@ -123,13 +152,16 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
     setError(null);
     try {
       const share = await createAiShare(text);
+      lastSent.current = text;
       const k = { ...share, text };
       writeKept(k);
       setKept(k);
       setRemote({ expiresAt: share.expiresAt });
       setCopied(false);
-    } catch {
-      setError("Odkaz se nepodařilo vytvořit. Zkontrolujte připojení a zkuste to znovu.");
+    } catch (e) {
+      // The worker's own sentence where it gave one — „Text je příliš
+      // dlouhý" is not a connection problem.
+      setError(e instanceof ApiError && e.status !== 0 && e.status < 500 ? e.message : "Odkaz se nepodařilo vytvořit. Zkontrolujte připojení a zkuste to znovu.");
     } finally {
       setBusy(false);
     }
@@ -159,6 +191,7 @@ export default function ShareTab({ reports, trends, context, onSaveContext }: Pr
     const fresh = buildAiShare(reports, trends, next);
     try {
       await updateAiShare(fresh);
+      lastSent.current = fresh;
       if (kept && kept.expiresAt === remote.expiresAt) {
         const k = { ...kept, text: fresh };
         writeKept(k);

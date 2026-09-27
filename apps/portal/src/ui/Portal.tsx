@@ -382,9 +382,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
       // has looked at it yet, and a lesson for everyone takes a person. A
       // founded parameter exists in this account alone, so its names stay
       // here too. Best effort — the account's own mapping is already saved.
-      if (isShipped(canonicalId)) teachSynonym(rawName, canonicalId).catch(() => undefined);
+      // Not from the demo: a stranger's click must not relabel every family's names.
+      if (isShipped(canonicalId) && !demo) teachSynonym(rawName, canonicalId).catch(() => undefined);
     },
-    [registry, remap, saveLearned, isShipped],
+    [registry, remap, saveLearned, isShipped, demo],
   );
 
   /** The ledger as the last answer left it — the run reads it before spending. */
@@ -931,6 +932,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
                   aiError={aiError}
                   onAskAgain={askAgain}
                   frozen={frozen}
+                  learned={learnedRef.current}
                 />
               )}
             </Panel>
