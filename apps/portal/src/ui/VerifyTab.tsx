@@ -5,6 +5,8 @@
  * The highlight is drawn from a precomputed pixel bbox (src/locate.py for the
  * demo set, pdf.js text coordinates for uploads), positioned as a percentage
  * of the image's own dimensions so it cannot go stale when the pane relayouts.
+ * A photo's row carries a `quad` too (its local OCR found the row; photoRows.ts)
+ * and is framed by that polygon, since a photographed row is rarely level.
  *
  * Correcting a value re-runs normalizeMeasurement, which re-derives the flag,
  * the trend and the summary. That live re-derivation is the point: it shows a
@@ -17,6 +19,7 @@ import type { PickerOption } from "./AnalytePicker";
 import {
   type LabReport,
   type Measurement,
+  type Quad,
   normalizeMeasurement,
   needsReview,
   reviewOf,
@@ -26,6 +29,17 @@ import {
   plural,
   prettyUnit,
 } from "@bw/lab-core";
+
+/**
+ * A photo row's frame, bled outward the way the rectangle is: a fraction of
+ * the row's own height above, more below where the descenders are, along the
+ * row's own sides — so the ring never cuts through the print it points at.
+ */
+export function padQuad(q: Quad): Quad {
+  const [tl, tr, br, bl] = q;
+  const along = (a: [number, number], b: [number, number], t: number): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  return [along(tl, bl, -0.12), along(tr, br, -0.12), along(br, tr, -0.28), along(bl, tl, -0.28)];
+}
 
 /** A row of a report, replaced. */
 export interface RowChange {
@@ -492,7 +506,46 @@ export default function VerifyTab({ reports, onCorrect, focus, displayName, cura
                 style={{ cursor: zoomed ? "zoom-out" : "zoom-in" }}
                 onClick={() => setZoomed((z) => !z)}
               />
-              {sel?.bbox && page && (
+              {sel?.quad && sel.bbox && page && (
+                // A photographed row is rarely level: its frame is a
+                // quadrilateral (photoRows.ts), drawn as a polygon in the
+                // image's own pixel space. The viewBox is the image, stretched
+                // to the image's box, so like the rectangle below it is
+                // resolved at paint time and cannot go stale. The invisible
+                // anchor carries the scroll target the rectangle carries.
+                <>
+                  <div
+                    ref={hlRef}
+                    className="hl-anchor"
+                    style={{
+                      left: `${(sel.bbox[0] / page.imageWidth) * 100}%`,
+                      top: `${(sel.bbox[1] / page.imageHeight) * 100}%`,
+                      width: `${((sel.bbox[2] - sel.bbox[0]) / page.imageWidth) * 100}%`,
+                      height: `${((sel.bbox[3] - sel.bbox[1]) / page.imageHeight) * 100}%`,
+                    }}
+                  />
+                  <svg
+                    className="hl-quad"
+                    viewBox={`0 0 ${page.imageWidth} ${page.imageHeight}`}
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    {(() => {
+                      const q = padQuad(sel.quad);
+                      const pts = q.map((p) => p.join(",")).join(" ");
+                      const W = page.imageWidth;
+                      const H = page.imageHeight;
+                      return (
+                        <>
+                          <path className="hl-quad-dim" fillRule="evenodd" d={`M0,0H${W}V${H}H0Z M${q.map((p) => p.join(",")).join("L")}Z`} />
+                          <polygon className="hl-quad-ring" points={pts} vectorEffect="non-scaling-stroke" />
+                        </>
+                      );
+                    })()}
+                  </svg>
+                </>
+              )}
+              {sel?.bbox && !sel.quad && page && (
                 // Positioned in percentages of the image's own dimensions
                 // rather than from a measured pixel width.
                 //

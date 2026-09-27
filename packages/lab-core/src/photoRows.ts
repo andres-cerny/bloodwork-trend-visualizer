@@ -25,7 +25,7 @@
  * Measured on 133 simulated photos plus the bad-photo set: 0 wrong boxes
  * (strict rule), about nine rows in ten framed.
  */
-import type { Box } from "./models";
+import type { Box, Quad } from "./models";
 import { buildRows } from "./pdf/rows";
 import { ocrPhrases, type OcrLine } from "./photoOcr";
 import { applyHomography, type PageQuad, type Point } from "./photoPage";
@@ -36,8 +36,8 @@ export interface OcrRow {
   box: Box;
 }
 
-/** A frame on the photo: four corners, clockwise from top-left. */
-export type RowQuad = [Point, Point, Point, Point];
+/** A frame on the photo: four corners, clockwise from top-left (models.ts `Quad`). */
+export type RowQuad = Quad;
 
 /** OCR lines → printed rows, exactly as pdf.js items become rows. */
 export function ocrRows(lines: OcrLine[]): OcrRow[] {
