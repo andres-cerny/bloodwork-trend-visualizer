@@ -27,11 +27,18 @@ import type { PreparedFile } from "../src/lib/upload";
 const reads = new Map<string, { resolve: () => void; reject: (e: Error) => void }>();
 /** Report ids whose store fails, with the worker's sentence — read, not stored. */
 const storeFails = new Map<string, Error>();
+/** Photos by name, with the verdict their checks give. */
+const photoVerdicts = new Map<string, { outcome: "ok" | "warn" | "refuse"; reasons: string[] }>();
 
 vi.mock("../src/lib/upload", () => {
   const page = { pageNum: 1, imageUrl: "blob:p1", imageWidth: 100, imageHeight: 140, imageBase64: "", mediaType: "image/png", words: [], rows: [], hasTextLayer: true };
   return {
-    prepareFile: async (file: File): Promise<PreparedFile> => ({ name: file.name, kind: "pdf", pages: [page as never], hits: [], scanPages: [], truncated: 0 }),
+    prepareFile: async (file: File): Promise<PreparedFile> => {
+      const verdict = photoVerdicts.get(file.name);
+      if (verdict)
+        return { name: file.name, kind: "photo", pages: [page as never], hits: [], scanPages: [1], truncated: 0, photo: { verdict: verdict as never, ocr: "done" } };
+      return { name: file.name, kind: "pdf", pages: [page as never], hits: [], scanPages: [], truncated: 0 };
+    },
     redactFile: async () => [{ ...page, blob: new Blob() }],
     checkRedaction: () => [],
     newReportId: () => `id-${reads.size + 1}`,
@@ -62,6 +69,7 @@ let root: Root;
 
 beforeEach(() => {
   reads.clear();
+  photoVerdicts.clear();
   storeFails.clear();
   host = document.createElement("div");
   document.body.appendChild(host);
@@ -273,5 +281,53 @@ describe("the line under the queue", () => {
     await confirm("b.pdf");
     expect(line()).toBeNull();
     expect(host.querySelectorAll("li.job.running")).toHaveLength(2);
+  });
+});
+
+describe("a photo the checks did not pass", () => {
+  const click = async (label: string) => {
+    const b = [...host.querySelectorAll("button")].find((x) => x.textContent === label)!;
+    await act(async () => {
+      b.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flush();
+  };
+
+  it("stops before the review; 'Nahrát i tak' goes on to it", async () => {
+    photoVerdicts.set("rozmazana.jpg", { outcome: "warn", reasons: ["blurred"] });
+    mount(false);
+    await pickFiles(["rozmazana.jpg"]);
+    expect(host.querySelector(".photo-check")?.textContent).toContain("Fotka je rozmazaná.");
+    expect(host.querySelector(".review")).toBeNull();
+    await click("Nahrát i tak");
+    await confirm("rozmazana.jpg");
+  });
+
+  it("'Vyfotit znovu' drops the photo unsent and reviews the new one", async () => {
+    photoVerdicts.set("tma.jpg", { outcome: "warn", reasons: ["dark"] });
+    photoVerdicts.set("znovu.jpg", { outcome: "ok", reasons: [] });
+    const p = mount(false);
+    await pickFiles(["tma.jpg"]);
+    const input = host.querySelector<HTMLInputElement>(".photo-retake input[type=file]")!;
+    Object.defineProperty(input, "files", { value: [new File([new Uint8Array([1])], "znovu.jpg", { type: "image/jpeg" })], configurable: true });
+    await act(async () => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush();
+    expect(host.querySelector(".review .sub")?.textContent).toContain("znovu.jpg");
+    expect(reads.has("tma.jpg")).toBe(false);
+    // The new photo joined the batch before the dropped one settled: the
+    // batch never closed in between (a close is what switches the parent).
+    expect(p.batches.map((b) => `${b.settled}/${b.total}`)).toEqual(["0/1", "0/2", "1/2"]);
+  });
+
+  it("a refused photo cannot be sent at all", async () => {
+    photoVerdicts.set("cerna.jpg", { outcome: "refuse", reasons: ["blank"] });
+    mount(false);
+    await pickFiles(["cerna.jpg"]);
+    const labels = [...host.querySelectorAll(".photo-check button, .photo-check label")].map((b) => b.textContent);
+    expect(labels).toEqual(["Zrušit", "Vyfotit znovu"]);
+    await cancel();
+    expect(host.querySelector("li.job.skipped")?.textContent).toContain("cerna.jpg");
   });
 });

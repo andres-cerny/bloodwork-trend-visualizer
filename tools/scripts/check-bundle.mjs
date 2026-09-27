@@ -90,18 +90,23 @@ const FORBIDDEN_BY_APP = {
     ["lab domain code", /normalizeMeasurement|buildTrends|parseCzechNumber|suggestMappings/],
     ["pdf.js", /pdfjs|GlobalWorkerOptions/],
   ],
-  // The portal is the purest renderer of the three: read-only card data from
+  // The pitch portal (apps/csm-portal) is the purest renderer of the three: read-only card data from
   // the worker, no AI, no upload. Same boundary, plus the agent's stream
   // reader has no business here — a portal that starts talking to the chat
   // route has grown a capability nobody granted it.
-  portal: [
+  "csm-portal": [
     ["lab domain code", /normalizeMeasurement|buildTrends|parseCzechNumber|suggestMappings/],
     ["pdf.js", /pdfjs|GlobalWorkerOptions/],
     ["the chat route", /\/api\/chat/],
   ],
 };
 
-const appName = Object.keys(FORBIDDEN_BY_APP).find((n) => DIST.includes(`apps/${n}/`));
+// By directory name, and never by substring of another app's: `apps/portal/`
+// is Moje krev and `apps/csm-portal/` the pitch. The rule above was keyed
+// `portal` when the pitch app still had that name, and after the rename it
+// silently guarded the wrong app — forbidding Moje krev its lazy pdf.js while
+// the pitch app went unchecked.
+const appName = ["bloodwork", "chat", "csm-portal", "portal"].find((n) => DIST.replace(/\\/g, "/").includes(`apps/${n}/`));
 for (const [what, pattern] of FORBIDDEN_BY_APP[appName] ?? []) {
   if (pattern.test(bundle)) {
     fail(
@@ -122,6 +127,70 @@ for (const [what, pattern] of SERVER_ONLY) {
         `stream reader that is "@bw/agent-core/events", not "@bw/agent-core".`,
     );
   }
+}
+
+/**
+ * Moje krev (apps/portal): OCR is a lazy chunk a PDF-only visit never loads.
+ *
+ * A photo is read locally by Tesseract (docs/plans/photo-capture.md, D1): a
+ * worker script, a wasm core and the Czech traineddata (~6 MB), plus the
+ * tesseract.js loader in the app's own JS. None of it may reach someone who
+ * only uploads PDFs — which it would, silently, the day `lib/ocr.ts` is
+ * imported statically instead of through `import("./ocr")`.
+ *
+ * The rule is checked on the built module graph, not on source text: every
+ * chunk the page loads up front (index.html's script and modulepreloads, and
+ * their static imports) and every chunk the PDF path loads (the pdf.js chunk
+ * and its static imports) must be free of tesseract; and a tesseract chunk must
+ * exist, so the check cannot pass by the OCR having gone missing altogether.
+ */
+function moduleGraph(dir) {
+  const html = readFileSync(join(dir, "index.html"), "utf-8");
+  const entries = [...html.matchAll(/<(?:script[^>]*\ssrc|link[^>]*rel="modulepreload"[^>]*\shref)="\/?([^"]+\.js)"/g)].map((m) => m[1]);
+  const all = scripts(dir).map((f) => f.slice(dir.length + 1));
+  const code = new Map(all.map((f) => [f, readFileSync(join(dir, f), "utf-8")]));
+  /** Static imports only: `import … from "./x.js"`, `import "./x.js"`, `export … from`. Never `import("./x.js")`. */
+  const staticDeps = (f) => {
+    const src = code.get(f) ?? "";
+    const base = f.includes("/") ? f.slice(0, f.lastIndexOf("/") + 1) : "";
+    return [...src.matchAll(/(?:^|[;\s}])(?:import|export)\s*(?:[\w$*{}\s,]*?from\s*)?["'](\.{1,2}\/[^"']+\.js)["']/g)].map((m) =>
+      join(base, m[1]).replace(/\\/g, "/"),
+    );
+  };
+  const closure = (roots) => {
+    const seen = new Set();
+    const stack = [...roots];
+    while (stack.length) {
+      const f = stack.pop();
+      if (seen.has(f) || !code.has(f)) continue;
+      seen.add(f);
+      stack.push(...staticDeps(f));
+    }
+    return seen;
+  };
+  return { entries, code, closure };
+}
+
+if (appName === "portal") {
+  const OCR = /tesseract/i;
+  const { entries, code, closure } = moduleGraph(DIST);
+  if (!entries.length) fail(`No entry script found in ${DIST}/index.html.`);
+  const ocrChunks = [...code].filter(([, src]) => OCR.test(src)).map(([f]) => f);
+  if (!ocrChunks.length)
+    fail(`No OCR chunk in the Moje krev build.\n\nThe photo path's local Tesseract (apps/portal/src/lib/ocr.ts) is missing,\nso this check would pass without checking anything.`);
+  const pdfChunks = [...code].filter(([, src]) => /GlobalWorkerOptions/.test(src)).map(([f]) => f);
+  for (const [path, roots] of [["the first page load", entries], ["the PDF path", pdfChunks]]) {
+    const leaked = [...closure(roots)].filter((f) => OCR.test(code.get(f)));
+    if (leaked.length)
+      fail(
+        `OCR is loaded on ${path} of Moje krev: ${leaked.join(", ")}.\n\n` +
+          `Tesseract must stay a lazy chunk that only a photo loads — reach it\n` +
+          `through \`await import("./ocr")\`, never a static import.`,
+      );
+  }
+  for (const f of ["ocr/worker.min.js", "ocr/lang/ces.traineddata.gz", "ocr/core/tesseract-core-simd-lstm.wasm.js"])
+    if (!existsSync(join(DIST, f))) fail(`${f} is not in the Moje krev build: OCR would fall back to nothing (self-hosted only, no CDN).`);
+  console.log(`✓ Moje krev: OCR only in lazy chunk(s) ${ocrChunks.join(", ")}; not on first load or the PDF path`);
 }
 
 // Read the key straight from the file rather than from process.env: the whole

@@ -97,9 +97,9 @@ const photo: PreparedFile = {
 };
 
 describe("RedactReview, given a photograph", () => {
-  it("says nothing was found and that blacking out is the reader's job", () => {
+  it("claims no search it did not run, and says blacking out is the reader's job", () => {
     const html = draw(photo);
-    expect(html).toContain("nic nenalezeno");
+    expect(html).not.toContain("nic nenalezeno");
     expect(html).toContain("začerněte ručně");
   });
 
@@ -125,6 +125,57 @@ describe("RedactReview, given a photograph", () => {
 
   it("presents no found box to dismiss", () => {
     expect(draw(photo)).not.toContain("Začerněné pole 1");
+  });
+});
+
+/**
+ * A photograph with the local OCR's suggestions (docs/plans/photo-capture.md,
+ * D3; Ondřej's yes, 2026-09-26). What changed is that boxes may arrive drawn;
+ * what did not is everything the old "no detection on photos" rule protected:
+ * the pencil is on, the confirm is required, the caption says suggestions, and
+ * zero hits never reads as a clean page.
+ */
+describe("RedactReview, given a photograph with OCR suggestions", () => {
+  const ocrHits: IdentityHit[] = [
+    { pageNum: 1, box: [120, 100, 260, 112], kind: "name", text: "Jana Ukázková" },
+    { pageNum: 1, box: [300, 100, 420, 112], kind: "rodne-cislo", text: "855312/0004" },
+  ];
+  const withHits: PreparedFile = { ...photo, hits: ocrHits, photo: { verdict: { outcome: "ok", reasons: [] }, ocr: "done" } };
+  const none: PreparedFile = { ...photo, photo: { verdict: { outcome: "ok", reasons: [] }, ocr: "done" } };
+
+  it("draws the suggestions as ordinary numbered boxes, and still names nothing they cover", () => {
+    const html = draw(withHits);
+    expect(html).toContain('aria-label="Začerněné pole 1"');
+    expect(html).toContain('aria-label="Začerněné pole 2"');
+    for (const h of ocrHits) expect(html).not.toContain(h.text);
+  });
+
+  it("calls them suggestions to check and complete by hand", () => {
+    const html = draw(withHits);
+    expect(html).toContain("navrhli jsme 2 pole");
+    expect(html).toContain("zkontrolujte a doplňte ručně");
+  });
+
+  it("keeps the pencil on and the confirm required", () => {
+    const html = draw(withHits);
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Ano, nahrát");
+  });
+
+  it("says zero hits as 'nic jsme nenašli — zkontrolujte ručně', never as a clean page", () => {
+    const html = draw(none);
+    expect(html).toContain("nic jsme nenašli — zkontrolujte ručně");
+    expect(html).not.toContain("nic tam není");
+    expect(html).toContain('aria-pressed="true"');
+  });
+});
+
+describe("RedactReview, given a photograph the OCR could not read", () => {
+  it("says the reading failed, never that nothing was found", () => {
+    const html = draw({ ...photo, photo: { verdict: { outcome: "ok", reasons: [] }, ocr: "failed" } });
+    expect(html).toContain("fotku se nepodařilo přečíst — začerněte ručně");
+    expect(html).not.toContain("nic nenalezeno");
+    expect(html).not.toContain("nic jsme nenašli");
   });
 });
 
