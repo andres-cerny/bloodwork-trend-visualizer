@@ -48,7 +48,13 @@ export type AgentEvent =
    */
   | { type: "followups"; questions: string[] }
   /** Terminal. Usage is final here and nowhere earlier. */
-  | { type: "done"; usage: Usage; model: string }
+  | {
+      type: "done";
+      usage: Usage;
+      model: string;
+      /** Set only when the turn ended on something other than a finished answer. */
+      stopReason?: "max_tokens";
+    }
   | { type: "error"; message: string };
 
 /** One event as a Server-Sent Events frame. */

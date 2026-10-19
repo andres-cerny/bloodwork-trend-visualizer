@@ -145,12 +145,17 @@ export async function* runAgent(opts: {
   const client = clientFor(apiKey);
   const tools = TOOLS.filter((t) => profile.tools.includes(t.name));
 
-  // The instructions are stable across a conversation; the patient's data is
-  // not, so the cache breakpoint sits between them.
+  // The instructions are stable across every conversation; the patient's
+  // data is stable across one — every message and every tool round of it
+  // re-sends the whole dataset (up to 60k characters). So there are two
+  // breakpoints: one after the instructions (shared by all patients), one
+  // after the data (shared by this patient's turns). Before 2026-10-19 only
+  // the first existed and the data was paid at full rate on every round
+  // (docs/plans/model-loop.md, H10).
   const system: Anthropic.TextBlockParam[] = [
     { type: "text", text: profile.system, cache_control: { type: "ephemeral" } },
   ];
-  if (context) system.push({ type: "text", text: `=== DATA PACIENTA ===\n${context}` });
+  if (context) system.push({ type: "text", text: `=== DATA PACIENTA ===\n${context}`, cache_control: { type: "ephemeral" } });
 
   const messages: Anthropic.MessageParam[] = history.slice(-12).map((t) => ({
     role: t.role,
@@ -175,6 +180,9 @@ export async function* runAgent(opts: {
       max_tokens: profile.maxTokens,
       system,
       messages,
+      // The third breakpoint, placed by the API on the last block: a tool
+      // round re-sends the whole turn so far, and this caches it for the next.
+      cache_control: { type: "ephemeral" },
       ...(tools.length ? { tools: tools as unknown as Anthropic.Tool[] } : {}),
     });
 
@@ -193,6 +201,16 @@ export async function* runAgent(opts: {
 
     const message = await stream.finalMessage();
     total = add(total, usageOf(message.usage));
+
+    // A reply cut at max_tokens streamed as if it were whole — and with
+    // adaptive thinking spending from the same budget, a long answer can be
+    // cut mid-sentence. Say so instead of ending quietly (H11). A tool call
+    // cut the same way has no usable input, so the turn stops here too.
+    if (message.stop_reason === "max_tokens") {
+      yield { type: "error", message: "Odpověď se nevešla do délkového limitu a je neúplná." };
+      yield { type: "done", usage: total, model: profile.model, stopReason: "max_tokens" };
+      return;
+    }
 
     const calls = message.content.filter(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",

@@ -198,7 +198,7 @@ function anthropicReply(rows: Array<[string, string, string, string]>, outTokens
  * effectively untested — the old suite handed a tool_use block to a text-only
  * chat call, the text filter produced "", and nothing asserted otherwise.
  */
-function anthropicStream(text: string, outTokens = 100, toolUse?: { name: string; input: unknown }) {
+function anthropicStream(text: string, outTokens = 100, toolUse?: { name: string; input: unknown }, stopReason?: string) {
   const blocks: string[] = [];
   const ev = (t: string, d: unknown) => `event: ${t}\ndata: ${JSON.stringify(d)}\n\n`;
 
@@ -236,7 +236,7 @@ function anthropicStream(text: string, outTokens = 100, toolUse?: { name: string
 
   blocks.push(ev("message_delta", {
     type: "message_delta",
-    delta: { stop_reason: toolUse ? "tool_use" : "end_turn", stop_sequence: null },
+    delta: { stop_reason: stopReason ?? (toolUse ? "tool_use" : "end_turn"), stop_sequence: null },
     usage: { output_tokens: outTokens },
   }));
   blocks.push(ev("message_stop", { type: "message_stop" }));
@@ -269,7 +269,7 @@ async function sseEvents(res: Response): Promise<any[]> {
 }
 
 /** What the next Claude call should return; set per test. */
-type StreamSpec = { text: string; outTokens?: number; toolUse?: { name: string; input: unknown } };
+type StreamSpec = { text: string; outTokens?: number; toolUse?: { name: string; input: unknown }; stopReason?: string };
 let nextStream: StreamSpec | null = null;
 /** For turns with several tool rounds: shifted first, before nextStream. */
 let streamQueue: StreamSpec[] = [];
@@ -300,7 +300,7 @@ beforeEach(() => {
     // A streaming request is an agent turn; a buffered one is extraction.
     if (body?.stream) {
       const spec = streamQueue.shift() ?? nextStream ?? { text: "Ahoj." };
-      const reply = anthropicStream(spec.text, spec.outTokens ?? 100, spec.toolUse);
+      const reply = anthropicStream(spec.text, spec.outTokens ?? 100, spec.toolUse, spec.stopReason);
       nextStream = null; // a tool round-trip's second call falls back to text
       return reply;
     }
@@ -329,6 +329,26 @@ describe("the agent route", () => {
     context: "Analyt | jednotka",
     history: [{ role: "user", content: "Co se změnilo?" }],
     ...over,
+  });
+
+  it("caches the patient's data and the turn, not only the instructions", async () => {
+    // H10, docs/plans/model-loop.md: the dataset (up to 60k characters) sat
+    // after the only breakpoint and was paid in full on every message.
+    const s = await mintSession(SECRET, 600, 12);
+    await sseEvents(await worker.fetch(post("/api/chat", turn(), s), makeEnv()));
+    const body = calls.find((c) => c.body?.stream)!.body;
+    expect(body.system).toHaveLength(2);
+    expect(body.system[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(body.system[1].cache_control).toEqual({ type: "ephemeral" });
+    expect(body.cache_control).toEqual({ type: "ephemeral" });
+  });
+
+  it("says so when the answer was cut at max_tokens", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    nextStream = { text: "Glukóza stoupla a", stopReason: "max_tokens" };
+    const events = await sseEvents(await worker.fetch(post("/api/chat", turn(), s), makeEnv()));
+    expect(events.some((e) => e.type === "error" && /neúplná/.test(e.message))).toBe(true);
+    expect(events.at(-1)).toMatchObject({ type: "done", stopReason: "max_tokens" });
   });
 
   it("streams text and finishes with usage", async () => {

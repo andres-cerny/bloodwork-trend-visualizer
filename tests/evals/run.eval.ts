@@ -345,6 +345,8 @@ async function run() {
       const data: ToolContext = practice ? practice.ctx : { source: new SessionSource(reports) };
       const caseGrounded = practice ? practice.grounded : grounded;
       let answer = "", charted = false, usd = 0, pinned = false;
+      let usage: unknown = null;
+      let stopReason: string | null = null;
       // null means the event never arrived, which is a pass for a clarification
       // and a failure for an answer. The loop never emits an empty list.
       let followups: string[] | null = null;
@@ -374,11 +376,15 @@ async function run() {
         else if (ev.type === "followups") followups = ev.questions;
         else if (ev.type === "done") {
           usd = priceUsd(ev.model, ev.usage.inputTokens, ev.usage.outputTokens, ev.usage.cacheReadTokens, ev.usage.cacheWriteTokens);
+          usage = ev.usage;
+          if (ev.stopReason) stopReason = ev.stopReason;
         }
       }
       spent += usd;
       judgePinned.pinned = pinned;
       const fails = judge(c, answer, tools, charted, caseGrounded, followups, calls);
+      // A cut answer is never a pass, whatever its first half says.
+      if (stopReason === "max_tokens") fails.push("answer cut at max_tokens");
       // The proposals are recorded, not just scored: the human check on this
       // suite is reading what the model offered, and a verdict cannot show it.
       runs.push({ ok: fails.length === 0, tools, fails, usd, ...(followups ? { followups } : {}) });
@@ -391,7 +397,7 @@ async function run() {
         mkdirSync(OUT, { recursive: true });
         appendFileSync(
           join(OUT, `${arg("--label", "latest")!}.answers.jsonl`),
-          JSON.stringify({ id: c.id, rep: r, ok: fails.length === 0, fails, tools, answer, followups }) + "\n",
+          JSON.stringify({ id: c.id, rep: r, ok: fails.length === 0, fails, tools, answer, followups, usd, usage, stopReason }) + "\n",
         );
       }
     }
