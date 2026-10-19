@@ -110,6 +110,17 @@ export const SQL = {
     "WHERE synonyms.taught_by = excluded.taught_by OR synonyms.taught_by IS NULL OR synonyms.taught_by = ?5",
   deleteSynonym: "DELETE FROM synonyms WHERE raw_name = ?1 AND taught_by = ?2",
 
+  // Scoped aliases (lab, printed name, unit). The write keeps the row's owner
+  // unless the row is nobody's, the demo's (?9), or a model's being replaced by
+  // a person — and a model never replaces a person's.
+  allAliases: "SELECT lab, raw_name, unit, canonical_id, source, model, taught_by FROM aliases ORDER BY created_at",
+  upsertAlias:
+    "INSERT INTO aliases (lab, raw_name, unit, canonical_id, source, model, taught_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) " +
+    "ON CONFLICT(lab, raw_name, unit) DO UPDATE SET canonical_id = excluded.canonical_id, source = excluded.source, model = excluded.model, taught_by = excluded.taught_by, created_at = excluded.created_at " +
+    "WHERE (aliases.taught_by = excluded.taught_by AND NOT (aliases.source = 'person' AND excluded.source = 'model')) " +
+    "OR aliases.taught_by IS NULL OR aliases.taught_by = ?9 OR (aliases.source = 'model' AND excluded.source = 'person')",
+  deleteAlias: "DELETE FROM aliases WHERE lab = ?1 AND raw_name = ?2 AND unit = ?3 AND taught_by = ?4",
+
   // AI konzultace: the snapshot is stored as sent and served as stored. The
   // public read is by hash only — the row never says whose it is to the
   // reader, and the worker never inspects the text.
@@ -136,6 +147,7 @@ export const SQL = {
   // The taught spellings outlive the teacher: the fact is the app's, the
   // link to the account is what the deletion removes.
   unlinkSynonyms: "UPDATE synonyms SET taught_by = NULL WHERE taught_by = ?1",
+  unlinkAliases: "UPDATE aliases SET taught_by = NULL WHERE taught_by = ?1",
   deleteDocumentsForUser: "DELETE FROM documents WHERE user_id = ?1",
   // A payment's record stays; whose it was does not.
   unlinkPurchases: "UPDATE purchases SET user_id = NULL WHERE user_id = ?1",
@@ -290,5 +302,15 @@ export interface AiShareRow {
 export interface SynonymRow {
   raw_name: string;
   canonical_id: string;
+  taught_by: string | null;
+}
+
+export interface AliasRow {
+  lab: string;
+  raw_name: string;
+  unit: string;
+  canonical_id: string | null;
+  source: "person" | "model";
+  model: string | null;
   taught_by: string | null;
 }

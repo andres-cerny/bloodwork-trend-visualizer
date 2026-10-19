@@ -70,6 +70,7 @@ function fakeD1(t: Tables): D1Database {
         return { results: [], changes: before - t.messages.length };
       }
       case SQL.unlinkSynonyms:
+      case SQL.unlinkAliases:
       case SQL.deleteDocumentsForUser:
       case SQL.unlinkPurchases:
         return { results: [], changes: 0 };

@@ -11,7 +11,7 @@ the round-1/2 chat findings below are kept as notes only, and the round-2
 agent changes (context caching, max_tokens check) are parked on branch
 `claude/agent-cache-parked`, not on this one.
 
-## Summary — what to flip, in which order, how to roll back (after round 3)
+## Summary — what to flip, in which order, how to roll back (after round 4)
 
 Everything below is a **setting** on `moje-krev-extract`
 (`workers/portal-extract/wrangler.jsonc` → `vars`). The code on this branch
@@ -20,13 +20,24 @@ roll back, delete the line and deploy again.
 
 | order | setting | what it does | evidence | effect |
 |---|---|---|---|---|
-| 0 | (merge this branch) | prices right; cross-check also compares unit and range; formatting is no longer a disagreement; differently-named rows pair; glued lab codes (`URE urea`, `FE železo`) map; a punctate (`X_`) no longer files as blood; more ranges parse; a cut-off or declined read fails honestly; mapping catalog cached | tests; re-scored stored reads | photos (today's Sonnet 5 + Gemini pair): rows asked about 53 → 9 on the public sheets, 0 uncaught |
+| 0 | (merge this branch; **apply `migrations/2026-10-19-aliases.sql` before deploying the API worker** — moje-krev-go-live.md) | prices right; cross-check also compares unit and range; formatting is no longer a disagreement; differently-named rows pair; glued lab codes (`URE urea`, `FE železo`) map; a punctate (`X_`) no longer files as blood; more ranges and units parse (`G/l`, `T/l`, `1/1`); 29 public-sheet spellings and 4 blood-gas entries in the catalog; a cut-off or declined read fails honestly; mapping catalog cached | tests; re-scored stored reads | photos (today's Sonnet 5 + Gemini pair): rows asked about 53 → 9 on the public sheets, 0 uncaught; unmapped public names 66 → 36 |
 | 1 | `MODEL_MAP: "claude-haiku-5-5"` | mapping fallback on Haiku 5.5 | 43-name truth set: 0 wrong filed, same as Haiku 4.5 | a tenth of the mapping cost |
 | 2 | `TEXT_READERS: "cheap"` + `MODEL_SECOND: "claude-haiku-5-5"` | born-digital pages read once, by Haiku 5.5; interpret.ts's checks stand in for reader 2 | 12 pages: 210/213 rows, 0 uncaught, like the deployed pair | 3-page upload ~$0.17 → ~$0.006; ~24 s → ~10 s a page |
 | 3 | `MODEL_PRIMARY: "claude-haiku-5-5"` (Gemini stays second) | photos read first by Haiku 5.5 | 11 sheets × 2 reps: 0 uncaught, rows asked about equal to Sonnet 5.5 + Gemini | photo page ~$0.044 → ~$0.011 |
 | 3′ | or `MODEL_PRIMARY: "claude-sonnet-5-5"` | a safer photo step: same price as today, a cleaner copier than Sonnet 5 | R1: 0 value errors vs Sonnet 5's 2 | ~20% faster |
 
-| 4 | `VITE_SHARE_AI_MAPPINGS=1` (portal build) | the model's confident filings (catalog + high + unit check) teach every account, revocable by the account that taught them | 0 confident wrong in 495 names (round 3) | the same new name never reaches the model twice |
+| 4 | `VITE_SHARE_AI_MAPPINGS=1` (portal build) | the model's confident filings (catalog + high + unit check) are saved for every account as a decision for that (lab, printed name, unit), marked `source: model`, revocable by the account that triggered it and listable/revocable by Ondřej from the CLI | 0 confident wrong in 495 names (round 3) | the same new name never reaches the model twice |
+| 5 | `VITE_SECOND_OPINION=1` (portal build) | the list's weak matches (unit not the entry's, unknown specimen prefix) get Haiku's opinion once: confirmed, re-filed (only on "high" + unit evidence), or taken off the entry for a person to decide; saved like step 4 | round 4: the 4 real errors on the public sheets + look-alikes taken off (urine-strip glucose, PT in seconds, antithrombin mg/l, HbA1c %), 5 harmless ones confirmed | ~$0.002 once per (lab, name, unit) |
+
+Listing and withdrawing what the model saved, from the CLI (no UI):
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "SELECT lab, raw_name, unit, canonical_id, model, created_at FROM aliases WHERE source = 'model' ORDER BY created_at"
+```
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "DELETE FROM aliases WHERE source = 'model' AND lab = 'LAB' AND raw_name = 'NAME' AND unit = 'UNIT'"
+```
 
 Not a switch yet: unrecognised parameters getting their own trend.
 `buildTrends` can do it, but Trendy has to show it — see "Mapping design".
@@ -52,9 +63,9 @@ alias can be withdrawn.
 
 | step | today (Moje krev, verified in code) | after (this branch, switches default off) | still to build |
 |---|---|---|---|
-| 1. list | shipped synonyms (`registry.json`, 344 entries / ~4,100 names) + shared `synonyms` (D1, taught by a person's click onto a shipped entry, keyed by printed name only) + the account's `learned`. Exact key after `normKey`, plus the trailing `[ABBR]`; material checked | + glued codes (`URE urea`, `FE železo`, guarded), + `x` (punctate) refused as blood | key shared aliases by **(lab, printed name, unit)**, not name alone, so a name means one thing per lab |
+| 1. list | shipped synonyms (`registry.json`, 344 entries / ~4,100 names) + shared `synonyms` (D1, taught by a person's click onto a shipped entry, keyed by printed name only) + the account's `learned`. Exact key after `normKey`, plus the trailing `[ABBR]`; material checked | + glued codes (`URE urea`, `FE železo`, guarded), + `x` (punctate) refused as blood, + 29 spellings and 4 blood-gas entries (348 entries); **scoped decisions** (`Registry.addScopedAlias`, `aliasKey(lab, name, unit)`) consulted first — this lab and unit, this lab any unit, any lab this unit — and `rematchReport` carries them into stored reports, mapped rows included | — |
 | 2. model | Haiku 4.5, automatic after every upload and once on load, for unmapped names that can trend; catalog id must exist (`toSuggestions` refuses invented ids — in effect an enum) | `MODEL_MAP=claude-haiku-5-5`; catalog sent as a cached block | — |
-| 3. save | every answer per account (`settings.aiAsked`, never asked again); `catalog`+`high`+`canApplyUnasked` (unit known to agree, nothing contradicting) filed **for this account only**; the rest waits for a click, and a click onto a shipped entry teaches every account | `VITE_SHARE_AI_MAPPINGS=1` (build-time, off): the same confident filings onto shipped entries are also taught to every account, under the account that triggered them (so revocable by it, like a click) | mark shared rows as model-taught (column `source`, migration + `check:schema`) so Ondřej can list and revoke them in one place; one in-flight guard so two accounts don't ask for the same new name at once |
+| 3. save | every answer per account (`settings.aiAsked`, never asked again); `catalog`+`high`+`canApplyUnasked` (unit known to agree, nothing contradicting) filed **for this account only**; the rest waits for a click, and a click onto a shipped entry teaches every account | D1 `aliases` (lab, raw_name, unit → canonical_id or NULL, `source` person/model, `model`, reserved `code`), `GET/PUT/DELETE /api/aliases`; a model's row never replaces a person's, a person's replaces a model's; `VITE_SHARE_AI_MAPPINGS=1` writes the confident filings there; `VITE_SECOND_OPINION=1` writes its decisions there | a person's click saved as a scoped `person` alias too (today it still teaches the global `synonyms`); an in-flight guard so two accounts don't ask for the same new name at once |
 | 4. not in the catalog | the row is stored and flagged, but **left out of every trend**; Trendy shows "N parametrů se nezobrazuje"; Haiku's `new` proposal pre-fills the founding form; a founded parameter is per account | `buildTrends(..., { unrecognised: true })` (lab-core, off): such rows get their own series keyed `unrecognisedKey(lab, name, unit)`, marked `recognised: false` | wire it in Trendy ("zatím nerozpoznaný parametr"); a review queue (D1 `draft_entries`: Haiku's proposed Czech name, unit, group, printed range as the range source) that Ondřej approves into `seed_registry.py`; on approval, the unrecognised series' readings remap to the new id (the same `rematchReport` path a new synonym already uses) |
 
 Why not Haiku-first (measured in round 3): it made 0 confident errors in 495
@@ -613,14 +624,80 @@ mappings can be shared with every account (`VITE_SHARE_AI_MAPPINGS=1`,
 
 Round 3 spend: $0.13 (the Haiku-first evaluation and its repeat-stability runs).
 
+### Round 4 — 2026-10-19
+
+**Second opinion on weak list matches** (lab-core `weakMatchReason`,
+`findWeakMatches`; portal `judgeSecondOpinion`, `runSecondOpinion`, behind
+`VITE_SECOND_OPINION=1`).
+- A list match is *weak* when the printed unit is neither the entry's unit nor
+  a declared conversion, or the name has a specimen prefix the catalog does
+  not know (unless that exact spelling is a listed synonym).
+- Haiku is asked about the name fresh; it is not told the list's choice.
+  - It names the list's entry → **confirm**.
+  - It names another entry with "high" and the unit evidence holds →
+    **remap**.
+  - Anything else → **unmap**: the row leaves the entry and waits for a
+    person, with the answer shown.
+- Each decision is saved as a scoped alias, so it is asked once.
+
+`tests/bench/second_opinion.ts` ($0.002, 4.7 s) ran on 13 weak matches:
+- the public sheets' 9, plus the look-alikes as a lab would print them;
+- `G/l`, `T/l` and `1/1` now fold in `canonicalizeUnit` (TS + Python,
+  parity), so the harmless spellings are no longer weak at all.
+
+| printed | list said | model | verdict |
+|---|---|---|---|
+| `Glukóza [arb.j.]` (urine strip) | glukoza | unknown | **unmap** ✔ |
+| `P_Protrombinový test [s]` | Quick (%) | unknown — "several prothrombin items" | **unmap** ✔ (a person files it as PT time) |
+| `P_Antitrombin III [mg/L]` | antithrombin (%) | unknown | **unmap** ✔ |
+| `B-HbA1c [%]` | HbA1c (mmol/mol) | unknown, medium | **unmap** (defensible: same analyte, other scale) |
+| `HbA1c [%]` | HbA1c | HbA1c, low | confirm (the trend keeps the % readings apart as another unit) |
+| `S_GF_MDRD 6 [ml/s]`, `S_CKD-EPI [ml/s]`, `Hematokrit [pomer]`, `Anti CMV IgG/IgM [index]` | — | same entry | confirm ✔ |
+
+No real error was confirmed and nothing right was re-filed. The two HbA1c lines
+show the model's randomness. Saving the first answer is what keeps a trend
+stable.
+
+**Scoped aliases (lab + printed name + unit) with a model marker:**
+- Registry: `addScopedAlias`, `scopedMatch`, `aliasKey`, consulted before
+  every global key. NULL means "not this entry".
+- `rematchReport` applies scoped decisions to stored rows, mapped ones
+  included.
+- `interpret.ts` passes the page's lab and the row's unit at upload.
+- D1 `aliases` table (migration `2026-10-19-aliases.sql`, `schema.sql`,
+  `schemaDrift` test). The `code` column is reserved for NČLP/LOINC from
+  lab-codes.
+- `GET/PUT/DELETE /api/aliases` with the ownership rule: a person beats a
+  model, never the reverse.
+- Account deletion unlinks the account's rows.
+- The portal reads aliases only when one of the two switches is on, model
+  rows first and then person rows.
+- `VITE_SHARE_AI_MAPPINGS` now writes scoped `source: model` rows instead of
+  name-only synonyms.
+- Listing and revoking from the CLI: the two commands under the summary.
+
+**Vocabulary** (`seed_registry.py`, both `registry.json` copies regenerated,
+demo data byte-identical):
+- 29 public-sheet spellings of existing entries.
+- 4 blood-gas entries with Czech "about" texts: pCO2, pO2, base excess, sO2.
+- Not added, on purpose:
+  - bare "Bilirubin" and blood "pH": their keys are also the urine strip's
+    bare names, and a bare name carries no specimen;
+  - a bare trailing-code rule ("… MCV"): "S- Cholesterol non- HDL" also ends
+    in "HDL".
+- Unmapped names on the public reads: 66 → 36. The rest is urine, drug
+  levels, punctates and those two.
+- Note: this makes part of round 3's map-gate and map-first truth sets
+  catalog-known; future runs of those measure less.
+
+Round 4 spend: $0.002.
+
 ### Next, if the loop continues
 1. Ondřej runs the Mac check; the result goes here, then the settings in the summary.
-1b. Mapping: Haiku as a second opinion on weak table matches (unit not the
-   entry's, unknown material) — behind a switch, default off.
-2. Vocabulary: plain "Bilirubin"/"S_Bilirubin" → total bilirubin and similar
-   gaps the public sheets showed (seed_registry.py, regenerate both
-   registry.json copies, zero-diff check).
-3. Text-path output trimming (shorter keys, no `confidence`), only if speed matters.
+2. Save a person's click as a scoped `person` alias too, so a correction is the
+   strongest decision and is revocable in the same place.
+3. Trendy wiring for unrecognised parameters + the draft-entry review queue (UI).
+4. Text-path output trimming (shorter keys, no `confidence`), only if speed matters.
 
 ## Spend ledger
 
@@ -645,7 +722,10 @@ Round 3 spend: $0.13 (the Haiku-first evaluation and its repeat-stability runs).
 | 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_first.ts` (495 names) | Haiku 5.5 | 0.049 | 4.105 |
 | 2026-10-19 | same with `MAP_FIRST_RUNS=3` (492 names ×3, catalog cached) | Haiku 5.5 | 0.084 | **4.189** |
 
+| 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/second_opinion.ts` (13 weak matches) | Haiku 5.5 | 0.002 | **4.191** |
+
 Round 1: $2.57 of $3.50. Round 2: $1.48 of $3.00 (of which $0.95 chat evals,
-before the scope correction). Round 3: $0.13 of $2.50. Loop: **$4.19 of $10**. Keys from `bloodwork.env`
+before the scope correction). Round 3: $0.13 of $2.50. Round 4: $0.002 of
+$2.00. Loop: **$4.19 of $10**. Keys from `bloodwork.env`
 (shared with Klugscheisser/jobscan). Bench costs are priced with the corrected
 table (Sonnet $2/$10).

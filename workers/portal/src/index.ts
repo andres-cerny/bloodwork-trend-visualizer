@@ -41,7 +41,7 @@ import { mintSession } from "@bw/gate";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { sweepAbandonedDocuments } from "./sweep";
 import { ipHash } from "./ratelimit";
-import { SQL, type AiShareRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
+import { SQL, type AiShareRow, type AliasRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
 import { errorCodeOf, recordEvent, routeLabel } from "./events";
 import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
@@ -504,6 +504,67 @@ async function forgetSynonym(request: Request, env: Env, user: UserRow): Promise
   return json({ ok: true, removed: r.meta.changes > 0 });
 }
 
+/* ---------------------------------------------------------------- aliases */
+
+// Scoped aliases: one laboratory's printed name in one unit. Same shape checks
+// as synonyms; the lab and unit are label text, never a value, and are capped.
+const MAX_SCOPE = 200;
+const MODEL_ID = /^[a-z0-9.\-]{1,64}$/;
+
+/** Every saved scoped decision, with who made it and whether this account did. */
+async function listAliases(env: Env, user: UserRow): Promise<Response> {
+  const { results } = await env.DB.prepare(SQL.allAliases).all<AliasRow>();
+  return json(
+    results.map((r) => ({
+      lab: r.lab,
+      rawName: r.raw_name,
+      unit: r.unit,
+      canonicalId: r.canonical_id,
+      source: r.source,
+      model: r.model,
+      mine: r.taught_by === user.id,
+    })),
+  );
+}
+
+/**
+ * Save one decision. `canonicalId: null` saves "not the entry this name
+ * would otherwise find". `source: "model"` marks an answer filed without a
+ * click (and names the model); a model's row never replaces a person's.
+ */
+async function teachAlias(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const b = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const rawName = typeof b?.rawName === "string" ? b.rawName.trim() : "";
+  const lab = typeof b?.lab === "string" ? b.lab.trim() : "";
+  const unit = typeof b?.unit === "string" ? b.unit.trim() : "";
+  const canonicalId = b?.canonicalId === null ? null : typeof b?.canonicalId === "string" ? b.canonicalId : undefined;
+  const source = b?.source === "model" ? "model" : b?.source === "person" || b?.source === undefined ? "person" : null;
+  const model = source === "model" && typeof b?.model === "string" && MODEL_ID.test(b.model) ? b.model : null;
+  if (
+    !rawName || rawName.length > MAX_RAW_NAME || lab.length > MAX_SCOPE || unit.length > MAX_SCOPE ||
+    canonicalId === undefined || (canonicalId !== null && !CANONICAL_ID.test(canonicalId)) || source === null ||
+    (source === "model" && !model)
+  ) {
+    return json({ error: "bad_request", message: "Neplatné přiřazení." }, 400);
+  }
+  const demo = await demoAccount(env);
+  const r = await env.DB.prepare(SQL.upsertAlias)
+    .bind(lab, rawName, unit, canonicalId, source, model, user.id, new Date().toISOString(), demo?.id ?? null)
+    .run();
+  return json({ ok: true, taught: !!r.meta && r.meta.changes === 1 });
+}
+
+/** Withdraw a decision this account saved. Someone else's stays. */
+async function forgetAlias(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const b = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const rawName = typeof b?.rawName === "string" ? b.rawName.trim() : "";
+  if (!rawName) return json({ error: "bad_request", message: "Neplatné přiřazení." }, 400);
+  const lab = typeof b?.lab === "string" ? b.lab.trim() : "";
+  const unit = typeof b?.unit === "string" ? b.unit.trim() : "";
+  const r = await env.DB.prepare(SQL.deleteAlias).bind(lab, rawName, unit, user.id).run();
+  return json({ ok: true, removed: r.meta.changes > 0 });
+}
+
 /* ---------------------------------------------------------------- extract */
 
 /**
@@ -957,6 +1018,7 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   await env.DB.prepare(SQL.clearLoginFailures).bind(user.email).run();
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
   await env.DB.prepare(SQL.unlinkSynonyms).bind(user.id).run();
+  await env.DB.prepare(SQL.unlinkAliases).bind(user.id).run();
   await env.DB.prepare(SQL.deleteUser).bind(user.id).run();
   return new Response(JSON.stringify({ ok: true, pagesDeleted: results.length }), {
     status: 200,
@@ -1255,6 +1317,12 @@ const routes = {
         return teachSynonym(request, env, user);
       case "DELETE /api/synonyms":
         return forgetSynonym(request, env, user);
+      case "GET /api/aliases":
+        return listAliases(env, user);
+      case "PUT /api/aliases":
+        return session.demo ? json({ error: "demo_readonly", message: "V demu se názvy ostatním účtům nepředávají." }, 403) : teachAlias(request, env, user);
+      case "DELETE /api/aliases":
+        return forgetAlias(request, env, user);
       case "GET /api/export":
         return exportAccount(env, session, url.searchParams.get("format") ?? "json");
       case "DELETE /api/account":

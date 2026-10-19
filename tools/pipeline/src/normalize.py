@@ -194,7 +194,7 @@ def canonicalize_unit(unit_raw: Optional[str]) -> Optional[str]:
         return None
     s = unit_raw.strip()
     # "1" is the SI spelling of dimensionless, which "-" and "" already fold to.
-    if s in {"", "-", "–", "—", "1"}:
+    if s in {"", "-", "–", "—", "1", "1/1"}:
         return ""
     for bad, good in _MICRO_VARIANTS.items():
         s = s.replace(bad, good)
@@ -208,6 +208,11 @@ def canonicalize_unit(unit_raw: Optional[str]) -> Optional[str]:
     s = re.sub(r"m\^([23])\b", r"m\1", s)
     s = re.sub(r"(\d)(m[23])\b", r"\1 \2", s)
     s = re.sub(r"\s+", " ", s).strip()
+    # SI prefixes for a count: G/l is 10^9/l, T/l is 10^12/l (Břeclav). Exact match.
+    if s == "G/l":
+        return "10^9/l"
+    if s == "T/l":
+        return "10^12/l"
     return s
 
 

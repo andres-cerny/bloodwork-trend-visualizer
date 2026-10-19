@@ -40,6 +40,9 @@
   ],
   "_canonicalize_unit": "Cosmetic unit spellings that must fold to one form or the same analyte will not line up across labs. Micro has three: the micro sign, Greek mu, and the ASCII fallback (umol/l, ug/l) — the last is lowercase-only so U/l keeps its enzyme unit. The count units print a superscript (x 10⁹/l) that a PDF text layer flattens to digits, so 109/l, x 109/l and x109/ l are all 10^9/l; only the exponents labs use (3, 6, 9, 12) fold, so x1000/µl is left alone. Spacing around the solidus is cosmetic too.",
   "canonicalize_unit": [
+    ["G/l", "10^9/l"],
+    ["T/l", "10^12/l"],
+    ["1/1", ""],
     ["mmol/L", "mmol/l"],
     ["mmol/l", "mmol/l"],
     ["U/l", "U/l"],

@@ -215,7 +215,7 @@ export function canonicalizeUnit(unitRaw: string | null | undefined): string | n
   let s = unitRaw.trim();
   // "1" is the SI spelling of dimensionless, which "-" and "" already fold to:
   // a hematocrit printed as 0,42 with unit 1 is the same 0,42 as one with "-".
-  if (s === "" || s === "-" || s === "–" || s === "—" || s === "1") return "";
+  if (s === "" || s === "-" || s === "–" || s === "—" || s === "1" || s === "1/1") return "";
   s = applyMicro(s);
   s = s.replace(MICRO_ASCII, "µ"); // ASCII fallback umol/l, ug/l → µmol/l, µg/l
   s = s.split("˄").join("^"); // modifier caret ˄ → ^
@@ -228,6 +228,10 @@ export function canonicalizeUnit(unitRaw: string | null | undefined): string | n
   s = s.replace(/m\^([23])\b/g, "m$1");
   s = s.replace(/(\d)(m[23])\b/g, "$1 $2");
   s = s.replace(/\s+/g, " ").trim();
+  // The SI prefixes some hematology analysers print for a count: G/l is
+  // giga per litre, 10^9/l; T/l is tera, 10^12/l (Břeclav). Exact match only.
+  if (s === "G/l") return "10^9/l";
+  if (s === "T/l") return "10^12/l";
   return s;
 }
 

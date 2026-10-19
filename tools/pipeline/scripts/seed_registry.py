@@ -1524,13 +1524,59 @@ NEW_ANALYTES: list[tuple] = [
     ("anti_ebv_ebna_igg", "Anti-EBV EBNA IgG", ["S_Anti-EBV/EBNA IgG"], "kU/l", {}),
     ("anti_ebv_vca_igg", "Anti-EBV VCA IgG", ["S_Anti-EBV/VCA IgG"], "kU/l", {}),
     ("anti_ebv_vca_igm", "Anti-EBV VCA IgM", ["S_Anti-EBV/VCA IgM"], "IP", {}),
+    # Blood gases (2026-10-19, docs/plans/model-loop.md round 4): printed by
+    # every hospital lab's ABR panel (Stod's sample sheet carries all four).
+    # Not pH: its key "ph" is also the urine strip's bare "pH", and a bare
+    # name carries no material to tell them apart (the note above
+    # EXTRA_SYNONYMS says the same of "Bilirubin").
+    ("pco2", "pCO2 (parciální tlak CO2)",
+     ["B_PCO2", "B_pCO2", "pCO2", "PCO2", "pCO2 arteriální", "Parciální tlak CO2"], "kPa", {"mmHg": 0.1333}),
+    ("po2", "pO2 (parciální tlak O2)",
+     ["B_PO2", "B_pO2", "pO2", "PO2", "pO2 arteriální", "Parciální tlak O2"], "kPa", {"mmHg": 0.1333}),
+    ("base_excess", "Base excess (BE)",
+     ["B_Base excess aktuální", "Base excess", "B_BE", "BE aktuální", "ABE", "Aktuální base excess"], "mmol/l", {}),
+    ("so2", "Saturace hemoglobinu kyslíkem (sO2)",
+     ["B_O2 saturovaný", "sO2", "SO2", "B_sO2", "Saturace O2", "O2 saturace"], "%", FRAC_TO_PCT),
 ]
+
+
+# Spellings from the public sample sheets (tests/bench/public_sheets: Stod,
+# Břeclav hematology, EUC, Unilabs SK), for analytes the catalog already had.
+# Each was checked by hand and agreed by Haiku 5.5 and Jev in the round-3
+# mapping test (docs/plans/model-loop.md). Still deliberately absent: bare
+# "Bilirubin"/"S_Bilirubin" (urine strip, see above EXTRA_SYNONYMS), and the
+# bare "MCV"-style tail rule — "S- Cholesterol non- HDL" ends in "HDL" too.
+PUBLIC_SHEET_SYNONYMS: dict[str, list[str]] = {
+    "kyselina_mocova": ["S_Močová kyselina"],
+    "crp": ["S_C-reaktivní prot."],
+    "vapnik_ionizovany": ["S_Ionizovaný Ca", "B_iVápník"],
+    "hba1c": ["B_Glyk.hemoglobin A1c"],
+    "non_hdl": ["S- Cholesterol non- HDL"],
+    "pomer_fpsa_psa": ["Poměr FreePSA/PSA"],
+    "troponin_i": ["S_High Sensitive Troponin I"],
+    "egfr_mdrd": ["S_GF_MDRD 6"],
+    "pt_pomer": ["Protrombinový test- Ratio"],
+    "transferrin": ["S_Transferin IT"],
+    "pomer_albumin_globulin": ["S_Albumino-globulin.k.(výpočet)"],
+    "pat": ["B_Přímý antiglobulinový test (Coombs)"],
+    "nat": ["B_Nepřímý antiglobulinový test (Coombs)"],
+    "anti_cmv_igg": ["Anti CMV IgG (skríning)"],
+    "anti_cmv_igm": ["Anti CMV IgM (skríning)"],
+    "mcv": ["*Střední objem erytr", "B/Stř.objem erytr.(MCV)", "B_Stř.obj.erytr. MCV"],
+    "mch": ["*Hemoglobin v ery", "B/Hb erytr.(MCH)"],
+    "mchc": ["*Střed.konc.HGB v ER", "B/Hb konc.(MCHC)", "B_Stř.barev.kon.MCHC"],
+    "mpv": ["*Střední objem tromb"],
+    "erytrocyty": ["B_Erytrocyty př. RBC"],
+    "leukocyty": ["B_Leukocyty př. WBC"],
+    "trombocyty": ["B_Trombocyty př. PLT", "B_Trombocyty TROMBOEXACT"],
+}
 
 
 def build() -> list[dict]:
     out = []
     for cid, disp, syns, unit, conv in ANALYTES + NEW_ANALYTES:
-        extra = EXTRA_SYNONYMS.get(cid, []) + BIOLAB_SYNONYMS.get(cid, []) + PANEL_SYNONYMS.get(cid, [])
+        extra = (EXTRA_SYNONYMS.get(cid, []) + BIOLAB_SYNONYMS.get(cid, []) + PANEL_SYNONYMS.get(cid, [])
+                 + PUBLIC_SHEET_SYNONYMS.get(cid, []))
         merged = list(dict.fromkeys([*syns, *extra]))  # de-dupe, keep order
         out.append({
             "canonical_id": cid,

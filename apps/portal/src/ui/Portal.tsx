@@ -45,13 +45,17 @@ import {
 import { ThemeSwitch } from "@bw/ui-kit";
 import DateAsk from "./DateAsk";
 import { dateDoubtOf, forTrends, newFingerprintSalt } from "../lib/fileChecks";
-import { type AiAsked, type Allowance, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
+import { type AiAsked, type Allowance, ApiError, type Budget, type SavedAlias, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listAliases, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachAlias, teachSynonym } from "../lib/api";
 import AllowanceChip from "./AllowanceChip";
 import BuySheet from "./BuySheet";
-import { type Judged, askingEntry, persistable, runAiMapping, sharedLessons, withoutAsked } from "../lib/aiMapping";
+import { type Judged, askingEntry, persistable, runAiMapping, runSecondOpinion, scopeOf, sharedLessons, withoutAsked } from "../lib/aiMapping";
 
 /** Build-time switch, off unless set: the model's confident filings teach every account (lib/aiMapping.ts, `sharedLessons`). */
 const SHARE_AI_MAPPINGS = import.meta.env.VITE_SHARE_AI_MAPPINGS === "1";
+/** Build-time switch, off unless set: weak list matches get the model's second opinion (lib/aiMapping.ts, `runSecondOpinion`). */
+const SECOND_OPINION = import.meta.env.VITE_SECOND_OPINION === "1";
+/** The shared scoped decisions (`/api/aliases`) are read only when a switch that writes them is on. */
+const SCOPED_ALIASES = SHARE_AI_MAPPINGS || SECOND_OPINION;
 import { type Batch, holdsSummary } from "../lib/batch";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
 import { mergeSettings, rebaseSettings } from "../lib/settings";
@@ -204,6 +208,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
           // worth a blank screen.
           listSynonyms().catch(() => []),
         ]);
+        const aliases: SavedAlias[] = SCOPED_ALIASES ? await listAliases().catch(() => []) : [];
         const reg = new Registry(defs);
         settingsRef.current = settings as Settings;
         // Founded parameters before the learned names, not after: addSynonym
@@ -218,6 +223,11 @@ export default function Portal({ email, demo, onLogout }: Props) {
         // they stay its own to withdraw; another account's cannot be unlearned
         // here, the same as a name from the shipped table.
         for (const t of taught) reg.addSynonym(t.canonicalId, t.rawName, false);
+        // Scoped decisions last, a model's before a person's, so a person's
+        // decision for the same lab, name and unit is the one that holds.
+        for (const a of [...aliases.filter((x) => x.source === "model"), ...aliases.filter((x) => x.source === "person")]) {
+          reg.addScopedAlias({ lab: a.lab || null, unit: a.unit || null }, a.rawName, a.canonicalId);
+        }
         registryRef.current = reg;
         setRegistry(reg);
         learnedRef.current = l;
@@ -256,6 +266,23 @@ export default function Portal({ email, demo, onLogout }: Props) {
         // and the account has never asked about. Not awaited: the screen
         // is up, the names arrive on the card when they arrive.
         void runMapping(findUnmapped(loaded));
+        if (SECOND_OPINION && !demo && !status.budget?.frozen) {
+          void runSecondOpinion(
+            { reports: loaded, registry: reg, stats: observedStats(loaded), ask: (names, catalog) => suggestWithAi(names, catalog) },
+            {
+              save: (o, model) =>
+                void teachAlias({ lab: o.lab ?? "", rawName: o.rawName, unit: o.unit, canonicalId: o.canonicalId, source: "model", model }).catch(() => undefined),
+            },
+          ).then(({ decided }) => {
+            if (decided.length === 0) return;
+            // The decisions are in the registry; carry them into the stored reports.
+            const now = reportsRef.current.map((r) => rematchReport(r, reg) ?? r);
+            const moved = now.filter((r, i) => r !== reportsRef.current[i]);
+            reportsRef.current = now;
+            setReports(now);
+            for (const r of moved) persist(r);
+          });
+        }
       } catch (e) {
         setLoadError(e instanceof Error && e.message === "Přihlaste se prosím." ? e.message : "Data se nepodařilo načíst. Zkuste stránku obnovit.");
       }
@@ -524,7 +551,13 @@ export default function Portal({ email, demo, onLogout }: Props) {
       updateAsked((cur) => ({ ...cur, ...judged.entries }));
       saveSettings({ learned: nextLearned, aiAsked: persistable(aiAskedRef.current) }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
       // Off by default; see `sharedLessons`. Best effort, like a click's lesson.
-      if (!demo) for (const { rawName, canonicalId } of sharedLessons(judged, isShipped, SHARE_AI_MAPPINGS)) teachSynonym(rawName, canonicalId).catch(() => undefined);
+      // Taught as a scoped decision (this lab, name and unit) marked as the model's.
+      if (!demo) {
+        for (const { rawName, canonicalId } of sharedLessons(judged, isShipped, SHARE_AI_MAPPINGS)) {
+          const scope = scopeOf(rawName, reportsRef.current);
+          teachAlias({ ...scope, rawName, canonicalId, source: "model", model: judged.entries[rawName]?.model || "unknown" }).catch(() => undefined);
+        }
+      }
     },
     [remapMany, updateLearned, updateAsked, saveSettings, isShipped, demo],
   );
