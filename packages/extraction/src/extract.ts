@@ -18,6 +18,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { clientFor, usageOf, type Usage } from "@bw/agent-core";
 
+import { readerShape, recordInput, toolFor } from "./models";
 import { createRowScanner } from "./partial";
 
 /** A row as the model wrote it, before the message is complete. */
@@ -49,6 +50,12 @@ async function call(apiKey: string, params: Anthropic.MessageCreateParamsNonStre
 
 
 
+/**
+ * The deployed defaults. A Worker may override either through its `env`
+ * (`MODEL_PRIMARY`, `MODEL_SECOND`; see `resolveReaderModel`), so a model
+ * swap is a config change that can be reverted in a minute rather than a
+ * code change — the same asymmetry `PHOTO_READERS` was built on.
+ */
 export const MODEL_PRIMARY = "claude-sonnet-5";
 /**
  * The second reader. Haiku 4.5 rather than Opus 4.8, and the reason is accuracy
@@ -253,10 +260,24 @@ const TOOL_TEXT = (() => {
   return tool as Anthropic.Tool;
 })();
 
-/** The tool_use block a forced tool_choice guarantees. */
-function toolInput(message: Anthropic.Message): Record<string, unknown> {
-  const block = message.content.find((b) => b.type === "tool_use");
-  return (block && "input" in block ? (block.input as Record<string, unknown>) : {}) ?? {};
+/**
+ * Claude models a Worker may name as a reader through its env. An allowlist,
+ * not a free string: a typo in a var must fall back to the default rather
+ * than send every page to a model nobody priced (`priceUsd` falls back to a
+ * guess for an unknown id) or one whose request shape nobody checked.
+ */
+export const READER_MODELS: ReadonlySet<string> = new Set([
+  "claude-sonnet-5",
+  "claude-sonnet-5-5",
+  "claude-haiku-4-5",
+  "claude-haiku-5-5",
+  "claude-opus-5-5",
+]);
+
+/** `asked` when it is an allowed reader model, otherwise `fallback`. */
+export function resolveReaderModel(asked: string | undefined, fallback: string): string {
+  const t = (asked ?? "").trim();
+  return READER_MODELS.has(t) ? t : fallback;
 }
 
 /**
@@ -329,22 +350,25 @@ export async function extractPageText(
   rowsText: string,
   onRow?: OnRow,
 ): Promise<PageExtraction> {
+  // No `effort` here, deliberately. Lowering it measured a 0.7% latency gain
+  // — indistinguishable from noise, because latency on this call is almost
+  // entirely output tokens — and Haiku 4.5, the second reader, rejects the
+  // parameter outright with a 400. A knob worth nothing that breaks one of
+  // the two readers is not worth carrying. What does vary by model (forced
+  // tool or not, how thinking is turned off) is in ./models.
+  const shape = readerShape(model, TOOL.name);
+  const user = `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}`;
   const message = await call(apiKey, {
     model,
     max_tokens: 8000,
-    // No `effort` here, deliberately. Lowering it measured a 0.7% latency gain
-    // — indistinguishable from noise, because latency on this call is almost
-    // entirely output tokens — and Haiku 4.5, the second reader, rejects the
-    // parameter outright with a 400. A knob worth nothing that breaks one of
-    // the two readers is not worth carrying.
     system: cachedSystem(SYSTEM_EXTRACT_TEXT),
-    tools: [TOOL_TEXT],
-    tool_choice: { type: "tool", name: TOOL.name },
-    messages: [
-      { role: "user", content: `Řádky vytištěné na stránce:\n\n${rowsText.slice(0, 40000)}` },
-    ],
+    tools: [toolFor(model, TOOL_TEXT)],
+    tool_choice: shape.tool_choice,
+    ...shape.extra,
+    messages: [{ role: "user", content: shape.nudge ? `${user}\n\n${shape.nudge}` : user }],
   }, onRow);
-  return toExtraction(toolInput(message), usageOf(message.usage), model);
+  const usage = usageOf(message.usage);
+  return toExtraction(recordInput(message, model, usage, TOOL.name), usage, model);
 }
 
 /** Transcribe one rendered page image with one model. Used for scans. */
@@ -363,14 +387,18 @@ export async function extractPage(
     content.push({ type: "text", text: TEXT_LAYER_HINT + textLayer.slice(0, 20000) });
   }
   content.push({ type: "text", text: "Přepiš všechny měřené řádky z této stránky." });
+  const shape = readerShape(model, TOOL.name);
+  if (shape.nudge) content.push({ type: "text", text: shape.nudge });
 
   const message = await call(apiKey, {
     model,
     max_tokens: 8000,
     system: cachedSystem(SYSTEM_EXTRACT),
-    tools: [TOOL as unknown as Anthropic.Tool],
-    tool_choice: { type: "tool", name: TOOL.name },
+    tools: [toolFor(model, TOOL as unknown as Anthropic.Tool)],
+    tool_choice: shape.tool_choice,
+    ...shape.extra,
     messages: [{ role: "user", content: content as Anthropic.ContentBlockParam[] }],
   }, onRow);
-  return toExtraction(toolInput(message), usageOf(message.usage), model);
+  const usage = usageOf(message.usage);
+  return toExtraction(recordInput(message, model, usage, TOOL.name), usage, model);
 }

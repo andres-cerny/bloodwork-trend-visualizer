@@ -10,4 +10,5 @@ export type { Usage } from "@bw/agent-core";
 export * from "./extract";
 export * from "./gemini";
 export * from "./map";
+export * from "./models";
 export * from "./partial";

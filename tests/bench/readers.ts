@@ -23,7 +23,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 
-import { extractPageText, SYSTEM_EXTRACT, TEXT_LAYER_HINT, TOOL, type Usage } from "@bw/extraction";
+import { extractPageText, readerShape, recordInput, SYSTEM_EXTRACT, TEXT_LAYER_HINT, TOOL, toolFor, type Usage } from "@bw/extraction";
 import { rowsAsText, type TextRow } from "@bw/lab-core";
 
 import { priceUsd, type CallResult, type Reader } from "./extract";
@@ -49,12 +49,15 @@ export interface PageImage {
 const EMPTY: Usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
 function failed(model: string, ms: number, e: any): CallResult {
+  // A reply the provider billed but that was not a record (UnusableReplyError)
+  // carries its usage; the run's spend must count it.
+  const usage: Usage = e?.usage && typeof e.usage.inputTokens === "number" ? e.usage : EMPTY;
   return {
     ok: false,
     model,
     ms,
-    usage: EMPTY,
-    costUsd: 0,
+    usage,
+    costUsd: usage === EMPTY ? 0 : priceUsd(model, usage),
     thought: false,
     extraction: null,
     error: `${e?.status ?? ""} ${e?.name ?? "Error"}: ${e?.message ?? String(e)}`.trim(),
@@ -136,6 +139,10 @@ export async function readImage(apiKey: string, reader: Reader, image: PageImage
     content.push({ type: "text", text: TEXT_LAYER_HINT + image.textLayer.slice(0, 20000) });
   }
   content.push({ type: "text", text: "Přepiš všechny měřené řádky z této stránky." });
+  // The per-model request shape is the deployed one (packages/extraction/src/models.ts),
+  // so a 5.5 arm here is the request the Worker would send.
+  const shape = readerShape(reader.model, TOOL.name, { effort: reader.effort });
+  if (shape.nudge) content.push({ type: "text", text: shape.nudge });
 
   const t0 = performance.now();
   try {
@@ -143,10 +150,11 @@ export async function readImage(apiKey: string, reader: Reader, image: PageImage
       model: reader.model,
       max_tokens: 8000,
       system: [{ type: "text", text: SYSTEM_EXTRACT, cache_control: { type: "ephemeral" } }],
-      tools: [TOOL as unknown as Anthropic.Tool],
-      tool_choice: { type: "tool", name: TOOL.name },
+      tools: [toolFor(reader.model, TOOL as unknown as Anthropic.Tool)],
+      tool_choice: shape.tool_choice,
+      ...shape.extra,
       messages: [{ role: "user", content }],
-    });
+    } as Anthropic.MessageCreateParamsNonStreaming);
     const ms = performance.now() - t0;
     const usage: Usage = {
       inputTokens: message.usage.input_tokens ?? 0,
@@ -154,8 +162,9 @@ export async function readImage(apiKey: string, reader: Reader, image: PageImage
       cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
       cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
     };
-    const block = message.content.find((b) => b.type === "tool_use");
-    const input = (block && "input" in block ? (block.input as any) : {}) ?? {};
+    // Same verdict as the Worker: a cut-off, declined or tool-less reply is a
+    // failed read (recorded with its cost), not a page with fewer rows.
+    const input = recordInput(message, reader.model, usage, TOOL.name) as any;
     return {
       ok: true,
       model: reader.model,

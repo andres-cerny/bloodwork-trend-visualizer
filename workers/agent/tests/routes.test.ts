@@ -356,8 +356,8 @@ describe("the agent route", () => {
     nextStream = { text: "ok", outTokens: 1000 };
 
     await drain(await worker.fetch(post("/api/chat", turn(), s), env));
-    // 2k in + 1k out on Sonnet 5 ($3/$15) = 0.021.
-    expect(await totalSpentUsd(env.BUDGET, "agent")).toBeCloseTo(0.021, 3);
+    // 2k in + 1k out on Sonnet 5 ($2/$10) = 0.014.
+    expect(await totalSpentUsd(env.BUDGET, "agent")).toBeCloseTo(0.014, 3);
     expect(await totalSpentUsd(env.BUDGET, "extract")).toBe(0);
   });
 
@@ -462,7 +462,7 @@ describe("the agent route", () => {
     // exploring one demo can never freeze the other. The agent ledger (the
     // bloodwork chat's) must not have moved.
     const spent = await totalSpentUsd(env.BUDGET, "clinical-sport");
-    expect(spent).toBeGreaterThan(0.021);
+    expect(spent).toBeGreaterThan(0.014);
     expect(await totalSpentUsd(env.BUDGET, "agent")).toBe(0);
     expect(await totalSpentUsd(env.BUDGET, "clinical-orto")).toBe(0);
     expect(await totalSpentUsd(env.BUDGET, "clinical-csm")).toBe(0);

@@ -186,3 +186,22 @@ export function resolveProfile(name: unknown): Profile | null {
     ? PROFILES[name as ProfileName]
     : null;
 }
+
+/**
+ * Models a deployment may put behind every profile through its `AGENT_MODEL`
+ * var. The model stays the server's choice — never the client's — and an id
+ * outside this list leaves the profile's own model in place, so a typo cannot
+ * route a clinical answer to an unpriced or unchecked model.
+ */
+export const AGENT_MODELS: ReadonlySet<string> = new Set([
+  "claude-sonnet-5",
+  "claude-sonnet-5-5",
+  "claude-opus-5-5",
+  "claude-haiku-5-5",
+]);
+
+/** The profile, with its model swapped only for an allowed `asked` id. */
+export function withModel(profile: Profile, asked: string | undefined): Profile {
+  const t = (asked ?? "").trim();
+  return AGENT_MODELS.has(t) && t !== profile.model ? { ...profile, model: t } : profile;
+}

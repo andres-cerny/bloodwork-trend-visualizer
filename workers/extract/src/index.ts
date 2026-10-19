@@ -28,7 +28,6 @@ import {
   extractPage,
   extractPageGemini,
   extractPageText,
-  MODEL_MAP,
   suggestCanonical,
   type CatalogEntry,
   type NameToMap,
@@ -40,8 +39,9 @@ import {
 // `wrangler dev` from starting. index.ts exports its handler and nothing else.
 import {
   DEFAULT_PHOTO_READERS,
+  mapModel,
   photoReaders,
-  READER_MODEL,
+  readerModel,
   TEXT_READERS,
   type ReaderId,
 } from "./readers";
@@ -75,6 +75,13 @@ export interface Env extends BaseEnv {
    * single-read page never comes back looking cross-checked.
    */
   TEXT_READERS?: string;
+  /**
+   * Model overrides per slot (`./readers`, `readerModel`). Unset means the
+   * defaults in @bw/extraction, so deploying this changes nothing.
+   */
+  MODEL_PRIMARY?: string;
+  MODEL_SECOND?: string;
+  MODEL_MAP?: string;
 }
 
 async function handleSession(request: Request, env: Env): Promise<Response> {
@@ -174,7 +181,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
         : pair.readers;
 
   const read = (id: ReaderId, onRow?: OnRow): Promise<PageExtraction> => {
-    const model = READER_MODEL[id];
+    const model = readerModel(env, id);
     if (useText) return extractPageText(env.ANTHROPIC_API_KEY, model, rowsText!, onRow);
     if (id === "gemini") {
       // Google's reader does not stream its rows; the page still streams,
@@ -218,7 +225,7 @@ async function handleExtract(request: Request, env: Env): Promise<Response> {
     try {
       const results = await Promise.allSettled(
         readers.map((id) =>
-          read(id, (row) => void line({ type: "row", model: READER_MODEL[id], row })),
+          read(id, (row) => void line({ type: "row", model: readerModel(env, id), row })),
         ),
       );
       const { status, body } = await settle(results, env, used, useText, readers, pair.name);
@@ -273,7 +280,7 @@ async function handleMap(request: Request, env: Env): Promise<Response> {
   if (names.length === 0 || catalog.length === 0) return json({ error: "missing_names", message: "Není co přiřadit." }, 400);
 
   try {
-    const r = await suggestCanonical(env.ANTHROPIC_API_KEY, MODEL_MAP, names, catalog);
+    const r = await suggestCanonical(env.ANTHROPIC_API_KEY, mapModel(env), names, catalog);
     const spent = priceUsd(r.model, r.usage.inputTokens, r.usage.outputTokens, r.usage.cacheReadTokens, r.usage.cacheWriteTokens);
     if (spent > 0) await recordSpendUsd(env.BUDGET, "extract", spent);
     return json({

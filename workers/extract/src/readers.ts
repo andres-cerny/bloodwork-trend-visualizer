@@ -10,7 +10,7 @@
  * nothing else; helpers live here. `tests/guards/entry-exports.test.ts` keeps
  * it that way.
  */
-import { MODEL_ESCALATION, MODEL_GEMINI, MODEL_PRIMARY } from "@bw/extraction";
+import { MODEL_ESCALATION, MODEL_GEMINI, MODEL_MAP, MODEL_PRIMARY, resolveReaderModel } from "@bw/extraction";
 
 export type ReaderId = "sonnet" | "haiku" | "gemini";
 
@@ -19,6 +19,30 @@ export const READER_MODEL: Record<ReaderId, string> = {
   haiku: MODEL_ESCALATION,
   gemini: MODEL_GEMINI,
 };
+
+/**
+ * The model ids the vars may override. The reader *ids* keep their historical
+ * names ("sonnet" is the primary slot, "haiku" the second Claude slot) so
+ * `PHOTO_READERS` values and logs keep meaning what they meant; the model in
+ * each slot is a var. An id outside `READER_MODELS` falls back to the default,
+ * so a typo cannot route pages to an unpriced or unchecked model.
+ */
+export type ModelEnv = {
+  MODEL_PRIMARY?: string;
+  MODEL_SECOND?: string;
+  MODEL_MAP?: string;
+};
+
+export function readerModel(env: ModelEnv, id: ReaderId): string {
+  if (id === "sonnet") return resolveReaderModel(env.MODEL_PRIMARY, MODEL_PRIMARY);
+  if (id === "haiku") return resolveReaderModel(env.MODEL_SECOND, MODEL_ESCALATION);
+  return READER_MODEL[id];
+}
+
+/** The mapping fallback's model; same allowlist. */
+export function mapModel(env: ModelEnv): string {
+  return resolveReaderModel(env.MODEL_MAP, MODEL_MAP);
+}
 
 /**
  * The three settings `PHOTO_READERS` may take, and nothing else.

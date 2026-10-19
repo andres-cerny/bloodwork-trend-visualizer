@@ -19,7 +19,7 @@ import { it } from "vitest";
 import { readFileSync, readdirSync, writeFileSync, appendFileSync, mkdirSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { runAgent, PROFILES, priceUsd, type AgentEvent } from "@bw/agent-core";
+import { runAgent, PROFILES, priceUsd, withModel, type AgentEvent } from "@bw/agent-core";
 import { SessionSource, normalizeName, type PatientLookup, type PatientRef } from "@bw/datasource";
 import type { ToolContext } from "@bw/agent-tools";
 import type { LabReport } from "@bw/lab-core";
@@ -353,7 +353,9 @@ async function run() {
 
       for await (const ev of runAgent({
         apiKey,
-        profile: PROFILES[c.profile],
+        // EVAL_MODEL runs every case on another model through the same
+        // allowlist the Worker's AGENT_MODEL uses (docs/plans/model-loop.md).
+        profile: withModel(PROFILES[c.profile], arg("--model")),
         history: [{ role: "user", content: c.question }],
         // Non-practice clinical cases mirror the pinned state: in production a
         // tool profile always knows who is selected (the worker says so), and

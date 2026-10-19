@@ -18,6 +18,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { clientFor, usageOf, type Usage } from "@bw/agent-core";
 import { MODEL_ESCALATION } from "./extract";
+import { readerShape, toolFor } from "./models";
 
 /** One unmatched printed name, as the screen knows it. */
 export interface NameToMap {
@@ -186,14 +187,17 @@ export class MapTruncatedError extends Error {
 }
 
 async function mapBatch(client: Anthropic, model: string, names: NameToMap[], catalog: CatalogEntry[]): Promise<MapResult> {
+  const shape = readerShape(model, TOOL_MAP.name);
+  const prompt = mapPrompt(names, catalog);
   const message = await client.messages.create({
     model,
     max_tokens: 8000,
     system: [{ type: "text", text: SYSTEM_MAP, cache_control: { type: "ephemeral" } }],
-    tools: [TOOL_MAP as unknown as Anthropic.Tool],
-    tool_choice: { type: "tool", name: TOOL_MAP.name },
-    messages: [{ role: "user", content: mapPrompt(names, catalog) }],
-  });
+    tools: [toolFor(model, TOOL_MAP as unknown as Anthropic.Tool)],
+    tool_choice: shape.tool_choice,
+    ...shape.extra,
+    messages: [{ role: "user", content: shape.nudge ? `${prompt}\n\n${shape.nudge}` : prompt }],
+  } as Anthropic.MessageCreateParamsNonStreaming);
   const usage = usageOf(message.usage);
   // A tool call cut off mid-JSON is not an empty answer; saying so is what
   // lets the caller bill it and refuse, instead of mapping nothing quietly.

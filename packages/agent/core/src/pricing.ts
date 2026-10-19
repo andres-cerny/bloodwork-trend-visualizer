@@ -13,9 +13,21 @@
 
 /** USD per million tokens (input, output) — mirrors MODEL_PRICING in src/config.py. */
 export const MODEL_PRICING: Record<string, [number, number]> = {
-  "claude-sonnet-5": [3.0, 15.0],
+  // Anthropic first-party list prices, checked 2026-10-19. Sonnet 5 was
+  // carried here at $3/$15 (Sonnet 4.6's rate) since it shipped; it is $2/$10,
+  // so every ledger and bench number priced through this table overstated
+  // Sonnet by 50% (docs/plans/model-loop.md, round 1).
+  "claude-sonnet-5": [2.0, 10.0],
+  "claude-sonnet-5-5": [2.0, 10.0],
   "claude-opus-4-8": [5.0, 25.0],
+  "claude-opus-5": [5.0, 25.0],
+  "claude-opus-5-5": [4.0, 20.0],
   "claude-haiku-4-5": [1.0, 5.0],
+  // Haiku 5.5 has two rate cards by prompt length: this one up to 100K input
+  // tokens, $0.50/$2.50 beyond. No call here comes near 100K (a text page is
+  // capped at 40,000 characters, a mapping batch at 30 names plus the
+  // catalog), so the long card is not modelled.
+  "claude-haiku-5-5": [0.1, 0.5],
   // The image path's second reader, paid tier. Not a Claude model, but the
   // extract ledger prices every call it makes through this table and the
   // fallback below is Sonnet's — four times Gemini's rate, which would freeze
@@ -38,7 +50,9 @@ const SCHEDULED_PRICING: Record<string, Array<{ from: string; price: [number, nu
 
 /** The rate in force for `model` at `at`. */
 export function pricingFor(model: string, at: Date = new Date()): [number, number] {
-  let price = MODEL_PRICING[model] ?? [3.0, 15.0];
+  // An unpriced id is charged at the dearest Sonnet-or-cheaper rate we know
+  // of, so a forgotten entry over- rather than under-counts the ledger.
+  let price = MODEL_PRICING[model] ?? [5.0, 25.0];
   for (const step of SCHEDULED_PRICING[model] ?? []) {
     if (at >= new Date(`${step.from}T00:00:00Z`)) price = step.price;
   }
