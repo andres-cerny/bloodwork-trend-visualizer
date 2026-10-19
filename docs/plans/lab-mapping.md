@@ -156,3 +156,8 @@ handled and tested (`packages/extraction/tests/map.test.ts`).
   not share a trend axis. BioLAB is the only lab with such rows today.
 - Urine is not catalogued. "Moje krev" is blood; a urine trend is a
   different product decision.
+
+## Next: standard codes
+
+The catalog-and-synonyms lookup above is being backed by a code table —
+every printed name to its NČLP (and LOINC) code: [lab-codes.md](lab-codes.md).
