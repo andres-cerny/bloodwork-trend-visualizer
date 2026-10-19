@@ -546,7 +546,7 @@ function czMappingNum(x: number | null | undefined): string {
 
 const MATERIAL_CS: Record<string, string> = {
   s: "sérum", b: "plná krev", p: "plazma", u: "moč", pk: "plazma", fw: "krev",
-  du: "sbíraná moč", l: "likvor", "s,p": "sérum/plazma",
+  du: "sbíraná moč", l: "likvor", "s,p": "sérum/plazma", x: "punktát",
 };
 export const materialCs = (m: string): string => MATERIAL_CS[m] ?? m.toUpperCase();
 

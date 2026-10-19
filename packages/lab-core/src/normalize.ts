@@ -31,7 +31,16 @@ const UPPER_BOUND = /^(?:<|≤|do\s)\s*/iu;
 const LOWER_BOUND = /^(?:>|≥|nad\s)\s*/iu;
 // Both bounds: "a - b" or "a až b", split on the separator between digits, with
 // an optional trailing cell the lab printed after the numbers ("7,8 - 12,8 fl").
-const TWO_BOUNDS = /^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*?)\s*([A-Za-zµμ%‰/(×°][\s\S]*)?$/iu;
+// The tail may also open with the exponent of a count unit ("1,5-4,0 10^9/l",
+// "10˄12/l") — a digit, which the letter class alone refused, so the whole
+// interval used to degrade to text and every such row's flag to "unknown".
+const TWO_BOUNDS = /^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*?)\s*([A-Za-zµμ%‰/(×°][\s\S]*|10\s*[\^˄*][\s\S]*)?$/iu;
+// A population label in front of the interval: "M: 30 - 400", "muži 30 - 400",
+// "dospělí: 0,5 - 1,2". The lab prints the interval for this person, so the
+// label is dropped — but only when it is the only one: "M: 30-400 Ž: 15-150"
+// holds two intervals and stays text. A one-letter label needs its colon.
+const POPULATION_LABEL = /^(?:(?:[MŽF])\s*[:.]|(?:muži|muž|ženy|žena|dospělí|dospělý)\s*[:.]?)\s*(?=[0-9<>≤≥])/iu;
+const ANY_POPULATION_LABEL = /(?:^|\s)(?:[MŽF]\s*[:.]|muži|muž|ženy|žena|dospělí|dospělý|děti)(?=\s|[:.]|$)/iu;
 // A tail must *start* like a unit, be at most three words, and its first word
 // must not be one of these. Two closed Czech/Slovak vocabularies, because they
 // are the only tails where the numbers in front are not an interval:
@@ -119,6 +128,10 @@ export function parseValue(valueRaw: string | null | undefined): number | null {
  */
 export const MATERIAL_CODES: ReadonlySet<string> = new Set([
   "s", "p", "b", "u", "du", "pk", "pe", "fw", "sp", "s,p", "k", "l",
+  // X_ is a punctate (pleural, ascites…) at Stod: "X_glukóza", "X_LD". Without
+  // the code the registry treated it as no evidence and filed punctate glucose
+  // under blood glucose (docs/plans/model-loop.md, round 3).
+  "x",
 ]);
 
 // Underscore is generic — any 1–4 letters (S_, B_, dU_, xxx_). Slash and
@@ -237,6 +250,16 @@ export function parseRange(refRaw: string | null | undefined): ParsedRange {
   let s = refRaw.trim().replace(/^[()]+|[()]+$/g, "").trim();
   if (!s) return none;
   for (const d of DASHES) s = s.split(d).join("-");
+
+  const label = POPULATION_LABEL.exec(s);
+  if (label) {
+    const rest = s.slice(label[0].length);
+    if (!ANY_POPULATION_LABEL.test(rest)) {
+      const r = parseRange(rest);
+      if (r.low !== null || r.high !== null) return r;
+    }
+    return { low: null, high: null, text: s };
+  }
 
   // A bound whose remainder is not a number ("<1,0 negatívne") stays text:
   // that is a criterion, not an interval, and we never invent a number.

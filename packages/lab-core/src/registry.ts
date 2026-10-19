@@ -69,6 +69,15 @@ export function leadingCodeKey(name: string): string | null {
   return normKey(m[2]) || null;
 }
 
+/**
+ * Any short capital code before a name, whatever letter the name starts with
+ * ("FE železo", "TRFSAT Saturace Transferinu"). Not a key on its own: `match`
+ * accepts it only when the code *and* the name each resolve, to the same
+ * entry — "FE" and "železo" are both iron. "HDL cholesterol" resolves to two
+ * different entries and is refused; an unknown code is refused.
+ */
+const ANY_LEADING_CODE = /^([A-Z][A-Z0-9]{1,5})\s*\*?\s+(\p{L}.*)$/u;
+
 /** A code the registry can reason about; any other prefix is no evidence. */
 const knownMaterial = (code: string | null | undefined): string | null =>
   code && MATERIAL_CODES.has(code) ? code : null;
@@ -168,7 +177,8 @@ export class Registry {
     const id =
       this.index.get(normKey(rawName)) ??
       (abbr ? this.index.get(abbr) : undefined) ??
-      (lead ? this.index.get(lead) : undefined);
+      (lead ? this.index.get(lead) : undefined) ??
+      this.codeAgreesWithName(rawName);
     if (!id) return null;
     const stated = knownMaterial(materialPrefix(rawName)) ?? knownMaterial(pageMaterial);
     const known = this.analytes.get(id)?.material;
@@ -177,6 +187,14 @@ export class Registry {
     // Glukóza auto-mapped to the serum glukoza.
     if (stated && known && !compartmentCompatible(stated, known)) return null;
     return id;
+  }
+
+  /** The entry a glued "CODE name" names twice over, or undefined (see ANY_LEADING_CODE). */
+  private codeAgreesWithName(rawName: string): string | undefined {
+    const m = ANY_LEADING_CODE.exec((rawName || "").trim());
+    if (!m) return undefined;
+    const byCode = this.index.get(normKey(m[1]));
+    return byCode && byCode === this.index.get(normKey(m[2])) ? byCode : undefined;
   }
 
   /**

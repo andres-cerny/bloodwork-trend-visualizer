@@ -182,4 +182,25 @@ describe("a leading code glued onto the name (abbreviation column)", () => {
     expect(reg.match("URE urea")).toBe("urea");
     expect(reg.match("HDL cholesterol")).toBe("hdl");
   });
+
+  it("a code whose letter does not start the name counts only when both name one entry", () => {
+    const reg = new Registry([
+      { canonicalId: "zelezo", displayNameCs: "Železo", synonyms: ["S_Železo", "Fe"], canonicalUnit: "µmol/l", unitConversions: {} } as any,
+      { canonicalId: "hdl", displayNameCs: "HDL cholesterol", synonyms: ["HDL"], canonicalUnit: "mmol/l", unitConversions: {} } as any,
+      { canonicalId: "cholesterol", displayNameCs: "Cholesterol", synonyms: ["S_Cholesterol"], canonicalUnit: "mmol/l", unitConversions: {} } as any,
+    ]);
+    expect(reg.match("FE železo")).toBe("zelezo");
+    expect(reg.match("XYZ železo")).toBeNull(); // unknown code
+    expect(reg.match("HDL Cholesterol LDL")).toBeNull(); // code and name disagree
+  });
+});
+
+describe("a punctate is not blood", () => {
+  it("X_glukóza does not map onto the blood glucose entry", () => {
+    const reg = new Registry([
+      { canonicalId: "glukoza", displayNameCs: "Glukóza", synonyms: ["S_Glukóza", "Glukóza"], canonicalUnit: "mmol/l", unitConversions: {} } as any,
+    ]);
+    expect(reg.match("S_Glukóza")).toBe("glukoza");
+    expect(reg.match("X_glukóza")).toBeNull();
+  });
 });

@@ -48,7 +48,10 @@ import { dateDoubtOf, forTrends, newFingerprintSalt } from "../lib/fileChecks";
 import { type AiAsked, type Allowance, ApiError, type Budget, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachSynonym } from "../lib/api";
 import AllowanceChip from "./AllowanceChip";
 import BuySheet from "./BuySheet";
-import { type Judged, askingEntry, persistable, runAiMapping, withoutAsked } from "../lib/aiMapping";
+import { type Judged, askingEntry, persistable, runAiMapping, sharedLessons, withoutAsked } from "../lib/aiMapping";
+
+/** Build-time switch, off unless set: the model's confident filings teach every account (lib/aiMapping.ts, `sharedLessons`). */
+const SHARE_AI_MAPPINGS = import.meta.env.VITE_SHARE_AI_MAPPINGS === "1";
 import { type Batch, holdsSummary } from "../lib/batch";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
 import { mergeSettings, rebaseSettings } from "../lib/settings";
@@ -520,8 +523,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
       const nextLearned = updateLearned((cur) => withFiled(cur, judged.applied));
       updateAsked((cur) => ({ ...cur, ...judged.entries }));
       saveSettings({ learned: nextLearned, aiAsked: persistable(aiAskedRef.current) }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
+      // Off by default; see `sharedLessons`. Best effort, like a click's lesson.
+      if (!demo) for (const { rawName, canonicalId } of sharedLessons(judged, isShipped, SHARE_AI_MAPPINGS)) teachSynonym(rawName, canonicalId).catch(() => undefined);
     },
-    [remapMany, updateLearned, updateAsked, saveSettings],
+    [remapMany, updateLearned, updateAsked, saveSettings, isShipped, demo],
   );
 
   /**

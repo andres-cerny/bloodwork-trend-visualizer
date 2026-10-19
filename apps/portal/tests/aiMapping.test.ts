@@ -20,7 +20,7 @@ import {
   observedStats,
 } from "@bw/lab-core";
 import type { AiAsked, AiMapAnswer, MapSuggestion } from "../src/lib/api";
-import { type Judged, judge, namesToAsk, persistable, runAiMapping, withoutAsked } from "../src/lib/aiMapping";
+import { type Judged, judge, namesToAsk, persistable, runAiMapping, sharedLessons, withoutAsked } from "../src/lib/aiMapping";
 
 const m = (name: string, value: string, unit: string, ref: string, cid: string | null) =>
   normalizeMeasurement(makeMeasurement({ rawAnalyteName: name, valueRaw: value, unitRaw: unit, refRangeRaw: ref, canonicalId: cid }));
@@ -313,5 +313,23 @@ describe("persistable", () => {
     h.effects.mark(["S_Na"]);
     h.effects.commit({ entries: { S_K: { decision: "unknown", canonicalId: null, confidence: "low", reason: "x", model: "m", at: AT } }, applied: [], parked: [] });
     expect(Object.keys(persistable(h.ref.current))).toEqual(["S_K"]);
+  });
+});
+
+describe("sharedLessons (VITE_SHARE_AI_MAPPINGS)", () => {
+  const judged = {
+    entries: {},
+    applied: [
+      { rawName: "S_K", canonicalId: "draslik" },
+      { rawName: "Můj test", canonicalId: "custom_abc" },
+    ],
+    parked: [],
+  };
+  const shipped = (id: string) => id !== "custom_abc";
+  it("off by default: nothing is taught to every account", () => {
+    expect(sharedLessons(judged, shipped, false)).toEqual([]);
+  });
+  it("on: only filings onto a shipped entry", () => {
+    expect(sharedLessons(judged, shipped, true)).toEqual([{ rawName: "S_K", canonicalId: "draslik" }]);
   });
 });

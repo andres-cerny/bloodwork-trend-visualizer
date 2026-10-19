@@ -13,6 +13,8 @@
  * Pages: the 8 synthetic text fixtures (reads reused from bench:adapt) and the
  * Stod sample sheet's four results pages (the only public sheet with a text
  * layer; reads made here once and persisted under results/portal_text/).
+ * PORTAL_TEXT_CLASSES=real adds the real corpus (Mac only);
+ * PORTAL_TEXT_CONFIGS=haiku55 runs only the configs named.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -50,10 +52,19 @@ const CONFIGS: Array<{ id: string; arms: string[]; note: string }> = [
 
 interface Page { slug: string; rows: TextRow[]; truth: Array<{ raw_analyte_name?: string; value_raw?: string }> }
 const pages: Page[] = [];
-for (const p of await loadClass("synthetic")) if (p.kind === "text" && p.rows && p.truth) pages.push({ slug: p.slug, rows: p.rows, truth: p.truth });
+// PORTAL_TEXT_CLASSES=real (on the Mac, where samples/ and data/reports exist)
+// reads the real corpus's text pages instead; truth there is the accepted
+// reports, so a disagreement is a row to adjudicate, not automatically an error.
+const classes = (process.env.PORTAL_TEXT_CLASSES ?? "synthetic,stod").split(",");
+const only = (process.env.PORTAL_TEXT_CONFIGS ?? "").split(",").filter(Boolean);
+for (const cls of classes.filter((c) => c === "synthetic" || c === "real")) {
+  for (const p of await loadClass(cls as "synthetic" | "real")) {
+    if (p.kind === "text" && p.rows && p.truth) pages.push({ slug: `${cls === "real" ? "real_" : ""}${p.slug}`, rows: p.rows, truth: p.truth });
+  }
+}
 const stodTruth = new Map((await loadClass("public")).filter((p) => p.slug.startsWith("stod_")).map((p) => [p.slug, p.truth!]));
 const stodPdf = join(PUBLIC_PDF_DIR, "fetched/stod_p_loha_2_vzor_v_sledkov_ho_listu_f214.pdf");
-if (existsSync(stodPdf)) {
+if (classes.includes("stod") && existsSync(stodPdf)) {
   const { doc } = await parsePdf(stodPdf);
   for (const pg of doc.pages) {
     const slug = `stod_p${pg.pageNum}`;
@@ -65,7 +76,7 @@ if (existsSync(stodPdf)) {
 let spent = 0;
 async function readOf(arm: string, page: Page): Promise<RawRead | null> {
   const adapt = join(R, "results/adapt", arm, `${page.slug}.json`);
-  if (!page.slug.startsWith("stod_") && existsSync(adapt)) {
+  if (!page.slug.startsWith("stod_") && !page.slug.startsWith("real_") && existsSync(adapt)) {
     const j = JSON.parse(readFileSync(adapt, "utf8"));
     return j.call?.ok ? { model: j.call.model, measurements: j.call.extraction.measurements } : null;
   }
@@ -85,7 +96,7 @@ async function readOf(arm: string, page: Page): Promise<RawRead | null> {
 
 const val = (v?: string) => (v ?? "").replace(/[!*↑↓]/g, "").replace(/\s+/g, "").toLowerCase();
 console.log("config".padEnd(18), "truth found  miss  ok asked UNCAUGHT  unread unmapped  note");
-for (const c of CONFIGS) {
+for (const c of CONFIGS.filter((x) => !only.length || only.includes(x.id))) {
   let truthN = 0, found = 0, ok = 0, asked = 0, unread = 0, unmapped = 0;
   const uncaught: string[] = [];
   const missed: string[] = [];

@@ -38,7 +38,7 @@ _LOWER_BOUND = re.compile(r"^(?:>|≥|nad\s)\s*", re.IGNORECASE | re.UNICODE)
 # an optional trailing cell the lab printed after the numbers ("7,8 - 12,8 fl").
 _TWO_BOUNDS = re.compile(
     r"^\s*([0-9][0-9\s.,]*?)\s*(?:-|až)\s*([0-9][0-9\s.,]*?)\s*"
-    r"([A-Za-zµμ%‰/(×°][\s\S]*)?$",
+    r"([A-Za-zµμ%‰/(×°][\s\S]*|10\s*[\^˄*][\s\S]*)?$",
     re.IGNORECASE | re.UNICODE)
 # A tail must *start* like a unit, be at most three words, and its first word
 # must not be one of these. Two closed Czech/Slovak vocabularies, because they
@@ -140,6 +140,7 @@ def parse_value(value_raw: Optional[str]) -> Optional[float]:
 # measured serum or plasma and did not say which.
 MATERIAL_CODES = frozenset({
     "s", "p", "b", "u", "du", "pk", "pe", "fw", "sp", "s,p", "k", "l",
+    "x",  # punctate at Stod ("X_glukóza"); see normalize.ts
 })
 
 # Underscore is generic — any 1-4 letters (S_, B_, dU_, xxx_). Slash and
@@ -211,6 +212,17 @@ def canonicalize_unit(unit_raw: Optional[str]) -> Optional[str]:
 
 
 # --- reference ranges -------------------------------------------------------
+# A population label in front of the interval ("M: 30 - 400", "muži 30 - 400"):
+# dropped when it is the only one; "M: 30-400 Ž: 15-150" stays text. Mirrors
+# POPULATION_LABEL in normalize.ts.
+_POPULATION_LABEL = re.compile(
+    r"^(?:(?:[MŽF])\s*[:.]|(?:muži|muž|ženy|žena|dospělí|dospělý)\s*[:.]?)\s*(?=[0-9<>≤≥])",
+    re.IGNORECASE | re.UNICODE)
+_ANY_POPULATION_LABEL = re.compile(
+    r"(?:^|\s)(?:[MŽF]\s*[:.]|muži|muž|ženy|žena|dospělí|dospělý|děti)(?=\s|[:.]|$)",
+    re.IGNORECASE | re.UNICODE)
+
+
 def parse_range(ref_raw: Optional[str]) -> tuple[Optional[float], Optional[float], Optional[str]]:
     """Parse a printed reference range into (low, high, text).
 
@@ -227,6 +239,15 @@ def parse_range(ref_raw: Optional[str]) -> tuple[Optional[float], Optional[float
         return None, None, None
     for d in _DASHES:
         s = s.replace(d, "-")
+
+    label = _POPULATION_LABEL.match(s)
+    if label:
+        rest = s[label.end():]
+        if not _ANY_POPULATION_LABEL.search(rest):
+            low, high, _ = parse_range(rest)
+            if low is not None or high is not None:
+                return low, high, None
+        return None, None, s
 
     # A bound whose remainder is not a number ("<1,0 negatívne") stays text:
     # that is a criterion, not an interval, and we never invent a number.

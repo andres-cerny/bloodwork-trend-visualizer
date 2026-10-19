@@ -11,6 +11,86 @@ the round-1/2 chat findings below are kept as notes only, and the round-2
 agent changes (context caching, max_tokens check) are parked on branch
 `claude/agent-cache-parked`, not on this one.
 
+## Summary — what to flip, in which order, how to roll back (after round 3)
+
+Everything below is a **setting** on `moje-krev-extract`
+(`workers/portal-extract/wrangler.jsonc` → `vars`). The code on this branch
+reads the settings, and with none of them set it behaves exactly as today. To
+roll back, delete the line and deploy again.
+
+| order | setting | what it does | evidence | effect |
+|---|---|---|---|---|
+| 0 | (merge this branch) | prices right; cross-check also compares unit and range; formatting is no longer a disagreement; differently-named rows pair; glued lab codes (`URE urea`, `FE železo`) map; a punctate (`X_`) no longer files as blood; more ranges parse; a cut-off or declined read fails honestly; mapping catalog cached | tests; re-scored stored reads | photos (today's Sonnet 5 + Gemini pair): rows asked about 53 → 9 on the public sheets, 0 uncaught |
+| 1 | `MODEL_MAP: "claude-haiku-5-5"` | mapping fallback on Haiku 5.5 | 43-name truth set: 0 wrong filed, same as Haiku 4.5 | a tenth of the mapping cost |
+| 2 | `TEXT_READERS: "cheap"` + `MODEL_SECOND: "claude-haiku-5-5"` | born-digital pages read once, by Haiku 5.5; interpret.ts's checks stand in for reader 2 | 12 pages: 210/213 rows, 0 uncaught, like the deployed pair | 3-page upload ~$0.17 → ~$0.006; ~24 s → ~10 s a page |
+| 3 | `MODEL_PRIMARY: "claude-haiku-5-5"` (Gemini stays second) | photos read first by Haiku 5.5 | 11 sheets × 2 reps: 0 uncaught, rows asked about equal to Sonnet 5.5 + Gemini | photo page ~$0.044 → ~$0.011 |
+| 3′ | or `MODEL_PRIMARY: "claude-sonnet-5-5"` | a safer photo step: same price as today, a cleaner copier than Sonnet 5 | R1: 0 value errors vs Sonnet 5's 2 | ~20% faster |
+
+| 4 | `VITE_SHARE_AI_MAPPINGS=1` (portal build) | the model's confident filings (catalog + high + unit check) teach every account, revocable by the account that taught them | 0 confident wrong in 495 names (round 3) | the same new name never reaches the model twice |
+
+Not a switch yet: unrecognised parameters getting their own trend.
+`buildTrends` can do it, but Trendy has to show it — see "Mapping design".
+
+Steps 2 and 3 should first pass the Mac check
+([model-loop-mac-check.md](model-loop-mac-check.md): free re-scoring plus about
+$0.35–1.50 of new reads). Step 1 and step 3′ are low-risk without it.
+`MODEL_PRIMARY` moves the first reader on both paths; with step 2 in place the
+text path uses only the second slot, so the steps do not collide. Not
+recommended: Jev in the mapping gate (no gain on the test set), and changing
+the triage model (GLM 5.3 Flash is free and off the user's path), and
+Haiku-first mapping (0 confident errors in 495 names, but more unknowns than
+the table, a wait on every upload, and no gain the table does not already
+give — see round 3).
+
+## Mapping design (Ondřej's decision, round 3) — today vs after
+
+**Rule:** the list first. A name the list does not know goes to Haiku 5.5. A
+confident Haiku answer whose unit checks out is **saved as an alias**, so the
+same name never goes to the model twice. Anything less is asked of the person,
+and their answer is saved. A person's correction always wins, and every saved
+alias can be withdrawn.
+
+| step | today (Moje krev, verified in code) | after (this branch, switches default off) | still to build |
+|---|---|---|---|
+| 1. list | shipped synonyms (`registry.json`, 344 entries / ~4,100 names) + shared `synonyms` (D1, taught by a person's click onto a shipped entry, keyed by printed name only) + the account's `learned`. Exact key after `normKey`, plus the trailing `[ABBR]`; material checked | + glued codes (`URE urea`, `FE železo`, guarded), + `x` (punctate) refused as blood | key shared aliases by **(lab, printed name, unit)**, not name alone, so a name means one thing per lab |
+| 2. model | Haiku 4.5, automatic after every upload and once on load, for unmapped names that can trend; catalog id must exist (`toSuggestions` refuses invented ids — in effect an enum) | `MODEL_MAP=claude-haiku-5-5`; catalog sent as a cached block | — |
+| 3. save | every answer per account (`settings.aiAsked`, never asked again); `catalog`+`high`+`canApplyUnasked` (unit known to agree, nothing contradicting) filed **for this account only**; the rest waits for a click, and a click onto a shipped entry teaches every account | `VITE_SHARE_AI_MAPPINGS=1` (build-time, off): the same confident filings onto shipped entries are also taught to every account, under the account that triggered them (so revocable by it, like a click) | mark shared rows as model-taught (column `source`, migration + `check:schema`) so Ondřej can list and revoke them in one place; one in-flight guard so two accounts don't ask for the same new name at once |
+| 4. not in the catalog | the row is stored and flagged, but **left out of every trend**; Trendy shows "N parametrů se nezobrazuje"; Haiku's `new` proposal pre-fills the founding form; a founded parameter is per account | `buildTrends(..., { unrecognised: true })` (lab-core, off): such rows get their own series keyed `unrecognisedKey(lab, name, unit)`, marked `recognised: false` | wire it in Trendy ("zatím nerozpoznaný parametr"); a review queue (D1 `draft_entries`: Haiku's proposed Czech name, unit, group, printed range as the range source) that Ondřej approves into `seed_registry.py`; on approval, the unrecognised series' readings remap to the new id (the same `rematchReport` path a new synonym already uses) |
+
+Why not Haiku-first (measured in round 3): it made 0 confident errors in 495
+names, but more "unknown"s than the list, 6.7% of its answers flip between runs,
+and it adds a model wait to every upload. The table *is* the stored-decision
+store a Haiku-first design would need. The place to use Haiku more is a
+**second opinion on weak list matches** (unit not the entry's, or an unknown
+material — 9% of the list's matches on the public sheets, where its real errors
+were). Next step, behind a switch.
+
+**Standard codes (NČLP/LOINC):** handled by a separate effort on branch
+`claude/lab-codes` (`packages/lab-core/codes/`, `docs/plans/lab-codes.md`),
+to be merged into this branch later; no code table is built here. This loop's
+saved decisions stay keyed by **catalog id** (the `synonyms` row's
+`canonical_id`, the account's `learned`/`aiAsked`), so a code attaches
+through the catalog entry once lab-codes lands. If a row ever needs its own
+code, there is room for a `code` column beside `canonical_id`. Two
+constraints carry over to that work:
+- Haiku never writes a code from memory; it picks from a list the table
+  provides, and the unit/specimen check validates the pick.
+- None of the public sheets prints NČLP codes (Stod's text layer checked).
+
+**Other languages (not a priority, a few lines):** Czech-specific today:
+- reader prompts (`packages/extraction/src/extract.ts`, `map.ts`);
+- decimal comma and range words (`lab-core/src/normalize.ts` + Python twin);
+- specimen prefixes and material codes (`normalize.ts` `MATERIAL_CODES`);
+- unit spellings (`canonicalizeUnit`);
+- `NOT_A_UNIT` and qualitative word lists (`normalize.ts`, `candidates.ts`,
+  `correction.ts`);
+- the catalog's `displayNameCs`;
+- all UI copy.
+
+Rules, not a model, for the number, range and prefix formats; the model
+already reads any language. The code touched in this loop keeps those bits in
+the files above rather than adding new places.
+
 ## Playbook
 
 - **Budget:** $10 of real API spend for the whole loop, $3.50 per round at most.
@@ -100,9 +180,9 @@ list below.
 5. Mapping: Haiku 4.5 → 5.5 via `MODEL_MAP`, catalog cached (H12) [done R2];
    Jev as the gate (H13) [measured R2: not worth a new vendor yet].
 6. Triage (GLM 5.3 Flash): free, ops-only, not on a user's path — low priority.
-7. H9 (cell indices instead of re-typed cells) — would also cut Haiku-alone
-   latency; R3.
-8. Range-parsing gaps (sex prefixes, unit tails) — R3, parity cases first.
+7. H9 (cell indices instead of re-typed cells) [tested R3, free: feasible but
+   ~6 tokens a row; not pursued].
+8. Range-parsing gaps (sex prefixes, unit tails) [done R3].
 H10/H11 (chat) are out of scope.
 
 
@@ -417,15 +497,130 @@ config changes. For Ondřej (config only, all reversible on moje-krev-extract):
   here).
 - triage: leave GLM 5.3 Flash; it is free and off the user's path.
 
-### Round 3 — proposed (Moje krev only)
-1. On the Mac (free, stored reads): `reconcile_pairs.ts` on the 133-photo
-   corpus and a `portal_text.ts`-style pass over the 33 real text pages, to
-   confirm Haiku 5.5 alone (text) and Haiku 5.5 + Gemini (photos) at scale.
-2. H9: cell indices instead of re-typed cells on the text path — check free
-   over the stored Stod/synthetic reads, then one small paid arm.
-3. Range parsing gaps (`M: 30 - 400`, unit tails) with parity cases.
-4. Leading-code rule: also accept a code that is itself a catalog synonym of
-   the same entry (`FE železo`), with a guard test for `HDL cholesterol`.
+### Round 3 — 2026-10-19
+
+**H9, cell positions instead of re-typed cells — tested free, not pursued.**
+`tests/bench/cell_index_check.ts` over the 210 stored text-path rows of each
+reader (synthetic + Stod):
+- value: one whole cell of its row in 209–210 of 210;
+- unit: one whole cell, or correctly empty, in all of them;
+- range: one cell in ~160, empty in ~45, and two cells only for printed
+  `od`/`do` columns (3 rows).
+
+So the schema change is feasible. But the typed value+unit+range is only ~1,200
+tokens over all 210 rows, about 6 per row, against ~3,400 output tokens for one
+dense page. Most of what a reader writes is the JSON keys, the name and
+`confidence`, not those cells. At Haiku 5.5's price ($0.002 a page) the saving
+is cents per thousand uploads and a few seconds. Round 1's A9 column map also
+showed that rebuilding rows from indices is where rows get lost. **Judgment:
+not clearly better, so no paid run.** If latency ever matters, the bigger
+lever is shorter keys and dropping `confidence` on the text path, measured
+the same way.
+
+**Ranges the parser could not read** (TS + Python, 9 new parity cases, 187 pass
+on both sides):
+- a count unit after the interval: `1,5-4,0 10^9/l`, `4,0 - 10,0 10˄9/l`.
+  These were text, so every such row's flag was "unknown";
+- one population label in front: `M: 30 - 400`, `muži 30 - 400`,
+  `Ž: 13-150`, `dospělí: 0,5 - 1,2`, `muži: < 5,0`.
+- Still text, on purpose: `M: 30-400 Ž: 15-150` (two intervals; which one
+  applies needs the person's sex) and `M 30 - 400` (a one-letter label needs
+  its colon).
+
+**Glued code, widened.** A code whose letter does not start the name
+(`FE železo`) now maps when the code *and* the name each resolve to the same
+catalog entry. `HDL cholesterol` (two different entries) and an unknown code
+(`TRFSAT Saturace…`, `XYZ železo`) are still refused. Both sides
+(`registry.ts`, `matching.py`), with tests. On the stored public reads,
+Haiku-first unmapped rows go 70 → 67 (Sonnet-first: 66). The rest is
+vocabulary the catalog lacks: plain "Bilirubin", "S_Bilirubin" and blood gases
+— a seed_registry.py job, not a rule.
+
+**Haiku-first mapping — evaluated (Ondřej's idea), not built.** The question:
+should Haiku 5.5 decide every printed name → catalog entry, with aliases as
+prompt hints and decisions stored per (lab, name, unit), instead of only the
+names the alias table misses? `tests/bench/map_first.ts`, 495 names, one run on
+Haiku 5.5 ($0.05, 17 parallel batches of 30, 12 s):
+
+| set | names | right | unknown | wrong, "high" | wrong, medium/low |
+|---|---|---|---|---|---|
+| held-out catalog synonyms (model sees id/name/unit, no synonyms), weighted to look-alikes | 297 | 274 | 22 | **0** | 1 |
+| negatives (U_ specimen, tests the catalog lacks) | 11 | 11 | 0 | 0 | 0 |
+| public-sheet names the table matched | 144 | 132 | 10 | **0** | 2 |
+| public-sheet names the table missed | 43 | 39 | 4 | 0 | 0 |
+
+- **Haiku never mapped a look-alike with confidence.** Ionised vs total vs
+  corrected calcium, HDL vs total vs non-HDL cholesterol, % vs absolute counts,
+  T3/T4 total vs free, PSA vs free PSA, and U_ names: all either right or
+  "unknown". Its misses are caution, not errors: about 7% unknown, including
+  names the table already knows (`S-TSH`, `B-HbA1c`, `ferritin` in ng/ml), so
+  Haiku-first would *add* human asks.
+- **Where Haiku disagreed with the table, the table was wrong.** The table is
+  unit- and specimen-blind (H14):
+  - `X_glukóza`, `X_LD`, `X_Celková bílkovina` are a punctate, filed under the
+    blood entries (and into the blood glucose trend);
+  - `Glukóza [arb.j.]` is a urine strip;
+  - `P_Protrombinový test [s]` was mapped to Quick (%);
+  - `P_Antitrombin III [mg/L]` was mapped to a % entry;
+  - `B-HbA1c [%]` was mapped to the mmol/mol entry.
+
+  The X_ case is fixed here: `x` is now a material code (punctate, TS + Python,
+  parity), so the registry refuses it and Haiku is asked. The unit-blind cases
+  are 13 of the table's 144 matches (9%), most of them harmless spellings
+  (`G/l`, `T/l`, `1/1`).
+- **Cost and latency of Haiku-first:** ~$0.003 per 30 names, and a page's names
+  can be decided in one parallel round (~6–12 s). That is cheap, but it adds a
+  model wait to every upload. And consistency then rests on the stored
+  decisions — which is exactly what the alias table already is.
+
+**Repeat stability** (`MAP_FIRST_RUNS=3`, the same 492 names three times,
+$0.08):
+- the answer differed on **33 of 492 (6.7%)**;
+- **only 1** of those flipped between two catalog ids: `P_Trombinový test [s]`,
+  thrombin time vs prothrombin time, at low/medium confidence;
+- the other 32 flipped between an id and "unknown"/"new". Several had a "high"
+  in one run (DHEA, cholinesterase, transferrin `IT`), so whether a name is
+  filed *without a human* is run-dependent.
+
+Consistency therefore cannot come from the model. Haiku 5.5 takes no
+temperature, and the answer is already restricted: `toSuggestions` refuses any
+id not in the catalog, which in effect enforces an enum. An enum of 344 ids
+inside the tool schema would only stop a wasted answer. Consistency has to come
+from storing the first answer. Moje krev already does that per name
+(`settings.aiAsked`), and a confirmed mapping becomes a synonym. A Haiku-first
+design would need the same store keyed by (lab, name, unit) for *every* name,
+which is the alias table again, built from model answers.
+
+**Recommendation:** keep the table first and Haiku for the rest (today), and
+add **Haiku as a second opinion only on weak table matches** — the row's unit
+is neither the entry's unit nor a known conversion, or the prefix is a material
+the entry does not have. That is about 9% of matches, it is where this set's
+real errors were, and it needs no stored-decision store. Nothing was built
+behind a switch: the evaluation argues against Haiku-first, and the
+second-opinion gate is the next step if the loop continues (it touches
+`aiMapping.ts`'s flow). The held-out result (92% recovered, 0 confident wrong)
+also backs `MODEL_MAP=claude-haiku-5-5`.
+
+**Mac check written:** [model-loop-mac-check.md](model-loop-mac-check.md). It
+has six copy-paste lines, go criteria and costs; free re-scoring wherever reads
+are already on disk. `portal_text.ts` gained `PORTAL_TEXT_CLASSES=real` and
+`PORTAL_TEXT_CONFIGS` for it.
+
+Also built (switches default off, tests): unrecognised parameters get their own
+series (`buildTrends` `opts.unrecognised`, `unrecognisedKey`), and confident AI
+mappings can be shared with every account (`VITE_SHARE_AI_MAPPINGS=1`,
+`sharedLessons`). See "Mapping design" at the top.
+
+Round 3 spend: $0.13 (the Haiku-first evaluation and its repeat-stability runs).
+
+### Next, if the loop continues
+1. Ondřej runs the Mac check; the result goes here, then the settings in the summary.
+1b. Mapping: Haiku as a second opinion on weak table matches (unit not the
+   entry's, unknown material) — behind a switch, default off.
+2. Vocabulary: plain "Bilirubin"/"S_Bilirubin" → total bilirubin and similar
+   gaps the public sheets showed (seed_registry.py, regenerate both
+   registry.json copies, zero-diff check).
+3. Text-path output trimming (shorter keys, no `confidence`), only if speed matters.
 
 ## Spend ledger
 
@@ -447,7 +642,10 @@ config changes. For Ondřej (config only, all reversible on moje-krev-extract):
 | 2026-10-19 | `with-secrets bloodwork -- env PYTHON_BIN=.venv/bin/python PORTAL_TEXT_MAX_USD=0.5 npx vite-node --root . tests/bench/portal_text.ts` | Sonnet 5, Haiku 4.5, Sonnet 5.5, Haiku 5.5 (Stod ×4) | 0.382 | 4.050 |
 | 2026-10-19 | `map_gate.ts` again (catalog-cache check) | Haiku 5.5, Jev | 0.006 | **4.056** |
 
+| 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_first.ts` (495 names) | Haiku 5.5 | 0.049 | 4.105 |
+| 2026-10-19 | same with `MAP_FIRST_RUNS=3` (492 names ×3, catalog cached) | Haiku 5.5 | 0.084 | **4.189** |
+
 Round 1: $2.57 of $3.50. Round 2: $1.48 of $3.00 (of which $0.95 chat evals,
-before the scope correction). Loop: $4.06 of $10. Keys from `bloodwork.env`
+before the scope correction). Round 3: $0.13 of $2.50. Loop: **$4.19 of $10**. Keys from `bloodwork.env`
 (shared with Klugscheisser/jobscan). Bench costs are priced with the corrected
 table (Sonnet $2/$10).

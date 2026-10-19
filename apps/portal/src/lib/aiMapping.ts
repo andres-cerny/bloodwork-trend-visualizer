@@ -136,6 +136,22 @@ export interface RunOutcome {
   error: unknown | null;
 }
 
+/**
+ * Which of the model's filings become a lesson for every account.
+ *
+ * Off unless the build sets `VITE_SHARE_AI_MAPPINGS=1` (docs/plans/
+ * model-loop.md, "Mapping design"): today a lesson for everyone takes a
+ * person's click. On, the same bar as filing unasked — `catalog`, `high`,
+ * `canApplyUnasked` (the unit known to agree, nothing contradicting) — and
+ * only onto a shipped entry, never a parameter this account founded. The
+ * lesson is taught under this account, so it can take it back exactly as a
+ * click-taught one; and the next account with the same printed name never
+ * reaches the model.
+ */
+export function sharedLessons(judged: Judged, isShipped: (canonicalId: string) => boolean, enabled: boolean): Judged["applied"] {
+  return enabled ? judged.applied.filter((a) => isShipped(a.canonicalId)) : [];
+}
+
 /** Choose, mark, ask, judge, commit — or roll back. Never rejects. */
 export async function runAiMapping(input: RunInput, effects: RunEffects): Promise<RunOutcome> {
   const names = namesToAsk(input.candidates, input.asked());

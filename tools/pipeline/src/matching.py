@@ -76,6 +76,12 @@ def leading_code_key(name: str) -> Optional[str]:
     return norm_key(m.group(2)) or None
 
 
+# Any short capital code before a name ("FE železo"): accepted by `match` only
+# when the code and the name each resolve, to the same entry. Mirrors
+# ANY_LEADING_CODE in registry.ts.
+_ANY_LEADING_CODE = re.compile(r"^([A-Z][A-Z0-9]{1,5})\s*\*?\s+(\S.*)$")
+
+
 class Registry:
     """Loaded analyte registry with a normalized synonym index."""
 
@@ -106,6 +112,12 @@ class Registry:
         if cid is None:
             lead = leading_code_key(raw_name)
             cid = self._index.get(lead) if lead else None
+        if cid is None:
+            m = _ANY_LEADING_CODE.match((raw_name or "").strip())
+            if m and m.group(2)[0].isalpha():
+                by_code = self._index.get(norm_key(m.group(1)))
+                if by_code and by_code == self._index.get(norm_key(m.group(2))):
+                    cid = by_code
         return cid
 
     def get(self, canonical_id: str) -> Optional[AnalyteDef]:

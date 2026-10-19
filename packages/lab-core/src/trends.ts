@@ -2,6 +2,7 @@
 import type { Flag, LabReport } from "./models";
 import { type UnitDef, inCanonicalUnit, roundConverted, unitFactor } from "./units";
 import { parseCzechNumber } from "./normalize";
+import { normKey } from "./registry";
 
 export interface TrendPoint {
   date: string; // ISO date of the report
@@ -40,6 +41,23 @@ export interface Trend {
    * would draw a jump that never happened; the card names them instead.
    */
   otherUnits?: Record<string, number>;
+  /**
+   * `false` for a series of readings no catalog entry claims yet (opt-in,
+   * `buildTrends` `opts.unrecognised`): `canonicalId` is then an
+   * `unrecognisedKey`, never a catalog id, and the name is the printed one.
+   */
+  recognised?: false;
+}
+
+/**
+ * The key of an unrecognised parameter's own series: lab, printed name and
+ * unit. One lab's "S_Cystatin C" in mg/l is one series; the same printed
+ * name from another lab, or in another unit, is another — merging them is
+ * exactly what a catalog entry is for, and only an approved one may.
+ */
+export function unrecognisedKey(labName: string | null, rawName: string, unit: string | null): string {
+  const lab = (labName ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  return `unrecognised:${lab}|${normKey(rawName)}|${(unit ?? "").trim().toLowerCase()}`;
 }
 
 /**
@@ -95,6 +113,14 @@ export function buildTrends(
    * `otherUnits` — never plotted beside the others.
    */
   unitDefFn: (cid: string) => UnitDef | null | undefined = () => null,
+  /**
+   * Off by default (today: an unmapped reading is stored, flagged and left out
+   * of every trend). On: it gets its own series under the printed name, keyed
+   * by `unrecognisedKey` (lab + name + unit), marked `recognised: false` — so
+   * a value is never lost while its parameter waits for a catalog entry.
+   * docs/plans/model-loop.md, "Mapping design".
+   */
+  opts: { unrecognised?: boolean } = {},
 ): Map<string, Trend> {
   const trends = new Map<string, Trend>();
   /** Points whose unit is the series' by construction: converted, or already canonical. */
@@ -102,19 +128,23 @@ export function buildTrends(
   for (const report of reports) {
     if (!report.reportDate) continue;
     for (const m of report.measurements) {
-      if (m.canonicalId === null) continue;
-      let t = trends.get(m.canonicalId);
+      const unrecognised = m.canonicalId === null;
+      if (unrecognised && !opts.unrecognised) continue;
+      const key = m.canonicalId ?? unrecognisedKey(report.labName, m.rawAnalyteName, m.unit);
+      let t = trends.get(key);
       if (!t) {
         t = {
-          canonicalId: m.canonicalId,
-          displayName: displayNameFn(m.canonicalId),
+          canonicalId: key,
+          displayName: unrecognised ? m.rawAnalyteName : displayNameFn(key),
           unit: m.unit || "",
           points: [],
+          ...(unrecognised ? { recognised: false as const } : {}),
         };
-        trends.set(m.canonicalId, t);
+        trends.set(key, t);
       }
       if (!t.unit && m.unit) t.unit = m.unit;
-      const def = unitDefFn(m.canonicalId);
+      // An unrecognised series has no catalog entry, so no unit definition.
+      const def = unrecognised ? null : unitDefFn(key);
       const c = def ? inCanonicalUnit(m, def) : null;
       const point: TrendPoint = {
         date: report.reportDate,
@@ -127,7 +157,7 @@ export function buildTrends(
         // every screen prints `valueRaw` as the value "as printed", and the
         // printed 0,9 beside a µmol/l axis would be the wrong number in the
         // right place. The print itself is kept in `convertedFrom`.
-        valueRaw: c?.from ? convertedText(m.valueRaw, c.value, c.from, m.unit, unitDefFn(m.canonicalId)) : m.valueRaw,
+        valueRaw: c?.from ? convertedText(m.valueRaw, c.value, c.from, m.unit, def) : m.valueRaw,
         reportId: report.id,
         rawName: m.rawAnalyteName,
         suspect: suspectFn(m),
@@ -139,7 +169,7 @@ export function buildTrends(
     }
   }
   for (const t of trends.values()) {
-    const def = unitDefFn(t.canonicalId);
+    const def = t.recognised === false ? null : unitDefFn(t.canonicalId);
     // Opt-in: a caller that passes no catalog (the demo app, the agent's
     // tools) gets every reading as before, and keeps its own unit handling.
     // Dropping readings it never asked to drop would be a filter nobody
