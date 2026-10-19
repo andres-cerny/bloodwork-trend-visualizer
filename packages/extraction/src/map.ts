@@ -112,13 +112,37 @@ export const TOOL_MAP = {
 
 /** The user turn: the names, then the catalog. Exported so the eval can hand it to a subagent verbatim. */
 export function mapPrompt(names: NameToMap[], catalog: CatalogEntry[]): string {
+  return `${namesBlock(names)}\n\n${catalogBlock(catalog)}`;
+}
+
+/** The names part of the turn. */
+function namesBlock(names: NameToMap[]): string {
   // The name in quotes, the evidence after a dash: a model asked to copy the
   // name "exactly as given" once copied the whole line, evidence and all.
   const rows = names
     .map((n) => `- název: "${n.rawName}" — jednotka: ${n.unit || "(žádná)"}; rozmezí: ${n.refRange || "(neuvedeno)"}; materiál: ${n.material ?? "(neuveden)"}`)
     .join("\n");
+  return `Názvy k zařazení (raw_name je jen text v uvozovkách):\n${rows}`;
+}
+
+/** The catalog as the model reads it. The same for every batch and every upload. */
+export function catalogBlock(catalog: CatalogEntry[]): string {
   const cat = catalog.map((c) => `${c.id} | ${c.name} | ${c.unit || "(bezrozměrné)"}`).join("\n");
-  return `Názvy k zařazení (raw_name je jen text v uvozovkách):\n${rows}\n\nKatalog (id | název | jednotka):\n${cat}`;
+  return `Katalog (id | název | jednotka):\n${cat}`;
+}
+
+/**
+ * The user turn as sent: the catalog first, as its own cached block, then
+ * the names. In `mapPrompt` order the ~4–5k-token catalog came after the
+ * names, so it sat outside every cache prefix and was paid in full on every
+ * batch of every upload (docs/plans/model-loop.md, H12). The words are
+ * `mapPrompt`'s; only the order and the breakpoint differ.
+ */
+export function mapContent(names: NameToMap[], catalog: CatalogEntry[]): Anthropic.TextBlockParam[] {
+  return [
+    { type: "text", text: catalogBlock(catalog), cache_control: { type: "ephemeral" } },
+    { type: "text", text: namesBlock(names) },
+  ];
 }
 
 const ID = /^[a-z0-9_]{1,64}$/;
@@ -188,7 +212,8 @@ export class MapTruncatedError extends Error {
 
 async function mapBatch(client: Anthropic, model: string, names: NameToMap[], catalog: CatalogEntry[]): Promise<MapResult> {
   const shape = readerShape(model, TOOL_MAP.name);
-  const prompt = mapPrompt(names, catalog);
+  const content = mapContent(names, catalog);
+  if (shape.nudge) content.push({ type: "text", text: shape.nudge });
   const message = await client.messages.create({
     model,
     max_tokens: 8000,
@@ -196,7 +221,7 @@ async function mapBatch(client: Anthropic, model: string, names: NameToMap[], ca
     tools: [toolFor(model, TOOL_MAP as unknown as Anthropic.Tool)],
     tool_choice: shape.tool_choice,
     ...shape.extra,
-    messages: [{ role: "user", content: shape.nudge ? `${prompt}\n\n${shape.nudge}` : prompt }],
+    messages: [{ role: "user", content }],
   } as Anthropic.MessageCreateParamsNonStreaming);
   const usage = usageOf(message.usage);
   // A tool call cut off mid-JSON is not an empty answer; saying so is what

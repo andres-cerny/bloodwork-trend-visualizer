@@ -8,9 +8,11 @@
  * portal's one difference: a scan has no printed text, so its rows carry the
  * model's snippet, no highlight, and no provenance check.
  *
- * Since the text path is read once (Moje krev's extractor runs Haiku alone on
- * born-digital pages), three deterministic checks stand in for the second
- * reader, all from lab-core/candidates:
+ * Moje krev's extractor reads born-digital pages with two readers today
+ * (`TEXT_READERS` unset on moje-krev-extract); with `TEXT_READERS=cheap` it
+ * reads them once, and these three deterministic checks stand in for the
+ * second reader (measured in docs/plans/model-loop.md, round 2 — they run
+ * either way), all from lab-core/candidates:
  *   - a `row_index` whose row does not carry the value is moved to the
  *     neighbour that does — a reader once numbered a whole page one too high;
  *   - a returned name that is not printed on its row is replaced by the row's
@@ -24,6 +26,7 @@ import {
   type RawRead,
   type TextRow,
   isPrintedOnPage,
+  isPrintedOnRow,
   makeMeasurement,
   nameFromRow,
   nameOnRow,
@@ -145,8 +148,10 @@ export function interpretPage(
       confidence,
       disagreement,
       // Copied from the text layer, not transcribed: review.ts does not
-      // suspect a moved decimal point in it.
-      printedOnPage: printed,
+      // suspect a moved decimal point in it. Strict on purpose — a whole cell
+      // of the (repaired) row the value is on, not a substring anywhere on the
+      // page, which is what `printed` above answers (fabrication or not).
+      printedOnPage: printed && isPrintedOnRow(m.valueRaw, rows, rowIndex),
       // The row's Materiál cell or heading rides along, so a bare "Glukóza"
       // under Moč is refused the serum glukoza (Registry.match). The index is
       // the repaired one, so the material comes from the row the value is on.

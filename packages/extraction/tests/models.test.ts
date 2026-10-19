@@ -133,6 +133,11 @@ describe("the request actually sent", () => {
     expect(sent[0].tools[0].strict).toBe(true);
     await suggestCanonical("k", "claude-haiku-5-5", [{ rawName: "S_Na", unit: "mmol/l", refRange: "", material: "s" }], [{ id: "sodik", name: "Sodík", unit: "mmol/l" }]);
     expect(sent[1].tool_choice).toEqual({ type: "tool", name: "file_names" });
+    // The catalog is the same on every batch: first, and cached (H12).
+    const content = sent[1].messages[0].content;
+    expect(content[0].text).toMatch(/^Katalog/);
+    expect(content[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(content[1].text).toContain('"S_Na"');
   });
 });
 

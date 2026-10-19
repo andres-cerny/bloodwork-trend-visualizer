@@ -1,8 +1,15 @@
 # The model-pipeline loop — playbook, log, ledger
 
-A loop of rounds that makes the model side of the pipeline (upload → readers →
-mapping → flags/verification → chat agent) better and, where it holds, cheaper.
-No UI work. Branch `claude/model-pipeline-loop`; the orchestrator opens the PR.
+A loop of rounds that makes the model side of **Moje krev** (apps/portal +
+workers/portal + workers/portal-extract: upload → readers → mapping →
+flags/verification) better and, where it holds, cheaper. No UI work. Branch
+`claude/model-pipeline-loop`; the orchestrator opens the PR.
+
+**Scope (Ondřej, 2026-10-19, during round 2):** Moje krev has no chat. The chat
+agent (apps/chat, apps/bloodwork's chat panel, workers/agent) is out of scope;
+the round-1/2 chat findings below are kept as notes only, and the round-2
+agent changes (context caching, max_tokens check) are parked on branch
+`claude/agent-cache-parked`, not on this one.
 
 ## Playbook
 
@@ -39,26 +46,30 @@ BENCH_DRY_RUN=1 PYTHON_BIN=.venv/bin/python BENCH_CLASSES=synthetic,public BENCH
 with-secrets bloodwork -- env BENCH_MAX_USD=<cap> PYTHON_BIN=.venv/bin/python BENCH_CLASSES=synthetic,public BENCH_ARMS=<arms> npm run bench:adapt
 ```
 
-## Inventory — every model call (round 1, 2026-10-19)
+## Inventory — Moje krev's model calls (re-done round 2, 2026-10-19)
 
 Prices: Anthropic first-party list, $/1M in/out. Sonnet 5 and 5.5 $2/$10,
 Haiku 4.5 $1/$5, Haiku 5.5 $0.10/$0.50 (≤100K prompt), Opus 5.5 $4/$20,
 Gemini 3.8 Flash $0.75/$3.75 (doubles 2027-01-01).
 
-| # | Call | File | Model | Params | Per upload | ≈ cost |
-|---|---|---|---|---|---|---|
-| 1 | Text-path reader, primary | `packages/extraction/src/extract.ts` `extractPageText` | Sonnet 5 | forced tool, no thinking param (forced suppresses it), no effort, max_tokens 8000, cached system | 1 per born-digital page | ~$0.025/page |
-| 2 | Text-path reader, second | same | Haiku 4.5 | same | 1 per page (both deployments; `TEXT_READERS=cheap` drops #1) | ~$0.014/page |
-| 3 | Image reader, primary | `extractPage` | Sonnet 5 | forced tool, `source_snippet` schema, image ≤2576 px | 1 per scan/photo page | ~$0.035/page (measured) |
-| 4 | Image reader, second | `gemini.ts` `extractPageGemini` | Gemini 3.8 Flash, ultra_high, thinking LOW, temperature 0 | JSON schema output | 1 per image page (`PHOTO_READERS=sonnet+gemini` on both workers) | ~$0.009/page (measured) |
-| 5 | Mapping fallback | `packages/extraction/src/map.ts` via `POST /api/map` | Haiku 4.5 (`MODEL_MAP = MODEL_ESCALATION`) | forced tool, batches of 30 names, catalog (344 entries) in the **uncached** user turn | after each upload, only names the registry left null | ~$0.001/name |
-| 6 | Bloodwork chat | `packages/agent/core/src/loop.ts`, profile `bloodwork` | Sonnet 5 | no thinking param → **adaptive thinking on** (Sonnet 5 default), max_tokens 1200, profile system cached, the patient's whole dataset as an **uncached** second system block (≤60k chars) | per message | ~$0.02–0.05/msg |
-| 7 | Clinical agent | same, profile `clinical` | Sonnet 5 | tools, ≤6 rounds, max_tokens 2000, history not cached across rounds | per message | ~$0.03–0.10/msg |
+| # | Call | Where | Model (as configured) | Per upload | ≈ cost, measured |
+|---|---|---|---|---|---|
+| 1 | Text page, reader 1 | moje-krev-extract → `extractPageText` | Sonnet 5 | every born-digital page | $0.03–0.04 / dense page (Stod) |
+| 2 | Text page, reader 2 | same | Haiku 4.5 — **`TEXT_READERS` is unset, so both readers run**; `interpret.ts`'s comment said "Haiku alone" and was wrong (fixed) | every born-digital page | $0.016–0.023 / dense page |
+| 3 | Photo/scan page, reader 1 | `extractPage` | Sonnet 5 | every image page | ~$0.035 |
+| 4 | Photo/scan page, reader 2 | `extractPageGemini` (`PHOTO_READERS=sonnet+gemini`) | Gemini 3.8 Flash ultra_high | every image page | ~$0.009 |
+| 5 | Mapping fallback | `POST /api/map` (portal proxies to extract), `aiMapping.ts` runs it after every upload and once on load for names the catalog left null | Haiku 4.5, batches of 30, forced tool; the 344-entry catalog was in the **uncached** part of the turn (fixed: cached block) | new lab only | ~$0.005 / 43 names on Haiku 5.5 |
+| 6 | Help-desk / ops triage | `workers/portal/src/triage.ts` | Workers AI `@cf/zai-org/glm-5.3-flash`, thinking off, JSON schema, ≤600 tokens | per help-desk message or ops alert, not per upload | free tier (10k neurons/day; a triage is a few hundred) |
+| — | `/api/synonyms`, `/api/ai-share` | D1 / stored page | no model | — | — |
 
-**A typical upload today** (3-page born-digital report): 3 × ($0.025 + $0.014)
-≈ **$0.12**, plus mapping for a new lab ≈ $0.01–0.05. A photographed page ≈
-**$0.044** (measured round 1). The ledgers priced Sonnet 5 at $3/$15 until this round, so every
-recorded Sonnet number (ledger, benches, docs) overstated it by 50%.
+**A typical Moje krev upload today** (3-page born-digital report): 3 × ~$0.06
+≈ **$0.17** at Stod density (round 1's estimate of $0.12 was on lighter
+pages), about 25 s per page. A photographed page ≈ **$0.044**. A new lab adds
+mapping (cents). The ledgers priced Sonnet 5 at $3/$15 until round 1, so every
+recorded Sonnet number overstated it by 50%.
+
+Out of scope (chat, kept for reference): bloodwork chat and clinical agent
+(`packages/agent/core/src/loop.ts`, Sonnet 5, ~$0.29 per 19-case eval pass).
 
 ## Inventory — hardcoded heuristics a model or Jev could back
 
@@ -76,6 +87,24 @@ From the round-1 review (lab-core, portal interpret/mapping). Keep = determinist
 | Material prefixes, blood family, identity titles, photo constants | — | Keep. |
 
 ## Hypotheses — ranked (where it is likely wasteful, fragile or wrong)
+
+**Re-ranked for Moje krev (round 2).** Status in brackets; numbers refer to the
+list below.
+1. Text path: is the second reader still needed, and on which model? H6/H7 →
+   **measured round 2: Haiku 5.5 alone + interpret's checks = the two-reader
+   result at ~1/30 of the cost.** Ondřej's decision.
+2. Cross-check correctness on photos (two readers stay there): H1–H5 [done R2].
+3. Glued abbreviation names (`URE urea`) on Břeclav-style sheets [done R2].
+4. Photo path primary: Sonnet 5.5 vs Haiku 5.5 with Gemini second [measured
+   R1–R2 on 11 pages; needs the Mac's 133-photo corpus].
+5. Mapping: Haiku 4.5 → 5.5 via `MODEL_MAP`, catalog cached (H12) [done R2];
+   Jev as the gate (H13) [measured R2: not worth a new vendor yet].
+6. Triage (GLM 5.3 Flash): free, ops-only, not on a user's path — low priority.
+7. H9 (cell indices instead of re-typed cells) — would also cut Haiku-alone
+   latency; R3.
+8. Range-parsing gaps (sex prefixes, unit tails) — R3, parity cases first.
+H10/H11 (chat) are out of scope.
+
 
 Each with why, and the cheapest test. **R** = which round tries it.
 
@@ -248,23 +277,155 @@ second and set the primary to Sonnet 5.5. Not yet: Haiku 5.5 as primary (name
 folding), Haiku 5.5 as photo second (same-vendor, 11 pages only), Haiku 5.5 for
 chat (one rep).
 
-### Round 2 — proposed
+### Round 2 — 2026-10-19
 
-1. Free fixes from H2–H5 (agreement lowers doubt, whole-cell printed check,
-   formatting-tolerant value compare, pair by `row_index` on the text path) and
-   H1's unit/range comparison — each with a failing test first.
-2. Name fold (the Haiku 5.5 blocker): a general rule, not a Haiku patch — a
-   leading all-caps code token (`URE urea`, `KM * …`) as a second registry key
-   like the trailing `[MCV]`, and pairing that falls back to value+unit when
-   names differ. Parity cases in Python. Then re-score the stored reads (free):
-   if Haiku 5.5 + Gemini goes to ~0 flagged, Haiku 5.5 as primary is back on
-   the table (photo page ~$0.044 → ~$0.011).
-3. Agent: `EVAL_DUMP=1`, 3 reps, Haiku 5.5 and Sonnet 5.5 (~$1.3); read the
-   answers. Add the cache breakpoint after the context block (H10) and a
-   `max_tokens` check (H11) first, so the run measures them too.
-4. Jev (H13): only once a mapping truth set is on this server (BioLAB
-   `truth.json` lives on the Mac) — or build one from the public sheets' 261
-   names (hand truth exists for their values, not their catalog ids).
+**1. Cross-check fixes (free, tests first: `lab-core/tests/crosscheck.test.ts`).**
+- H1: `reconcile` now compares unit (`canonicalizeUnit`, spacing/case off) and
+  the printed interval (parsed low/high, only when both parse) once the values
+  agree. New facts `UNIT_DIFFERS` / `RANGE_DIFFERS` (no colon, so review.ts does
+  not split "mmol/l" on its slash); the row is "unconfirmed" with the generic
+  ask. Value disagreement keeps precedence.
+- H4: value compare ignores spacing, case and `!*↑↓` (`< 1,0` = `<1,0`,
+  `Negativní` = `negativní`); the censor sign and digits still count.
+- H5 + the glued-abbreviation pairing: rows the name key left apart pair when
+  each side is an orphan from a different reader and either carries the same
+  `row_index` (text path) or the same value+unit with exactly one candidate on
+  each side. Ambiguity leaves both rows flagged. The primary's row (and name) is kept.
+- H2: a suspected decimal slip on a row two readers *agreed* on is
+  "unconfirmed" (plotted, marked), not "withheld". An impossible value stays
+  withheld.
+- H3: `isPrintedOnRow` — whole cell (or 2-3 adjacent cells, pdf.js splits
+  "<"|"1,0") of the repaired row, markers/spacing ignored. Portal's
+  `printedOnPage` (which switches the decimal check off) now uses it;
+  `isPrintedOnPage` stays the looser fabrication check.
+- Glued code as a catalog key: `leadingCodeKey` ("URE urea" → "urea", "KM *
+  kyselina močová" → "kyselina mocova"), third key after the full name and the
+  trailing `[ABBR]`; only when the code's first letter starts the long name, so
+  "HDL cholesterol" never becomes "cholesterol". Python twin in
+  `matching.py`, 11 parity cases (178 pass on both sides).
+
+**Re-scored the stored reads through the app's own `reconcile` + `reviewOf`**
+(`tests/bench/reconcile_pairs.ts`, free; the bench's `pairStats` pairs by its
+own rules and cannot see a reconcile change). 13 image pages + 8 text pages:
+
+| pair | rows asked about, before → after | UNCAUGHT | unmapped |
+|---|---|---|---|
+| Sonnet 5 + Gemini (deployed photo) | 53 → 9 | 2* | 91 → 68 |
+| Sonnet 5.5 + Gemini | 51 → 7 | 0 | 89 → 66 |
+| **Haiku 5.5 + Gemini** | **107 → 7** | 0 | 107 → 70 |
+| Sonnet 5.5 + Haiku 5.5 | 71 → 7 | 0 | 92 → 71 |
+| Sonnet 5 + Haiku 4.5 (deployed text) | 83 → 29 | 2* | 102 → 80 |
+
+\* Sonnet 5 wrote "4.00" as "4,00" — the same number, so harmless, but a sign it
+rewrites what it copies. The 7 left are agreed out-of-range values now asked
+about instead of withheld (H2). "Unmapped" is mostly tests the catalog lacks
+(blood gases, drug levels, urine); Haiku-first is 4 worse than Sonnet-first
+(`FE železo`, `TRFSAT Saturace…` — the code's letter does not start the name,
+so the safe rule does not fire).
+
+**Paid: Haiku 5.5 + Gemini, second repetition** on the 11 public sheets
+($0.13). Haiku 5.5: 0 value errors again, 186/201 matched; it glued the code
+on one Břeclav page this time (two last time — intermittent). Through the app's
+reconcile: 208 ok, 8 asked, 0 uncaught. **So on photos, Haiku 5.5 first +
+Gemini second now equals Sonnet 5.5 + Gemini on this corpus, at ~$0.011 vs
+~$0.043 a page.** Caveat unchanged: 11 pages, two reps; the 133-photo corpus
+on the Mac is the real test.
+
+**3. Agent — OUT OF SCOPE (course correction mid-round: Moje krev has no
+chat). Kept as notes; the code is parked on `claude/agent-cache-parked`, and
+the $0.95 below was spent before the correction.** Patient-data block now cached (second breakpoint) and tool rounds
+auto-cached (top-level `cache_control`); a reply cut at `max_tokens` now emits
+an error ("Odpověď se nevešla…") and `done.stopReason`, and the eval fails it.
+Eval with answers dumped (`EVAL_DUMP=1`, 19 runnable cases):
+
+| model | reps | result | $ per full pass | out tokens/answer |
+|---|---|---|---|---|
+| Sonnet 5 (deployed) | 1 | 19/19 | 0.289 (was 0.328 before caching) | ~570 |
+| Sonnet 5.5 | 2 | 18/19 + 1 grader false negative | 0.306 (was 0.40) | ~740 |
+| Haiku 5.5 | 3 | 54/57; 3 cut at max_tokens | **0.018** | ~1,000 (incl. thinking) |
+
+Caching works: ~95% of input tokens are now cache reads on every model.
+Reading the answers (not the verdicts):
+- Sonnet 5.5's one fail is the grader: "Prokalcitonin se … nevyskytuje" is the
+  right answer; the case now accepts "nevyskyt".
+- **Where Haiku 5.5 falls short, concretely:** (a) on the broadest questions
+  (summarise one patient — `identity_unique`; "what changed" — `tools_changes`)
+  it lists every analyte and, with its default thinking spending the same
+  2,000-token budget, was cut mid-list in 3 of 6 runs (the new check caught
+  this; before it would have streamed as complete); (b) occasional clumsy
+  Czech ("ať jde o jakoukoli hodnotu příznaku mimo rozmezí"); (c) a missing
+  space where text from two tool rounds joins ("reference.V dokumentaci").
+  It was right on every number, cited sources, refused nothing it should
+  answer, asked which Michal Novák, and quoted documents' conclusions as the
+  document's. Its answers are as long as Sonnet 5.5's; its token count is
+  higher because it thinks.
+- Fix to try before deciding: Haiku at effort `low` and/or `maxTokens` 3,000
+  for `clinical`, then 3 reps again (~$0.06).
+
+**4. Jev on the mapping gate** (`tests/bench/map_gate.ts`,
+`map_gate_truth.json`: 43 printed names from the public sheets the catalog
+misses, hand-labelled, label/unit/range text only; $0.01 for two runs).
+- Haiku 5.5 as the mapper: no wrong mapping filed by any gate (after I fixed
+  one of *my* labels — the Coombs test is in the catalog as `pat`, Haiku was
+  right). Current gate (high + `canApplyUnasked`) filed 18 of 31 mappable names.
+- Jev's calibration on truth vs hand-picked near misses: AUC 0.98. Its misses
+  are the instructive part: ionised Ca → total Ca p=0.92 (wrong, high), INR ↔ PT
+  ratio p≈0.6, MCV → MPV 0.51; and it under-rates right answers on odd labels
+  (`S_GF_MDRD 6` → eGFR MDRD 0.25, hs-troponin I 0.40).
+- Judgment: on this set Jev would not stop a wrong filing the current gate lets
+  through (there was none), and as the sole gate at 0.9 it would have accepted
+  ionised → total calcium had the model proposed it. **Not worth a new vendor in
+  the Worker now.** Revisit only with a larger truth set where the model's
+  "high" is actually wrong sometimes (the BioLAB file).
+
+**5. Moje krev's text path, end to end** (`tests/bench/portal_text.ts`: the
+extract call, then `apps/portal/src/lib/interpret.ts` and `reviewOf`, scored
+against hand truth; 8 synthetic text pages + the Stod sheet's 4 results pages —
+the only public sheet with a text layer, dense real-lab pages; $0.38):
+
+| config | truth rows found (of 213) | asked | UNCAUGHT | $ / Stod page | s / Stod page |
+|---|---|---|---|---|---|
+| Sonnet 5 + Haiku 4.5 (**deployed**) | 210 | 4 | 0 | ~0.06 | ~24 |
+| Haiku 4.5 alone (`TEXT_READERS=cheap`) | 208 | 1 | 0 | ~0.020 | ~24 |
+| Sonnet 5.5 + Haiku 5.5 | 210 | 0 | 0 | ~0.04 | ~20 |
+| Sonnet 5.5 alone | 210 | 0 | 0 | ~0.037 | ~20 |
+| **Haiku 5.5 alone** | **210** | 3 | **0** | **~0.002** | **~10** |
+
+The 3 rows every config "misses" are not results (patient height/weight, which
+the prompt excludes on purpose, and the `ABR arter.` heading). Haiku 4.5 alone
+lost two hematology rows (`B_Hemoglobin HGB`); Haiku 5.5 alone lost none. So on
+the text path Haiku 5.5 alone, with interpret's three checks, matches the
+deployed two-reader result at about **1/30 of the cost and twice the speed**.
+Caveat: 12 pages, one rep; the 33-page real corpus on the Mac is the proper
+test (round 1 of extraction-speed.md found the same for Haiku 4.5 there).
+
+**6. Mapping catalog cached.** `/api/map` now sends the 344-entry catalog as
+its own cached block before the names (`mapContent`); answers unchanged on the
+map-gate set (18 filed, 0 wrong). The two 30-name batches go out in parallel,
+so each writes the cache; reads come from the next upload within 5 minutes.
+
+**Decision for round 2:** all fixes are deterministic and on this branch; no
+config changes. For Ondřej (config only, all reversible on moje-krev-extract):
+- text path: `TEXT_READERS=cheap` + `MODEL_SECOND=claude-haiku-5-5`
+  (Haiku 5.5 alone) — a 3-page upload from ~$0.17 to ~$0.006, ~10 s a page;
+  or, keeping two readers, `MODEL_PRIMARY=claude-sonnet-5-5` +
+  `MODEL_SECOND=claude-haiku-5-5` (~$0.12, no review rows on this set);
+- photos: keep Gemini second; `MODEL_PRIMARY=claude-sonnet-5-5` is safe today;
+  Haiku 5.5 first waits for the Mac corpus. (Note `MODEL_PRIMARY` moves the
+  primary on both paths.)
+- mapping: `MODEL_MAP=claude-haiku-5-5` (a tenth of the price, same answers
+  here).
+- triage: leave GLM 5.3 Flash; it is free and off the user's path.
+
+### Round 3 — proposed (Moje krev only)
+1. On the Mac (free, stored reads): `reconcile_pairs.ts` on the 133-photo
+   corpus and a `portal_text.ts`-style pass over the 33 real text pages, to
+   confirm Haiku 5.5 alone (text) and Haiku 5.5 + Gemini (photos) at scale.
+2. H9: cell indices instead of re-typed cells on the text path — check free
+   over the stored Stod/synthetic reads, then one small paid arm.
+3. Range parsing gaps (`M: 30 - 400`, unit tails) with parity cases.
+4. Leading-code rule: also accept a code that is itself a catalog synonym of
+   the same entry (`FE železo`), with a guard test for `HDL cholesterol`.
 
 ## Spend ledger
 
@@ -277,6 +438,16 @@ chat (one rep).
 | 2026-10-19 | same, `EVAL_MODEL=claude-sonnet-5-5 EVAL_REPS=2` | Sonnet 5.5 | 0.802 | 2.553 |
 | 2026-10-19 | same, `EVAL_MODEL=claude-haiku-5-5 EVAL_REPS=1` | Haiku 5.5 | 0.019 | **2.572** |
 
-Round 1: $2.57 of $3.50. Loop: $2.57 of $10. Keys from `bloodwork.env`
+| 2026-10-19 | `with-secrets bloodwork -- env BENCH_FRESH=1 BENCH_MAX_USD=0.4 PYTHON_BIN=.venv/bin/python BENCH_CLASSES=public BENCH_ARMS=haiku55,gemini38_ultra npm run bench:adapt` (rep 2; rep 1 kept in `results/adapt_rep1`) | Haiku 5.5, Gemini 3.8 Flash | 0.131 | 2.703 |
+| 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_gate.ts` ×2 | Haiku 5.5, Jev | 0.010 | 2.713 |
+| 2026-10-19 | `with-secrets bloodwork -- env EVAL_DUMP=1 EVAL_MAX_USD=0.3 EVAL_MODEL=claude-haiku-5-5 EVAL_REPS=3 EVAL_LABEL=r2_haiku55 npm run eval` | Haiku 5.5 | 0.053 | 2.766 |
+| 2026-10-19 | same, `EVAL_MODEL=claude-sonnet-5-5 EVAL_REPS=2` | Sonnet 5.5 | 0.613 | 3.379 |
+| 2026-10-19 | same, `EVAL_MODEL=claude-sonnet-5 EVAL_REPS=1` | Sonnet 5 | 0.289 | **3.668** |
+
+| 2026-10-19 | `with-secrets bloodwork -- env PYTHON_BIN=.venv/bin/python PORTAL_TEXT_MAX_USD=0.5 npx vite-node --root . tests/bench/portal_text.ts` | Sonnet 5, Haiku 4.5, Sonnet 5.5, Haiku 5.5 (Stod ×4) | 0.382 | 4.050 |
+| 2026-10-19 | `map_gate.ts` again (catalog-cache check) | Haiku 5.5, Jev | 0.006 | **4.056** |
+
+Round 1: $2.57 of $3.50. Round 2: $1.48 of $3.00 (of which $0.95 chat evals,
+before the scope correction). Loop: $4.06 of $10. Keys from `bloodwork.env`
 (shared with Klugscheisser/jobscan). Bench costs are priced with the corrected
 table (Sonnet $2/$10).

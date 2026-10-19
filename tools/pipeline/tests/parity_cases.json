@@ -189,5 +189,19 @@
     ["S_Glukóza", null],
     ["[MCV]", "mcv"],
     ["", null]
+  ],
+  "_leading_code_key": "A short code printed before the long name in its own column and glued onto the name by a reader (Břeclav's zkr column: 'URE urea', 'KM * kyselina močová') is the third key, after the full key and the trailing bracket: the long name alone, normalised. Only a 2-6 character code of capitals/digits starting with a capital, an optional '*', then a word starting lowercase with the code's first letter — so 'HDL cholesterol' is never looked up as 'cholesterol'.",
+  "leading_code_key": [
+    ["URE urea", "urea"],
+    ["KM * kyselina močová", "kyselina mocova"],
+    ["ALT * alaninaminotransferáza", "alaninaminotransferaza"],
+    ["GGT gama-glutamyltransferáza", "gama glutamyltransferaza"],
+    ["BIL bilirubin", "bilirubin"],
+    ["HDL cholesterol", null],
+    ["LDL cholesterol", null],
+    ["S_Glukóza", null],
+    ["TSH", null],
+    ["urea", null],
+    ["", null]
   ]
 }

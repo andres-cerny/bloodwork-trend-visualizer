@@ -47,6 +47,28 @@ export function abbreviationKey(name: string): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+/**
+ * The other way round: a short code printed *before* the long name, in its
+ * own column, that a reader glued onto the name — "URE urea", "KM * kyselina
+ * močová" (Břeclav's `zkr` column; Haiku 5.5 does it on every such row,
+ * docs/plans/model-loop.md round 1). The second key is the long name alone.
+ *
+ * Only when the code can be an abbreviation of what follows: 2-6 capitals or
+ * digits with a capital first, an optional accreditation `*`, then a word
+ * starting with a lowercase letter that is the code's first letter. That
+ * last rule is what keeps "HDL cholesterol" from being looked up as
+ * "cholesterol" — and the full key is always tried first anyway.
+ */
+const LEADING_CODE = /^([A-Z][A-Z0-9]{1,5})\s*\*?\s+(\p{Ll}.*)$/u;
+
+export function leadingCodeKey(name: string): string | null {
+  const m = LEADING_CODE.exec((name || "").trim());
+  if (!m) return null;
+  const rest = stripDiacritics(m[2]).toLowerCase();
+  if (rest[0] !== m[1][0].toLowerCase()) return null;
+  return normKey(m[2]) || null;
+}
+
 /** A code the registry can reason about; any other prefix is no evidence. */
 const knownMaterial = (code: string | null | undefined): string | null =>
   code && MATERIAL_CODES.has(code) ? code : null;
@@ -142,7 +164,11 @@ export class Registry {
    */
   match(rawName: string, pageMaterial?: string | null): string | null {
     const abbr = abbreviationKey(rawName);
-    const id = this.index.get(normKey(rawName)) ?? (abbr ? this.index.get(abbr) : undefined);
+    const lead = leadingCodeKey(rawName);
+    const id =
+      this.index.get(normKey(rawName)) ??
+      (abbr ? this.index.get(abbr) : undefined) ??
+      (lead ? this.index.get(lead) : undefined);
     if (!id) return null;
     const stated = knownMaterial(materialPrefix(rawName)) ?? knownMaterial(pageMaterial);
     const known = this.analytes.get(id)?.material;

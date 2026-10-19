@@ -27,7 +27,8 @@ refuses a canonical whose material — derived from its prefixed synonyms,
 row's (its prefix, else its `Materiál` cell or the heading above it, which
 `matchRow` reads). Unknown on either side is compatible. `reconcile` keys a
 name one read returned twice on its row index, so the two rows survive to be
-matched. Python's `match` has no page material and stays name-only.
+matched; it compares value, unit and printed range, and pairs two readers'
+differently-spelled rows on `row_index` or an unambiguous value+unit. Python's `match` has no page material and stays name-only.
 
 ## Four rules with teeth
 

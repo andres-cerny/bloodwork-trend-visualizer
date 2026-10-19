@@ -80,6 +80,16 @@ export function reviewOf(
   //     text layer, checked against the page at upload): it was copied, not
   //     transcribed from pixels, and a copy does not move a decimal point.
   const implausible = insidePrinted(m) || printedOnPage(m) ? null : checkImplausible(m, range);
+  // Two independent readers read the same number (a cross-check was asked
+  // and nothing disagreed). A slipped decimal is a *transcription* error, and
+  // two readers do not slip the same place on the same row — so a
+  // suspected slip is no longer a reason to keep the value out of the trend.
+  // It is still asked about, because a genuinely extreme result is exactly
+  // what this check was built to raise. An impossible value stays withheld:
+  // agreement does not make it possible (docs/plans/model-loop.md, H2).
+  if (implausible && implausible.level === "suspect-decimal" && agreed(m)) {
+    return { level: "unconfirmed", chip: "ověřit desetinnou čárku", reason: `${implausible.reason} ${ASK_CONFIRM_OR_CORRECT}` };
+  }
   if (implausible) {
     return {
       level: "withheld",
@@ -191,6 +201,11 @@ function printedOnPage(m: Pick<Measurement, "printedOnPage" | "bbox" | "sourceSn
   const value = clean(m.valueRaw).replace(/\s+/g, " ");
   if (!value) return false;
   return ` ${clean(m.sourceSnippet).replace(/\s+/g, " ")} `.includes(` ${value} `);
+}
+
+/** A cross-check was asked for and no reader disagreed or went missing. */
+function agreed(m: Pick<Measurement, "escalated" | "disagreement">): boolean {
+  return m.escalated === true && m.disagreement === null;
 }
 
 /** Every reading in a stored disagreement is the same number. */
