@@ -24,7 +24,7 @@
  * the time this runs, and a model that cannot be reached leaves the names
  * waiting in the tab, not the report unsaved.
  */
-import { type LabReport, type Observed, type Registry, type UnmappedAnalyte, type WeakMatch, canApplyUnasked, findWeakMatches, scoreCandidate, trendable } from "@bw/lab-core";
+import { type AnalyteDef, type LabReport, type Observed, type Registry, type UnmappedAnalyte, type WeakMatch, canApplyUnasked, findWeakMatches, scoreCandidate, trendable } from "@bw/lab-core";
 import type { AiAsked, AiAskedEntry, AiMapAnswer, CatalogEntry, NameToMap } from "./api";
 
 /** The one in-memory mark: this name's call is out. Never persisted. */
@@ -276,5 +276,38 @@ export async function runSecondOpinion(input: SecondOpinionInput, effects: Secon
     effects.save(o, answer.model ?? "");
   }
   return { asked: weak.length, decided, error: null };
+}
+
+/**
+ * A catalog entry the app may add without a person (`VITE_AUTO_ENTRIES=1`):
+ * the mapping step answered "new" with an NČLP `code` at "high" — which the
+ * extract worker gives only to an exact code-table hit (the printed unit and
+ * specimen are the row's own) or a model pick it was sure of that passed the
+ * specimen check. Round 6 measured no wrong "high" among 40 tests the catalog
+ * lacks. docs/plans/model-loop.md.
+ */
+export interface AutoEntryProposal {
+  code: string;
+  canonicalId: string;
+  nameCs: string;
+  unit: string;
+  rawName: string;
+  model: string;
+}
+
+export function autoEntriesFrom(judged: Judged, enabled: boolean): AutoEntryProposal[] {
+  if (!enabled) return [];
+  const out: AutoEntryProposal[] = [];
+  for (const [rawName, e] of Object.entries(judged.entries)) {
+    if (e.decision !== "new" || e.confidence !== "high" || !e.code || !e.proposed) continue;
+    if (!/^\d{5}$/.test(e.code)) continue;
+    out.push({ code: e.code, canonicalId: `nclp_${e.code}`, nameCs: e.proposed.displayNameCs, unit: e.proposed.unit, rawName, model: e.model });
+  }
+  return out;
+}
+
+/** The registry entry for an auto-added code: its NČLP name, unit, and the printed name that founded it. */
+export function autoEntryDef(e: { code: string; nameCs: string; unit: string; rawName: string }): AnalyteDef {
+  return { canonicalId: `nclp_${e.code}`, displayNameCs: e.nameCs, synonyms: [e.rawName], canonicalUnit: e.unit, unitConversions: {} };
 }
 

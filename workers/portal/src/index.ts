@@ -41,7 +41,7 @@ import { mintSession } from "@bw/gate";
 import { PORTAL_TURNSTILE_ACTIONS } from "@bw/gate/turnstile";
 import { sweepAbandonedDocuments } from "./sweep";
 import { ipHash } from "./ratelimit";
-import { SQL, type AiShareRow, type AliasRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
+import { SQL, type AiShareRow, type AliasRow, type AutoEntryRow, type InviteRow, type PageRow, type ReportRow, type SynonymRow, type UserRow } from "./db";
 import { errorCodeOf, recordEvent, routeLabel } from "./events";
 import { handleHelpdesk } from "./helpdesk";
 import { monthOf, recordUserSpendUsd, userBudget } from "./ledger";
@@ -568,6 +568,40 @@ async function forgetAlias(request: Request, env: Env, user: UserRow): Promise<R
   return json({ ok: true, removed: r.meta.changes > 0 });
 }
 
+/* ---------------------------------------------------------- auto entries */
+
+const NCLP_CODE = /^\d{5}$/;
+
+/** Every catalog entry added without a person, with whether this account added it. */
+async function listAutoEntries(env: Env, user: UserRow): Promise<Response> {
+  const { results } = await env.DB.prepare(SQL.allAutoEntries).all<AutoEntryRow>();
+  return json(results.map((r) => ({ code: r.code, nameCs: r.name_cs, unit: r.unit, rawName: r.raw_name, model: r.model, at: r.created_at, mine: r.created_by === user.id })));
+}
+
+/** Add one, from an NČLP row; the first account to add a code keeps it. */
+async function addAutoEntry(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const b = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const code = typeof b?.code === "string" ? b.code : "";
+  const nameCs = typeof b?.nameCs === "string" ? b.nameCs.trim() : "";
+  const unit = typeof b?.unit === "string" ? b.unit.trim() : "";
+  const rawName = typeof b?.rawName === "string" ? b.rawName.trim() : "";
+  const model = typeof b?.model === "string" && MODEL_ID.test(b.model) ? b.model : null;
+  if (!NCLP_CODE.test(code) || !nameCs || nameCs.length > 120 || unit.length > 40 || !rawName || rawName.length > MAX_RAW_NAME) {
+    return json({ error: "bad_request", message: "Neplatný návrh parametru." }, 400);
+  }
+  const r = await env.DB.prepare(SQL.insertAutoEntry).bind(code, nameCs, unit, rawName, model, user.id, new Date().toISOString()).run();
+  return json({ ok: true, added: !!r.meta && r.meta.changes === 1 });
+}
+
+/** Withdraw one this account added. Others go through the CLI (playbook). */
+async function removeAutoEntry(request: Request, env: Env, user: UserRow): Promise<Response> {
+  const b = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const code = typeof b?.code === "string" ? b.code : "";
+  if (!NCLP_CODE.test(code)) return json({ error: "bad_request", message: "Neplatný kód." }, 400);
+  const r = await env.DB.prepare(SQL.deleteAutoEntry).bind(code, user.id).run();
+  return json({ ok: true, removed: r.meta.changes > 0 });
+}
+
 /* ---------------------------------------------------------------- extract */
 
 /**
@@ -1022,6 +1056,7 @@ async function deleteAccount(env: Env, user: UserRow): Promise<Response> {
   await env.DB.prepare(SQL.unlinkInvites).bind(user.id).run();
   await env.DB.prepare(SQL.unlinkSynonyms).bind(user.id).run();
   await env.DB.prepare(SQL.unlinkAliases).bind(user.id).run();
+  await env.DB.prepare(SQL.unlinkAutoEntries).bind(user.id).run();
   await env.DB.prepare(SQL.deleteUser).bind(user.id).run();
   return new Response(JSON.stringify({ ok: true, pagesDeleted: results.length }), {
     status: 200,
@@ -1326,6 +1361,12 @@ const routes = {
         return session.demo ? json({ error: "demo_readonly", message: "V demu se názvy ostatním účtům nepředávají." }, 403) : teachAlias(request, env, user);
       case "DELETE /api/aliases":
         return forgetAlias(request, env, user);
+      case "GET /api/auto-entries":
+        return listAutoEntries(env, user);
+      case "PUT /api/auto-entries":
+        return session.demo ? json({ error: "demo_readonly", message: "V demu se parametry ostatním účtům nepřidávají." }, 403) : addAutoEntry(request, env, user);
+      case "DELETE /api/auto-entries":
+        return removeAutoEntry(request, env, user);
       case "GET /api/export":
         return exportAccount(env, session, url.searchParams.get("format") ?? "json");
       case "DELETE /api/account":

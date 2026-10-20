@@ -11,7 +11,7 @@ the round-1/2 chat findings below are kept as notes only, and the round-2
 agent changes (context caching, max_tokens check) are parked on branch
 `claude/agent-cache-parked`, not on this one.
 
-## Summary — what to flip, in which order, how to roll back (after round 5)
+## Summary — what to flip, in which order, how to roll back (after round 6)
 
 Everything below is a **setting** on `moje-krev-extract`
 (`workers/portal-extract/wrangler.jsonc` → `vars`). The code on this branch
@@ -28,7 +28,8 @@ roll back, delete the line and deploy again.
 
 | 4 | `VITE_SHARE_AI_MAPPINGS=1` (portal build) | the model's confident filings (catalog + high + unit check) are saved for every account as a decision for that (lab, printed name, unit), marked `source: model`, revocable by the account that triggered it and listable/revocable by Ondřej from the CLI | 0 confident wrong in 495 names (round 3) | the same new name never reaches the model twice |
 | 5 | `VITE_SECOND_OPINION=1` (portal build) | the list's weak matches (unit not the entry's, unknown specimen prefix) get Haiku's opinion once: confirmed, re-filed (only on "high" + unit evidence), or taken off the entry for a person to decide; saved like step 4 | round 4: the 4 real errors on the public sheets + look-alikes taken off (urine-strip glucose, PT in seconds, antithrombin mg/l, HbA1c %), 5 harmless ones confirmed | ~$0.002 once per (lab, name, unit) |
-| 6 | `MAP_MODE: "codes"` (moje-krev-extract) | `/api/map` looks each name up in the bundled NČLP table first (a hit linked to one catalog entry is filed with no model), sends only the rest to today's whole-catalog Haiku call, and attaches the NČLP `code` to each answer it can; the code is saved on the alias rows (steps 4–5) | round 5: same accuracy as today on 133 never-seen names (127 vs 126 right, 0 confident wrong), 20% settled without a model, 86% of answers carry a code; worker bundle +187 KiB gzip, parsed only when this is set | ~20% cheaper mapping; a standard code per decision |
+| 6 | `MAP_MODE: "codes-retry"` (moje-krev-extract; `"codes"` is the same without the second try) | `/api/map`: the bundled NČLP table first (a hit linked to one catalog entry needs no model), then today's whole-catalog Haiku call, and only what that call cannot place gets a second try: Haiku picks from the 20 nearest NČLP rows. Every answer carries its NČLP `code` where one is known, and the code is saved on the alias rows (steps 4–5) | round 6, best of seven arms: 131/133 unseen catalog spellings, 9/9 urine twins, 11/11 public misses, 34/40 tests not in the catalog, **0 confidently wrong**; worker bundle +187 KiB gzip, parsed only when set | ~$0.0001–0.0003 per name, ~10–15 s per batch |
+| 7 | `VITE_AUTO_ENTRIES=1` (portal build; needs step 6 and the `2026-10-20-auto-entries.sql` migration) | a test the catalog lacks, resolved to one NČLP row exactly — the printed unit and specimen are the row's, the catalog call found no entry, and Haiku picked the same code at "high" — becomes a catalog entry for every account (`nclp_<code>`, NČLP's name and unit), stored in D1 `auto_entries`, listable and withdrawable from the CLI | round 6: 16 of 40 not-in-catalog tests would be added, 0 wrong; 1 of 133 known-test spellings would be added as its own entry ("Granulocyty" — a distinct NČLP item the catalog folds into neutrophils): a split trend, never a wrong merge | a new lab's unknown tests start trending without a person |
 
 Listing and withdrawing what the model saved, from the CLI (no UI):
 
@@ -42,6 +43,16 @@ cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "DELET
 
 Not a switch yet: unrecognised parameters getting their own trend.
 `buildTrends` can do it, but Trendy has to show it — see "Mapping design".
+
+Auto-added entries, from the CLI:
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "SELECT code, name_cs, unit, raw_name, created_at FROM auto_entries ORDER BY created_at"
+```
+
+```sh
+cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "DELETE FROM auto_entries WHERE code = 'CODE'"
+```
 
 Not recommended: `MAP_MODE: "codes-shortlist"` (the model picks from 20 NČLP
 rows instead of the catalog): weaker on never-seen names (111 vs 126 of 133,
@@ -763,11 +774,90 @@ Judgment:
 Round 5 spend: $0.10 (plus the code-table agent's $0.30 on its own branch,
 already in the loop total).
 
+### Round 6 — 2026-10-20 (branch `claude/mapping-ncl-arms`, on top of PR #8)
+
+**Question:** how to resolve names that are *not* in the catalog (the public
+launch reality) as well as unseen spellings of known tests, without wrong
+mappings.
+
+**New set:** `tests/bench/map_ncl_truth.json` — 41 real test names the
+348-entry catalog lacks, as labs print them: LIS-style S_/U_ names and
+everyday wording. Truth is the NČLP code(s); an empty list means the table
+lacks them too (drug levels, a few markers), so "unknown" is the right answer.
+One of my labels was wrong and is corrected (macroprolactin is in the table).
+Label text and units only.
+
+`tests/bench/map_ncl_arms.ts`, Haiku 5.5, all sets, $0.59 in total:
+
+| arm | unseen catalog spellings (133) | urine twins / missing (9) | public misses (11) | not in catalog (40) | $ / name | latency |
+|---|---|---|---|---|---|---|
+| a `MAP_MODE=codes` | 128 · 0 wrong-conf · 5 unk | 9 | 8 · 3 unk | 27 · 1 wrong (low) · 12 unk | 0.00003–0.00008 | 2–9 s / set |
+| b whole table (4,734 rows, cached) | 89 · 0 · 42 unk | 9 | 10 | 23 · 2 wrong (med) · 15 unk | 0.0004–0.0009 | 2–10 s |
+| c code from memory | 0 (Haiku gave no code at all) | 9 | 8 | 7 | 0.00003 | 2–6 s |
+| d blind → shortlist from description → pick | 115 · **1 wrong-conf** · 15 unk | 9 | 10 · 1 wrong | 36 · 0 · 4 unk | 0.0003–0.0004 | 36 s (one call per name) |
+| e a, then a shortlist second try for "unknown" | **131** · 0 · 2 unk | 9 | **11** | 34 · 0 · 6 unk | 0.00006–0.0003 | 3–15 s |
+| f blind → whole table + own statement, contradiction → review | 87 · 0 · 45 unk · 2 review | 9 | 10 | 26 · 1 wrong (med) · 13 unk · 6 review | 0.0005–0.0011 | 2–8 s |
+| **g = e as shipped (`MAP_MODE=codes-retry`)** | **131 · 0 · 2 unk** | **9** | **11** | **34 · 0 · 6 unk** | **0.00006–0.00035** | 4–15 s |
+
+The not-in-catalog column above is after the macroprolactin truth fix, for d,
+e and g, which had picked it.
+
+Judgment:
+- **Ship e (as g):** best or tied-best on every set, no confident error
+  anywhere, the cheapest model path.
+  - The second try costs only for the few names the catalog call can't place.
+  - It closes the gap on odd lab names (public 11/11).
+  - On tests the catalog lacks it finds the code for 34/40. Its misses are
+    unknowns, not wrong answers.
+- **d** finds one more of the not-in-catalog tests (36), and that is its only
+  edge. It made the round's one confident error ("S_Vol.VK Fe" — free
+  iron-binding capacity — filed as serum iron) and makes a call per name. The
+  narrowing step helps a lot over the whole table (d 115 vs f 87 on unseen
+  spellings), but not enough to beat e.
+- **The whole table in the prompt (b, f) does not pay.**
+  - It is ~110K tokens, so above Haiku 5.5's 100K line: the $0.50/$2.50 rate.
+    The first batch writes the cache, and later batches read it at 0.1×.
+  - It is less accurate on unseen spellings (89, 87), because the model must
+    find a formal NČLP name among 4,734 rows by itself.
+  - Anchoring: b made no *confident* wrong pick, so there was nothing for f
+    to fix there. Of b's two medium wrongs on unseen spellings, f fixed one
+    (anti-Xa → antithrombin) and repeated the other (free iron-binding
+    capacity → total). The contradiction rule sent 9 names to review across
+    all sets and turned none of them into a right answer.
+- **c:** Haiku 5.5 states no NČLP code from memory at all (0 five-digit
+  codes in 193 names). It does not hallucinate codes, and it is no use.
+
+**Built** (switches, default unchanged):
+- **`MAP_MODE=codes-retry`** (step "catalog+shortlist" in `codeMap.ts`):
+  - the lookup first;
+  - then the catalog call, which also decides unlinked hits ("Granulocyty"
+    → neutrofily_abs wins over a draft when the catalog call finds it);
+  - then a shortlist second try for "unknown" and for the model's own
+    code-less "new" proposals.
+- **An exact code hit the catalog lacks is "high" only when** the printed unit
+  and specimen are the row's own **and** Haiku, shown the shortlist, picks
+  the same code at "high". In plain `codes` mode such a draft stays "medium".
+- **`VITE_AUTO_ENTRIES=1`** (portal):
+  - a "new" answer with a code at "high" becomes a shared catalog entry
+    (`auto_entries` in D1, migration `2026-10-20-auto-entries.sql`,
+    `GET/PUT/DELETE /api/auto-entries`; the first writer keeps a code, the
+    creator or the CLI withdraws it);
+  - the name is filed under it, and every account loads it;
+  - there is no "auto-added" label on screen (no UI this loop): the flag is
+    the table itself.
+- Tests: `codeMap.test.ts` (step order, the draft rule, agreement),
+  `aiMapping.test.ts` (`autoEntriesFrom`, `autoEntryDef`), the API tests,
+  and the schema drift test.
+
+Round 6 spend: $0.59.
+
 ### Next, if the loop continues
 1. Ondřej runs the Mac check; the result goes here, then the settings in the summary.
-2. A shortlist second try for names the catalog step answers "unknown".
-3. Trendy wiring for unrecognised parameters + the draft-entry review queue (UI).
-4. Split the ambiguous catalog entries along their codes (lab-codes.md, "Open").
+2. Show an auto-added entry as such in the app (UI) before turning step 7 on
+   for real users; and a review list for the catalog curator.
+3. Trendy wiring for unrecognised parameters (UI).
+4. Split the ambiguous catalog entries along their codes (lab-codes.md, "Open")
+   — that also removes the "Granulocyty" split case.
 
 ## Spend ledger
 
@@ -795,10 +885,14 @@ already in the loop total).
 | 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/second_opinion.ts` (13 weak matches) | Haiku 5.5 | 0.002 | 4.191 |
 | 2026-10-19 | code-table agent, branch `claude/lab-codes` (`BENCH_HAIKU=1 npm run bench:codes`, see lab-codes.md) | Haiku 5.5 | 0.300 | 4.491 |
 | 2026-10-20 | `with-secrets bloodwork -- env MAP_CODES_LIMIT=20 npx vite-node --root . tests/bench/map_codes.ts` (smoke) | Haiku 5.5 | 0.013 | 4.504 |
-| 2026-10-20 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_codes.ts` ×2 (before/after the specimen fix, the second with the codes step) | Haiku 5.5 | 0.092 | **4.596** |
+| 2026-10-20 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_codes.ts` ×2 (before/after the specimen fix, the second with the codes step) | Haiku 5.5 | 0.092 | 4.596 |
+| 2026-10-20 | `with-secrets bloodwork -- env ARMS=b SETS=3 npx vite-node --root . tests/bench/map_ncl_arms.ts` (whole-table smoke) | Haiku 5.5 | 0.105 | 4.701 |
+| 2026-10-20 | same, `ARMS=a,b,c,d,e,f` (all sets) | Haiku 5.5 | 0.390 | 5.091 |
+| 2026-10-20 | same, `ARMS=e` ×3 and `ARMS=g` ×2 (truth fix, draft and agreement rules) | Haiku 5.5 | 0.095 | **5.186** |
 
 Round 1: $2.57 of $3.50. Round 2: $1.48 of $3.00 (of which $0.95 chat evals,
 before the scope correction). Round 3: $0.13 of $2.50. Round 4: $0.002 of
-$2.00. Round 5: $0.10 of $2.00. Code-table agent: $0.30. Loop: **$4.60 of $10**. Keys from `bloodwork.env`
+$2.00. Round 5: $0.10 of $2.00. Code-table agent: $0.30. Round 6: $0.59 of $1.50.
+Loop: **$5.19 of $10**. Keys from `bloodwork.env`
 (shared with Klugscheisser/jobscan). Bench costs are priced with the corrected
 table (Sonnet $2/$10).

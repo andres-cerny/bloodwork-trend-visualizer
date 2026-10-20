@@ -90,6 +90,63 @@ describe("mapByCodes", () => {
     expect(r.suggestions.map((s) => [s.canonicalId, s.code])).toEqual([["sodik", "02503"], ["sodik", "02503"]]);
   });
 
+  it("an unlinked exact hit is 'high' only with codes-retry and the model agreeing", async () => {
+    const two = catalog.slice(0, 2);
+    // The stub answers the catalog call with nothing and a pick with `pickCode`.
+    let pickCode = "09511";
+    vi.stubGlobal("fetch", async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      const tool = body.tools[0].name as string;
+      const input = tool === "file_names" ? { suggestions: [] } : { code: pickCode, confidence: "high", reason: "r" };
+      return new Response(
+        JSON.stringify({ id: "m", type: "message", role: "assistant", model: body.model, stop_reason: "tool_use", stop_sequence: null, usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, content: [{ type: "tool_use", id: "t", name: tool, input }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const plain = await mapByCodes("k", "claude-haiku-5-5", [name("S_Cystatin C", "mg/l")], two, codes);
+    expect(plain.suggestions[0]).toMatchObject({ decision: "new", code: "09511", confidence: "medium" });
+    const agreed = await mapByCodes("k", "claude-haiku-5-5", [name("S_Cystatin C", "mg/l")], two, codes, "catalog+shortlist");
+    expect(agreed.suggestions[0]).toMatchObject({ decision: "new", code: "09511", confidence: "high" });
+    pickCode = "08241"; // the plasma row: not the same code
+    const other = await mapByCodes("k", "claude-haiku-5-5", [name("S_Cystatin C", "mg/l")], two, codes, "catalog+shortlist");
+    expect(other.suggestions[0].confidence).toBe("medium");
+    const loose = await mapByCodes("k", "claude-haiku-5-5", [name("Cystatin C", "")], two, codes, "catalog+shortlist");
+    expect(loose.suggestions[0].confidence).toBe("medium");
+  });
+
+  it("an unlinked hit is only a draft: a catalog answer for the same name wins", async () => {
+    vi.stubGlobal("fetch", async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      return new Response(
+        JSON.stringify({ id: "m", type: "message", role: "assistant", model: body.model, stop_reason: "tool_use", stop_sequence: null, usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, content: [{ type: "tool_use", id: "t", name: "file_names", input: { suggestions: [{ raw_name: "S_Cystatin C", decision: "catalog", canonical_id: "sodik", new_id: null, new_name_cs: null, new_unit: null, reason: "r", confidence: "high" }] } }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const r = await mapByCodes("k", "claude-haiku-5-5", [name("S_Cystatin C", "mg/l")], catalog.slice(0, 2), codes);
+    expect(r.suggestions[0]).toMatchObject({ decision: "catalog", canonicalId: "sodik" });
+  });
+
+  it("catalog+shortlist: only the catalog call's 'unknown' answers get the shortlist", async () => {
+    const sent: string[] = [];
+    vi.stubGlobal("fetch", async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      const tool = body.tools[0].name as string;
+      sent.push(tool);
+      const input =
+        tool === "file_names"
+          ? { suggestions: [{ raw_name: "Natrémie sérová", decision: "unknown", canonical_id: null, new_id: null, new_name_cs: null, new_unit: null, reason: "?", confidence: "low" }, { raw_name: "Kalémie", decision: "catalog", canonical_id: "sodik", new_id: null, new_name_cs: null, new_unit: null, reason: "r", confidence: "medium" }] }
+          : { code: (body.tools[0].input_schema.properties.code.enum as string[])[0], confidence: "medium", reason: "r" };
+      return new Response(
+        JSON.stringify({ id: "m", type: "message", role: "assistant", model: body.model, stop_reason: "tool_use", stop_sequence: null, usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, content: [{ type: "tool_use", id: "t", name: tool, input }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    const r = await mapByCodes("k", "claude-haiku-5-5", [name("Natrémie sérová"), name("Kalémie")], catalog, codes, "catalog+shortlist");
+    expect(sent).toEqual(["file_names", "pick_code"]);
+    expect(r.suggestions[0].code).toBeTruthy();
+    expect(r.suggestions[1]).toMatchObject({ decision: "catalog", canonicalId: "sodik" });
+  });
+
   it("a code outside the shortlist is read as unknown", async () => {
     stub(() => ({ code: "99999", confidence: "high", reason: "" }));
     const r = await mapByCodes("k", "claude-haiku-5-5", [name("Natrémie sérová")], catalog, codes, "shortlist");

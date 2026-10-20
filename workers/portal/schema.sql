@@ -174,6 +174,22 @@ CREATE TABLE IF NOT EXISTS aliases (
 
 CREATE INDEX IF NOT EXISTS aliases_by_source ON aliases (source, created_at);
 
+-- A catalog entry added without a person, from one NČLP row (`code`), when a
+-- printed name the catalog lacked resolved to that row exactly: the row's own
+-- unit and specimen, and the mapping step's "high". Every account sees it
+-- as a parameter named `name_cs` (id `nclp_<code>`); `raw_name` is the name
+-- that founded it. Listable and withdrawable from the CLI; the account that
+-- created it may withdraw it too. docs/plans/model-loop.md, round 6.
+CREATE TABLE IF NOT EXISTS auto_entries (
+  code         TEXT PRIMARY KEY,
+  name_cs      TEXT NOT NULL,
+  unit         TEXT NOT NULL DEFAULT '',
+  raw_name     TEXT NOT NULL,
+  model        TEXT,
+  created_by   TEXT REFERENCES users(id),
+  created_at   TEXT NOT NULL
+);
+
 -- One row per document an account opened for extraction, keyed by the report
 -- id the browser minted. The row is the slot: inserting it takes one from
 -- doc_used, atomically, so eight pages arriving at once cannot take eight.

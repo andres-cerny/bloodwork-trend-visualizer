@@ -77,15 +77,17 @@ function proposal(row: LabCodeRow): MapSuggestion["proposed"] {
   return { id: `nclp_${row.id}`, displayNameCs: row.names.cs?.name.slice(0, 80) ?? row.id, unit: row.unit === "1" || row.unit === "-" ? "" : row.unit };
 }
 
-function fromRows(n: NameToMap, rows: LabCodeRow[], ids: Set<string>, confidence: MapSuggestion["confidence"], how: string): MapSuggestion {
+/** A decision from the code rows a name resolved to: their single catalog entry, a "new" draft, or unknown. */
+export function fromRows(n: NameToMap, rows: LabCodeRow[], ids: Set<string>, confidence: MapSuggestion["confidence"], how: string): MapSuggestion {
   const cid = catalogOf(rows, ids);
   const code = rows[0].id;
   if (typeof cid === "string") return { rawName: n.rawName, decision: "catalog", canonicalId: cid, proposed: null, reason: `NČLP ${code} (${how})`, confidence, code };
   if (cid === "many") return { rawName: n.rawName, decision: "unknown", canonicalId: null, proposed: null, reason: `NČLP ${code} odpovídá více položkám katalogu`, confidence: "low", code };
-  return { rawName: n.rawName, decision: "new", canonicalId: null, proposed: proposal(rows[0]), reason: `NČLP ${code}: ${rows[0].names.cs?.name ?? ""}`.slice(0, 300), confidence: "medium", code };
+  return { rawName: n.rawName, decision: "new", canonicalId: null, proposed: proposal(rows[0]), reason: `NČLP ${code}: ${rows[0].names.cs?.name ?? ""}`.slice(0, 300), confidence, code };
 }
 
-async function pick(client: Anthropic, model: string, n: NameToMap, shortlist: LabCodeHit[]): Promise<{ code: string; confidence: MapSuggestion["confidence"]; reason: string; usage: Usage }> {
+/** One model pick from a shortlist: an enum of its codes + "unknown". */
+export async function pick(client: Anthropic, model: string, n: NameToMap, shortlist: LabCodeHit[]): Promise<{ code: string; confidence: MapSuggestion["confidence"]; reason: string; usage: Usage }> {
   const ids = shortlist.map((h) => h.row.id);
   const tool = {
     name: PICK,
@@ -152,9 +154,12 @@ export function codeForCatalog(codes: LabCodes, canonicalId: string, n: NameToMa
  * model to pick from 20 NČLP rows per name. Round 5 measured the catalog step
  * as more accurate and cheaper on names the catalog has never seen (held-out:
  * 123 vs 111 of 133 right, 0 vs 1 confident wrong, $0.008 vs $0.029), so the
- * shortlist step stays opt-in.
+ * shortlist step stays opt-in. "catalog+shortlist" (round 6, the winner of
+ * six arms): the catalog call first, and only its "unknown" answers get a
+ * second try from the shortlist — 131/133 unseen spellings, 11/11 public
+ * misses, 33/40 tests not in the catalog, 0 confidently wrong.
  */
-export type CodeMapStep = "catalog" | "shortlist";
+export type CodeMapStep = "catalog" | "catalog+shortlist" | "shortlist";
 
 export async function mapByCodes(
   apiKey: string,
@@ -168,40 +173,95 @@ export async function mapByCodes(
   const usage: Usage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
   const out: MapSuggestion[] = new Array(names.length);
   const toAsk: number[] = [];
+  const drafts = new Map<number, MapSuggestion>();
+  const toConfirm: number[] = [];
 
   names.forEach((n, i) => {
-    const rows = best(codes.lookup(n.rawName, n.unit, n.material));
+    const hits = codes.lookup(n.rawName, n.unit, n.material);
+    const rows = best(hits);
     // A unique best hit, or an S/P pair, that names one catalog entry: no model.
     const sameComp = rows.length > 0 && rows.every((r) => r.comp === rows[0].comp && r.prop === rows[0].prop);
     if (rows.length > 0 && sameComp && rows.every((r) => specimenAgrees(n.rawName, r))) {
-      const s = fromRows(n, rows, ids, "high", "vyhledání");
-      if (s.decision !== "unknown") {
+      // A hit the catalog links is that entry ("high"). A hit it does not link
+      // is a "new" draft: "high" only when the printed unit is the row's own
+      // and the printed specimen is the row's — the bar for adding it to the
+      // catalog without a person (VITE_AUTO_ENTRIES).
+      const linked = rows.some((r) => (r.catalog ?? []).some((c) => ids.has(c)));
+      const exact = hits[0].unit === 2 && hits[0].material === 2;
+      const s = fromRows(n, rows, ids, linked || exact ? "high" : "medium", "vyhledání");
+      if (s.decision === "catalog") {
         out[i] = s;
         return;
+      }
+      // An unlinked hit is a draft, not yet an answer: the catalog may still
+      // hold the test under a name the code table does not lend it
+      // ("Granulocyty" → neutrofily_abs, round 6). The catalog call decides
+      // first; the draft stands only where it finds nothing.
+      if (s.decision === "new") {
+        drafts.set(i, s);
+        if (step === "shortlist") {
+          out[i] = s;
+          return;
+        }
       }
     }
     toAsk.push(i);
   });
 
-  if (step === "catalog") {
+  let asked = 0;
+  let shortlistFor = toAsk;
+  if (step === "catalog" || step === "catalog+shortlist") {
     if (toAsk.length === 0) return { suggestions: out, usage, model, asked: 0 };
     const rest = toAsk.map((i) => names[i]);
     const r = await suggestCanonical(apiKey, model, rest, catalog);
+    usage.inputTokens += r.usage.inputTokens;
+    usage.outputTokens += r.usage.outputTokens;
+    usage.cacheReadTokens += r.usage.cacheReadTokens;
+    usage.cacheWriteTokens += r.usage.cacheWriteTokens;
+    asked += rest.length;
     const by = new Map(r.suggestions.map((x) => [x.rawName, x]));
     toAsk.forEach((i) => {
       const n = names[i];
       const x = by.get(n.rawName) ?? { rawName: n.rawName, decision: "unknown" as const, canonicalId: null, proposed: null, reason: "Model tento název nezařadil.", confidence: "low" as const };
+      const draft = drafts.get(i);
+      if (draft && x.decision !== "catalog") {
+        // Standing drafts are "high" only after the model agrees (below).
+        out[i] = draft.confidence === "high" ? { ...draft, confidence: "medium" } : draft;
+        if (draft.confidence === "high") toConfirm.push(i);
+        return;
+      }
       out[i] = { ...x, code: x.decision === "catalog" && x.canonicalId ? codeForCatalog(codes, x.canonicalId, n) : null };
     });
-    return { suggestions: out, usage: r.usage, model: r.model, asked: rest.length };
+    if (step === "catalog") return { suggestions: out, usage, model: r.model, asked };
+    // The second try: only what the catalog call could not place.
+    // "new" without a code is the model's own proposal for a test the
+    // catalog lacks: the shortlist may still find its code.
+    shortlistFor = toAsk.filter((i) => out[i].decision === "unknown" || (out[i].decision === "new" && !out[i].code));
   }
 
   const client = clientFor(apiKey);
+  // An exact code hit the catalog lacks becomes a "high" draft (the bar for
+  // VITE_AUTO_ENTRIES) only when the model, shown the shortlist around it,
+  // picks the same code.
+  await Promise.all(
+    toConfirm.map(async (i) => {
+      const n = names[i];
+      const sl = codes.shortlist(n.rawName, n.unit, n.material, SHORTLIST);
+      if (!sl.some((h) => h.row.id === out[i].code)) return;
+      const p = await pick(client, model, n, sl);
+      usage.inputTokens += p.usage.inputTokens;
+      usage.outputTokens += p.usage.outputTokens;
+      usage.cacheReadTokens += p.usage.cacheReadTokens;
+      usage.cacheWriteTokens += p.usage.cacheWriteTokens;
+      asked++;
+      if (p.code === out[i].code && p.confidence === "high") out[i] = { ...out[i], confidence: "high", reason: `${out[i].reason}; model souhlasí` };
+    }),
+  );
+
   let next = 0;
-  let asked = 0;
   const worker = async () => {
-    for (let k = next++; k < toAsk.length; k = next++) {
-      const i = toAsk[k];
+    for (let k = next++; k < shortlistFor.length; k = next++) {
+      const i = shortlistFor[k];
       const n = names[i];
       const sl = codes.shortlist(n.rawName, n.unit, n.material, SHORTLIST);
       if (sl.length === 0) {
@@ -215,7 +275,8 @@ export async function mapByCodes(
       usage.cacheReadTokens += p.usage.cacheReadTokens;
       usage.cacheWriteTokens += p.usage.cacheWriteTokens;
       if (p.code === "unknown") {
-        out[i] = { rawName: n.rawName, decision: "unknown", canonicalId: null, proposed: null, reason: p.reason, confidence: "low", code: null };
+        // The catalog call's own "new" proposal stays; otherwise unknown.
+        if (out[i]?.decision !== "new") out[i] = { rawName: n.rawName, decision: "unknown", canonicalId: null, proposed: null, reason: p.reason, confidence: "low", code: null };
         continue;
       }
       const row = codes.byId(p.code)!;
@@ -225,6 +286,6 @@ export async function mapByCodes(
       out[i] = { ...s, reason: (agrees ? p.reason || s.reason : `materiál kódu nesedí s prefixem; ${p.reason}`).slice(0, 300) };
     }
   };
-  await Promise.all(Array.from({ length: Math.min(IN_FLIGHT, toAsk.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(IN_FLIGHT, shortlistFor.length) }, worker));
   return { suggestions: out, usage, model, asked };
 }

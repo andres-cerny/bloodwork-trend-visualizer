@@ -117,12 +117,15 @@ export function photoReaders(env: ReaderEnv): { name: string; readers: readonly 
  * table (a hit linked to one catalog entry needs no model), sends only the
  * rest to today's whole-catalog call, and attaches the NČLP code to every
  * answer it can; "codes-shortlist" — the model picks from 20 table rows per
- * name instead (measured weaker, round 5). Unset or anything else: today.
+ * name instead (measured weaker, round 5); "codes-retry" — "codes", and only
+ * the names its catalog call answers "unknown" get the shortlist as a second
+ * try (round 6: best of six arms). Unset or anything else: today.
  * docs/plans/model-loop.md.
  */
 export type MapModeEnv = { MAP_MODE?: string };
-export const mapByCodesOn = (env: MapModeEnv): boolean => env.MAP_MODE === "codes" || env.MAP_MODE === "codes-shortlist";
-export const mapCodeStep = (env: MapModeEnv): "catalog" | "shortlist" => (env.MAP_MODE === "codes-shortlist" ? "shortlist" : "catalog");
+export const mapByCodesOn = (env: MapModeEnv): boolean => env.MAP_MODE === "codes" || env.MAP_MODE === "codes-retry" || env.MAP_MODE === "codes-shortlist";
+export const mapCodeStep = (env: MapModeEnv): "catalog" | "catalog+shortlist" | "shortlist" =>
+  env.MAP_MODE === "codes-shortlist" ? "shortlist" : env.MAP_MODE === "codes-retry" ? "catalog+shortlist" : "catalog";
 
 let labCodes: Promise<LabCodes> | null = null;
 /**

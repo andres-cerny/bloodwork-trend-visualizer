@@ -98,6 +98,7 @@ function fakeD1(t: Tables): D1Database {
         return { results: [{ n: t.reports.filter((r) => r.user_id === a[0]).length }], changes: 0 };
       case SQL.unlinkSynonyms:
       case SQL.unlinkAliases:
+      case SQL.unlinkAutoEntries:
       case SQL.deleteDocumentsForUser:
       case SQL.unlinkPurchases:
         return { results: [], changes: 0 };
