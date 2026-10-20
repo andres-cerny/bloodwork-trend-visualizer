@@ -25,6 +25,7 @@ import { guard, json, budgetLimit, maxPages, sessionTtl, type BaseEnv } from "@b
 import { priceUsd } from "@bw/agent-core";
 import {
   billedUsage,
+  mapByCodes,
   extractPage,
   extractPageGemini,
   extractPageText,
@@ -39,6 +40,9 @@ import {
 // `wrangler dev` from starting. index.ts exports its handler and nothing else.
 import {
   DEFAULT_PHOTO_READERS,
+  codeTable,
+  mapByCodesOn,
+  mapCodeStep,
   mapModel,
   photoReaders,
   readerModel,
@@ -82,6 +86,8 @@ export interface Env extends BaseEnv {
   MODEL_PRIMARY?: string;
   MODEL_SECOND?: string;
   MODEL_MAP?: string;
+  /** "codes" / "codes-shortlist": map names through the NČLP table first (./readers, `mapByCodesOn`). Unset: today. */
+  MAP_MODE?: string;
 }
 
 async function handleSession(request: Request, env: Env): Promise<Response> {
@@ -280,7 +286,9 @@ async function handleMap(request: Request, env: Env): Promise<Response> {
   if (names.length === 0 || catalog.length === 0) return json({ error: "missing_names", message: "Není co přiřadit." }, 400);
 
   try {
-    const r = await suggestCanonical(env.ANTHROPIC_API_KEY, mapModel(env), names, catalog);
+    const r = mapByCodesOn(env)
+      ? await mapByCodes(env.ANTHROPIC_API_KEY, mapModel(env), names, catalog, await codeTable(), mapCodeStep(env))
+      : await suggestCanonical(env.ANTHROPIC_API_KEY, mapModel(env), names, catalog);
     const spent = priceUsd(r.model, r.usage.inputTokens, r.usage.outputTokens, r.usage.cacheReadTokens, r.usage.cacheWriteTokens);
     if (spent > 0) await recordSpendUsd(env.BUDGET, "extract", spent);
     return json({

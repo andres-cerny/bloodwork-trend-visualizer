@@ -11,7 +11,7 @@ the round-1/2 chat findings below are kept as notes only, and the round-2
 agent changes (context caching, max_tokens check) are parked on branch
 `claude/agent-cache-parked`, not on this one.
 
-## Summary — what to flip, in which order, how to roll back (after round 4)
+## Summary — what to flip, in which order, how to roll back (after round 5)
 
 Everything below is a **setting** on `moje-krev-extract`
 (`workers/portal-extract/wrangler.jsonc` → `vars`). The code on this branch
@@ -28,6 +28,7 @@ roll back, delete the line and deploy again.
 
 | 4 | `VITE_SHARE_AI_MAPPINGS=1` (portal build) | the model's confident filings (catalog + high + unit check) are saved for every account as a decision for that (lab, printed name, unit), marked `source: model`, revocable by the account that triggered it and listable/revocable by Ondřej from the CLI | 0 confident wrong in 495 names (round 3) | the same new name never reaches the model twice |
 | 5 | `VITE_SECOND_OPINION=1` (portal build) | the list's weak matches (unit not the entry's, unknown specimen prefix) get Haiku's opinion once: confirmed, re-filed (only on "high" + unit evidence), or taken off the entry for a person to decide; saved like step 4 | round 4: the 4 real errors on the public sheets + look-alikes taken off (urine-strip glucose, PT in seconds, antithrombin mg/l, HbA1c %), 5 harmless ones confirmed | ~$0.002 once per (lab, name, unit) |
+| 6 | `MAP_MODE: "codes"` (moje-krev-extract) | `/api/map` looks each name up in the bundled NČLP table first (a hit linked to one catalog entry is filed with no model), sends only the rest to today's whole-catalog Haiku call, and attaches the NČLP `code` to each answer it can; the code is saved on the alias rows (steps 4–5) | round 5: same accuracy as today on 133 never-seen names (127 vs 126 right, 0 confident wrong), 20% settled without a model, 86% of answers carry a code; worker bundle +187 KiB gzip, parsed only when this is set | ~20% cheaper mapping; a standard code per decision |
 
 Listing and withdrawing what the model saved, from the CLI (no UI):
 
@@ -41,6 +42,12 @@ cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "DELET
 
 Not a switch yet: unrecognised parameters getting their own trend.
 `buildTrends` can do it, but Trendy has to show it — see "Mapping design".
+
+Not recommended: `MAP_MODE: "codes-shortlist"` (the model picks from 20 NČLP
+rows instead of the catalog): weaker on never-seen names (111 vs 126 of 133,
+one confident wrong) at 4× the cost. Better only on the public sheets'
+leftovers (11 vs 8 of 11), so it may earn a place later as a second try after
+the catalog step says "unknown".
 
 Steps 2 and 3 should first pass the Mac check
 ([model-loop-mac-check.md](model-loop-mac-check.md): free re-scoring plus about
@@ -64,8 +71,8 @@ alias can be withdrawn.
 | step | today (Moje krev, verified in code) | after (this branch, switches default off) | still to build |
 |---|---|---|---|
 | 1. list | shipped synonyms (`registry.json`, 344 entries / ~4,100 names) + shared `synonyms` (D1, taught by a person's click onto a shipped entry, keyed by printed name only) + the account's `learned`. Exact key after `normKey`, plus the trailing `[ABBR]`; material checked | + glued codes (`URE urea`, `FE železo`, guarded), + `x` (punctate) refused as blood, + 29 spellings and 4 blood-gas entries (348 entries); **scoped decisions** (`Registry.addScopedAlias`, `aliasKey(lab, name, unit)`) consulted first — this lab and unit, this lab any unit, any lab this unit — and `rematchReport` carries them into stored reports, mapped rows included | — |
-| 2. model | Haiku 4.5, automatic after every upload and once on load, for unmapped names that can trend; catalog id must exist (`toSuggestions` refuses invented ids — in effect an enum) | `MODEL_MAP=claude-haiku-5-5`; catalog sent as a cached block | — |
-| 3. save | every answer per account (`settings.aiAsked`, never asked again); `catalog`+`high`+`canApplyUnasked` (unit known to agree, nothing contradicting) filed **for this account only**; the rest waits for a click, and a click onto a shipped entry teaches every account | D1 `aliases` (lab, raw_name, unit → canonical_id or NULL, `source` person/model, `model`, reserved `code`), `GET/PUT/DELETE /api/aliases`; a model's row never replaces a person's, a person's replaces a model's; `VITE_SHARE_AI_MAPPINGS=1` writes the confident filings there; `VITE_SECOND_OPINION=1` writes its decisions there | a person's click saved as a scoped `person` alias too (today it still teaches the global `synonyms`); an in-flight guard so two accounts don't ask for the same new name at once |
+| 2. model | Haiku 4.5, automatic after every upload and once on load, for unmapped names that can trend; catalog id must exist (`toSuggestions` refuses invented ids — in effect an enum) | `MODEL_MAP=claude-haiku-5-5`; catalog sent as a cached block; `MAP_MODE=codes`: an NČLP lookup first (no model for a linked hit, a "new" draft carrying the code for an unlinked one, a specimen check), the code attached to every answer it can (`packages/extraction/src/codeMap.ts`, index `packages/lab-core/codes/lab-codes.index.json`) | — |
+| 3. save | every answer per account (`settings.aiAsked`, never asked again); `catalog`+`high`+`canApplyUnasked` (unit known to agree, nothing contradicting) filed **for this account only**; the rest waits for a click, and a click onto a shipped entry teaches every account | D1 `aliases` (lab, raw_name, unit → canonical_id or NULL, `source` person/model, `model`, reserved `code`), `GET/PUT/DELETE /api/aliases`; a model's row never replaces a person's, a person's replaces a model's; `VITE_SHARE_AI_MAPPINGS=1` writes the confident filings there; `VITE_SECOND_OPINION=1` writes its decisions there | an in-flight guard so two accounts don't ask for the same new name at once. (Done in round 5: a person's click is also saved as a scoped `person` alias when the alias switches are on; the `code` column is filled.) |
 | 4. not in the catalog | the row is stored and flagged, but **left out of every trend**; Trendy shows "N parametrů se nezobrazuje"; Haiku's `new` proposal pre-fills the founding form; a founded parameter is per account | `buildTrends(..., { unrecognised: true })` (lab-core, off): such rows get their own series keyed `unrecognisedKey(lab, name, unit)`, marked `recognised: false` | wire it in Trendy ("zatím nerozpoznaný parametr"); a review queue (D1 `draft_entries`: Haiku's proposed Czech name, unit, group, printed range as the range source) that Ondřej approves into `seed_registry.py`; on approval, the unrecognised series' readings remap to the new id (the same `rematchReport` path a new synonym already uses) |
 
 Why not Haiku-first (measured in round 3): it made 0 confident errors in 495
@@ -692,12 +699,75 @@ demo data byte-identical):
 
 Round 4 spend: $0.002.
 
+### Round 5 — 2026-10-20
+
+**Merged `claude/lab-codes`** (the NČLP/LOINC code table: see
+[lab-codes.md](lab-codes.md)). Clean merge, green.
+
+**Mapping order wired (switch `MAP_MODE` on moje-krev-extract, default
+unchanged):**
+
+catalog → saved (lab, name, unit) aliases → **NČLP lookup** → model → unknown
+
+- *Lookup.* The best hit (or an S/P pair of one component) linked to exactly
+  one catalog entry is filed with no model, at "high" — but only if its
+  specimen agrees with the printed prefix. A hit on a row the catalog doesn't
+  link becomes a "new" draft pre-filled from the code (`nclp_<code>`, NČLP's
+  Czech name, unit).
+- *Specimen check* (`specimenAgrees`):
+  - a pick or hit must match a readable blood or urine prefix;
+  - a specimen the table has no rows for (PE_ erythrocytes, X_ punctate)
+    never agrees, which caught `PE_Hořčík v ery` → plasma Mg;
+  - an unreadable prefix is no evidence.
+- *Model step*, two variants:
+  - "codes": today's whole-catalog call for the names the lookup left, plus
+    a code attached where the answer's entry links exactly one row for the
+    printed specimen (`codeForCatalog`);
+  - "codes-shortlist": Haiku picks from an enum of 20 rows + "unknown". The
+    prompt is the lab-codes bench's serum-default / conventional-unit one,
+    plus one sentence on timed and other-material variants ("po zátěži",
+    "v erytrocytech").
+- *The index:* `tools/scripts/build-code-index.ts` writes
+  `packages/lab-core/codes/lab-codes.index.json` (4,734 rows, keys
+  pre-normalised, catalog vocabulary lent). A test pins that it is current
+  and answers exactly like the full table.
+  - Worker bundle 222 → 409 KiB gzip (limit 3 MB).
+  - Dynamically imported, so an isolate without `MAP_MODE` never parses it.
+
+**Measured** (`tests/bench/map_codes.ts`, Haiku 5.5 all three ways, $0.10
+including the smoke run):
+
+| names | today (whole catalog) | MAP_MODE=codes | codes-shortlist |
+|---|---|---|---|
+| 133 held-out catalog synonyms (look-alike families) — the code path gets NČLP's own names only | 126 right · 7 unknown · 0 wrong · $0.0076 · 9.4 s | **127** · 6 · **0** · **$0.0060** · 8.7 s; 27 without a model; 114 carry a code | 111 · 20 · 1 confident wrong (`S_Vol.VK Fe` → iron) · $0.029 · 21.5 s |
+| 9 negatives (urine twins, tests the catalog lacks) | 9 | 9 | 9 |
+| 11 public-sheet names the catalog misses | 8 · 3 unknown | 8 · 3 | **11** · 0 |
+
+Judgment:
+- The lookup + catalog step keeps today's accuracy, is a little cheaper and
+  faster, and gives most decisions a standard code. That is what to switch on.
+- The shortlist does **not** hold up as a replacement on names the catalog
+  has never seen. It sees 20 NČLP rows where the catalog call sees all 344
+  entries by their everyday names. Its strength is the odd lab names
+  (11/11). A second try after "unknown" is the natural next step (cents per
+  new lab), not built.
+
+**Saved decisions:**
+- A person's click onto an entry is also saved as a scoped `person` alias
+  (when the alias switches are on), so it is the strongest decision and
+  withdrawable in the same place as the model's.
+- The `code` column is filled: `/api/aliases` accepts a 5-digit NČLP key,
+  anything else is stored as NULL.
+- Model answers and second opinions pass their code through.
+
+Round 5 spend: $0.10 (plus the code-table agent's $0.30 on its own branch,
+already in the loop total).
+
 ### Next, if the loop continues
 1. Ondřej runs the Mac check; the result goes here, then the settings in the summary.
-2. Save a person's click as a scoped `person` alias too, so a correction is the
-   strongest decision and is revocable in the same place.
+2. A shortlist second try for names the catalog step answers "unknown".
 3. Trendy wiring for unrecognised parameters + the draft-entry review queue (UI).
-4. Text-path output trimming (shorter keys, no `confidence`), only if speed matters.
+4. Split the ambiguous catalog entries along their codes (lab-codes.md, "Open").
 
 ## Spend ledger
 
@@ -722,10 +792,13 @@ Round 4 spend: $0.002.
 | 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_first.ts` (495 names) | Haiku 5.5 | 0.049 | 4.105 |
 | 2026-10-19 | same with `MAP_FIRST_RUNS=3` (492 names ×3, catalog cached) | Haiku 5.5 | 0.084 | **4.189** |
 
-| 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/second_opinion.ts` (13 weak matches) | Haiku 5.5 | 0.002 | **4.191** |
+| 2026-10-19 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/second_opinion.ts` (13 weak matches) | Haiku 5.5 | 0.002 | 4.191 |
+| 2026-10-19 | code-table agent, branch `claude/lab-codes` (`BENCH_HAIKU=1 npm run bench:codes`, see lab-codes.md) | Haiku 5.5 | 0.300 | 4.491 |
+| 2026-10-20 | `with-secrets bloodwork -- env MAP_CODES_LIMIT=20 npx vite-node --root . tests/bench/map_codes.ts` (smoke) | Haiku 5.5 | 0.013 | 4.504 |
+| 2026-10-20 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_codes.ts` ×2 (before/after the specimen fix, the second with the codes step) | Haiku 5.5 | 0.092 | **4.596** |
 
 Round 1: $2.57 of $3.50. Round 2: $1.48 of $3.00 (of which $0.95 chat evals,
 before the scope correction). Round 3: $0.13 of $2.50. Round 4: $0.002 of
-$2.00. Loop: **$4.19 of $10**. Keys from `bloodwork.env`
+$2.00. Round 5: $0.10 of $2.00. Code-table agent: $0.30. Loop: **$4.60 of $10**. Keys from `bloodwork.env`
 (shared with Klugscheisser/jobscan). Bench costs are priced with the corrected
 table (Sonnet $2/$10).

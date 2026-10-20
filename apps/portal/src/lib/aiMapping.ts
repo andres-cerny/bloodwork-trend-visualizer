@@ -94,6 +94,7 @@ export function judge(answer: AiMapAnswer, names: UnmappedAnalyte[], registry: R
       at,
     };
     if (s.decision === "new" && s.proposed) entry.proposed = s.proposed;
+    if (s.code) entry.code = s.code;
     if (s.decision === "not_blood") parked.push(a.rawName);
     if (s.decision === "catalog" && s.canonicalId && s.confidence === "high") {
       const def = registry.get(s.canonicalId);
@@ -217,7 +218,7 @@ export interface SecondOpinion {
   /** The entry the row maps to after this: the list's, the model's, or none. */
   canonicalId: string | null;
   /** The model's answer, as it would be shown. */
-  said: { decision: string; canonicalId: string | null; confidence: string; reason: string };
+  said: { decision: string; canonicalId: string | null; confidence: string; reason: string; code?: string | null };
 }
 
 export function judgeSecondOpinion(answer: AiMapAnswer, weak: WeakMatch[], registry: Registry, stats: Map<string, Observed>): SecondOpinion[] {
@@ -229,7 +230,7 @@ export function judgeSecondOpinion(answer: AiMapAnswer, weak: WeakMatch[], regis
       // Not answered is not a verdict: keep the list's match, ask again later.
       return { ...base, verdict: "skip" as const, canonicalId: w.listId, said: { decision: "unknown", canonicalId: null, confidence: "low", reason: NOT_ANSWERED } };
     }
-    const said = { decision: s.decision, canonicalId: s.decision === "catalog" ? s.canonicalId : null, confidence: s.confidence, reason: s.reason.slice(0, REASON_MAX) };
+    const said = { decision: s.decision, canonicalId: s.decision === "catalog" ? s.canonicalId : null, confidence: s.confidence, reason: s.reason.slice(0, REASON_MAX), code: s.code ?? null };
     if (s.decision === "catalog" && s.canonicalId === w.listId) return { ...base, verdict: "confirm" as const, canonicalId: w.listId, said };
     if (s.decision === "catalog" && s.canonicalId && s.confidence === "high") {
       const def = registry.get(s.canonicalId);

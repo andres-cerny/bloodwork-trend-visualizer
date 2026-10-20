@@ -47,6 +47,8 @@ export interface MapSuggestion {
   proposed: { id: string; displayNameCs: string; unit: string } | null;
   reason: string;
   confidence: "high" | "medium" | "low";
+  /** The NČLP code the answer rests on, when it came through the code table (codeMap.ts). */
+  code?: string | null;
 }
 
 export interface MapResult {

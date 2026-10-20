@@ -11,6 +11,7 @@
  * it that way.
  */
 import { MODEL_ESCALATION, MODEL_GEMINI, MODEL_MAP, MODEL_PRIMARY, resolveReaderModel } from "@bw/extraction";
+import { LabCodes, type LabCodeTable } from "@bw/lab-core";
 
 export type ReaderId = "sonnet" | "haiku" | "gemini";
 
@@ -110,3 +111,26 @@ export function photoReaders(env: ReaderEnv): { name: string; readers: readonly 
   }
   return { name: asked, readers: pair };
 }
+
+/**
+ * `MAP_MODE`: "codes" — `/api/map` first looks each name up in the lab-code
+ * table (a hit linked to one catalog entry needs no model), sends only the
+ * rest to today's whole-catalog call, and attaches the NČLP code to every
+ * answer it can; "codes-shortlist" — the model picks from 20 table rows per
+ * name instead (measured weaker, round 5). Unset or anything else: today.
+ * docs/plans/model-loop.md.
+ */
+export type MapModeEnv = { MAP_MODE?: string };
+export const mapByCodesOn = (env: MapModeEnv): boolean => env.MAP_MODE === "codes" || env.MAP_MODE === "codes-shortlist";
+export const mapCodeStep = (env: MapModeEnv): "catalog" | "shortlist" => (env.MAP_MODE === "codes-shortlist" ? "shortlist" : "catalog");
+
+let labCodes: Promise<LabCodes> | null = null;
+/**
+ * The compact, pre-normalised NČLP index (docs/plans/lab-codes.md,
+ * "Runtime"), bundled (~180 KiB gzip) but parsed only on the first mapping
+ * call that asks for it — an isolate with MAP_MODE unset never pays for it.
+ */
+export function codeTable(): Promise<LabCodes> {
+  return (labCodes ??= import("@bw/lab-core/codes/lab-codes.index.json").then((m) => new LabCodes((m.default ?? m) as unknown as LabCodeTable)));
+}
+

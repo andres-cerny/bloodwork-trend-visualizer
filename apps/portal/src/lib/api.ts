@@ -398,10 +398,12 @@ export interface SavedAlias {
   canonicalId: string | null;
   source: "person" | "model";
   model: string | null;
+  /** The NČLP code behind the decision, when known. */
+  code: string | null;
   mine: boolean;
 }
 export const listAliases = () => request<SavedAlias[]>("/api/aliases");
-export const teachAlias = (a: { lab: string; rawName: string; unit: string; canonicalId: string | null; source: "person" | "model"; model?: string }) =>
+export const teachAlias = (a: { lab: string; rawName: string; unit: string; canonicalId: string | null; source: "person" | "model"; model?: string; code?: string | null }) =>
   request<{ ok: true; taught: boolean }>("/api/aliases", jsonInit("PUT", a));
 export const forgetAlias = (a: { lab: string; rawName: string; unit: string }) =>
   request<{ ok: true; removed: boolean }>("/api/aliases", jsonInit("DELETE", a));
@@ -430,6 +432,8 @@ export interface MapSuggestion {
   proposed: { id: string; displayNameCs: string; unit: string } | null;
   reason: string;
   confidence: "high" | "medium" | "low";
+  /** The NČLP code the answer rests on (extract worker with MAP_MODE=codes). */
+  code?: string | null;
 }
 export interface AiMapAnswer {
   suggestions: MapSuggestion[];
@@ -453,6 +457,8 @@ export interface AiAskedEntry {
   at: string;
   /** For `new`: what it proposed, so the founding form opens with it after a reload. */
   proposed?: MapSuggestion["proposed"];
+  /** The NČLP code behind the answer, when the code table gave one. */
+  code?: string;
   applied?: true;
   asking?: true;
 }

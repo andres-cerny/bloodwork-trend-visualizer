@@ -67,6 +67,13 @@ export interface LabCodeRow {
   catalog?: string[];
   /** Method-specific NČLP keys of the same item. */
   methods?: string[];
+  /**
+   * The compact index's pre-normalised name keys (`codes/lab-codes.index.json`,
+   * tools/scripts/build-code-index.ts): when present, the constructor indexes
+   * these instead of running `normKey` over every name — what a worker should
+   * not pay per isolate start.
+   */
+  keys?: string[];
 }
 
 export interface LabCodeTable {
@@ -223,6 +230,10 @@ export class LabCodes {
       for (const m of row.methods ?? []) this.byCode.set(m, row);
       for (const l of row.loinc ?? []) this.push(this.byLoincCode, l, row);
       for (const c of row.catalog ?? []) this.push(this.byCatalog, c, row);
+      if (row.keys) {
+        for (const k of row.keys) this.push(this.byKey, k, row);
+        continue;
+      }
       const names: string[] = [];
       for (const [lang, n] of Object.entries(row.names)) {
         if (opts.languages && !opts.languages.includes(lang)) continue;
@@ -254,6 +265,11 @@ export class LabCodes {
     const a = m.get(k);
     if (!a) m.set(k, [v]);
     else if (!a.includes(v)) a.push(v);
+  }
+
+  /** Every name key with the rows it finds — what the compact index stores. */
+  keyEntries(): IterableIterator<[string, LabCodeRow[]]> {
+    return this.byKey.entries();
   }
 
   /** A row by its NČLP key; a method-specific key resolves to its generic row. */

@@ -522,6 +522,7 @@ async function listAliases(env: Env, user: UserRow): Promise<Response> {
       canonicalId: r.canonical_id,
       source: r.source,
       model: r.model,
+      code: r.code,
       mine: r.taught_by === user.id,
     })),
   );
@@ -540,6 +541,8 @@ async function teachAlias(request: Request, env: Env, user: UserRow): Promise<Re
   const canonicalId = b?.canonicalId === null ? null : typeof b?.canonicalId === "string" ? b.canonicalId : undefined;
   const source = b?.source === "model" ? "model" : b?.source === "person" || b?.source === undefined ? "person" : null;
   const model = source === "model" && typeof b?.model === "string" && MODEL_ID.test(b.model) ? b.model : null;
+  // The standard code behind the decision: an NČLP key (5 digits), when known.
+  const code = typeof b?.code === "string" && /^\d{5}$/.test(b.code) ? b.code : null;
   if (
     !rawName || rawName.length > MAX_RAW_NAME || lab.length > MAX_SCOPE || unit.length > MAX_SCOPE ||
     canonicalId === undefined || (canonicalId !== null && !CANONICAL_ID.test(canonicalId)) || source === null ||
@@ -549,7 +552,7 @@ async function teachAlias(request: Request, env: Env, user: UserRow): Promise<Re
   }
   const demo = await demoAccount(env);
   const r = await env.DB.prepare(SQL.upsertAlias)
-    .bind(lab, rawName, unit, canonicalId, source, model, user.id, new Date().toISOString(), demo?.id ?? null)
+    .bind(lab, rawName, unit, canonicalId, source, model, user.id, new Date().toISOString(), demo?.id ?? null, code)
     .run();
   return json({ ok: true, taught: !!r.meta && r.meta.changes === 1 });
 }

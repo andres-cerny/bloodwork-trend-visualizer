@@ -14,7 +14,7 @@ const SECRET = "test-portal-secret";
 interface Tables {
   users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null; session_epoch: number }>;
   synonyms: Array<{ raw_name: string; canonical_id: string; taught_by: string | null; created_at: string }>;
-  aliases?: Array<{ lab: string; raw_name: string; unit: string; canonical_id: string | null; source: string; model: string | null; taught_by: string | null; created_at: string }>;
+  aliases?: Array<{ lab: string; raw_name: string; unit: string; canonical_id: string | null; source: string; model: string | null; code?: string | null; taught_by: string | null; created_at: string }>;
 }
 
 function fakeD1(t: Tables): D1Database {
@@ -42,7 +42,7 @@ function fakeD1(t: Tables): D1Database {
       case SQL.upsertAlias: {
         // Mirrors the SQL's WHERE: owner (unless a model would replace a
         // person), nobody's, the demo's, or a person replacing a model.
-        const [lab, raw, unit, cid, source, model, by, at, demo] = a as [string, string, string, string | null, string, string | null, string, string, string | null];
+        const [lab, raw, unit, cid, source, model, by, at, demo, code] = a as [string, string, string, string | null, string, string | null, string, string, string | null, string | null];
         const rows = (t.aliases ??= []);
         const ex = rows.find((r) => r.lab === lab && r.raw_name === raw && r.unit === unit);
         if (ex) {
@@ -50,8 +50,8 @@ function fakeD1(t: Tables): D1Database {
             (ex.taught_by === by && !(ex.source === "person" && source === "model")) ||
             ex.taught_by === null || ex.taught_by === demo || (ex.source === "model" && source === "person");
           if (!may) return { results: [], changes: 0 };
-          Object.assign(ex, { canonical_id: cid, source, model, taught_by: by, created_at: at });
-        } else rows.push({ lab, raw_name: raw, unit, canonical_id: cid, source, model, taught_by: by, created_at: at });
+          Object.assign(ex, { canonical_id: cid, source, model, code, taught_by: by, created_at: at });
+        } else rows.push({ lab, raw_name: raw, unit, canonical_id: cid, source, model, code, taught_by: by, created_at: at });
         return { results: [], changes: 1 };
       }
       case SQL.deleteAlias: {
@@ -179,10 +179,13 @@ describe("taught spellings", () => {
 describe("scoped aliases (lab, printed name, unit)", () => {
   it("one account's decision is read by every account, with its scope and source", async () => {
     current = fresh();
-    const body = { lab: "Stod", rawName: "P_Protrombinový test", unit: "s", canonicalId: "pt_cas", source: "model", model: "claude-haiku-5-5" };
+    const body = { lab: "Stod", rawName: "P_Protrombinový test", unit: "s", canonicalId: "pt_cas", source: "model", model: "claude-haiku-5-5", code: "02213" };
     expect((await as("u-a", "PUT", "/api/aliases", body)).status).toBe(200);
     const seen = (await (await as("u-b", "GET", "/api/aliases")).json()) as any[];
-    expect(seen).toEqual([{ lab: "Stod", rawName: "P_Protrombinový test", unit: "s", canonicalId: "pt_cas", source: "model", model: "claude-haiku-5-5", mine: false }]);
+    expect(seen).toEqual([{ lab: "Stod", rawName: "P_Protrombinový test", unit: "s", canonicalId: "pt_cas", source: "model", model: "claude-haiku-5-5", code: "02213", mine: false }]);
+    // A malformed code is dropped, not stored.
+    await as("u-a", "PUT", "/api/aliases", { ...body, code: "DROP TABLE" });
+    expect(current.aliases![0].code).toBeNull();
   });
 
   it("a person's decision replaces a model's; a model's never replaces a person's", async () => {

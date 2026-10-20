@@ -113,10 +113,10 @@ export const SQL = {
   // Scoped aliases (lab, printed name, unit). The write keeps the row's owner
   // unless the row is nobody's, the demo's (?9), or a model's being replaced by
   // a person — and a model never replaces a person's.
-  allAliases: "SELECT lab, raw_name, unit, canonical_id, source, model, taught_by FROM aliases ORDER BY created_at",
+  allAliases: "SELECT lab, raw_name, unit, canonical_id, source, model, code, taught_by FROM aliases ORDER BY created_at",
   upsertAlias:
-    "INSERT INTO aliases (lab, raw_name, unit, canonical_id, source, model, taught_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) " +
-    "ON CONFLICT(lab, raw_name, unit) DO UPDATE SET canonical_id = excluded.canonical_id, source = excluded.source, model = excluded.model, taught_by = excluded.taught_by, created_at = excluded.created_at " +
+    "INSERT INTO aliases (lab, raw_name, unit, canonical_id, source, model, taught_by, created_at, code) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?10) " +
+    "ON CONFLICT(lab, raw_name, unit) DO UPDATE SET canonical_id = excluded.canonical_id, source = excluded.source, model = excluded.model, taught_by = excluded.taught_by, created_at = excluded.created_at, code = excluded.code " +
     "WHERE (aliases.taught_by = excluded.taught_by AND NOT (aliases.source = 'person' AND excluded.source = 'model')) " +
     "OR aliases.taught_by IS NULL OR aliases.taught_by = ?9 OR (aliases.source = 'model' AND excluded.source = 'person')",
   deleteAlias: "DELETE FROM aliases WHERE lab = ?1 AND raw_name = ?2 AND unit = ?3 AND taught_by = ?4",
@@ -312,5 +312,6 @@ export interface AliasRow {
   canonical_id: string | null;
   source: "person" | "model";
   model: string | null;
+  code: string | null;
   taught_by: string | null;
 }

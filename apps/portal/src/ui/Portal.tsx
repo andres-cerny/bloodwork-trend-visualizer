@@ -271,7 +271,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
             { reports: loaded, registry: reg, stats: observedStats(loaded), ask: (names, catalog) => suggestWithAi(names, catalog) },
             {
               save: (o, model) =>
-                void teachAlias({ lab: o.lab ?? "", rawName: o.rawName, unit: o.unit, canonicalId: o.canonicalId, source: "model", model }).catch(() => undefined),
+                void teachAlias({ lab: o.lab ?? "", rawName: o.rawName, unit: o.unit, canonicalId: o.canonicalId, source: "model", model, code: o.said.code ?? null }).catch(() => undefined),
             },
           ).then(({ decided }) => {
             if (decided.length === 0) return;
@@ -520,6 +520,14 @@ export default function Portal({ email, demo, onLogout }: Props) {
       // here too. Best effort — the account's own mapping is already saved.
       // Not from the demo: a stranger's click must not relabel every family's names.
       if (isShipped(canonicalId) && !demo) teachSynonym(rawName, canonicalId).catch(() => undefined);
+      // With the scoped decisions on, the click is also saved as this lab's
+      // decision for this name and unit, marked as a person's: the strongest
+      // there is (a model's never replaces it), withdrawable in the same place.
+      if (SCOPED_ALIASES && !demo) {
+        const scope = scopeOf(rawName, reportsRef.current);
+        registry.addScopedAlias({ lab: scope.lab || null, unit: scope.unit || null }, rawName, canonicalId);
+        teachAlias({ ...scope, rawName, canonicalId, source: "person" }).catch(() => undefined);
+      }
     },
     [registry, remap, saveLearned, isShipped, demo],
   );
@@ -555,7 +563,8 @@ export default function Portal({ email, demo, onLogout }: Props) {
       if (!demo) {
         for (const { rawName, canonicalId } of sharedLessons(judged, isShipped, SHARE_AI_MAPPINGS)) {
           const scope = scopeOf(rawName, reportsRef.current);
-          teachAlias({ ...scope, rawName, canonicalId, source: "model", model: judged.entries[rawName]?.model || "unknown" }).catch(() => undefined);
+          const e = judged.entries[rawName];
+          teachAlias({ ...scope, rawName, canonicalId, source: "model", model: e?.model || "unknown", code: e?.code ?? null }).catch(() => undefined);
         }
       }
     },
