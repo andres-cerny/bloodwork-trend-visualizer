@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pymupdf python-dotenv
+      - run: pip install -r tools/pipeline/requirements.txt
 
       # The deterministic parsing layer exists twice — Python for the local
       # pipeline, TypeScript for the browser. These run the same shared fixture
