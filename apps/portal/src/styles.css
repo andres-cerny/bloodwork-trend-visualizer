@@ -994,3 +994,100 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
 .date-ask-img { display: block; width: 100%; max-height: 50vh; object-fit: contain; object-position: top; border: 1px solid var(--border); border-radius: var(--radius); margin: 8px 0; background: var(--surface-2); }
 .date-ask-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 8px; }
 .date-ask-row label { display: grid; gap: 4px; }
+
+/* Mapping decisions on screen (docs/plans/model-loop.md, "still to build") ---- */
+/*
+ * Three marks, one quiet language: nothing here uses a signal colour, because
+ * „unrecognised" and „added automatically" are facts about a name, not about
+ * a value — the red and the accent stay for meaning what they mean. A dashed
+ * edge is the shared sign for „not from our own list": the unrecognised chip
+ * and card, the „přidáno automaticky" mark, the automatic decisions' label.
+ */
+.chip.unrec {
+  background: var(--surface-1); color: var(--ink-2);
+  border: 1px dashed var(--border-strong); padding: 1px 7px;
+}
+.trend-card h3 .chip.unrec { align-self: center; margin-right: 0; }
+.trend-card.unrec { border-style: dashed; border-color: var(--border-strong); }
+/* The unrecognised card's sentence and its way to a parameter. */
+.unrec-note {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 0 0 9px; padding: 8px 11px; border-radius: var(--radius-sm);
+  font-size: 0.84rem; background: var(--surface-3); color: var(--ink-2);
+  border-left: 3px dashed var(--border-strong);
+}
+.unrec-note p { margin: 0; flex: 1 1 16rem; min-width: 0; }
+.unrec-note strong { color: var(--ink-1); }
+
+/* „přidáno automaticky" (AutoMark.tsx): a 24px target in the name's line. */
+.auto-mark {
+  display: inline-flex; align-items: center; flex: 0 0 auto;
+  min-height: 24px; padding: 0 8px; margin: -3px 0 -3px 6px;
+  border: 1px dashed var(--border-strong); border-radius: 999px;
+  background: var(--surface-1); color: var(--ink-muted);
+  font: inherit; font-size: 0.72rem; font-weight: 500; font-style: normal; line-height: 1.2;
+  white-space: nowrap; vertical-align: middle; cursor: pointer;
+  transition: background 110ms ease, border-color 110ms ease;
+}
+.auto-mark:hover { background: var(--surface-3); color: var(--ink-1); border-color: var(--ink-muted); }
+.auto-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.auto-mark.static { margin: 0; cursor: default; }
+.trend-card h3 .auto-mark { margin-left: 0; align-self: center; }
+
+/* The sheet about one printed name (NameSheet.tsx). */
+.name-sheet p { margin: 8px 0 0; font-size: 0.9rem; line-height: 1.5; color: var(--ink-2); }
+.name-sheet p strong { color: var(--ink-1); }
+.name-sheet .section-title { margin: 16px 0 6px; }
+.name-sheet .ns-lead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.name-sheet .ns-lead .chip { margin-right: 0; }
+.ns-facts {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px;
+  margin: 10px 0 0; padding: 8px 11px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border); font-size: 0.86rem;
+}
+.ns-facts dt { color: var(--ink-muted); }
+.ns-facts dd { margin: 0; color: var(--ink-1); overflow-wrap: anywhere; }
+.ns-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ns-actions .picker.inline { flex: 1 1 100%; }
+.ns-lead-cand {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.ns-lead-cand > span { min-width: 0; overflow-wrap: anywhere; }
+.name-sheet .ns-more { margin-top: 14px; font-size: 0.84rem; }
+.name-sheet .ns-more .btn.linkish { padding: 0; min-height: 24px; font-size: inherit; }
+/* The picker in the flow of the sheet, not floating over a card. */
+.picker.inline {
+  position: static; width: auto; padding: 0; border: none; box-shadow: none; background: none;
+}
+.picker.inline ul.picker-list { max-height: 38vh; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+
+/* „Jak čteme názvy z laboratoří" (NamesCard.tsx), in Reporty. */
+.names-lab { margin-top: 10px; }
+.names-lab > summary {
+  cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px;
+  min-height: 24px; padding: 4px 0; font-size: 0.92rem;
+}
+.names-lab > summary .nl-lab { color: var(--ink-1); font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+ul.names-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+ul.names-list li {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2); font-size: 0.86rem;
+}
+.nl-line { margin: 0; flex: 1 1 14rem; min-width: 0; overflow-wrap: anywhere; color: var(--ink-2); }
+.nl-line strong { color: var(--ink-1); }
+.nl-raw { color: var(--ink-1); }
+.nl-from { display: block; font-size: 0.8rem; margin-top: 2px; }
+.nl-note { margin: 0 0 4px; font-size: 0.84rem; }
+.nl-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nl-confirm { display: inline-flex; gap: 6px; }
+.who {
+  display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.74rem;
+  background: var(--chip); color: var(--ink-2); white-space: nowrap; border: 1px solid transparent;
+}
+.who-auto { background: var(--surface-1); border: 1px dashed var(--border-strong); color: var(--ink-muted); }
+.who-shared { background: none; border-color: var(--border); color: var(--ink-muted); }
+
+/* A sheet's decision, said once with its way back. */
+.notice-actions { display: inline-flex; gap: 6px; }

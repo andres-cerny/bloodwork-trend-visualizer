@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import AboutParam, { type About } from "./AboutParam";
+import Mark from "./Mark";
 import AnalytePicker, { type PickerOption } from "./AnalytePicker";
 import { TrendChart } from "@bw/ui-kit";
 import Flag from "./Flag";
@@ -60,9 +61,25 @@ export default function TrendsTab({
   open = null,
   onVerify,
   aboutOf,
+  unrecognised,
+  labOf,
+  onAssign,
 }: {
   trends: Map<string, Trend>;
   unmappedNames?: string[];
+  /**
+   * Readings no parameter claims, each lab's printed name in its unit as a
+   * series of its own (`buildTrends` `opts.unrecognised`) — a separate map,
+   * so they are listed, picked and drawn apart from the recognised ones and
+   * never on the same chart. Undefined (VITE_UNRECOGNISED_TRENDS off): the
+   * tab is exactly as before, with its „N parametrů se nezobrazuje".
+   */
+  unrecognised?: Map<string, Trend>;
+  /** The lab an unrecognised series was printed by, for its card. */
+  labOf?: (t: Trend) => string | null;
+  /** „Přiřadit ke známému parametru" on an unrecognised series' card. */
+  onAssign?: (t: Trend) => void;
+
   /** Opens Ověření at one printed row — the way out of a doubted value. */
   onVerify?: (reportId: string, rawName: string) => void;
   /** A parameter another screen asked to see; `seq` makes a repeat a new ask. */
@@ -71,7 +88,14 @@ export default function TrendsTab({
   aboutOf?: (canonicalId: string) => About | undefined;
 }) {
   const unmappedCount = unmappedNames.length;
-  const all = useMemo(() => sortTrends([...trends.values()]), [trends]);
+  const known = useMemo(() => sortTrends([...trends.values()]), [trends]);
+  const unknown = useMemo(
+    () => [...(unrecognised?.values() ?? [])].sort((a, b) => a.displayName.localeCompare(b.displayName, "cs")),
+    [unrecognised],
+  );
+  // One list for the picker and the cards, the recognised first; a series
+  // keeps its own kind wherever it goes (`recognised: false`).
+  const all = useMemo(() => [...known, ...unknown], [known, unknown]);
   // Chosen analytes, in the order they were added.
   const [shownIds, setShownIds] = useState<string[]>([]);
   const [picking, setPicking] = useState(false);
@@ -93,8 +117,8 @@ export default function TrendsTab({
     .map((t) => ({
       id: t.canonicalId,
       label: t.displayName,
-      note: noteFor(t),
-      outOfRange: outNow(t),
+      note: t.recognised === false ? "nerozpoznáno" : noteFor(t),
+      outOfRange: t.recognised === false ? false : outNow(t),
     }));
 
   const add = (id: string) => {
@@ -102,12 +126,19 @@ export default function TrendsTab({
     setPicking(false);
   };
 
-  const suggested = all.filter(outNow).slice(0, 6);
+  const suggested = known.filter(outNow).slice(0, 6);
 
   return (
     <>
       <div className="card toolbar-card">
-        {unmappedCount > 0 && (
+        {unrecognised && unknown.length > 0 && (
+          <p className="sub" style={{ marginTop: 0 }}>
+            {count(unknown.length, "název", "názvy", "názvů")} z laboratoře zatím nerozpoznáváme — každý má vlastní graf
+            pod svým názvem, označený <span className="chip unrec">nerozpoznáno</span>, a s ostatními parametry
+            se nemíchá. Přiřadit ho můžete přímo u grafu nebo v záložce <strong>Přiřazení</strong>.
+          </p>
+        )}
+        {!unrecognised && unmappedCount > 0 && (
           <p className="sub" style={{ marginTop: 0 }}>
             Pozor: {count(unmappedCount, "parametr se", "parametry se", "parametrů se")}{" "}
             {plural(unmappedCount, "nezobrazuje", "nezobrazují", "nezobrazuje")} — zatím
@@ -164,17 +195,36 @@ export default function TrendsTab({
               </div>
             </>
           )}
+          {unknown.length > 0 && (
+            <>
+              <p className="section-title">Zatím nerozpoznané</p>
+              <div className="suggestions">
+                {unknown.map((t) => (
+                  <button key={t.canonicalId} className="btn small" onClick={() => add(t.canonicalId)}>
+                    {t.displayName} <span className="chip unrec">nerozpoznáno</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className={`trend-grid${shown.length > 1 ? " multi" : ""}`}>
           {shown.map((t) => (
-            <div className="card trend-card" key={t.canonicalId}>
+            <div className={t.recognised === false ? "card trend-card unrec" : "card trend-card"} key={t.canonicalId}>
               <h3>
                 <span>{t.displayName}</span>
-                <AboutParam name={t.displayName} about={aboutOf?.(t.canonicalId)} />
+                {t.recognised === false ? (
+                  <span className="chip unrec">nerozpoznáno</span>
+                ) : (
+                  <>
+                    <AboutParam name={t.displayName} about={aboutOf?.(t.canonicalId)} />
+                    <Mark id={t.canonicalId} />
+                  </>
+                )}
                 {t.unit && <span className="unit">{prettyUnit(t.unit)}</span>}
                 <span className="spacer" />
-                {outNow(t) && <span className="chip alert">mimo rozmezí</span>}
+                {t.recognised !== false && outNow(t) && <span className="chip alert">mimo rozmezí</span>}
                 <button
                   className="rl-x"
                   aria-label={`Odebrat ${t.displayName} ze zobrazení`}
@@ -184,6 +234,23 @@ export default function TrendsTab({
                   ✕
                 </button>
               </h3>
+
+              {/* Its own series, under the lab's name: said in words, with the
+                  way to the parameter it may be. */}
+              {t.recognised === false && (
+                <div className="unrec-note">
+                  <p>
+                    Tento název{labOf?.(t) ? <> z laboratoře <strong>{labOf(t)}</strong></> : null} zatím neumíme
+                    přiřadit k žádnému známému parametru. Graf ukazuje jen jeho vlastní hodnoty a rozmezí, které
+                    vytiskla laboratoř.
+                  </p>
+                  {onAssign && (
+                    <button type="button" className="btn small" onClick={() => onAssign(t)}>
+                      Přiřadit ke známému parametru
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* A reading held out of the series has to be visible here, not
                   only in Ověření. This is the screen a patient is shown, and a

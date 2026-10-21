@@ -20,6 +20,7 @@ tests/e2e/zz*.e2e.ts
 # "node_modules/" matches only directories — one was committed that way.
 node_modules
 dist/
+dist-mapping-ui/
 .wrangler/
 
 # Secrets / config

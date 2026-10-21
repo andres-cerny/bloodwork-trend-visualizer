@@ -76,6 +76,7 @@ import {
 } from "@bw/lab-core";
 import { Sparkline } from "@bw/ui-kit";
 import AboutParam, { type About } from "./AboutParam";
+import Mark from "./Mark";
 import { type PickerOption } from "./AnalytePicker";
 import SearchParam from "./SearchParam";
 import FlagChip from "./Flag";
@@ -216,7 +217,8 @@ function Group({
               >
                 {r.displayName}
               </button>
-              <AboutParam name={r.displayName} about={aboutOf?.(r.canonicalId)} />{" "}
+              <AboutParam name={r.displayName} about={aboutOf?.(r.canonicalId)} />
+                    <Mark id={r.canonicalId} />{" "}
               <strong className={isOut(r.newer.flag) ? "out" : undefined}>
                 {czExact(r.newer.value, r.newer.valueRaw)} {prettyUnit(trends.get(r.canonicalId)?.unit)}
               </strong>
@@ -268,6 +270,7 @@ function Table({ records, trends, onOpenTrend, aboutOf, caption, id }: { records
                       {r.displayName}
                     </button>
                     <AboutParam name={r.displayName} about={aboutOf?.(r.canonicalId)} />
+                    <Mark id={r.canonicalId} />
                     <span className="muted sum-wide" style={{ display: "block" }}>
                       {czDate(r.older.date)} → {czDate(r.newer.date)}
                     </span>
@@ -393,6 +396,7 @@ function LatestTable({ rows, onOpenTrend, aboutOf, caption, id }: { rows: Latest
                       {r.displayName}
                     </button>
                     <AboutParam name={r.displayName} about={aboutOf?.(r.canonicalId)} />
+                    <Mark id={r.canonicalId} />
                   </td>
                   <td className="num">
                     <strong className={r.outOfRange ? "out" : undefined}>{czExact(p.value, p.valueRaw)}</strong>{" "}
