@@ -187,7 +187,8 @@ CREATE TABLE IF NOT EXISTS auto_entries (
   raw_name     TEXT NOT NULL,
   model        TEXT,
   created_by   TEXT REFERENCES users(id),
-  created_at   TEXT NOT NULL
+  created_at   TEXT NOT NULL,
+  mat          TEXT NOT NULL DEFAULT ''
 );
 
 -- One row per document an account opened for extraction, keyed by the report

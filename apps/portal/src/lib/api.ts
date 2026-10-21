@@ -409,13 +409,15 @@ export interface AutoEntry {
   code: string;
   nameCs: string;
   unit: string;
+  /** The NČLP row's specimen (s, p, b, u, du); "" when unknown. */
+  material: string;
   rawName: string;
   model: string | null;
   at: string;
   mine: boolean;
 }
 export const listAutoEntries = () => request<AutoEntry[]>("/api/auto-entries");
-export const addAutoEntry = (e: { code: string; nameCs: string; unit: string; rawName: string; model?: string }) =>
+export const addAutoEntry = (e: { code: string; nameCs: string; unit: string; rawName: string; material?: string; model?: string }) =>
   request<{ ok: true; added: boolean }>("/api/auto-entries", jsonInit("PUT", e));
 export const teachAlias = (a: { lab: string; rawName: string; unit: string; canonicalId: string | null; source: "person" | "model"; model?: string; code?: string | null }) =>
   request<{ ok: true; taught: boolean }>("/api/aliases", jsonInit("PUT", a));
@@ -443,7 +445,7 @@ export interface MapSuggestion {
   rawName: string;
   decision: "catalog" | "new" | "not_blood" | "unknown";
   canonicalId: string | null;
-  proposed: { id: string; displayNameCs: string; unit: string } | null;
+  proposed: { id: string; displayNameCs: string; unit: string; material?: string } | null;
   reason: string;
   confidence: "high" | "medium" | "low";
   /** The NČLP code the answer rests on (extract worker with MAP_MODE=codes). */
@@ -477,8 +479,8 @@ export interface AiAskedEntry {
   asking?: true;
 }
 export type AiAsked = Record<string, AiAskedEntry>;
-export const suggestWithAi = (names: NameToMap[], catalog: CatalogEntry[]) =>
-  request<AiMapAnswer>("/api/map", jsonInit("POST", { names, catalog }));
+export const suggestWithAi = (names: NameToMap[], catalog: CatalogEntry[], purpose?: "second-opinion") =>
+  request<AiMapAnswer>("/api/map", jsonInit("POST", { names, catalog, ...(purpose ? { purpose } : {}) }));
 
 export const getSettings = () => request<Settings>("/api/settings");
 export const putSettings = (s: Settings, rev?: number | null) => request<{ ok: true; rev?: number | null }>("/api/settings", withRev(jsonInit("PUT", s), rev));

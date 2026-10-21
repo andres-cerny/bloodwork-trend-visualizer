@@ -152,9 +152,9 @@ export const SQL = {
 
   // Catalog entries added without a person (VITE_AUTO_ENTRIES). The first
   // writer of a code keeps it; deleting needs the creator.
-  allAutoEntries: "SELECT code, name_cs, unit, raw_name, model, created_by, created_at FROM auto_entries ORDER BY created_at",
+  allAutoEntries: "SELECT code, name_cs, unit, mat, raw_name, model, created_by, created_at FROM auto_entries ORDER BY created_at",
   insertAutoEntry:
-    "INSERT INTO auto_entries (code, name_cs, unit, raw_name, model, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(code) DO NOTHING",
+    "INSERT INTO auto_entries (code, name_cs, unit, raw_name, model, created_by, created_at, mat) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT(code) DO NOTHING",
   deleteAutoEntry: "DELETE FROM auto_entries WHERE code = ?1 AND created_by = ?2",
   deleteDocumentsForUser: "DELETE FROM documents WHERE user_id = ?1",
   // A payment's record stays; whose it was does not.
@@ -317,6 +317,7 @@ export interface AutoEntryRow {
   code: string;
   name_cs: string;
   unit: string;
+  mat: string;
   raw_name: string;
   model: string | null;
   created_by: string | null;

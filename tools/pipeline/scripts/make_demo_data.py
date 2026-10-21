@@ -46,6 +46,7 @@ sys.path.insert(0, str(ROOT))
 from src.matching import Registry, norm_key  # noqa: E402
 from src.models import AnalyteDef, Measurement  # noqa: E402
 from src.normalize import normalize_measurement  # noqa: E402
+from scripts.seed_registry import SPLITS  # noqa: E402
 
 OUT = ROOT / "apps" / "bloodwork" / "public" / "demo"
 IMG_DIR = OUT / "pages"
@@ -358,6 +359,10 @@ def main() -> None:
             "unitConversions": a["unit_conversions"],
             "referenceRange": REF_RANGES.get(a["canonical_id"]),
             **({"about": ABOUT[a["canonical_id"]]} if a["canonical_id"] in ABOUT else {}),
+            # An entry split out of another (seed_registry.SPLITS): the
+            # portal moves a stored row from the old entry to this one when
+            # its printed name now resolves here (lab-core rematchReport).
+            **({"splitFrom": SPLITS[a["canonical_id"]][0]} if a["canonical_id"] in SPLITS else {}),
         } for a in slim], ensure_ascii=False, indent=1))
     for dest in (OUT / "registry.json", ROOT / "apps" / "portal" / "public" / "registry.json"):
         dest.parent.mkdir(parents=True, exist_ok=True)

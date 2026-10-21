@@ -222,7 +222,19 @@ export function rematchReport(report: LabReport, registry: Registry): LabReport 
       changed = true;
       return { ...m, canonicalId: scoped };
     }
-    if (m.canonicalId !== null) return m;
+    if (m.canonicalId !== null) {
+      // A catalog split (AnalyteDef.splitFrom): a row filed under the old
+      // entry whose printed name now resolves to the entry split out of it
+      // moves there — and only there. A name the account itself filed under
+      // the old entry (learned, which outranks the catalog in `match`) still
+      // resolves to the old entry and stays.
+      const now = registry.match(m.rawAnalyteName, materialOf(m, report)?.code ?? null);
+      if (now && now !== m.canonicalId && registry.get(now)?.splitFrom === m.canonicalId) {
+        changed = true;
+        return { ...m, canonicalId: now };
+      }
+      return m;
+    }
     const id = registry.match(m.rawAnalyteName, materialOf(m, report)?.code ?? null);
     if (id === null) return m;
     changed = true;
