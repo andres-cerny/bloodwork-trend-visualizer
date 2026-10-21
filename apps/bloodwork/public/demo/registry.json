@@ -2028,20 +2028,12 @@
    "LDL chol.",
    "S_LDL-cholesterol",
    "LDLC",
-   "LDL cholesterol - výpočet",
-   "LDL cholesterol (výpočet)",
-   "S_LDL cholesterol - výpočet",
-   "LDL-cholesterol (Friedewald)",
-   "LDL cholesterol (Friedewald)",
-   "Cholesterol LDL (výpočet)",
-   "Cholesterol LDL - výpočet",
    "LDL cholesterol přímý",
    "LDL cholesterol (přímé stanovení)",
    "S_LDL cholesterol přímé stanovení",
    "LDL-CH",
    "LDLV",
-   "LDL cholesterol v séru",
-   "V_LDL cholesterol (Friedewald)"
+   "LDL cholesterol v séru"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {
@@ -5009,7 +5001,6 @@
   "displayNameCs": "Neutrofily",
   "synonyms": [
    "B_Neutrofily",
-   "Granulocyty",
    "B_Neutrofily - relativně",
    "Neutrofilní granulocyty",
    "Neutrofily relativní",
@@ -5191,7 +5182,6 @@
   "displayNameCs": "Neutrofily (absolutní)",
   "synonyms": [
    "B_Neutrofily #",
-   "Gra granulocyty",
    "Neutrofily-abs",
    "B_Neutrofily - abs.počet",
    "Neutrofily absolutní",
@@ -6673,7 +6663,6 @@
    "D-dimery kvantitativně",
    "D-dimery kvantitativní",
    "D-dimér",
-   "D-dimery (DDU)",
    "D-dimer (FEU)",
    "DD_FEU"
   ],
@@ -6685,9 +6674,7 @@
    "ng/ml": 1.0,
    "ng/ml FEU": 1.0,
    "µg/ml": 1000.0,
-   "µg/ml FEU": 1000.0,
-   "µg/l DDU": 1.0,
-   "mg/l DDU": 1000.0
+   "µg/ml FEU": 1000.0
   },
   "referenceRange": [
    0,
@@ -8839,8 +8826,6 @@
   "canonicalId": "vapnik_ionizovany",
   "displayNameCs": "Vápník ionizovaný",
   "synonyms": [
-   "S_Vápník ioniz.-výpočet",
-   "V_Ca ionizované - výpočet",
    "Ca ionizovaný",
    "S_Ca ionizovaný",
    "B_Ca ionizovaný",
@@ -8850,14 +8835,12 @@
    "Vápník ionizovaný",
    "B_Vápník ionizovaný",
    "S_Vápník ionizovaný",
-   "Vápník ionizovaný - výpočet",
    "Vápnik ionizovaný",
    "Ca ionizované",
    "Ionizované kalcium",
    "Ca ion.",
    "S_Ca ion.",
    "Cai",
-   "Vápník ionizovaný (výpočet)",
    "S_Ionizovaný Ca",
    "B_iVápník"
   ],
@@ -9363,7 +9346,6 @@
   "canonicalId": "parathormon",
   "displayNameCs": "Parathormon (PTH)",
   "synonyms": [
-   "S_biointaktní 1-84 parathormon",
    "S_Parathormon",
    "PTH",
    "PTH intaktní",
@@ -9378,7 +9360,6 @@
    "S_Parathyrin",
    "Parathormón",
    "Parathormón intaktný",
-   "PTH 1-84",
    "PTH (parathormon)",
    "Parathormon = parathyrin - intaktní (PTH)",
    "P_Parathormon",
@@ -9572,13 +9553,9 @@
   "displayNameCs": "Anti-HAV IgG",
   "synonyms": [
    "S_Anti-HAV IgG",
-   "Anti-HAV celkové",
-   "anti-HAV total",
-   "Anti-HAV total",
    "Anti-HAV IgG",
    "Anti HAV IgG",
    "HAV protilátky IgG",
-   "Anti-HAV (celkové)",
    "Anti-HAV",
    "S_Anti-HAV",
    "Hepatitida A IgG",
@@ -9888,5 +9865,139 @@
    "what": "Saturace hemoglobinu kyslíkem (sO2) je podíl hemoglobinu, který právě nese kyslík.",
    "usedFor": "Je součástí vyšetření krevních plynů; ukazuje, jak dobře krev přenáší kyslík."
   }
+ },
+ {
+  "canonicalId": "granulocyty",
+  "displayNameCs": "Granulocyty",
+  "synonyms": [
+   "Granulocyty"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {
+   "": 100.0
+  },
+  "referenceRange": null,
+  "about": {
+   "what": "Granulocyty jsou bílé krvinky s granuly v cytoplazmě: neutrofily, eozinofily a bazofily dohromady; některé analyzátory je vykazují jako jednu skupinu.",
+   "usedFor": "Podíl granulocytů se sleduje v krevním obraze při posuzování zánětů a infekcí; je to jiné číslo než samotné neutrofily."
+  },
+  "splitFrom": "neutrofily"
+ },
+ {
+  "canonicalId": "granulocyty_abs",
+  "displayNameCs": "Granulocyty (absolutní počet)",
+  "synonyms": [
+   "Gra granulocyty"
+  ],
+  "canonicalUnit": "10^9/l",
+  "unitConversions": {},
+  "referenceRange": null,
+  "about": {
+   "what": "Absolutní počet granulocytů v litru krve: neutrofily, eozinofily a bazofily dohromady.",
+   "usedFor": "Sleduje se v krevním obraze při posuzování zánětů a infekcí; je o něco vyšší než absolutní počet samotných neutrofilů."
+  },
+  "splitFrom": "neutrofily_abs"
+ },
+ {
+  "canonicalId": "ldl_vypocet",
+  "displayNameCs": "LDL cholesterol (výpočet)",
+  "synonyms": [
+   "LDL cholesterol - výpočet",
+   "LDL cholesterol (výpočet)",
+   "S_LDL cholesterol - výpočet",
+   "LDL-cholesterol (Friedewald)",
+   "LDL cholesterol (Friedewald)",
+   "Cholesterol LDL (výpočet)",
+   "Cholesterol LDL - výpočet",
+   "V_LDL cholesterol (Friedewald)"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {
+   "mg/dl": 0.02586
+  },
+  "referenceRange": [
+   1.2,
+   3.0
+  ],
+  "about": {
+   "what": "LDL cholesterol vypočtený z celkového cholesterolu, HDL a triacylglycerolů (například podle Friedewalda), ne přímo změřený.",
+   "usedFor": "Slouží k posouzení rizika aterosklerózy; při vysokých triacylglycerolech se od přímo změřeného LDL liší, proto se vede zvlášť."
+  },
+  "splitFrom": "ldl"
+ },
+ {
+  "canonicalId": "parathormon_1_84",
+  "displayNameCs": "Parathormon biointaktní (1-84)",
+  "synonyms": [
+   "S_biointaktní 1-84 parathormon",
+   "PTH 1-84"
+  ],
+  "canonicalUnit": "pmol/l",
+  "unitConversions": {
+   "ng/l": 0.1055,
+   "pg/ml": 0.1055
+  },
+  "referenceRange": null,
+  "about": {
+   "what": "Biointaktní parathormon (1-84) je jen úplná, biologicky aktivní molekula hormonu příštítných tělísek; běžný „intaktní“ test zachytí i některé její úlomky.",
+   "usedFor": "Sleduje se u poruch vápníku a ledvin; jeho hodnoty jsou nižší než u intaktního parathormonu, proto se vede zvlášť."
+  },
+  "splitFrom": "parathormon"
+ },
+ {
+  "canonicalId": "vapnik_ionizovany_vypocet",
+  "displayNameCs": "Vápník ionizovaný (výpočet)",
+  "synonyms": [
+   "S_Vápník ioniz.-výpočet",
+   "V_Ca ionizované - výpočet",
+   "Vápník ionizovaný - výpočet",
+   "Vápník ionizovaný (výpočet)"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {},
+  "referenceRange": [
+   1.15,
+   1.33
+  ],
+  "about": {
+   "what": "Ionizovaný vápník odhadnutý výpočtem z celkového vápníku a bílkovin, ne přímo změřený.",
+   "usedFor": "Pomáhá posoudit volný vápník v krvi; od přímo změřeného ionizovaného vápníku se může lišit, proto se vede zvlášť."
+  },
+  "splitFrom": "vapnik_ionizovany"
+ },
+ {
+  "canonicalId": "d_dimery_ddu",
+  "displayNameCs": "D-dimery (DDU)",
+  "synonyms": [
+   "D-dimery (DDU)"
+  ],
+  "canonicalUnit": "µg/l DDU",
+  "unitConversions": {
+   "mg/l DDU": 1000.0
+  },
+  "referenceRange": null,
+  "about": {
+   "what": "D-dimery vyjádřené v jednotkách DDU (D-dimer units), které dávají zhruba poloviční čísla než běžnější jednotky FEU.",
+   "usedFor": "Používají se při podezření na krevní sraženinu; s výsledky v FEU se nesmí přímo srovnávat, proto se vedou zvlášť."
+  },
+  "splitFrom": "d_dimery"
+ },
+ {
+  "canonicalId": "anti_hav_celkove",
+  "displayNameCs": "Anti-HAV celkové protilátky",
+  "synonyms": [
+   "Anti-HAV celkové",
+   "anti-HAV total",
+   "Anti-HAV total",
+   "Anti-HAV (celkové)"
+  ],
+  "canonicalUnit": "arb.j.",
+  "unitConversions": {},
+  "referenceRange": null,
+  "about": {
+   "what": "Celkové protilátky proti viru hepatitidy A (IgG i IgM dohromady).",
+   "usedFor": "Ukazují, zda člověk hepatitidu A prodělal nebo byl očkován; je to jiný test než protilátky IgG samotné."
+  },
+  "splitFrom": "anti_hav_igg"
  }
 ]

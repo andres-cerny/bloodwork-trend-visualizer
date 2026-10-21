@@ -1572,18 +1572,64 @@ PUBLIC_SHEET_SYNONYMS: dict[str, list[str]] = {
 }
 
 
+# Entries split along their NČLP codes (2026-10-21, docs/plans/model-loop.md
+# round 7): one catalog entry held printed names of two different
+# measurements, so their readings shared a trend. A split moves the names
+# that can only mean the second measurement to a new entry; the old entry
+# keeps everything that could be either. Only measurements that are genuinely
+# different are split — a mass/molar pair with a fixed factor stays one entry
+# with its conversion. Names that a lab may print for either (plain
+# "Troponin T", "Bilirubin přímý", "beta-hCG") are not moved, which is why
+# troponin hs/conventional, direct/conjugated bilirubin and total/beta hCG
+# stay unsplit: a split by an unreliable name would cut one test's trend in
+# two whenever a person changes laboratories.
+#   new id: (from id, display name, unit, conversions, names moved)
+SPLITS: dict[str, tuple[str, str, str, dict, list[str]]] = {
+    "granulocyty": ("neutrofily", "Granulocyty", "%", FRAC_TO_PCT, ["Granulocyty"]),
+    "granulocyty_abs": ("neutrofily_abs", "Granulocyty (absolutní počet)", "10^9/l", {}, ["Gra granulocyty"]),
+    "ldl_vypocet": ("ldl", "LDL cholesterol (výpočet)", "mmol/l", {"mg/dl": 0.02586},
+                    ["LDL cholesterol - výpočet", "LDL cholesterol (výpočet)", "S_LDL cholesterol - výpočet",
+                     "LDL-cholesterol (Friedewald)", "LDL cholesterol (Friedewald)", "Cholesterol LDL (výpočet)",
+                     "Cholesterol LDL - výpočet", "V_LDL cholesterol (Friedewald)"]),
+    "parathormon_1_84": ("parathormon", "Parathormon biointaktní (1-84)", "pmol/l", {"ng/l": 0.1055, "pg/ml": 0.1055},
+                         ["S_biointaktní 1-84 parathormon", "PTH 1-84"]),
+    "vapnik_ionizovany_vypocet": ("vapnik_ionizovany", "Vápník ionizovaný (výpočet)", "mmol/l", {},
+                                  ["S_Vápník ioniz.-výpočet", "V_Ca ionizované - výpočet", "Vápník ionizovaný - výpočet",
+                                   "Vápník ionizovaný (výpočet)"]),
+    "d_dimery_ddu": ("d_dimery", "D-dimery (DDU)", "µg/l DDU", {"mg/l DDU": 1000.0}, ["D-dimery (DDU)"]),
+    "anti_hav_celkove": ("anti_hav_igg", "Anti-HAV celkové protilátky", "arb.j.", {},
+                         ["Anti-HAV celkové", "anti-HAV total", "Anti-HAV total", "Anti-HAV (celkové)"]),
+}
+# Conversions a split takes out of the source entry: D-dimers in DDU are about
+# half the FEU number and were converted at 1:1 into the FEU entry.
+SPLIT_DROP_CONVERSIONS: dict[str, list[str]] = {"d_dimery": ["µg/l DDU", "mg/l DDU"]}
+
+
 def build() -> list[dict]:
     out = []
+    moved = {name: new for new, (_src, _d, _u, _c, names) in SPLITS.items() for name in names}
     for cid, disp, syns, unit, conv in ANALYTES + NEW_ANALYTES:
         extra = (EXTRA_SYNONYMS.get(cid, []) + BIOLAB_SYNONYMS.get(cid, []) + PANEL_SYNONYMS.get(cid, [])
                  + PUBLIC_SHEET_SYNONYMS.get(cid, []))
         merged = list(dict.fromkeys([*syns, *extra]))  # de-dupe, keep order
+        merged = [n for n in merged if n not in moved]
+        conversions = {**conv, **EXTRA_CONVERSIONS.get(cid, {}), **SI_CONVERSIONS.get(cid, {})}
+        for u in SPLIT_DROP_CONVERSIONS.get(cid, []):
+            conversions.pop(u, None)
         out.append({
             "canonical_id": cid,
             "display_name_cs": disp,
             "synonyms": merged,
             "canonical_unit": unit,
-            "unit_conversions": {**conv, **EXTRA_CONVERSIONS.get(cid, {}), **SI_CONVERSIONS.get(cid, {})},
+            "unit_conversions": conversions,
+        })
+    for new, (_src, disp, unit, conv, names) in SPLITS.items():
+        out.append({
+            "canonical_id": new,
+            "display_name_cs": disp,
+            "synonyms": list(names),
+            "canonical_unit": unit,
+            "unit_conversions": dict(conv),
         })
     return out
 

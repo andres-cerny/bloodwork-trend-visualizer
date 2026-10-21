@@ -74,7 +74,7 @@ export function specimenAgrees(rawName: string, row: LabCodeRow): boolean {
 
 /** A proposal for a catalog entry from an NČLP row the catalog does not link. */
 function proposal(row: LabCodeRow): MapSuggestion["proposed"] {
-  return { id: `nclp_${row.id}`, displayNameCs: row.names.cs?.name.slice(0, 80) ?? row.id, unit: row.unit === "1" || row.unit === "-" ? "" : row.unit };
+  return { id: `nclp_${row.id}`, displayNameCs: row.names.cs?.name.slice(0, 80) ?? row.id, unit: row.unit === "1" || row.unit === "-" ? "" : row.unit, material: row.mat };
 }
 
 /** A decision from the code rows a name resolved to: their single catalog entry, a "new" draft, or unknown. */

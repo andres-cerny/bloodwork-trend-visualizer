@@ -11,11 +11,32 @@ the round-1/2 chat findings below are kept as notes only, and the round-2
 agent changes (context caching, max_tokens check) are parked on branch
 `claude/agent-cache-parked`, not on this one.
 
-## Summary — what to flip, in which order, how to roll back (after round 6)
+## Summary — what to flip, in which order, how to roll back (after round 7)
 
-Everything below is a **setting** on `moje-krev-extract`
-(`workers/portal-extract/wrangler.jsonc` → `vars`). The code on this branch
-reads the settings, and with none of them set it behaves exactly as today. To
+**Final recommendation (round 7, every switch run together end to end):**
+
+1. **Merge, then apply the three D1 migrations before deploying the API
+   worker:** `2026-10-19-aliases.sql`, `2026-10-20-auto-entries.sql`,
+   `2026-10-21-auto-entries-material.sql` (moje-krev-go-live.md).
+   `check:schema` confirms them. The merge alone changes no model, only
+   deterministic checks and the catalog: 7 entries are split out of
+   ambiguous ones, and stored rows move automatically.
+2. **`MODEL_MAP=claude-haiku-5-5` + `MAP_MODE=codes-retry`** (moje-krev-extract).
+3. **`MODEL_PRIMARY=claude-sonnet-5-5`** (photos; Gemini stays second).
+4. **After the Mac check passes:** `TEXT_READERS=cheap` +
+   `MODEL_SECOND=claude-haiku-5-5` (text read once by Haiku 5.5), and
+   optionally `MODEL_PRIMARY=claude-haiku-5-5` for photos.
+5. **Portal build:** `VITE_SHARE_AI_MAPPINGS=1` and `VITE_SECOND_OPINION=1`.
+6. **`VITE_AUTO_ENTRIES=1` only after** the app shows an auto-added entry as
+   such (UI).
+
+With 2–5 on, the model cost of an upload's mapping and second opinion
+measured $0.0003 per page vs $0.0006 off. Reading drops from ~$0.06 to
+~$0.002 per text page once step 4 is on.
+
+Each row below is one **setting**: a `vars` entry on `moje-krev-extract`
+(`workers/portal-extract/wrangler.jsonc`), or a portal build variable where
+the row says so. With none of them set, the code behaves exactly as today. To
 roll back, delete the line and deploy again.
 
 | order | setting | what it does | evidence | effect |
@@ -25,7 +46,6 @@ roll back, delete the line and deploy again.
 | 2 | `TEXT_READERS: "cheap"` + `MODEL_SECOND: "claude-haiku-5-5"` | born-digital pages read once, by Haiku 5.5; interpret.ts's checks stand in for reader 2 | 12 pages: 210/213 rows, 0 uncaught, like the deployed pair | 3-page upload ~$0.17 → ~$0.006; ~24 s → ~10 s a page |
 | 3 | `MODEL_PRIMARY: "claude-haiku-5-5"` (Gemini stays second) | photos read first by Haiku 5.5 | 11 sheets × 2 reps: 0 uncaught, rows asked about equal to Sonnet 5.5 + Gemini | photo page ~$0.044 → ~$0.011 |
 | 3′ | or `MODEL_PRIMARY: "claude-sonnet-5-5"` | a safer photo step: same price as today, a cleaner copier than Sonnet 5 | R1: 0 value errors vs Sonnet 5's 2 | ~20% faster |
-
 | 4 | `VITE_SHARE_AI_MAPPINGS=1` (portal build) | the model's confident filings (catalog + high + unit check) are saved for every account as a decision for that (lab, printed name, unit), marked `source: model`, revocable by the account that triggered it and listable/revocable by Ondřej from the CLI | 0 confident wrong in 495 names (round 3) | the same new name never reaches the model twice |
 | 5 | `VITE_SECOND_OPINION=1` (portal build) | the list's weak matches (unit not the entry's, unknown specimen prefix) get Haiku's opinion once: confirmed, re-filed (only on "high" + unit evidence), or taken off the entry for a person to decide; saved like step 4 | round 4: the 4 real errors on the public sheets + look-alikes taken off (urine-strip glucose, PT in seconds, antithrombin mg/l, HbA1c %), 5 harmless ones confirmed | ~$0.002 once per (lab, name, unit) |
 | 6 | `MAP_MODE: "codes-retry"` (moje-krev-extract; `"codes"` is the same without the second try) | `/api/map`: the bundled NČLP table first (a hit linked to one catalog entry needs no model), then today's whole-catalog Haiku call, and only what that call cannot place gets a second try: Haiku picks from the 20 nearest NČLP rows. Every answer carries its NČLP `code` where one is known, and the code is saved on the alias rows (steps 4–5) | round 6, best of seven arms: 131/133 unseen catalog spellings, 9/9 urine twins, 11/11 public misses, 34/40 tests not in the catalog, **0 confidently wrong**; worker bundle +187 KiB gzip, parsed only when set | ~$0.0001–0.0003 per name, ~10–15 s per batch |
@@ -851,13 +871,105 @@ Judgment:
 
 Round 6 spend: $0.59.
 
-### Next, if the loop continues
-1. Ondřej runs the Mac check; the result goes here, then the settings in the summary.
-2. Show an auto-added entry as such in the app (UI) before turning step 7 on
-   for real users; and a review list for the catalog curator.
-3. Trendy wiring for unrecognised parameters (UI).
-4. Split the ambiguous catalog entries along their codes (lab-codes.md, "Open")
-   — that also removes the "Granulocyty" split case.
+### Round 7 — 2026-10-21 (branch `claude/model-loop-r7`, on top of PR #9)
+
+**1. Ambiguous catalog entries split along their NČLP codes**
+(`seed_registry.SPLITS`, 355 entries). Only genuinely different
+measurements whose printed names say which one they are:
+
+| new entry | split from | what moves | NČLP |
+|---|---|---|---|
+| `granulocyty`, `granulocyty_abs` | neutrofily, neutrofily_abs | "Granulocyty", "Gra granulocyty" (neutrophils + eosinophils + basophils) | 03556, 03553 |
+| `ldl_vypocet` | ldl | the 8 names that say výpočet / Friedewald | 03380/03379 |
+| `parathormon_1_84` | parathormon | "biointaktní 1-84", "PTH 1-84" | 18237/18235 |
+| `vapnik_ionizovany_vypocet` | vapnik_ionizovany | the 4 "výpočet" names | — |
+| `d_dimery_ddu` | d_dimery | "D-dimery (DDU)", and the DDU units that were converted **1:1** into the FEU entry (DDU is about half FEU — a wrong merge, fixed) | — |
+| `anti_hav_celkove` | anti_hav_igg | the 4 "celkové / total" names | 00364/00362 |
+
+**Not split, on purpose:**
+- Mass vs molar pairs with a fixed factor (Ca, Mg, P, lipids, Fe, B12,
+  folate, vitamin D, ACTH, AMH, GH, renin) stay one trend with their
+  conversion.
+- Variants printed with the same name and told apart only by unit (Lp(a),
+  bone ALP): the trend already keeps an unconvertible unit apart
+  (`otherUnits`).
+- Troponin hs vs conventional, direct vs conjugated bilirubin, total vs
+  beta-hCG: labs print the plain name for both. A name-based split would cut
+  one test's trend in two whenever a person changes labs.
+
+**Stored rows move by themselves:**
+- `registry.json` entries carry `splitFrom`, and `rematchReport` (run on
+  every portal load) moves a row from the old entry to the new one when its
+  printed name now resolves there.
+- A name the account filed itself (learned) stays where it was filed.
+- `packages/lab-core/tests/splits.test.ts` runs on the shipped registry: the
+  split names move exactly, nothing else moves, it is idempotent, the
+  reading count is unchanged, and no series mixes two meanings.
+- Code-table side: `curation.json` links updated, `lab-codes.json` rebuilt
+  from a fresh NČLP download (78 lines changed, links only) and the index
+  rebuilt.
+- Demo reports, chat demos and seed SQL are byte-identical; only the two
+  `registry.json` copies change (the 7 entries, `splitFrom`, the moved
+  names). Python parity is unchanged (192).
+
+**2. Every switch on, end to end** (`tests/bench/e2e_switches.ts`: the stored
+reads of 20 pages, 309 rows; interpret → mapping → judge → shared lessons →
+auto entries → second opinion → rematch; then a second account loading the
+same reports; $0.17 in all runs). Findings and fixes:
+- **Bug: an auto entry founded by a name without a specimen took every
+  specimen's name.** "pH" from a urine strip became an entry that then took
+  the blood gas "B_pH" — a wrong merge.
+  - Fix: auto entries are blood only (S/P/B rows). They carry their specimen
+    (proposal `material`, D1 column `mat`, migration
+    `2026-10-21-auto-entries-material.sql`).
+  - A bare founding name also gets a prefixed synonym, so the registry
+    refuses the entry to another specimen's name.
+  - Tests added.
+- **Bug: the second opinion through `MAP_MODE=codes-retry` took right weak
+  matches off their entry.** "Anti CMV IgM (skríning)" printed as an index
+  came back as a "new" code draft.
+  - Fix: `/api/map` with `purpose: "second-opinion"` asks the catalog
+    question whatever `MAP_MODE` says. The portal sends it. Worker test
+    added.
+- **Checked, no problem:**
+  - no name is asked both by the mapping and by the second opinion;
+  - no auto entry is later undone by a second opinion;
+  - the second account maps every row exactly like the first (0
+    differences);
+  - the first account's settled names (shared lessons, auto entries) are not
+    asked again.
+- **Known, small:** names the model answered "unknown" are asked again by
+  each new account (~$0.004 per account here), because only decisions are
+  shared, not "unknown".
+  - A second opinion's "unmap" (e.g. PT in seconds, filed as Quick %) leaves
+    the name for the next mapping run. That run then files it (pt_cas) for
+    the account that asks.
+  - The shared table keeps the first model decision; a person's decision
+    beats it.
+  - The second opinion's answers vary run to run (HbA1c in %:
+    confirm/unmap). That is why it is asked once and saved.
+- **Settings together** (worker route test added): text read once by Haiku 5.5
+  (slot 2), photos by Sonnet 5.5 (slot 1) + Gemini.
+- **Cost on these pages:** mapping + second opinion $0.0003 per page ON vs
+  $0.0006 OFF (Haiku 4.5 over the whole catalog); a second account $0.0002.
+  Reading is the big lever: ~$0.002 vs ~$0.06 per text page.
+
+Round 7 spend: $0.17.
+
+### What still needs Ondřej
+1. **The Mac check** (`model-loop-mac-check.md`) before step 4 of the final
+   recommendation.
+2. **The D1 migrations** before deploying the API worker; then the settings,
+   in the order above.
+3. **UI, not done in this loop:**
+   - show an auto-added entry as such, and a curator list (before
+     `VITE_AUTO_ENTRIES`);
+   - Trendy wiring for unrecognised parameters (`buildTrends`
+     `opts.unrecognised`);
+   - a place to see and withdraw the shared decisions (today: CLI).
+4. **Optional:** share "unknown" answers too, so a second account does not
+   re-ask; split vitamin B6 by specimen and the remaining unitless-serology
+   entries if they ever trend.
 
 ## Spend ledger
 
@@ -888,11 +1000,12 @@ Round 6 spend: $0.59.
 | 2026-10-20 | `with-secrets bloodwork -- npx vite-node --root . tests/bench/map_codes.ts` ×2 (before/after the specimen fix, the second with the codes step) | Haiku 5.5 | 0.092 | 4.596 |
 | 2026-10-20 | `with-secrets bloodwork -- env ARMS=b SETS=3 npx vite-node --root . tests/bench/map_ncl_arms.ts` (whole-table smoke) | Haiku 5.5 | 0.105 | 4.701 |
 | 2026-10-20 | same, `ARMS=a,b,c,d,e,f` (all sets) | Haiku 5.5 | 0.390 | 5.091 |
-| 2026-10-20 | same, `ARMS=e` ×3 and `ARMS=g` ×2 (truth fix, draft and agreement rules) | Haiku 5.5 | 0.095 | **5.186** |
+| 2026-10-20 | same, `ARMS=e` ×3 and `ARMS=g` ×2 (truth fix, draft and agreement rules) | Haiku 5.5 | 0.095 | 5.186 |
+| 2026-10-21 | `with-secrets bloodwork -- env PYTHON_BIN=.venv/bin/python npx vite-node --root . tests/bench/e2e_switches.ts` ×6 (before/after the fixes, debug runs) | Haiku 4.5, Haiku 5.5 (mapping only; reads stored) | 0.170 | **5.356** |
 
 Round 1: $2.57 of $3.50. Round 2: $1.48 of $3.00 (of which $0.95 chat evals,
 before the scope correction). Round 3: $0.13 of $2.50. Round 4: $0.002 of
 $2.00. Round 5: $0.10 of $2.00. Code-table agent: $0.30. Round 6: $0.59 of $1.50.
-Loop: **$5.19 of $10**. Keys from `bloodwork.env`
+Round 7: $0.17 of $2.00. Loop: **$5.36 of $10**. Keys from `bloodwork.env`
 (shared with Klugscheisser/jobscan). Bench costs are priced with the corrected
 table (Sonnet $2/$10).

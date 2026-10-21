@@ -24,7 +24,7 @@
  * the time this runs, and a model that cannot be reached leaves the names
  * waiting in the tab, not the report unsaved.
  */
-import { type AnalyteDef, type LabReport, type Observed, type Registry, type UnmappedAnalyte, type WeakMatch, canApplyUnasked, findWeakMatches, scoreCandidate, trendable } from "@bw/lab-core";
+import { type AnalyteDef, type LabReport, type Observed, type Registry, type UnmappedAnalyte, type WeakMatch, canApplyUnasked, findWeakMatches, materialPrefix, scoreCandidate, trendable } from "@bw/lab-core";
 import type { AiAsked, AiAskedEntry, AiMapAnswer, CatalogEntry, NameToMap } from "./api";
 
 /** The one in-memory mark: this name's call is out. Never persisted. */
@@ -291,9 +291,15 @@ export interface AutoEntryProposal {
   canonicalId: string;
   nameCs: string;
   unit: string;
+  /** The NČLP row's specimen; the entry is a blood entry or none at all. */
+  material: string;
   rawName: string;
   model: string;
 }
+
+/** The specimens an auto entry may have: Moje krev trends blood. */
+const BLOOD_MATERIALS = new Set(["s", "p", "b"]);
+const PREFIX: Record<string, string> = { s: "S", p: "P", b: "B" };
 
 export function autoEntriesFrom(judged: Judged, enabled: boolean): AutoEntryProposal[] {
   if (!enabled) return [];
@@ -301,13 +307,23 @@ export function autoEntriesFrom(judged: Judged, enabled: boolean): AutoEntryProp
   for (const [rawName, e] of Object.entries(judged.entries)) {
     if (e.decision !== "new" || e.confidence !== "high" || !e.code || !e.proposed) continue;
     if (!/^\d{5}$/.test(e.code)) continue;
-    out.push({ code: e.code, canonicalId: `nclp_${e.code}`, nameCs: e.proposed.displayNameCs, unit: e.proposed.unit, rawName, model: e.model });
+    // Only a blood specimen we know: a urine code is not a Moje krev
+    // parameter, and an entry without a specimen would take every specimen's
+    // name (round 7: "pH" from a urine strip became an entry that then took
+    // the blood gas "B_pH").
+    const material = e.proposed.material ?? "";
+    if (!BLOOD_MATERIALS.has(material)) continue;
+    out.push({ code: e.code, canonicalId: `nclp_${e.code}`, nameCs: e.proposed.displayNameCs, unit: e.proposed.unit, material, rawName, model: e.model });
   }
   return out;
 }
 
 /** The registry entry for an auto-added code: its NČLP name, unit, and the printed name that founded it. */
-export function autoEntryDef(e: { code: string; nameCs: string; unit: string; rawName: string }): AnalyteDef {
-  return { canonicalId: `nclp_${e.code}`, displayNameCs: e.nameCs, synonyms: [e.rawName], canonicalUnit: e.unit, unitConversions: {} };
+export function autoEntryDef(e: { code: string; nameCs: string; unit: string; rawName: string; material?: string }): AnalyteDef {
+  // The founding name, and — when it carries no specimen prefix — the same
+  // name with the row's prefix, so the registry knows the entry's material
+  // (materialOfNames) and refuses it to a name printed for another specimen.
+  const prefixed = e.material && PREFIX[e.material] && !materialPrefix(e.rawName) ? [`${PREFIX[e.material]}_${e.rawName}`] : [];
+  return { canonicalId: `nclp_${e.code}`, displayNameCs: e.nameCs, synonyms: [e.rawName, ...prefixed], canonicalUnit: e.unit, unitConversions: {} };
 }
 

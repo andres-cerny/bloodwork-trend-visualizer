@@ -250,8 +250,9 @@ export default function Portal({ email, demo, onLogout }: Props) {
         // A catalog that grew since a report was uploaded reaches that
         // report here: the stored canonicalId was computed at upload and
         // would otherwise stay null forever. Only null rows are touched — a
-        // name the reader filed by hand keeps their choice — and a report
-        // that changed is written back.
+        // name the reader filed by hand keeps their choice — plus a row whose
+        // entry was split and whose printed name now resolves to the split-out
+        // entry (AnalyteDef.splitFrom); a report that changed is written back.
         const changed: LabReport[] = [];
         const loaded = rs.map((r) => {
           const matched = rematchReport(r, reg);
@@ -273,7 +274,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
         void runMapping(findUnmapped(loaded));
         if (SECOND_OPINION && !demo && !status.budget?.frozen) {
           void runSecondOpinion(
-            { reports: loaded, registry: reg, stats: observedStats(loaded), ask: (names, catalog) => suggestWithAi(names, catalog) },
+            { reports: loaded, registry: reg, stats: observedStats(loaded), ask: (names, catalog) => suggestWithAi(names, catalog, "second-opinion") },
             {
               save: (o, model) =>
                 void teachAlias({ lab: o.lab ?? "", rawName: o.rawName, unit: o.unit, canonicalId: o.canonicalId, source: "model", model, code: o.said.code ?? null }).catch(() => undefined),
@@ -564,7 +565,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
       const autos = demo ? [] : autoEntriesFrom(judged, AUTO_ENTRIES);
       for (const a of autos) {
         reg.addAnalyte(autoEntryDef(a));
-        addAutoEntry({ code: a.code, nameCs: a.nameCs, unit: a.unit, rawName: a.rawName, model: a.model || undefined }).catch(() => undefined);
+        addAutoEntry({ code: a.code, nameCs: a.nameCs, unit: a.unit, rawName: a.rawName, material: a.material, model: a.model || undefined }).catch(() => undefined);
       }
       const filed = [...judged.applied, ...autos.map((a) => ({ rawName: a.rawName, canonicalId: a.canonicalId }))];
       for (const { rawName, canonicalId } of filed) reg.addSynonym(canonicalId, rawName);

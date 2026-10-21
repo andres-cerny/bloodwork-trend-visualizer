@@ -406,7 +406,7 @@ describe("scopeOf", () => {
 });
 
 describe("autoEntriesFrom (VITE_AUTO_ENTRIES)", () => {
-  const entry = (over: Record<string, unknown>) => ({ decision: "new", canonicalId: null, confidence: "high", reason: "", model: "claude-haiku-5-5", at: "2026-10-20", code: "01721", proposed: { id: "nclp_01721", displayNameCs: "Estron (S; látková konc. [pmol/l])", unit: "pmol/l" }, ...over });
+  const entry = (over: Record<string, unknown>) => ({ decision: "new", canonicalId: null, confidence: "high", reason: "", model: "claude-haiku-5-5", at: "2026-10-20", code: "01721", proposed: { id: "nclp_01721", displayNameCs: "Estron (S; látková konc. [pmol/l])", unit: "pmol/l", material: "s" }, ...over });
   const judged = (entries: Record<string, any>): Judged => ({ entries, applied: [], parked: [] });
 
   it("off: nothing is added", () => {
@@ -420,16 +420,27 @@ describe("autoEntriesFrom (VITE_AUTO_ENTRIES)", () => {
         Estron: entry({ confidence: "medium" }),
         Neznámé: entry({ code: undefined }),
         S_Na: entry({ decision: "catalog", canonicalId: "sodik" }),
+        pH: entry({ code: "02656", proposed: { id: "nclp_02656", displayNameCs: "pH (U)", unit: "", material: "u" } }),
+        Starý: entry({ code: "01111", proposed: { id: "nclp_01111", displayNameCs: "x", unit: "" } }),
       }),
       true,
     );
-    expect(out).toEqual([{ code: "01721", canonicalId: "nclp_01721", nameCs: "Estron (S; látková konc. [pmol/l])", unit: "pmol/l", rawName: "S_Estron", model: "claude-haiku-5-5" }]);
+    expect(out).toEqual([{ code: "01721", canonicalId: "nclp_01721", nameCs: "Estron (S; látková konc. [pmol/l])", unit: "pmol/l", material: "s", rawName: "S_Estron", model: "claude-haiku-5-5" }]);
   });
 
   it("the entry the registry gets maps the founding name", () => {
     const r = new Registry([]);
-    r.addAnalyte(autoEntryDef({ code: "01721", nameCs: "Estron", unit: "pmol/l", rawName: "S_Estron" }));
+    r.addAnalyte(autoEntryDef({ code: "01721", nameCs: "Estron", unit: "pmol/l", rawName: "S_Estron", material: "s" }));
     expect(r.match("S_Estron")).toBe("nclp_01721");
+  });
+
+  it("a bare founding name gets the row's specimen, so another specimen's name is refused", () => {
+    // Round 7: an entry founded by a bare name took every specimen's name.
+    const r = new Registry([]);
+    r.addAnalyte(autoEntryDef({ code: "08170", nameCs: "Leptin (S)", unit: "µg/l", rawName: "Leptin", material: "s" }));
+    expect(r.match("Leptin")).toBe("nclp_08170");
+    expect(r.match("S_Leptin")).toBe("nclp_08170");
+    expect(r.match("U_Leptin")).toBeNull();
   });
 });
 
