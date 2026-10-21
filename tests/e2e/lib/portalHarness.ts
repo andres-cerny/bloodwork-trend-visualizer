@@ -164,7 +164,10 @@ export async function startPortal(port: number, apiPort = port + 100): Promise<H
   const base = `http://localhost:${port}/`;
   const server: ChildProcess = spawn(
     "npx",
-    ["vite", "preview", "--config", "apps/portal/vite.config.ts", "--port", String(port), "--strictPort"],
+    // PORTAL_DIST: a second build of the same app with build-time switches on
+    // (test:mapping-ui), served instead of dist/ so the two never overwrite
+    // each other.
+    ["vite", "preview", "--config", "apps/portal/vite.config.ts", "--port", String(port), "--strictPort", ...(process.env.PORTAL_DIST ? ["--outDir", process.env.PORTAL_DIST] : [])],
     { stdio: "ignore", detached: false, env: { ...process.env, PORTAL_API: `http://127.0.0.1:${apiPort}` } },
   );
   await waitForServer(base);

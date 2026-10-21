@@ -26,6 +26,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type AiContext,
   type AnalyteDef,
+  type Trend,
   type CustomAnalyte,
   type LabReport,
   unitFactor,
@@ -41,11 +42,12 @@ import {
   reviewOf,
   toAnalyteDef,
   trendable,
+  unrecognisedKey,
 } from "@bw/lab-core";
 import { ThemeSwitch } from "@bw/ui-kit";
 import DateAsk from "./DateAsk";
 import { dateDoubtOf, forTrends, newFingerprintSalt } from "../lib/fileChecks";
-import { type AiAsked, type Allowance, ApiError, type AutoEntry, type Budget, type SavedAlias, type Settings, addAutoEntry, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listAliases, listAutoEntries, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachAlias, teachSynonym } from "../lib/api";
+import { type AiAsked, type Allowance, ApiError, type AutoEntry, type Budget, type SavedAlias, type Settings, addAutoEntry, deleteAccount, deleteReport, forgetAlias, forgetSynonym, getSettings, getStatus, isFatalApiError, listAliases, listAutoEntries, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachAlias, teachSynonym } from "../lib/api";
 import AllowanceChip from "./AllowanceChip";
 import BuySheet from "./BuySheet";
 import { type Judged, askingEntry, autoEntriesFrom, autoEntryDef, persistable, runAiMapping, runSecondOpinion, scopeOf, sharedLessons, withoutAsked } from "../lib/aiMapping";
@@ -56,12 +58,30 @@ const SHARE_AI_MAPPINGS = import.meta.env.VITE_SHARE_AI_MAPPINGS === "1";
 const SECOND_OPINION = import.meta.env.VITE_SECOND_OPINION === "1";
 /** Build-time switch, off unless set: a test the catalog lacks, resolved exactly to one NČLP row, becomes a catalog entry for every account (lib/aiMapping.ts, `autoEntriesFrom`). */
 const AUTO_ENTRIES = import.meta.env.VITE_AUTO_ENTRIES === "1";
-/** The shared scoped decisions (`/api/aliases`) are read only when a switch that writes them is on. */
-const SCOPED_ALIASES = SHARE_AI_MAPPINGS || SECOND_OPINION;
+/**
+ * Build-time switch, off unless set: a reading no parameter claims gets its own
+ * trend under the lab's printed name, marked „nerozpoznáno", never mixed with
+ * the recognised ones (`buildTrends` `opts.unrecognised`, TrendsTab).
+ */
+const UNRECOGNISED_TRENDS = import.meta.env.VITE_UNRECOGNISED_TRENDS === "1";
+/**
+ * The shared scoped decisions (`/api/aliases`) are read — and a person's click
+ * saved as one — only when a switch that writes or needs them is on: a
+ * person's „not this parameter" for an auto entry, or the assignment of an
+ * unrecognised series, is a scoped decision too.
+ */
+const SCOPED_ALIASES = SHARE_AI_MAPPINGS || SECOND_OPINION || AUTO_ENTRIES || UNRECOGNISED_TRENDS;
+/** „Jak čteme názvy z laboratoří" in Reporty: with any of the mapping switches on, and only then. */
+const NAMES_SCREEN = SCOPED_ALIASES;
 import { type Batch, holdsSummary } from "../lib/batch";
 import { namesUnder, withNewParameter, withoutParameter } from "../lib/customParams";
 import { mergeSettings, rebaseSettings } from "../lib/settings";
 import MappingTab from "./MappingTab";
+import AutoMark from "./AutoMark";
+import { MarkContext } from "./Mark";
+import NameSheet, { type NameSheetState } from "./NameSheet";
+import NamesCard from "./NamesCard";
+import { type NameDecision, type NameScope, autoEntriesInUse, autoEntryId, friendlyNclpName, nameDecisions, unrecognisedOnly, withAlias, withoutAlias } from "../lib/decisions";
 import ShareTab from "./ShareTab";
 import SummaryTab from "./SummaryTab";
 import TrendsTab from "./TrendsTab";
@@ -188,6 +208,17 @@ export default function Portal({ email, demo, onLogout }: Props) {
   const [registryVersion, setRegistryVersion] = useState(0);
   const [focus, setFocus] = useState<{ reportId: string; rawName: string; seq: number } | null>(null);
   const [openTrend, setOpenTrend] = useState<{ id: string; seq: number } | null>(null);
+  // The mapping decisions as the names screen and the sheets read them.
+  const aliasesRef = useRef<SavedAlias[]>([]);
+  const [aliases, setAliasesState] = useState<SavedAlias[]>([]);
+  const setAliases = useCallback((fn: (cur: SavedAlias[]) => SavedAlias[]) => {
+    aliasesRef.current = fn(aliasesRef.current);
+    setAliasesState(aliasesRef.current);
+  }, []);
+  const [autoEntries, setAutoEntries] = useState<AutoEntry[]>([]);
+  const [sheet, setSheet] = useState<NameSheetState | null>(null);
+  // What the last decision from a sheet or the names screen did, with its way back.
+  const [notice, setNotice] = useState<{ text: React.ReactNode; undo?: () => void } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [accountPhrase, setAccountPhrase] = useState<string | null>(null);
   // The ⋯ row, on a phone. Open it when one of the tabs behind it is chosen
@@ -215,6 +246,9 @@ export default function Portal({ email, demo, onLogout }: Props) {
         const reg = new Registry(defs);
         // Entries added from the code table, as every account's catalog.
         for (const a of autos) reg.addAnalyte(autoEntryDef(a));
+        aliasesRef.current = aliases;
+        setAliasesState(aliases);
+        setAutoEntries(autos);
         settingsRef.current = settings as Settings;
         // Founded parameters before the learned names, not after: addSynonym
         // is a no-op for an id the registry does not hold yet, so the other
@@ -255,7 +289,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
         // entry (AnalyteDef.splitFrom); a report that changed is written back.
         const changed: LabReport[] = [];
         const loaded = rs.map((r) => {
-          const matched = rematchReport(r, reg);
+          // A row filed under an auto-added entry that is gone from the
+          // catalog (withdrawn from the CLI) is unfiled first, so it is
+          // matched again rather than kept under an id nothing names.
+          const orphaned = (m: Measurement) => !!m.canonicalId && m.canonicalId.startsWith("nclp_") && !reg.get(m.canonicalId);
+          const base = r.measurements.some(orphaned) ? { ...r, measurements: r.measurements.map((m) => (orphaned(m) ? { ...m, canonicalId: null } : m)) } : r;
+          const matched = rematchReport(base, reg) ?? (base !== r ? base : null);
           if (matched) changed.push(matched);
           return matched ?? r;
         });
@@ -276,8 +315,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
           void runSecondOpinion(
             { reports: loaded, registry: reg, stats: observedStats(loaded), ask: (names, catalog) => suggestWithAi(names, catalog, "second-opinion") },
             {
-              save: (o, model) =>
-                void teachAlias({ lab: o.lab ?? "", rawName: o.rawName, unit: o.unit, canonicalId: o.canonicalId, source: "model", model, code: o.said.code ?? null }).catch(() => undefined),
+              save: (o, model) => {
+                noteAlias({ lab: o.lab ?? "", rawName: o.rawName, unit: o.unit, canonicalId: o.canonicalId, source: "model", model, code: o.said.code ?? null, mine: true });
+                void teachAlias({ lab: o.lab ?? "", rawName: o.rawName, unit: o.unit, canonicalId: o.canonicalId, source: "model", model, code: o.said.code ?? null }).catch(() => undefined);
+              },
             },
           ).then(({ decided }) => {
             if (decided.length === 0) return;
@@ -352,6 +393,21 @@ export default function Portal({ email, demo, onLogout }: Props) {
     [registry],
   );
 
+  /**
+   * A parameter's name on screen. An auto-added entry carries NČLP's full
+   * name („Apolipoprotein AII (S; hmot. konc. [g/l])"); its system part is
+   * shown in words in the entry's sheet, not in every heading. The registry
+   * keeps the full name as its key on purpose: a short one could take a
+   * shipped entry's name.
+   */
+  const nameOf = useCallback(
+    (cid: string) => {
+      const n = registry?.displayName(cid) ?? cid;
+      return cid.startsWith("nclp_") ? friendlyNclpName(n) : n;
+    },
+    [registry],
+  );
+
   // The "i" after a parameter's name reads the catalog's texts; a founded
   // parameter has none and gets no button (AboutParam.tsx).
   const aboutOf = useCallback((cid: string) => registry?.get(cid)?.about, [registry]);
@@ -359,12 +415,14 @@ export default function Portal({ email, demo, onLogout }: Props) {
   // The trend screens' reports: a doubted date marks its readings, a future
   // one is held out until it is set (lib/fileChecks.ts forTrends).
   const trendReports = useMemo(() => forTrends(reports), [reports]);
-  const trends = useMemo(
+  // With VITE_UNRECOGNISED_TRENDS one build holds both kinds, split below
+  // into two maps that never meet; without it, exactly the build it was.
+  const built = useMemo(
     () =>
       registry
         ? buildTrends(
             trendReports,
-            (cid) => registry.displayName(cid),
+            nameOf,
             (m) => {
               const r = reviewOf(m, curatedRange);
               return r.level === "withheld" ? r.reason : null;
@@ -376,10 +434,27 @@ export default function Portal({ email, demo, onLogout }: Props) {
             // Every reading in the parameter's own unit, converted where the
             // catalog knows the factor (lab-core units.ts).
             (cid) => registry.get(cid),
+            UNRECOGNISED_TRENDS ? { unrecognised: true } : {},
           )
-        : new Map(),
-    [trendReports, registry, registryVersion, curatedRange],
+        : new Map<string, Trend>(),
+    [trendReports, registry, registryVersion, curatedRange, nameOf],
   );
+  /** The recognised parameters: what every screen over the data reads. */
+  const trends = useMemo(
+    () => (UNRECOGNISED_TRENDS ? new Map([...built].filter(([, t]) => t.recognised !== false)) : built),
+    [built],
+  );
+  /**
+   * Trendy's unrecognised series, apart from `trends` — Souhrn and AI
+   * konzultace never see them. Only names a mapping could put into a trend
+   * (blood or unknown specimen, a number among the readings), and not one the
+   * model parked as another material.
+   */
+  const unrecognisedTrends = useMemo(() => {
+    if (!UNRECOGNISED_TRENDS) return undefined;
+    const keep = new Set(findUnmapped(trendReports).filter(trendable).map((a) => a.rawName));
+    return unrecognisedOnly(built, (n) => keep.has(n) && aiAsked[n]?.decision !== "not_blood");
+  }, [built, trendReports, aiAsked]);
 
   /** Every change to the reports: through the ref, so a run that started a render ago sees the current ones. */
   const commitReports = useCallback((fn: (prev: LabReport[]) => LabReport[]) => {
@@ -532,11 +607,15 @@ export default function Portal({ email, demo, onLogout }: Props) {
       if (SCOPED_ALIASES && !demo) {
         const scope = scopeOf(rawName, reportsRef.current);
         registry.addScopedAlias({ lab: scope.lab || null, unit: scope.unit || null }, rawName, canonicalId);
+        noteAlias({ ...scope, rawName, canonicalId, source: "person", model: null, code: null, mine: true });
         teachAlias({ ...scope, rawName, canonicalId, source: "person" }).catch(() => undefined);
       }
     },
     [registry, remap, saveLearned, isShipped, demo],
   );
+
+  /** One decision into the names screen's copy of the shared table. */
+  const noteAlias = useCallback((a: SavedAlias) => setAliases((cur) => withAlias(cur, a)), [setAliases]);
 
   /** The ledger as the last answer left it — the run reads it before spending. */
   const noteBudget = useCallback((b: Budget) => {
@@ -567,6 +646,15 @@ export default function Portal({ email, demo, onLogout }: Props) {
         reg.addAnalyte(autoEntryDef(a));
         addAutoEntry({ code: a.code, nameCs: a.nameCs, unit: a.unit, rawName: a.rawName, material: a.material, model: a.model || undefined }).catch(() => undefined);
       }
+      if (autos.length) {
+        const at = new Date().toISOString();
+        setAutoEntries((cur) => [
+          ...cur,
+          ...autos
+            .filter((a) => !cur.some((c) => c.code === a.code))
+            .map((a) => ({ code: a.code, nameCs: a.nameCs, unit: a.unit, material: a.material, rawName: a.rawName, model: a.model || null, at, mine: true })),
+        ]);
+      }
       const filed = [...judged.applied, ...autos.map((a) => ({ rawName: a.rawName, canonicalId: a.canonicalId }))];
       for (const { rawName, canonicalId } of filed) reg.addSynonym(canonicalId, rawName);
       remapMany(filed);
@@ -579,11 +667,12 @@ export default function Portal({ email, demo, onLogout }: Props) {
         for (const { rawName, canonicalId } of sharedLessons(judged, isShipped, SHARE_AI_MAPPINGS)) {
           const scope = scopeOf(rawName, reportsRef.current);
           const e = judged.entries[rawName];
+          noteAlias({ ...scope, rawName, canonicalId, source: "model", model: e?.model || "unknown", code: e?.code ?? null, mine: true });
           teachAlias({ ...scope, rawName, canonicalId, source: "model", model: e?.model || "unknown", code: e?.code ?? null }).catch(() => undefined);
         }
       }
     },
-    [remapMany, updateLearned, updateAsked, saveSettings, isShipped, demo],
+    [remapMany, updateLearned, updateAsked, saveSettings, isShipped, demo, noteAlias],
   );
 
   /**
@@ -596,9 +685,11 @@ export default function Portal({ email, demo, onLogout }: Props) {
     async (candidates: UnmappedAnalyte[]) => {
       const reg = registryRef.current;
       if (!reg || budgetRef.current?.frozen) return;
+      // A name a person has said is no parameter is not the model's to file.
+      const refused = new Set(aliasesRef.current.filter((a) => a.canonicalId === null && a.source === "person").map((a) => a.rawName));
       const out = await runAiMapping(
         {
-          candidates,
+          candidates: refused.size ? candidates.filter((a) => !refused.has(a.rawName)) : candidates,
           asked: () => aiAskedRef.current,
           registry: reg,
           stats: observedStats(reportsRef.current),
@@ -717,8 +808,119 @@ export default function Portal({ email, demo, onLogout }: Props) {
       saveLearned(next);
       // The worker withdraws it only if this account taught it.
       forgetSynonym(rawName).catch(() => undefined);
+      // The scoped decision the click also saved (SCOPED_ALIASES), or a reload
+      // would file the name again: withdrawn when it is this account's.
+      if (SCOPED_ALIASES && !demo) {
+        const scope = scopeOf(rawName, reportsRef.current);
+        const k = { rawName, ...scope };
+        if (aliasesRef.current.length !== withoutAlias(aliasesRef.current, k).length) {
+          registry.removeScopedAlias({ lab: scope.lab || null, unit: scope.unit || null }, rawName);
+          setAliases((cur) => withoutAlias(cur, k));
+          forgetAlias(k).catch(() => undefined);
+        }
+      }
     },
-    [registry, remap, saveLearned],
+    [registry, remap, saveLearned, demo, setAliases],
+  );
+
+  /**
+   * These printed names decided again, in every report, from the registry as
+   * it stands now — scoped decisions first, then the names — and what moved
+   * saved. What a sheet or the names screen changed reaches the trends here.
+   */
+  const redecide = useCallback(
+    (names: Set<string>) => {
+      const reg = registryRef.current;
+      if (!reg || names.size === 0) return;
+      const next = reportsRef.current.map((r) => {
+        if (!r.measurements.some((m) => names.has(m.rawAnalyteName))) return r;
+        const cleared = { ...r, measurements: r.measurements.map((m) => (names.has(m.rawAnalyteName) ? { ...m, canonicalId: null } : m)) };
+        const again = rematchReport(cleared, reg) ?? cleared;
+        if (again.measurements.every((m, i) => m.canonicalId === r.measurements[i].canonicalId)) return r;
+        persist(again);
+        return again;
+      });
+      commitReports(() => next);
+      setRegistryVersion((v) => v + 1);
+    },
+    [persist, commitReports],
+  );
+
+  /**
+   * A person's decision for these printed names, each in its lab and unit —
+   * from a sheet: an unrecognised series assigned, an auto-added entry or an
+   * automatic decision said to be wrong. `canonicalId` null: „not this
+   * parameter", the row stays unrecognised. Saved as a scoped `person`
+   * decision (a model's never replaces it) and, filed under a parameter, also
+   * as this account's name — the same two places a click in Přiřazení saves
+   * to — and a name filed elsewhere before is unfiled first.
+   */
+  const decideRows = useCallback(
+    (rows: NameScope[], canonicalId: string | null) => {
+      const reg = registryRef.current;
+      if (!reg || rows.length === 0) return;
+      const names = new Set(rows.map((r) => r.rawName));
+      const learned: Record<string, string[]> = {};
+      for (const [cid, list] of Object.entries(learnedRef.current)) {
+        const keep = list.filter((n) => cid === canonicalId || !names.has(n));
+        for (const n of list) if (!keep.includes(n)) reg.removeSynonym(cid, n);
+        if (keep.length) learned[cid] = keep;
+      }
+      const filed = canonicalId ? withFiled(learned, [...names].map((rawName) => ({ rawName, canonicalId }))) : learned;
+      for (const r of rows) {
+        reg.addScopedAlias({ lab: r.lab || null, unit: r.unit || null }, r.rawName, canonicalId);
+        if (canonicalId) reg.addSynonym(canonicalId, r.rawName);
+        noteAlias({ lab: r.lab, rawName: r.rawName, unit: r.unit, canonicalId, source: "person", model: null, code: null, mine: true });
+        if (!demo) teachAlias({ lab: r.lab, rawName: r.rawName, unit: r.unit, canonicalId, source: "person" }).catch(() => undefined);
+      }
+      if (canonicalId && isShipped(canonicalId) && !demo) for (const n of names) teachSynonym(n, canonicalId).catch(() => undefined);
+      saveLearned(filed);
+      redecide(names);
+    },
+    [demo, isShipped, noteAlias, saveLearned, redecide],
+  );
+
+  /** Take back one of this account's own decisions on the names screen. */
+  const withdrawDecision = useCallback(
+    (d: NameDecision) => {
+      const reg = registryRef.current;
+      if (!reg) return;
+      if (d.where !== "alias") {
+        if (d.canonicalId) undoMapping(d.rawName, d.canonicalId);
+      } else {
+        reg.removeScopedAlias({ lab: d.lab || null, unit: d.unit || null }, d.rawName);
+        setAliases((cur) => withoutAlias(cur, d));
+        if (!demo) forgetAlias({ lab: d.lab, rawName: d.rawName, unit: d.unit }).catch(() => undefined);
+        // The account's own filing of the name goes with it.
+        const cid = d.canonicalId;
+        if (cid && (learnedRef.current[cid] ?? []).includes(d.rawName)) {
+          reg.removeSynonym(cid, d.rawName);
+          const rest = learnedRef.current[cid].filter((n) => n !== d.rawName);
+          const next = { ...learnedRef.current };
+          if (rest.length) next[cid] = rest;
+          else delete next[cid];
+          saveLearned(next);
+          forgetSynonym(d.rawName).catch(() => undefined);
+        }
+        redecide(new Set([d.rawName]));
+      }
+      setNotice({
+        text: (
+          <>
+            {d.canonicalId ? (
+              <>
+                <strong>{d.rawName}</strong> už není přiřazen k parametru <strong>{nameOf(d.canonicalId)}</strong>.
+              </>
+            ) : (
+              <>
+                <strong>{d.rawName}</strong> se znovu přiřadí podle seznamu.
+              </>
+            )}
+          </>
+        ),
+      });
+    },
+    [demo, undoMapping, setAliases, saveLearned, redecide, nameOf],
   );
 
   /**
@@ -766,6 +968,31 @@ export default function Portal({ email, demo, onLogout }: Props) {
     [registry, remap, customAnalytes, saveSettings],
   );
 
+  /** A sheet's decision taken back: the person's scoped rows withdrawn, the name unfiled. */
+  const undoRows = useCallback(
+    (rows: NameScope[], canonicalId: string | null) => {
+      const reg = registryRef.current;
+      if (!reg) return;
+      for (const r of rows) {
+        reg.removeScopedAlias({ lab: r.lab || null, unit: r.unit || null }, r.rawName);
+        setAliases((cur) => withoutAlias(cur, r));
+        if (!demo) forgetAlias({ lab: r.lab, rawName: r.rawName, unit: r.unit }).catch(() => undefined);
+      }
+      if (canonicalId) {
+        const names = new Set(rows.map((r) => r.rawName));
+        for (const n of names) reg.removeSynonym(canonicalId, n);
+        const rest = (learnedRef.current[canonicalId] ?? []).filter((n) => !names.has(n));
+        const next = { ...learnedRef.current };
+        if (rest.length) next[canonicalId] = rest;
+        else delete next[canonicalId];
+        saveLearned(next);
+      }
+      redecide(new Set(rows.map((r) => r.rawName)));
+      setNotice(null);
+    },
+    [demo, setAliases, saveLearned, redecide],
+  );
+
   const goTab = useCallback((id: TabId) => {
     setTab(id);
     setMoreOpen(!onPhoneStrip(id));
@@ -799,6 +1026,92 @@ export default function Portal({ email, demo, onLogout }: Props) {
     },
     [goTab],
   );
+
+  /** The sheet's „Přiřadit": the names filed, and the trend they joined opened when they came from Trendy. */
+  const assignFromSheet = useCallback(
+    (rows: NameScope[], canonicalId: string) => {
+      const from = sheet;
+      setSheet(null);
+      decideRows(rows, canonicalId);
+      const names = [...new Set(rows.map((r) => r.rawName))].join(", ");
+      setNotice({
+        text: (
+          <>
+            <strong>{names}</strong> {rows.length > 1 ? "jsou" : "je"} nyní součástí parametru <strong>{nameOf(canonicalId)}</strong>.
+          </>
+        ),
+        undo: () => undoRows(rows, canonicalId),
+      });
+      if (from?.kind === "unrecognised") showTrend(canonicalId);
+    },
+    [sheet, decideRows, undoRows, nameOf, showTrend],
+  );
+
+  /** The sheet's „Nechat bez přiřazení": not this parameter, for these names in their labs. */
+  const leaveFromSheet = useCallback(
+    (rows: NameScope[]) => {
+      setSheet(null);
+      decideRows(rows, null);
+      // Seen from Trendy, the readings stay on screen: as the unrecognised
+      // series they now are, in place of the card that just emptied.
+      if (UNRECOGNISED_TRENDS && tab === "trends") {
+        const r = rows[0];
+        const rep = reportsRef.current.find((x) => (x.labName ?? "") === r.lab && x.measurements.some((m) => m.rawAnalyteName === r.rawName));
+        const m = rep?.measurements.find((x) => x.rawAnalyteName === r.rawName);
+        if (rep && m) setOpenTrend({ id: unrecognisedKey(rep.labName, m.rawAnalyteName, m.unit), seq: Date.now() });
+      }
+      const names = [...new Set(rows.map((r) => r.rawName))].join(", ");
+      setNotice({
+        text: (
+          <>
+            <strong>{names}</strong> {rows.length > 1 ? "zůstávají" : "zůstává"} bez přiřazení
+            {UNRECOGNISED_TRENDS ? " — v Trendech pod názvem z laboratoře" : ""}.
+          </>
+        ),
+        undo: () => undoRows(rows, null),
+      });
+    },
+    [decideRows, undoRows, tab],
+  );
+
+  /** „přidáno automaticky" after a name, wherever one is shown (Mark.tsx). */
+  const autoMark = useCallback(
+    (cid: string) => {
+      if (!AUTO_ENTRIES || !cid.startsWith("nclp_")) return null;
+      const entry = autoEntries.find((e) => autoEntryId(e.code) === cid);
+      if (!entry) return null;
+      return <AutoMark name={nameOf(cid)} onOpen={() => setSheet({ kind: "auto", code: entry.code })} />;
+    },
+    [autoEntries, nameOf],
+  );
+
+  /** An unrecognised series' printed name, lab and printed unit — the scope a decision about it is saved for. */
+  const scopeOfTrend = useCallback(
+    (t: Trend): NameScope => {
+      const p = t.points[0];
+      const r = p ? reports.find((x) => x.id === p.reportId) : undefined;
+      const m = r?.measurements.find((x) => x.rawAnalyteName === p?.rawName);
+      return { rawName: p?.rawName ?? t.displayName, lab: r?.labName ?? "", unit: m?.unitRaw ?? t.unit };
+    },
+    [reports],
+  );
+
+  const labOfTrend = useCallback(
+    (t: Trend) => {
+      const id = t.points[0]?.reportId;
+      return reports.find((r) => r.id === id)?.labName ?? null;
+    },
+    [reports],
+  );
+
+  const decisions = useMemo(
+    () =>
+      NAMES_SCREEN
+        ? nameDecisions({ reports, aliases, learned: learnedShown, aiAsked, isCustom: (cid) => customAnalytes.some((c) => c.canonicalId === cid) })
+        : [],
+    [reports, aliases, learnedShown, aiAsked, customAnalytes],
+  );
+  const autosInUse = useMemo(() => (AUTO_ENTRIES ? autoEntriesInUse(autoEntries, reports) : []), [autoEntries, reports]);
 
   async function remove(id: string) {
     setConfirmDelete(null);
@@ -971,6 +1284,7 @@ export default function Portal({ email, demo, onLogout }: Props) {
   );
 
   return (
+    <MarkContext.Provider value={autoMark}>
     <div className="mk-app">
       <header className="mk-topbar">
         <div className="brand">
@@ -1025,6 +1339,21 @@ export default function Portal({ email, demo, onLogout }: Props) {
         )}
         {loadError && <div className="banner warn">{loadError}</div>}
         {saveError && <div className="banner warn">{saveError}</div>}
+        {notice && (
+          <div className="banner undo-banner" role="status">
+            <span>{notice.text}</span>
+            <span className="notice-actions">
+              {notice.undo && (
+                <button className="btn small" onClick={notice.undo}>
+                  Vrátit zpět
+                </button>
+              )}
+              <button className="btn small" onClick={() => setNotice(null)} aria-label="Skrýt oznámení">
+                OK
+              </button>
+            </span>
+          </div>
+        )}
 
         {hasData && (
           <div className={`tabs-wrap${moreOpen ? " more-open" : ""}`}>
@@ -1096,10 +1425,21 @@ export default function Portal({ email, demo, onLogout }: Props) {
               )}
             </Panel>
             <Panel id="trends" active={active} strip={hasData}>
-              {hasData && <TrendsTab trends={trends} unmappedNames={unmappedNames} open={openTrend} onVerify={showSource} aboutOf={aboutOf} />}
+              {hasData && (
+                <TrendsTab
+                  trends={trends}
+                  unmappedNames={unmappedNames}
+                  open={openTrend}
+                  onVerify={showSource}
+                  aboutOf={aboutOf}
+                  unrecognised={unrecognisedTrends}
+                  labOf={labOfTrend}
+                  onAssign={(t) => setSheet({ kind: "unrecognised", ...scopeOfTrend(t) })}
+                />
+              )}
             </Panel>
             <Panel id="verify" active={active} strip={hasData}>
-              {hasData && <VerifyTab reports={reports} onCorrect={correct} onSetDate={setReportDate} focus={focus} displayName={(cid) => registry.displayName(cid)} curatedRange={curatedRange} unitDef={(cid) => registry.get(cid)} />}
+              {hasData && <VerifyTab reports={reports} onCorrect={correct} onSetDate={setReportDate} focus={focus} displayName={nameOf} curatedRange={curatedRange} unitDef={(cid) => registry.get(cid)} />}
             </Panel>
             <Panel id="mapping" active={active} strip={hasData}>
               {hasData && (
@@ -1129,8 +1469,36 @@ export default function Portal({ email, demo, onLogout }: Props) {
               {/* The account card waits for the first report, as it did when
                   the empty account had its own two-card screen. */}
               {hasData && accountCard}
+              {hasData && NAMES_SCREEN && (
+                <NamesCard
+                  decisions={decisions}
+                  autos={autosInUse}
+                  registry={registry}
+                  nameOf={nameOf}
+                  onWithdraw={withdrawDecision}
+                  onOverrule={(d) => setSheet({ kind: "decision", d })}
+                  onAutoInfo={(code) => setSheet({ kind: "auto", code })}
+                />
+              )}
             </Panel>
           </>
+        )}
+        {sheet && registry && (
+          <NameSheet
+            state={sheet}
+            registry={registry}
+            nameOf={nameOf}
+            reports={reports}
+            autoEntries={autoEntries}
+            unrecognisedShown={UNRECOGNISED_TRENDS}
+            onAssign={assignFromSheet}
+            onLeave={leaveFromSheet}
+            onOpenMapping={() => {
+              setSheet(null);
+              goTab("mapping");
+            }}
+            onClose={() => setSheet(null)}
+          />
         )}
 
         <p className="muted mk-foot">
@@ -1138,5 +1506,6 @@ export default function Portal({ email, demo, onLogout }: Props) {
         </p>
       </main>
     </div>
+    </MarkContext.Provider>
   );
 }

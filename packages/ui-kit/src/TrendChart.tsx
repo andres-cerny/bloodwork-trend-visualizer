@@ -103,13 +103,25 @@ function xScale(pts: TrendPoint[], left: number, width: number): (i: number) => 
 }
 
 export default function TrendChart({
-  trend,
+  trend: given,
   onVerify,
+  verdicts = true,
+  rangeNote,
 }: {
   trend: Trend;
   /** Opens the row behind a doubted point; the popover offers it as "Ověřit". */
   onVerify?: (p: TrendPoint) => void;
+  /**
+   * False: no reading is called in, above or below its range — no red point,
+   * no „nad rozmezím" / „v rozmezí". The band is still drawn, as a fact. For
+   * a series no parameter claims (Moje krev's unrecognised trends), whose
+   * printed range is the lab's and nothing the app vouches for.
+   */
+  verdicts?: boolean;
+  /** Said after the range in the caption, e.g. „(dle laboratoře)". */
+  rangeNote?: string;
 }) {
+  const trend = verdicts ? given : { ...given, points: given.points.map((p) => ({ ...p, flag: "unknown" as const })) };
   const clipId = useId();
   const [hover, setHover] = useState<number | null>(null);
   const figRef = useRef<HTMLElement>(null);
@@ -256,7 +268,7 @@ export default function TrendChart({
           const lines = [
             czDate(active.date),
             `${czExact(active.value, active.valueRaw)}${unit ? ` ${unit}` : ""}`,
-            active.flag === "high" ? "nad rozmezím" : active.flag === "low" ? "pod rozmezím" : active.refLow !== null || active.refHigh !== null ? "v rozmezí" : "",
+            active.flag === "high" ? "nad rozmezím" : active.flag === "low" ? "pod rozmezím" : verdicts && (active.refLow !== null || active.refHigh !== null) ? "v rozmezí" : "",
           ].filter(Boolean);
           if (active.unconfirmed) lines.push("nepotvrzeno");
           // The way out of a doubted value, drawn as the last line and the one
@@ -340,7 +352,7 @@ export default function TrendChart({
             (active.flag === "high" ? " — nad rozmezím" : active.flag === "low" ? " — pod rozmezím" : "") +
             (active.unconfirmed ? " · nepotvrzeno" : "")
           : d.bLow !== null || d.bHigh !== null
-            ? `Referenční rozmezí ${d.bLow !== null ? czNum(d.bLow) : ""}${d.bLow !== null && d.bHigh !== null ? "–" : ""}${d.bHigh !== null ? czNum(d.bHigh) : ""}${unit ? ` ${unit}` : ""}` +
+            ? `Referenční rozmezí ${d.bLow !== null ? czNum(d.bLow) : ""}${d.bLow !== null && d.bHigh !== null ? "–" : ""}${d.bHigh !== null ? czNum(d.bHigh) : ""}${unit ? ` ${unit}` : ""}${rangeNote ? ` ${rangeNote}` : ""}` +
               (d.offPlot.length ? ` · ${d.offPlot.map((o) => `${o.label} ${czNum(o.value)} mimo výřez`).join(", ")}` : "")
             : "Bez referenčního rozmezí."}
       </figcaption>
