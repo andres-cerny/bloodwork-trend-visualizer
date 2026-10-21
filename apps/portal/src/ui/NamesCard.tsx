@@ -6,9 +6,11 @@
  * Grouped by laboratory, because that is how the person knows their reports
  * („the hospital lab", „the clinic"), and each line reads as a sentence:
  * printed name and unit → the parameter it counts as, and who decided —
- * the person (withdrawable), the app automatically (overrulable: a person's
- * decision always outranks a model's), or another user (shown, not
- * changeable from here — the worker would refuse it). Under them, the
+ * the person (withdrawable) or „automaticky": the model (overrulable: a
+ * person's decision always outranks a model's) or another account, which is
+ * deliberately not told apart, so nothing hints that someone else has
+ * reports from the same lab (shown without a button — the worker would
+ * refuse a change). Under them, the
  * parameters the app added from the NČLP code table, each opening the same
  * sheet the „přidáno automaticky" mark opens.
  *
@@ -100,9 +102,11 @@ export default function NamesCard({ decisions, autos, nameOf, onWithdraw, onOver
                       )
                     ) : d.who === "auto" ? (
                       d.where === "alias" ? (
+                        d.overrulable && (
                         <button type="button" className="btn small" onClick={() => onOverrule(d)} aria-label={`Nesedí: ${d.rawName}`}>
                           Nesedí
                         </button>
+                        )
                       ) : (
                         <button type="button" className="btn small" onClick={() => onWithdraw(d)} aria-label={`Vrátit zpět: ${d.rawName}`}>
                           Vrátit zpět

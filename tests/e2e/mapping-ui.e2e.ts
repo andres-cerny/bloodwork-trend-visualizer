@@ -187,6 +187,8 @@ const SCREENS: Screen[] = [
       expect(await card.locator(".chip.unrec").innerText()).toBe("nerozpoznáno");
       expect(await card.locator(".chip.alert").count(), "no range verdict on an unrecognised series").toBe(0);
       expect(await card.getByText(LAB).count()).toBe(1);
+      expect(await card.innerText(), "no verdict in words").not.toMatch(/v rozmezí|nad rozmezím|pod rozmezím/);
+      expect(await card.locator("figcaption").innerText()).toContain("(dle laboratoře)");
     },
   },
   {
@@ -277,7 +279,12 @@ const SCREENS: Screen[] = [
       const card = page.locator(".names-card");
       expect(await card.locator(".who-auto").count()).toBeGreaterThan(0);
       expect(await card.getByText("vaše rozhodnutí").count()).toBe(1);
-      expect(await card.getByText("jiný uživatel").count()).toBe(1);
+      // Another account's decision reads as automatic: nothing hints that
+      // someone else has reports from the same lab.
+      expect(await card.getByText("jiný uživatel").count()).toBe(0);
+      const leuko = card.locator(".names-list li", { hasText: "B_Leukocyty" });
+      expect(await leuko.locator(".who").innerText()).toBe("automaticky");
+      expect(await leuko.getByRole("button").count(), "another account's decision cannot be changed here").toBe(0);
       expect(await card.getByText("NČLP 00754").count()).toBe(1);
     },
   },

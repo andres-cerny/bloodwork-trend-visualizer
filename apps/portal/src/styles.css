@@ -646,6 +646,15 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
   .sum-table td.num { white-space: normal; overflow-wrap: anywhere; }
   .sum-table td.num .unit-line { display: block; }
 }
+/* At 360 the four columns' own minimums (the longest name word with its „i",
+   two short headers, „graf →") came to 7px more than the card holds, and the
+   out-of-range table scrolled sideways. Three pixels of padding a side
+   instead of five gives them back; the table fits. */
+@media (max-width: 399.98px) {
+  .sum-table th, .sum-table td { padding-left: 3px; padding-right: 3px; }
+  .sum-table th:first-child, .sum-table td:first-child { padding-left: 0; }
+  .sum-table th:last-child, .sum-table td:last-child { padding-right: 0; }
+}
 
 /* The phone's sketch: the desktop's Průběh picture, smaller, riding inside
    the "graf →" link — sketch above, word below, one door and one tap box.
@@ -680,6 +689,13 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; color:
  * so it cannot leave the screen.
  */
 .sum-search { position: relative; flex: 0 0 auto; }
+/* In Ověření's pane head the search sits mid-row, and a list anchored to its
+   own 220px box opened 70px off the left edge at 834 (two panes abreast). The
+   list is anchored to the whole head instead: its right edge is the pane's,
+   and the pane is wider than the list. */
+.pane-head { position: relative; }
+.pane-head .sum-search { position: static; }
+.pane-head .picker { max-width: calc(100vw - 32px); }
 /* Ověření's table heading with the search beside it — the same row a
    card-head is, for a heading that is not in one. */
 .pane-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -1087,7 +1103,6 @@ ul.names-list li {
   background: var(--chip); color: var(--ink-2); white-space: nowrap; border: 1px solid transparent;
 }
 .who-auto { background: var(--surface-1); border: 1px dashed var(--border-strong); color: var(--ink-muted); }
-.who-shared { background: none; border-color: var(--border); color: var(--ink-muted); }
 
 /* A sheet's decision, said once with its way back. */
 .notice-actions { display: inline-flex; gap: 6px; }

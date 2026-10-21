@@ -108,7 +108,9 @@ they save; `MAPPING_UI_SHOTS=<dir>` adds screenshots.
   unrecognised series (lab + printed name + unit; blood or unknown specimen,
   with a number, not parked by the model as another material) is its own
   card with a dashed edge and a „nerozpoznáno" chip, no „mimo rozmezí"
-  verdict, and „Přiřadit ke známému parametru": a sheet with the
+  verdict anywhere (headline, chart, table: no red, no „v rozmezí"), the
+  lab's printed range drawn as a band and captioned „(dle laboratoře)", and
+  „Přiřadit ke známému parametru": a sheet with the
   evidence-backed suggestion, a search, and a link to Přiřazení. The choice
   is saved as a scoped `person` alias (lab, name, unit) plus the account's
   learned name, like a click in Přiřazení; undo withdraws both.
@@ -127,10 +129,12 @@ they save; `MAPPING_UI_SHOTS=<dir>` adds screenshots.
 - **„Jak čteme názvy z laboratoří"** (Reporty, under „Váš účet, vaše data";
   on with any mapping switch): every decision that shapes the account's
   trends, grouped by lab — printed name + unit → parameter, and who decided
-  (vaše rozhodnutí / automaticky / jiný uživatel). One's own: „Vrátit zpět"
+  (vaše rozhodnutí / automaticky — another account's decision also reads
+  „automaticky", so nothing hints that someone else has reports from the
+  same lab). One's own: „Vrátit zpět"
   after a confirmation. Automatic: „Nesedí" (the sheet; a person's decision
-  always outranks a model's). Another user's: shown, no button (the worker
-  would refuse it). Below: the auto-added parameters in use, each opening its
+  always outranks a model's). Another account's: shown, no button (the
+  worker would refuse it). Below: the auto-added parameters in use, each opening its
   sheet.
 - **No curator view.** The app has no notion of an administrator, so the
   list of every account's model decisions and auto entries stays on the CLI

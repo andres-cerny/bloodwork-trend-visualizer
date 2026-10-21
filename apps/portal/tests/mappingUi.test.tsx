@@ -87,6 +87,10 @@ describe("Trendy", () => {
     // Out of its printed range, but not a parameter's verdict: no red chip.
     expect(card!.querySelector(".chip.alert")).toBeNull();
     expect(card!.textContent).toContain("Laboratoř Vzor");
+    // No verdict in words either — only the lab's range, said to be the lab's.
+    expect(card!.textContent).not.toMatch(/v rozmezí|nad rozmezím|pod rozmezím/);
+    expect(card!.textContent).toContain("(dle laboratoře)");
+    expect(card!.querySelector(".out")).toBeNull();
     click(button("Přiřadit ke známému parametru"));
     expect(onAssign).toHaveBeenCalledWith(expect.objectContaining({ recognised: false, displayName: "S_Cystatin X" }));
   });
@@ -150,11 +154,11 @@ describe("the sheet about an auto-added parameter", () => {
 });
 
 describe("the names screen", () => {
-  const mine: NameDecision = { rawName: "S_Kreat", lab: "Laboratoř Vzor", unit: "µmol/l", canonicalId: "glukoza", who: "you", where: "alias", mine: true, code: null };
-  const auto: NameDecision = { rawName: "S_Na", lab: "Laboratoř Vzor", unit: "mmol/l", canonicalId: "glukoza", who: "auto", where: "alias", mine: false, code: null };
-  const shared: NameDecision = { rawName: "S_K", lab: "Jiná laboratoř", unit: "mmol/l", canonicalId: null, who: "shared", where: "alias", mine: false, code: null };
+  const mine: NameDecision = { rawName: "S_Kreat", lab: "Laboratoř Vzor", unit: "µmol/l", canonicalId: "glukoza", who: "you", where: "alias", mine: true, overrulable: false, code: null };
+  const auto: NameDecision = { rawName: "S_Na", lab: "Laboratoř Vzor", unit: "mmol/l", canonicalId: "glukoza", who: "auto", where: "alias", mine: false, overrulable: true, code: null };
+  const shared: NameDecision = { rawName: "S_K", lab: "Jiná laboratoř", unit: "mmol/l", canonicalId: null, who: "auto", where: "alias", mine: false, overrulable: false, code: null };
 
-  it("withdraws one's own decision only after a confirmation; an automatic one goes to the sheet; another user's has no button", () => {
+  it("withdraws one's own decision only after a confirmation; a model's goes to the sheet; another account's reads as automatic, with no button", () => {
     const onWithdraw = vi.fn();
     const onOverrule = vi.fn();
     render(<NamesCard decisions={[mine, auto, shared]} autos={[]} registry={registry} nameOf={nameOf} onWithdraw={onWithdraw} onOverrule={onOverrule} onAutoInfo={() => {}} />);
@@ -168,6 +172,9 @@ describe("the names screen", () => {
     const sharedRow = [...document.querySelectorAll(".names-list li")].find((li) => li.textContent?.includes("S_K"))!;
     expect(sharedRow.querySelector("button")).toBeNull();
     expect(sharedRow.textContent).toContain("žádný parametr");
+    // Another account's decision is „automaticky", like the model's: no hint of another user.
+    expect(sharedRow.querySelector(".who")?.textContent).toBe("automaticky");
+    expect(host.textContent).not.toContain("jiný uživatel");
   });
 
   it("lists the auto-added parameters in use, opening their sheet", () => {

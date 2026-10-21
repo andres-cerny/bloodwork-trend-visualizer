@@ -98,13 +98,14 @@ describe("aliasApplies", () => {
 
 describe("nameDecisions", () => {
   const reports = [
-    report("a", "Lab A", "2026-01-01", [m("S_Na", "140", "mmol/l", "sodik"), m("S_Kreat", "80", "µmol/l", "kreatinin"), m("S_Moje", "3", "", "custom_moje"), m("Gluk", "5", "mmol/l", "glukoza")]),
+    report("a", "Lab A", "2026-01-01", [m("S_Na", "140", "mmol/l", "sodik"), m("S_Kreat", "80", "µmol/l", "kreatinin"), m("S_Moje", "3", "", "custom_moje"), m("Gluk", "5", "mmol/l", "glukoza"), m("B_Leuko", "6", "10^9/l", "leukocyty")]),
   ];
   const out = nameDecisions({
     reports,
     aliases: [
       alias({ rawName: "S_Na", lab: "Lab A", unit: "mmol/l", canonicalId: "sodik", source: "model", model: "claude-haiku-5-5", mine: false }),
       alias({ rawName: "S_X", lab: "Lab Z", canonicalId: "draslik", mine: false }),
+      alias({ rawName: "B_Leuko", lab: "Lab A", canonicalId: "leukocyty", mine: false }),
       alias({ rawName: "S_Mine", lab: "Lab Q", canonicalId: null, mine: true }),
     ],
     learned: { kreatinin: ["S_Kreat"], custom_moje: ["S_Moje"], glukoza: ["Gluk"], sodik: ["S_Na"] },
@@ -115,6 +116,10 @@ describe("nameDecisions", () => {
 
   it("lists a shared decision that names a reading, as automatic when the model made it", () => {
     expect(by("S_Na")).toMatchObject({ who: "auto", where: "alias", canonicalId: "sodik" });
+  });
+  it("shows another account's decision as automatic, not overrulable", () => {
+    expect(by("B_Leuko")).toMatchObject({ who: "auto", overrulable: false });
+    expect(by("S_Na")).toMatchObject({ overrulable: true });
   });
   it("leaves out someone else's decision that names nothing here, keeps one's own regardless", () => {
     expect(by("S_X")).toBeUndefined();

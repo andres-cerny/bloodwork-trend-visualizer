@@ -210,148 +210,159 @@ export default function TrendsTab({
         </div>
       ) : (
         <div className={`trend-grid${shown.length > 1 ? " multi" : ""}`}>
-          {shown.map((t) => (
-            <div className={t.recognised === false ? "card trend-card unrec" : "card trend-card"} key={t.canonicalId}>
-              <h3>
-                <span>{t.displayName}</span>
-                {t.recognised === false ? (
-                  <span className="chip unrec">nerozpoznáno</span>
-                ) : (
-                  <>
-                    <AboutParam name={t.displayName} about={aboutOf?.(t.canonicalId)} />
-                    <Mark id={t.canonicalId} />
-                  </>
-                )}
-                {t.unit && <span className="unit">{prettyUnit(t.unit)}</span>}
-                <span className="spacer" />
-                {t.recognised !== false && outNow(t) && <span className="chip alert">mimo rozmezí</span>}
-                <button
-                  className="rl-x"
-                  aria-label={`Odebrat ${t.displayName} ze zobrazení`}
-                  title="Odebrat ze zobrazení"
-                  onClick={() => setShownIds((prev) => prev.filter((id) => id !== t.canonicalId))}
-                >
-                  ✕
-                </button>
-              </h3>
-
-              {/* Its own series, under the lab's name: said in words, with the
-                  way to the parameter it may be. */}
-              {t.recognised === false && (
-                <div className="unrec-note">
-                  <p>
-                    Tento název{labOf?.(t) ? <> z laboratoře <strong>{labOf(t)}</strong></> : null} zatím neumíme
-                    přiřadit k žádnému známému parametru. Graf ukazuje jen jeho vlastní hodnoty a rozmezí, které
-                    vytiskla laboratoř.
-                  </p>
-                  {onAssign && (
-                    <button type="button" className="btn small" onClick={() => onAssign(t)}>
-                      Přiřadit ke známému parametru
-                    </button>
+          {shown.map((given) => {
+            // An unrecognised series is judged by nothing: its range is the
+            // lab's printed one, shown as a fact, and no reading is called in
+            // or out of it — not in the headline, the chart or the table.
+            const unrec = given.recognised === false;
+            const t = unrec ? { ...given, points: given.points.map((p) => ({ ...p, flag: "unknown" as const })) } : given;
+            return (
+              <div className={t.recognised === false ? "card trend-card unrec" : "card trend-card"} key={t.canonicalId}>
+                <h3>
+                  <span>{t.displayName}</span>
+                  {t.recognised === false ? (
+                    <span className="chip unrec">nerozpoznáno</span>
+                  ) : (
+                    <>
+                      <AboutParam name={t.displayName} about={aboutOf?.(t.canonicalId)} />
+                      <Mark id={t.canonicalId} />
+                    </>
                   )}
-                </div>
-              )}
+                  {t.unit && <span className="unit">{prettyUnit(t.unit)}</span>}
+                  <span className="spacer" />
+                  {t.recognised !== false && outNow(t) && <span className="chip alert">mimo rozmezí</span>}
+                  <button
+                    className="rl-x"
+                    aria-label={`Odebrat ${t.displayName} ze zobrazení`}
+                    title="Odebrat ze zobrazení"
+                    onClick={() => setShownIds((prev) => prev.filter((id) => id !== t.canonicalId))}
+                  >
+                    ✕
+                  </button>
+                </h3>
 
-              {/* A reading held out of the series has to be visible here, not
-                  only in Ověření. This is the screen a patient is shown, and a
-                  value silently missing is only marginally better than a wrong
-                  value silently drawn. */}
-              {suspectPoints(t).map((p, i) => (
-                <p key={i} className="held-back">
-                  ⚠ {czDate(p.date)}: <strong>{czExact(p.value, p.valueRaw)}</strong>{" "}
-                  {prettyUnit(t.unit)} není v grafu — hodnota čeká na ověření v záložce{" "}
-                  <strong>Ověření</strong>.
-                </p>
-              ))}
+                {/* Its own series, under the lab's name: said in words, with the
+                    way to the parameter it may be. */}
+                {t.recognised === false && (
+                  <div className="unrec-note">
+                    <p>
+                      Tento název{labOf?.(t) ? <> z laboratoře <strong>{labOf(t)}</strong></> : null} zatím neumíme
+                      přiřadit k žádnému známému parametru. Graf ukazuje jen jeho vlastní hodnoty a rozmezí, které
+                      vytiskla laboratoř.
+                    </p>
+                    {onAssign && (
+                      <button type="button" className="btn small" onClick={() => onAssign(t)}>
+                        Přiřadit ke známému parametru
+                      </button>
+                    )}
+                  </div>
+                )}
 
-              {/* Plotted but unconfirmed: named here, because a hollow dot alone
-                  is a convention the reader has not been taught. */}
-              {unconfirmedPoints(t).length > 0 && (
-                <p className="unconfirmed-note">
-                  Nepotvrzené hodnoty v grafu (kroužek):{" "}
-                  {unconfirmedPoints(t)
-                    .map((p) => `${czDate(p.date)} — ${czExact(p.value, p.valueRaw)}`)
-                    .join("; ")}
-                  . Ověřte je prosím v záložce <strong>Ověření</strong>.
-                </p>
-              )}
+                {/* A reading held out of the series has to be visible here, not
+                    only in Ověření. This is the screen a patient is shown, and a
+                    value silently missing is only marginally better than a wrong
+                    value silently drawn. */}
+                {suspectPoints(t).map((p, i) => (
+                  <p key={i} className="held-back">
+                    ⚠ {czDate(p.date)}: <strong>{czExact(p.value, p.valueRaw)}</strong>{" "}
+                    {prettyUnit(t.unit)} není v grafu — hodnota čeká na ověření v záložce{" "}
+                    <strong>Ověření</strong>.
+                  </p>
+                ))}
 
-              {/* Readings in a unit nothing converts to this one: out of the
-                  chart, and said so, rather than drawn as a jump. */}
-              {t.otherUnits && (
-                <p className="held-back">
-                  ⚠ Mimo graf:{" "}
-                  {Object.entries(t.otherUnits)
-                    .map(([u, n]) => `${n} měření v jednotce ${prettyUnit(u)}`)
-                    .join(", ")}{" "}
-                  — {Object.keys(t.otherUnits).length > 1 ? "tyto jednotky" : "tuto jednotku"} neumíme převést na {prettyUnit(t.unit)}.
-                </p>
-              )}
+                {/* Plotted but unconfirmed: named here, because a hollow dot alone
+                    is a convention the reader has not been taught. */}
+                {unconfirmedPoints(t).length > 0 && (
+                  <p className="unconfirmed-note">
+                    Nepotvrzené hodnoty v grafu (kroužek):{" "}
+                    {unconfirmedPoints(t)
+                      .map((p) => `${czDate(p.date)} — ${czExact(p.value, p.valueRaw)}`)
+                      .join("; ")}
+                    . Ověřte je prosím v záložce <strong>Ověření</strong>.
+                  </p>
+                )}
 
-              <StatLine trend={t} />
-              <TrendChart trend={t} onVerify={onVerify && ((p) => onVerify(p.reportId, p.rawName))} />
-              <details className="tc-table" style={{ marginTop: 8 }}>
-                <summary className="muted" style={{ cursor: "pointer" }}>
-                  Tabulka hodnot
-                </summary>
-                {/* Four columns and no scroll box: on a phone the table is as
-                    wide as the card and the dash in the range may wrap. The
-                    fourth column is the way to the printed row — every
-                    reading has one, not only the doubted ones. A value outside
-                    its range is red, the way Souhrn's table says it, so the
-                    state needs no column of its own; the link's label says
-                    it in words for a reader who cannot see the red. */}
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Datum</th>
-                      <th className="num">Hodnota</th>
-                      <th className="num">Rozmezí</th>
-                      <th className="tc-verify">Ověření</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {t.points.map((p, i) => {
-                      const out = p.flag === "high" || p.flag === "low";
-                      return (
-                        <tr key={i}>
-                          <td className="tc-date">{czDate(p.date)}</td>
-                          {/* As printed — this table is checkable against the
-                              source, so it must not round. */}
-                          <td className="num">
-                            <strong className={out ? "out" : undefined}>{czExact(p.value, p.valueRaw)}</strong>
-                            {p.convertedFrom && (
-                              <span className="muted" style={{ display: "block", fontSize: "0.85em" }}>
-                                převedeno z {czExact(p.convertedFrom.value)} {prettyUnit(p.convertedFrom.unit)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="muted num tc-range">
-                            {p.refLow !== null || p.refHigh !== null ? czRange(p.refLow, p.refHigh) : "—"}
-                          </td>
-                          <td className="tc-verify">
-                            {onVerify && (
-                              <button
-                                type="button"
-                                className="btn linkish verify-go"
-                                onClick={() => onVerify(p.reportId, p.rawName)}
-                                title="Ukázat řádek na zdrojové stránce"
-                                aria-label={`Ověřit ${t.displayName} z ${czDate(p.date)}${
-                                  out ? (p.flag === "high" ? " (nad rozmezím)" : " (pod rozmezím)") : ""
-                                } na zdrojové stránce`}
-                              >
-                                ověřit →
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </details>
-            </div>
-          ))}
+                {/* Readings in a unit nothing converts to this one: out of the
+                    chart, and said so, rather than drawn as a jump. */}
+                {t.otherUnits && (
+                  <p className="held-back">
+                    ⚠ Mimo graf:{" "}
+                    {Object.entries(t.otherUnits)
+                      .map(([u, n]) => `${n} měření v jednotce ${prettyUnit(u)}`)
+                      .join(", ")}{" "}
+                    — {Object.keys(t.otherUnits).length > 1 ? "tyto jednotky" : "tuto jednotku"} neumíme převést na {prettyUnit(t.unit)}.
+                  </p>
+                )}
+
+                <StatLine trend={t} verdicts={!unrec} />
+                <TrendChart
+                  trend={t}
+                  onVerify={onVerify && ((p) => onVerify(p.reportId, p.rawName))}
+                  {...(unrec ? { verdicts: false, rangeNote: "(dle laboratoře)" } : {})}
+                />
+                <details className="tc-table" style={{ marginTop: 8 }}>
+                  <summary className="muted" style={{ cursor: "pointer" }}>
+                    Tabulka hodnot
+                  </summary>
+                  {/* Four columns and no scroll box: on a phone the table is as
+                      wide as the card and the dash in the range may wrap. The
+                      fourth column is the way to the printed row — every
+                      reading has one, not only the doubted ones. A value outside
+                      its range is red, the way Souhrn's table says it, so the
+                      state needs no column of its own; the link's label says
+                      it in words for a reader who cannot see the red. */}
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Datum</th>
+                        <th className="num">Hodnota</th>
+                        <th className="num">Rozmezí</th>
+                        <th className="tc-verify">Ověření</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {t.points.map((p, i) => {
+                        const out = p.flag === "high" || p.flag === "low";
+                        return (
+                          <tr key={i}>
+                            <td className="tc-date">{czDate(p.date)}</td>
+                            {/* As printed — this table is checkable against the
+                                source, so it must not round. */}
+                            <td className="num">
+                              <strong className={out ? "out" : undefined}>{czExact(p.value, p.valueRaw)}</strong>
+                              {p.convertedFrom && (
+                                <span className="muted" style={{ display: "block", fontSize: "0.85em" }}>
+                                  převedeno z {czExact(p.convertedFrom.value)} {prettyUnit(p.convertedFrom.unit)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="muted num tc-range">
+                              {p.refLow !== null || p.refHigh !== null ? czRange(p.refLow, p.refHigh) : "—"}
+                            </td>
+                            <td className="tc-verify">
+                              {onVerify && (
+                                <button
+                                  type="button"
+                                  className="btn linkish verify-go"
+                                  onClick={() => onVerify(p.reportId, p.rawName)}
+                                  title="Ukázat řádek na zdrojové stránce"
+                                  aria-label={`Ověřit ${t.displayName} z ${czDate(p.date)}${
+                                    out ? (p.flag === "high" ? " (nad rozmezím)" : " (pod rozmezím)") : ""
+                                  } na zdrojové stránce`}
+                                >
+                                  ověřit →
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </details>
+              </div>
+            );
+          })}
         </div>
       )}
     </>
@@ -359,7 +370,7 @@ export default function TrendsTab({
 }
 
 /** The current value, its status, the step since the previous draw, the range. */
-function StatLine({ trend }: { trend: Trend }) {
+function StatLine({ trend, verdicts = true }: { trend: Trend; verdicts?: boolean }) {
   const [older, newer] = latestTwo(trend);
   // The newest result is a bound (">200"): it is the headline, not the older
   // number behind it.
@@ -381,13 +392,13 @@ function StatLine({ trend }: { trend: Trend }) {
   const out = newer.flag === "high" || newer.flag === "low";
   const delta = older ? (newer.value as number) - (older.value as number) : null;
   const pct = older && older.value ? Math.round((Math.abs(delta as number) / Math.abs(older.value)) * 100) : null;
-  const range = newer.refLow !== null || newer.refHigh !== null ? `rozmezí ${czRange(newer.refLow, newer.refHigh)}` : null;
+  const range = newer.refLow !== null || newer.refHigh !== null ? `rozmezí ${czRange(newer.refLow, newer.refHigh)}${verdicts ? "" : " (dle laboratoře)"}` : null;
   return (
     <div className="tc-stat">
       <span className={`big${out ? " out" : ""}`}>
         {czExact(newer.value, newer.valueRaw)} <span className="unit">{prettyUnit(trend.unit)}</span>
       </span>
-      <Flag flag={newer.flag} />
+      {verdicts && <Flag flag={newer.flag} />}
       {older && delta !== null && (
         <span className="delta">
           {delta > 0 ? "↗ +" : delta < 0 ? "↘ −" : ""}

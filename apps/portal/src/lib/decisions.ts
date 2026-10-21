@@ -114,10 +114,14 @@ export function aliasApplies(a: Pick<SavedAlias, "lab" | "rawName" | "unit">, re
   return reports.some((r) => r.measurements.some((m) => aliasKey(a.lab ? r.labName : null, m.rawAnalyteName, a.unit ? m.unitRaw : null) === want));
 }
 
-/** Who made a decision, as the screen says it. */
-export type Who = "you" | "auto" | "shared";
+/**
+ * Who made a decision, as the screen says it: this account, or anyone else —
+ * the model or another account alike are „automaticky", so nothing on the
+ * screen hints that someone else has reports from the same lab.
+ */
+export type Who = "you" | "auto";
 
-export const WHO_CS: Record<Who, string> = { you: "vaše rozhodnutí", auto: "automaticky", shared: "jiný uživatel" };
+export const WHO_CS: Record<Who, string> = { you: "vaše rozhodnutí", auto: "automaticky" };
 
 /**
  * One decision on the names screen.
@@ -134,6 +138,12 @@ export interface NameDecision extends NameScope {
   where: "alias" | "learned" | "ai";
   /** This account made it, so this account can take it back. */
   mine: boolean;
+  /**
+   * A model's decision, which a person's may replace („Nesedí"). Another
+   * account's own decision may not be replaced (the worker refuses it), so
+   * it is listed without a button.
+   */
+  overrulable: boolean;
   code: string | null;
 }
 
@@ -176,9 +186,10 @@ export function nameDecisions(input: {
       lab: a.lab,
       unit: a.unit,
       canonicalId: a.canonicalId,
-      who: a.source === "model" ? "auto" : a.mine ? "you" : "shared",
+      who: a.source === "person" && a.mine ? "you" : "auto",
       where: "alias",
       mine: a.mine,
+      overrulable: a.source === "model",
       code: a.code,
     });
   }
@@ -190,7 +201,7 @@ export function nameDecisions(input: {
       covered.add(rawName);
       const ai = aiAsked[rawName];
       const byModel = !!ai?.applied && ai.canonicalId === cid;
-      out.push({ rawName, ...firstScope(rawName, reports), canonicalId: cid, who: byModel ? "auto" : "you", where: byModel ? "ai" : "learned", mine: true, code: ai?.code ?? null });
+      out.push({ rawName, ...firstScope(rawName, reports), canonicalId: cid, who: byModel ? "auto" : "you", where: byModel ? "ai" : "learned", mine: true, overrulable: false, code: ai?.code ?? null });
     }
   }
   return out.sort((x, y) => x.lab.localeCompare(y.lab, "cs") || x.rawName.localeCompare(y.rawName, "cs"));
