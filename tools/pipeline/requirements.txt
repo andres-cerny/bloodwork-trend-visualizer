@@ -3,5 +3,5 @@
 # The Streamlit tool's dependencies moved to tools/archive/requirements.txt with
 # it — anthropic, httpx, streamlit, pandas, altair, and the Pillow it imported
 # without ever declaring.
-pymupdf>=1.24
+pymupdf==1.28.2  # pinned: demo bboxes are diffed byte-for-byte; 2.0 moves them
 python-dotenv>=1.0
