@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   abbreviationKey,
+  leadingCodeKey,
   canonicalizeUnit,
   censoredFlag,
   computeFlag,
@@ -38,6 +39,7 @@ const CASES = JSON.parse(
   material_prefix: Array<[string, string | null]>;
   norm_key: Array<[string, string]>;
   abbreviation_key: Array<[string, string | null]>;
+  leading_code_key: Array<[string, string | null]>;
 };
 
 describe("parity with src/normalize.py", () => {
@@ -111,6 +113,14 @@ describe("parity with src/normalize.py", () => {
     }
   });
 
+  // Round 2 of docs/plans/model-loop.md: Haiku 5.5 glued Břeclav's zkr code
+  // onto every name ("URE urea") and none of them met the catalog.
+  it("leadingCodeKey", () => {
+    for (const [input, expected] of CASES.leading_code_key) {
+      expect(leadingCodeKey(input), `leadingCodeKey(${JSON.stringify(input)})`).toBe(expected);
+    }
+  });
+
   it("covers every case in the shared fixture", () => {
     const total =
       CASES.parse_czech_number.length +
@@ -121,9 +131,10 @@ describe("parity with src/normalize.py", () => {
       CASES.censored_flag.length +
       CASES.material_prefix.length +
       CASES.norm_key.length +
-      CASES.abbreviation_key.length;
+      CASES.abbreviation_key.length +
+      CASES.leading_code_key.length;
     // Matches the count tests/test_parity.py reports, so neither side can
     // quietly stop reading part of the fixture.
-    expect(total).toBe(167);
+    expect(total).toBe(192);
   });
 });

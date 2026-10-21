@@ -335,7 +335,7 @@ export async function extractReport(
             isScan,
             // The page's own material rides along with the name, so a bare
             // "Glukóza" under Moč is refused the serum analyte.
-            (raw, mat) => registry.match(raw, mat),
+            (raw, mat, scope) => registry.match(raw, mat, scope),
             res.readersAttempted,
             prepared.kind === "photo" ? prepared.photo?.rows : null,
           );

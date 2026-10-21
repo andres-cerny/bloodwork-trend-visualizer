@@ -24,7 +24,7 @@
  * the time this runs, and a model that cannot be reached leaves the names
  * waiting in the tab, not the report unsaved.
  */
-import { type Observed, type Registry, type UnmappedAnalyte, canApplyUnasked, scoreCandidate, trendable } from "@bw/lab-core";
+import { type LabReport, type Observed, type Registry, type UnmappedAnalyte, type WeakMatch, canApplyUnasked, findWeakMatches, scoreCandidate, trendable } from "@bw/lab-core";
 import type { AiAsked, AiAskedEntry, AiMapAnswer, CatalogEntry, NameToMap } from "./api";
 
 /** The one in-memory mark: this name's call is out. Never persisted. */
@@ -94,6 +94,7 @@ export function judge(answer: AiMapAnswer, names: UnmappedAnalyte[], registry: R
       at,
     };
     if (s.decision === "new" && s.proposed) entry.proposed = s.proposed;
+    if (s.code) entry.code = s.code;
     if (s.decision === "not_blood") parked.push(a.rawName);
     if (s.decision === "catalog" && s.canonicalId && s.confidence === "high") {
       const def = registry.get(s.canonicalId);
@@ -136,6 +137,35 @@ export interface RunOutcome {
   error: unknown | null;
 }
 
+/**
+ * Which of the model's filings become a lesson for every account.
+ *
+ * Off unless the build sets `VITE_SHARE_AI_MAPPINGS=1` (docs/plans/
+ * model-loop.md, "Mapping design"): today a lesson for everyone takes a
+ * person's click. On, the same bar as filing unasked — `catalog`, `high`,
+ * `canApplyUnasked` (the unit known to agree, nothing contradicting) — and
+ * only onto a shipped entry, never a parameter this account founded. The
+ * lesson is taught under this account, so it can take it back exactly as a
+ * click-taught one; and the next account with the same printed name never
+ * reaches the model.
+ */
+export function sharedLessons(judged: Judged, isShipped: (canonicalId: string) => boolean, enabled: boolean): Judged["applied"] {
+  return enabled ? judged.applied.filter((a) => isShipped(a.canonicalId)) : [];
+}
+
+/**
+ * Where a filed name was printed: the lab and unit of its first reading, so
+ * the shared lesson is the decision for that (lab, name, unit), not for the
+ * name everywhere. Lab and unit "" when the reports do not say.
+ */
+export function scopeOf(rawName: string, reports: LabReport[]): { lab: string; unit: string } {
+  for (const r of reports) {
+    const m = r.measurements.find((x) => x.rawAnalyteName === rawName);
+    if (m) return { lab: r.labName ?? "", unit: m.unitRaw ?? "" };
+  }
+  return { lab: "", unit: "" };
+}
+
 /** Choose, mark, ask, judge, commit — or roll back. Never rejects. */
 export async function runAiMapping(input: RunInput, effects: RunEffects): Promise<RunOutcome> {
   const names = namesToAsk(input.candidates, input.asked());
@@ -158,3 +188,93 @@ export async function runAiMapping(input: RunInput, effects: RunEffects): Promis
 
 /** The in-flight mark, for the effect that writes it. */
 export const askingEntry = asking;
+
+/**
+ * A second opinion on a weak list match (`findWeakMatches`): the model is
+ * asked about the printed name exactly as for an unknown one — it is not told
+ * what the list chose, so it cannot simply agree — and its answer becomes a
+ * scoped decision for (lab, printed name, unit):
+ *
+ *   confirm  the model names the list's entry: the match stands, and is
+ *            saved so the name is never asked again;
+ *   remap    the model names another entry with "high" and the unit/interval
+ *            evidence for it holds (`canApplyUnasked`) — the same bar as
+ *            filing an unknown name unasked;
+ *   unmap    anything else (another entry without that evidence, "unknown",
+ *            "new", "not blood"): the doubt is real, so the row leaves the
+ *            list's entry and waits for a person in the mapping tab, with
+ *            the model's answer beside it.
+ *
+ * Off unless the build sets `VITE_SECOND_OPINION=1`. docs/plans/model-loop.md,
+ * round 4.
+ */
+export interface SecondOpinion {
+  rawName: string;
+  unit: string;
+  lab: string | null;
+  listId: string;
+  /** `skip`: the model did not answer this name — nothing is saved, it is asked again later. */
+  verdict: "confirm" | "remap" | "unmap" | "skip";
+  /** The entry the row maps to after this: the list's, the model's, or none. */
+  canonicalId: string | null;
+  /** The model's answer, as it would be shown. */
+  said: { decision: string; canonicalId: string | null; confidence: string; reason: string; code?: string | null };
+}
+
+export function judgeSecondOpinion(answer: AiMapAnswer, weak: WeakMatch[], registry: Registry, stats: Map<string, Observed>): SecondOpinion[] {
+  const byName = new Map(answer.suggestions.map((s) => [s.rawName, s]));
+  return weak.map((w) => {
+    const s = byName.get(w.analyte.rawName);
+    const base = { rawName: w.analyte.rawName, unit: w.analyte.unitRaw, lab: w.lab, listId: w.listId };
+    if (!s) {
+      // Not answered is not a verdict: keep the list's match, ask again later.
+      return { ...base, verdict: "skip" as const, canonicalId: w.listId, said: { decision: "unknown", canonicalId: null, confidence: "low", reason: NOT_ANSWERED } };
+    }
+    const said = { decision: s.decision, canonicalId: s.decision === "catalog" ? s.canonicalId : null, confidence: s.confidence, reason: s.reason.slice(0, REASON_MAX), code: s.code ?? null };
+    if (s.decision === "catalog" && s.canonicalId === w.listId) return { ...base, verdict: "confirm" as const, canonicalId: w.listId, said };
+    if (s.decision === "catalog" && s.canonicalId && s.confidence === "high") {
+      const def = registry.get(s.canonicalId);
+      const c = def ? scoreCandidate(w.analyte, def, stats) : null;
+      if (c && canApplyUnasked(c)) return { ...base, verdict: "remap" as const, canonicalId: s.canonicalId, said };
+    }
+    return { ...base, verdict: "unmap" as const, canonicalId: null, said };
+  });
+}
+
+export interface SecondOpinionInput {
+  reports: LabReport[];
+  registry: Registry;
+  stats: Map<string, Observed>;
+  ask: (names: NameToMap[], catalog: CatalogEntry[]) => Promise<AiMapAnswer>;
+}
+
+export interface SecondOpinionEffects {
+  /** Save one decision (shared `aliases`, source "model"). Best effort. */
+  save: (o: SecondOpinion, model: string) => void;
+}
+
+/**
+ * Find the weak list matches, ask once, judge, apply each decision to the
+ * registry as a scoped alias and hand it to `save`. The caller then re-runs
+ * `rematchReport`, which carries the decisions into stored reports. Never
+ * rejects; a failed call decides nothing. Off unless `VITE_SECOND_OPINION=1`.
+ */
+export async function runSecondOpinion(input: SecondOpinionInput, effects: SecondOpinionEffects): Promise<{ asked: number; decided: SecondOpinion[]; error: unknown | null }> {
+  const weak = findWeakMatches(input.reports, input.registry);
+  if (weak.length === 0) return { asked: 0, decided: [], error: null };
+  let answer: AiMapAnswer;
+  try {
+    const wire: NameToMap[] = weak.map((w) => ({ rawName: w.analyte.rawName, unit: w.analyte.unitRaw, refRange: w.analyte.refRangeRaw, material: w.analyte.material }));
+    const catalog: CatalogEntry[] = [...input.registry.analytes.values()].map((d) => ({ id: d.canonicalId, name: d.displayNameCs, unit: d.canonicalUnit }));
+    answer = await input.ask(wire, catalog);
+  } catch (e) {
+    return { asked: weak.length, decided: [], error: e };
+  }
+  const decided = judgeSecondOpinion(answer, weak, input.registry, input.stats).filter((o) => o.verdict !== "skip");
+  for (const o of decided) {
+    input.registry.addScopedAlias({ lab: o.lab, unit: o.unit }, o.rawName, o.canonicalId);
+    effects.save(o, answer.model ?? "");
+  }
+  return { asked: weak.length, decided, error: null };
+}
+

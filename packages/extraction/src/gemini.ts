@@ -255,8 +255,9 @@ function usageOf(r: GenerateContentResponse): Usage {
 /**
  * A call the provider has already billed, whose answer could not be read.
  *
- * The Anthropic reader cannot reach this state: `toolInput` answers `{}` for a
- * malformed reply, so the read fulfils and is priced. This one throws, and the
+ * The Anthropic reader reaches the same state through `UnusableReplyError`
+ * (models.ts): a cut-off, declined or tool-less reply throws with its usage
+ * attached, so it is priced like this one. This one throws, and the
  * usage went with the exception — Google charged for a call the ledger never
  * saw (docs/security-review-gemini.md, finding 4). The spend freeze is the one
  * thing between a public URL and an unbounded bill, and it can only count what

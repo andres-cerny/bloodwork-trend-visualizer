@@ -4,7 +4,7 @@
  * analyte set is fixed), so only the lookup side is needed at runtime.
  */
 import type { AnalyteDef } from "./models";
-import { MATERIAL_CODES, compartmentCompatible, materialPrefix, stripMaterialPrefix } from "./normalize";
+import { MATERIAL_CODES, canonicalizeUnit, compartmentCompatible, materialPrefix, stripMaterialPrefix } from "./normalize";
 import { printedMaterial, type TextRow } from "./pdf/rows";
 
 // The material-prefix rule (S_, S/, S-, S,P-, dU_ …) lives in normalize.ts,
@@ -47,6 +47,37 @@ export function abbreviationKey(name: string): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+/**
+ * The other way round: a short code printed *before* the long name, in its
+ * own column, that a reader glued onto the name — "URE urea", "KM * kyselina
+ * močová" (Břeclav's `zkr` column; Haiku 5.5 does it on every such row,
+ * docs/plans/model-loop.md round 1). The second key is the long name alone.
+ *
+ * Only when the code can be an abbreviation of what follows: 2-6 capitals or
+ * digits with a capital first, an optional accreditation `*`, then a word
+ * starting with a lowercase letter that is the code's first letter. That
+ * last rule is what keeps "HDL cholesterol" from being looked up as
+ * "cholesterol" — and the full key is always tried first anyway.
+ */
+const LEADING_CODE = /^([A-Z][A-Z0-9]{1,5})\s*\*?\s+(\p{Ll}.*)$/u;
+
+export function leadingCodeKey(name: string): string | null {
+  const m = LEADING_CODE.exec((name || "").trim());
+  if (!m) return null;
+  const rest = stripDiacritics(m[2]).toLowerCase();
+  if (rest[0] !== m[1][0].toLowerCase()) return null;
+  return normKey(m[2]) || null;
+}
+
+/**
+ * Any short capital code before a name, whatever letter the name starts with
+ * ("FE železo", "TRFSAT Saturace Transferinu"). Not a key on its own: `match`
+ * accepts it only when the code *and* the name each resolve, to the same
+ * entry — "FE" and "železo" are both iron. "HDL cholesterol" resolves to two
+ * different entries and is refused; an unknown code is refused.
+ */
+const ANY_LEADING_CODE = /^([A-Z][A-Z0-9]{1,5})\s*\*?\s+(\p{L}.*)$/u;
+
 /** A code the registry can reason about; any other prefix is no evidence. */
 const knownMaterial = (code: string | null | undefined): string | null =>
   code && MATERIAL_CODES.has(code) ? code : null;
@@ -68,9 +99,37 @@ export function materialOfNames(names: Iterable<string>): string | null {
   return codes.length > 0 ? codes.join(",") : null;
 }
 
+/**
+ * Where a saved alias holds: one laboratory's printed name in one unit.
+ *
+ * A shipped or click-taught synonym is global — "S_Na" is sodium everywhere.
+ * A *scoped* alias is the decision for one (lab, printed name, unit), which is
+ * what a model's answer or a second opinion actually establishes: "Protrombinový
+ * test" in seconds at this lab is the PT time, whatever the same words mean in
+ * % elsewhere. `lab` or `unit` null means "any". docs/plans/model-loop.md,
+ * "Mapping design".
+ */
+export interface AliasScope {
+  lab?: string | null;
+  unit?: string | null;
+}
+
+/** The lookup key of a scoped alias; lab and unit folded the way the comparison is. */
+export function aliasKey(lab: string | null | undefined, rawName: string, unit: string | null | undefined): string {
+  const l = (lab ?? "").trim().toLowerCase().replace(/\s+/g, " ") || "*";
+  const u = unit === null || unit === undefined ? "*" : (canonicalizeUnit(unit) ?? "").replace(/\s+/g, "").toLowerCase();
+  return `${l}|${normKey(rawName)}|${u}`;
+}
+
 export class Registry {
   readonly analytes = new Map<string, AnalyteDef>();
   private index = new Map<string, string>();
+  /**
+   * Scoped aliases, `aliasKey` → canonical id, or null for "not the entry the
+   * name would otherwise find" (a second opinion that refused a weak match).
+   * Consulted before every global key.
+   */
+  private scoped = new Map<string, string | null>();
   /** `canonicalId\u0000rawName` for every synonym taught by the UI. */
   private learned = new Set<string>();
 
@@ -140,9 +199,47 @@ export class Registry {
    * (its Materiál cell or the heading above it; see `matchRow`). Unknown on
    * either side is compatible, so a page that says nothing maps as before.
    */
-  match(rawName: string, pageMaterial?: string | null): string | null {
+  /** Save one scoped decision; a later one for the same scope replaces it. */
+  addScopedAlias(scope: AliasScope, rawName: string, canonicalId: string | null): void {
+    if (canonicalId !== null && !this.analytes.has(canonicalId)) return;
+    this.scoped.set(aliasKey(scope.lab, rawName, scope.unit), canonicalId);
+  }
+
+  /** Withdraw one scoped decision. */
+  removeScopedAlias(scope: AliasScope, rawName: string): boolean {
+    return this.scoped.delete(aliasKey(scope.lab, rawName, scope.unit));
+  }
+
+  /**
+   * The scoped decision for this row, most specific first: this lab and unit,
+   * this lab any unit, any lab this unit. `undefined` when none applies;
+   * `null` when one applies and says "no entry".
+   */
+  scopedMatch(rawName: string, scope: AliasScope): string | null | undefined {
+    for (const [lab, unit] of [
+      [scope.lab, scope.unit],
+      [scope.lab, null],
+      [null, scope.unit],
+    ] as const) {
+      if (!lab && !unit) continue;
+      const k = aliasKey(lab, rawName, unit);
+      if (this.scoped.has(k)) return this.scoped.get(k)!;
+    }
+    return undefined;
+  }
+
+  match(rawName: string, pageMaterial?: string | null, scope?: AliasScope): string | null {
+    if (scope) {
+      const hit = this.scopedMatch(rawName, scope);
+      if (hit !== undefined) return hit;
+    }
     const abbr = abbreviationKey(rawName);
-    const id = this.index.get(normKey(rawName)) ?? (abbr ? this.index.get(abbr) : undefined);
+    const lead = leadingCodeKey(rawName);
+    const id =
+      this.index.get(normKey(rawName)) ??
+      (abbr ? this.index.get(abbr) : undefined) ??
+      (lead ? this.index.get(lead) : undefined) ??
+      this.codeAgreesWithName(rawName);
     if (!id) return null;
     const stated = knownMaterial(materialPrefix(rawName)) ?? knownMaterial(pageMaterial);
     const known = this.analytes.get(id)?.material;
@@ -151,6 +248,14 @@ export class Registry {
     // Glukóza auto-mapped to the serum glukoza.
     if (stated && known && !compartmentCompatible(stated, known)) return null;
     return id;
+  }
+
+  /** The entry a glued "CODE name" names twice over, or undefined (see ANY_LEADING_CODE). */
+  private codeAgreesWithName(rawName: string): string | undefined {
+    const m = ANY_LEADING_CODE.exec((rawName || "").trim());
+    if (!m) return undefined;
+    const byCode = this.index.get(normKey(m[1]));
+    return byCode && byCode === this.index.get(normKey(m[2])) ? byCode : undefined;
   }
 
   /**

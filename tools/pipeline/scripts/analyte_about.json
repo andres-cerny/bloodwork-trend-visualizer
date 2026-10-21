@@ -1374,5 +1374,21 @@
  "anti_ebv_vca_igm": {
   "what": "Anti-EBV VCA IgM jsou protilátky třídy IgM proti kapsidovému antigenu (VCA) viru Epsteina-Barrové (EBV); tvoří se jako první reakce na infekci a po několika týdnech až měsících mizí.",
   "usedFor": "Vyšetření se používá k rozpoznání čerstvé infekce virem Epsteina-Barrové, která se může projevit jako infekční mononukleóza, na rozdíl od VCA IgG, které přetrvávají i po jejím odeznění."
+ },
+ "pco2": {
+  "what": "pCO2 je parciální tlak oxidu uhličitého v krvi, tedy míra toho, kolik oxidu uhličitého je v ní rozpuštěno.",
+  "usedFor": "Je součástí vyšetření krevních plynů; posuzuje se podle něj dýchání a acidobazická rovnováha."
+ },
+ "po2": {
+  "what": "pO2 je parciální tlak kyslíku v krvi, tedy míra toho, kolik kyslíku je v ní rozpuštěno.",
+  "usedFor": "Je součástí vyšetření krevních plynů; posuzuje se podle něj okysličení krve a funkce plic."
+ },
+ "base_excess": {
+  "what": "Base excess (nadbytek bází) udává, kolik zásad v krvi přebývá nebo chybí oproti normálu.",
+  "usedFor": "Je součástí vyšetření krevních plynů; pomáhá odlišit metabolické poruchy acidobazické rovnováhy od dechových."
+ },
+ "so2": {
+  "what": "Saturace hemoglobinu kyslíkem (sO2) je podíl hemoglobinu, který právě nese kyslík.",
+  "usedFor": "Je součástí vyšetření krevních plynů; ukazuje, jak dobře krev přenáší kyslík."
  }
 }

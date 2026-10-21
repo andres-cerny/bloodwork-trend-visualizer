@@ -40,6 +40,9 @@
   ],
   "_canonicalize_unit": "Cosmetic unit spellings that must fold to one form or the same analyte will not line up across labs. Micro has three: the micro sign, Greek mu, and the ASCII fallback (umol/l, ug/l) — the last is lowercase-only so U/l keeps its enzyme unit. The count units print a superscript (x 10⁹/l) that a PDF text layer flattens to digits, so 109/l, x 109/l and x109/ l are all 10^9/l; only the exponents labs use (3, 6, 9, 12) fold, so x1000/µl is left alone. Spacing around the solidus is cosmetic too.",
   "canonicalize_unit": [
+    ["G/l", "10^9/l"],
+    ["T/l", "10^12/l"],
+    ["1/1", ""],
     ["mmol/L", "mmol/l"],
     ["mmol/l", "mmol/l"],
     ["U/l", "U/l"],
@@ -74,6 +77,15 @@
   ],
   "_parse_range": "A printed reference range, in every notation the Czech and Slovak sheets and handbooks use. The cell often carries the unit with it (7,8 - 12,8 fl; < 50 ng/ml), so a trailing cell of at most three words is read as the unit and dropped. Two closed vocabularies say the numbers in front are NOT an interval: age bands (0 - 15 let), where the numbers are ages, and printed criteria (<1,0 negatívne), where they define a category. Anything else after the numbers only names a population (muži, nekuřáci) and the interval still stands.",
   "parse_range": [
+    ["1,5-4,0 10^9/l", [1.5, 4.0, null]],
+    ["4,0 - 10,0 10˄9/l", [4.0, 10.0, null]],
+    ["M: 30 - 400", [30.0, 400.0, null]],
+    ["muži 30 - 400", [30.0, 400.0, null]],
+    ["Ž: 13-150", [13.0, 150.0, null]],
+    ["dospělí: 0,5 - 1,2", [0.5, 1.2, null]],
+    ["muži: < 5,0", [null, 5.0, null]],
+    ["M: 30-400 Ž: 15-150", [null, null, "M: 30-400 Ž: 15-150"]],
+    ["M 30 - 400", [null, null, "M 30 - 400"]],
     ["(4,11-5,60)", [4.11, 5.6, null]],
     ["4,11-5,60", [4.11, 5.6, null]],
     ["62,00 - 110", [62.0, 110.0, null]],
@@ -141,6 +153,8 @@
   ],
   "_material_prefix": "The code a lab prints before the analyte name, or null. Underscore is generic (any 1-4 letters); slash and hyphen forms are allowlisted to known material codes because a generic rule would strip 'anti-' from anti-TPO. A spaced hyphen is the Czech abbreviation convention (ALP - alkalická fosfatasa), never a material. A digit after the separator (S-100 protein, 25-OH) is never a material either. 's,p' stays one code — the lab printed both — and is compatible with s and with p in mapping.",
   "material_prefix": [
+    ["X/Glukóza", "x"],
+    ["X_glukóza", "x"],
     ["S_Glukóza", "s"],
     ["U_Bílkovina", "u"],
     ["S/Sodík", "s"],
@@ -188,6 +202,20 @@
     ["S_Kreatinin (enzymat.)", null],
     ["S_Glukóza", null],
     ["[MCV]", "mcv"],
+    ["", null]
+  ],
+  "_leading_code_key": "A short code printed before the long name in its own column and glued onto the name by a reader (Břeclav's zkr column: 'URE urea', 'KM * kyselina močová') is the third key, after the full key and the trailing bracket: the long name alone, normalised. Only a 2-6 character code of capitals/digits starting with a capital, an optional '*', then a word starting lowercase with the code's first letter — so 'HDL cholesterol' is never looked up as 'cholesterol'.",
+  "leading_code_key": [
+    ["URE urea", "urea"],
+    ["KM * kyselina močová", "kyselina mocova"],
+    ["ALT * alaninaminotransferáza", "alaninaminotransferaza"],
+    ["GGT gama-glutamyltransferáza", "gama glutamyltransferaza"],
+    ["BIL bilirubin", "bilirubin"],
+    ["HDL cholesterol", null],
+    ["LDL cholesterol", null],
+    ["S_Glukóza", null],
+    ["TSH", null],
+    ["urea", null],
     ["", null]
   ]
 }

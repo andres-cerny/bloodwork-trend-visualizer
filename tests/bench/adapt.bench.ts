@@ -215,8 +215,17 @@ interface PairArm {
  * visual tokens (docs/extraction-speed.md) at about a third of the price.
  */
 export const ARMS: SingleArm[] = [
-  { id: "sonnet5", label: "Sonnet 5 alone", reader: { model: MODEL_PRIMARY }, inputs: ["text", "image"], estimateUsd: { text: 0.037, image: 0.09 }, imageTokens: 4784 },
+  // Sonnet 5's estimates were measured at $3/$15; it is $2/$10 (corrected
+  // 2026-10-19, docs/plans/model-loop.md), so they are scaled by 2/3.
+  { id: "sonnet5", label: "Sonnet 5 alone", reader: { model: MODEL_PRIMARY }, inputs: ["text", "image"], estimateUsd: { text: 0.025, image: 0.06 }, imageTokens: 4784 },
   { id: "haiku45", label: "Haiku 4.5 alone", reader: { model: MODEL_ESCALATION }, inputs: ["text", "image"], estimateUsd: { text: 0.014, image: 0.026 }, imageTokens: 4784 },
+  // The 5.5 generation (docs/plans/model-loop.md, round 1). Same request the
+  // Worker would send: packages/extraction/src/models.ts shapes it per model
+  // (Sonnet 5.5: auto + strict + between_tools; Haiku 5.5: forced tool).
+  // Sonnet 5.5 is priced like Sonnet 5; Haiku 5.5 at $0.10/$0.50 is a tenth
+  // of Haiku 4.5, so its estimate is a tenth plus a margin.
+  { id: "sonnet55", label: "Sonnet 5.5 alone", reader: { model: "claude-sonnet-5-5" }, inputs: ["text", "image"], estimateUsd: { text: 0.025, image: 0.06 }, imageTokens: 4784 },
+  { id: "haiku55", label: "Haiku 5.5 alone", reader: { model: "claude-haiku-5-5" }, inputs: ["text", "image"], estimateUsd: { text: 0.002, image: 0.004 }, imageTokens: 4784 },
   { id: "gemini38_high", label: "Gemini 3.8 Flash, media high", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "high" }, inputs: ["image"], estimateUsd: { image: 0.02 }, imageTokens: IMAGE_TOKENS.high },
   { id: "gemini38_ultra", label: "Gemini 3.8 Flash, media ultra_high", reader: { model: GEMINI_MODEL, provider: "google", mediaResolution: "ultra_high" }, inputs: ["image"], estimateUsd: { image: 0.021 }, imageTokens: IMAGE_TOKENS.ultra_high },
   // ultra_high is the top of the ladder, so more detail costs another *part*:
@@ -257,6 +266,19 @@ export const PAIRS: PairArm[] = [
   { id: "sonnet5+gemini38_tiled", label: "the pair at matched visual budget", pair: ["sonnet5", "gemini38_tiled"] },
   { id: "sonnet5+gemini38_high", label: "what ultra_high buys the pair", pair: ["sonnet5", "gemini38_high"] },
   { id: "sonnet5+haiku45", label: "the retreat pair (deployed text pair)", pair: ["sonnet5", "haiku45"] },
+  // Round 1 of the model loop. The question for each is not accuracy alone
+  // but UNCAUGHT: does the second reader still witness the primary's errors?
+  { id: "sonnet55+haiku55", label: "the deployed text pair, one generation on", pair: ["sonnet55", "haiku55"] },
+  { id: "sonnet5+haiku55", label: "only the second reader moved", pair: ["sonnet5", "haiku55"] },
+  { id: "haiku55+sonnet55", label: "Haiku 5.5 primary, Sonnet 5.5 second", pair: ["haiku55", "sonnet55"] },
+  { id: "haiku55+gemini38_ultra", label: "Haiku 5.5 primary, a second vendor (photos)", pair: ["haiku55", "gemini38_ultra"] },
+  { id: "sonnet55+gemini38_ultra", label: "the deployed photo pair, Sonnet moved", pair: ["sonnet55", "gemini38_ultra"] },
+  { id: "gemini38_ultra+haiku55", label: "the cheap photo pair, Gemini's names shown", pair: ["gemini38_ultra", "haiku55"] },
+  // Witness tests: does a 5.5 reader catch the errors an older primary really
+  // made? (Haiku 4.5 and Sonnet 5 are the only arms with value errors so far.)
+  { id: "haiku45+haiku55", label: "witness: Haiku 5.5 against Haiku 4.5's errors", pair: ["haiku45", "haiku55"] },
+  { id: "haiku45+sonnet55", label: "witness: Sonnet 5.5 against Haiku 4.5's errors", pair: ["haiku45", "sonnet55"] },
+  { id: "sonnet5+sonnet55", label: "witness: Sonnet 5.5 against Sonnet 5's errors", pair: ["sonnet5", "sonnet55"] },
   { id: "sonnet5+mistral_ocr", label: "a reader and a layout parser", pair: ["sonnet5", "mistral_ocr"] },
   { id: "gemini38_ultra+mistral_ocr", label: "the cheap pair — two vendors, ~$0.025/page", pair: ["gemini38_ultra", "mistral_ocr"] },
   { id: "sonnet5+mistral_annot", label: "a reader and a schema-filling OCR", pair: ["sonnet5", "mistral_annot"] },

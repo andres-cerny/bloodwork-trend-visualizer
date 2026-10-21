@@ -151,6 +151,29 @@ CREATE TABLE IF NOT EXISTS synonyms (
   created_at   TEXT NOT NULL
 );
 
+-- A saved mapping decision for one laboratory's printed name in one unit,
+-- for every account: `canonical_id` is the catalog entry, or NULL for "not
+-- the entry the name would otherwise find" (a second opinion that refused a
+-- weak match). `source` is 'person' (a click) or 'model' (an answer filed
+-- without one, `model` names which); a person's row is never overwritten by a
+-- model's, and a person may replace a model's. `code` is reserved for the
+-- standard code (NČLP/LOINC) once the catalog carries them. Lab and unit are
+-- '' when the decision holds for any. docs/plans/model-loop.md.
+CREATE TABLE IF NOT EXISTS aliases (
+  lab          TEXT NOT NULL DEFAULT '',
+  raw_name     TEXT NOT NULL,
+  unit         TEXT NOT NULL DEFAULT '',
+  canonical_id TEXT,
+  source       TEXT NOT NULL,
+  model        TEXT,
+  code         TEXT,
+  taught_by    TEXT REFERENCES users(id),
+  created_at   TEXT NOT NULL,
+  PRIMARY KEY (lab, raw_name, unit)
+);
+
+CREATE INDEX IF NOT EXISTS aliases_by_source ON aliases (source, created_at);
+
 -- One row per document an account opened for extraction, keyed by the report
 -- id the browser minted. The row is the slot: inserting it takes one from
 -- doc_used, atomically, so eight pages arriving at once cannot take eight.

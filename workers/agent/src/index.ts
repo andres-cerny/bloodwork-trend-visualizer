@@ -8,7 +8,7 @@
 import { budgetState, recordSpendUsd, type Capability } from "@bw/gate";
 import { guard, json, budgetLimit, maxPages, sessionTtl, type BaseEnv } from "@bw/gate/http";
 import { mintSession, verifyTurnstile, TURNSTILE_ACTION } from "@bw/gate";
-import { priceUsd, resolveProfile, runAgent, toSse, type ChatTurn } from "@bw/agent-core";
+import { priceUsd, resolveProfile, runAgent, toSse, withModel, type ChatTurn } from "@bw/agent-core";
 import { CardStore, D1DocumentStore, DatabaseSource, PatientDirectory, type D1Like } from "@bw/datasource";
 import type { ToolContext } from "@bw/agent-tools";
 import { handleCard } from "./card";
@@ -18,6 +18,8 @@ export interface Env extends BaseEnv {
   DB_ORTO: D1Database;
   DB_CSM: D1Database;
   EVIDENCE: KVNamespace;
+  /** Optional model override for every profile; allowlisted in agent-core. */
+  AGENT_MODEL?: string;
 }
 
 /**
@@ -84,8 +86,9 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     patientRef?: string;
   };
 
-  const profile = resolveProfile(profileName);
-  if (!profile) return json({ error: "unknown_profile", message: "Neznámý profil." }, 400);
+  const resolved = resolveProfile(profileName);
+  if (!resolved) return json({ error: "unknown_profile", message: "Neznámý profil." }, 400);
+  const profile = withModel(resolved, env.AGENT_MODEL);
   if (!Array.isArray(history) || history.length === 0) {
     return json({ error: "missing_history" }, 400);
   }

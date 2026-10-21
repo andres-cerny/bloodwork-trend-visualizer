@@ -199,6 +199,35 @@ export function isPrintedOnPage(value: string, rows: TextRow[]): boolean {
 }
 
 /**
+ * Is this value printed on *its own* row, as a whole cell?
+ *
+ * `isPrintedOnPage` answers "is it anywhere on the page", a substring of the
+ * page's glued cells: "5,4" passes on a page printing "5,45", "54" on cells
+ * "5" | "4". That is enough to call a value not fabricated, and far too loose
+ * to vouch that a value was *copied* — which is what `review.ts` takes
+ * `printedOnPage` to mean when it stops suspecting a moved decimal point
+ * (docs/plans/model-loop.md, H3). This is the strict question: the value
+ * equals one cell of row `index`, or two or three adjacent cells joined (pdf.js
+ * splits "<" from "1,0"), with the lab's own markers and spacing ignored on
+ * both sides.
+ */
+export function isPrintedOnRow(value: string, rows: TextRow[], index: number | undefined): boolean {
+  if (index === undefined || index < 0 || index >= rows.length) return false;
+  const clean = (s: string) => s.replace(/[!*↑↓]/g, "").replace(/\s+/g, "");
+  const needle = clean(value);
+  if (!needle) return false;
+  const cells = rows[index].cells.map(clean);
+  for (let i = 0; i < cells.length; i++) {
+    let joined = "";
+    for (let j = i; j < Math.min(cells.length, i + 3); j++) {
+      joined += cells[j];
+      if (joined === needle) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * The row a `row_index` refers to, as a box — exact by construction, the
  * way `rowTextAt` is. Prefer this to `rowBoxFor` wherever the model returned
  * an index: a name search can only guess, and it guessed wrong on a page

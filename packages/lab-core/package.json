@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./pdf": "./src/pdf/pdf.ts",
     "./photo": "./src/photo.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./codes/lab-codes.index.json": "./codes/lab-codes.index.json"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"

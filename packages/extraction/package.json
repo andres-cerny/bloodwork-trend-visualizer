@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
     "@bw/agent-core": "*",
-    "@google/genai": "2.21.0"
+    "@google/genai": "2.21.0",
+    "@bw/lab-core": "*"
   }
 }

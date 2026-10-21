@@ -15,24 +15,28 @@ function fakeKv() {
 
 describe("pricing", () => {
   it("prices from the same table as src/config.py", () => {
-    // 1M input + 1M output on Sonnet 5 = $3 + $15
-    expect(priceUsd("claude-sonnet-5", 1_000_000, 1_000_000)).toBeCloseTo(18, 6);
+    // 1M input + 1M output on Sonnet 5 = $2 + $10 (it was carried at Sonnet
+    // 4.6's $3/$15 until 2026-10-19)
+    expect(priceUsd("claude-sonnet-5", 1_000_000, 1_000_000)).toBeCloseTo(12, 6);
+    expect(priceUsd("claude-sonnet-5-5", 1_000_000, 1_000_000)).toBeCloseTo(12, 6);
+    expect(priceUsd("claude-haiku-5-5", 1_000_000, 1_000_000)).toBeCloseTo(0.6, 6);
+    expect(priceUsd("claude-opus-5-5", 1_000_000, 1_000_000)).toBeCloseTo(24, 6);
     expect(priceUsd("claude-opus-4-8", 1_000_000, 1_000_000)).toBeCloseTo(30, 6);
   });
 
-  it("falls back to Sonnet pricing for an unknown model rather than charging zero", () => {
-    expect(priceUsd("something-new", 1_000_000, 0)).toBeCloseTo(3, 6);
+  it("over-counts an unknown model rather than charging zero or too little", () => {
+    expect(priceUsd("something-new", 1_000_000, 0)).toBeCloseTo(5, 6);
   });
 
   it("bills a cache read at a tenth and a cache write at 1.25x", () => {
     // Counting cached input at the full rate would overstate spend and freeze
     // the demo earlier than the ceiling actually requires.
-    expect(priceUsd("claude-sonnet-5", 0, 0, 1_000_000, 0)).toBeCloseTo(0.3, 6);
-    expect(priceUsd("claude-sonnet-5", 0, 0, 0, 1_000_000)).toBeCloseTo(3.75, 6);
+    expect(priceUsd("claude-sonnet-5", 0, 0, 1_000_000, 0)).toBeCloseTo(0.2, 6);
+    expect(priceUsd("claude-sonnet-5", 0, 0, 0, 1_000_000)).toBeCloseTo(2.5, 6);
   });
 
   it("defaults cache tokens to zero so existing call sites are unaffected", () => {
-    expect(priceUsd("claude-sonnet-5", 1_000_000, 1_000_000)).toBeCloseTo(18, 6);
+    expect(priceUsd("claude-sonnet-5", 1_000_000, 1_000_000)).toBeCloseTo(12, 6);
   });
 });
 

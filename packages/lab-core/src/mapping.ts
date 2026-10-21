@@ -13,7 +13,7 @@
  */
 import type { AnalyteDef, LabReport, Measurement } from "./models";
 import { normKey, type Registry } from "./registry";
-import { canonicalizeUnit, isBloodMaterial, materialPrefix, materialsCompatible } from "./normalize";
+import { MATERIAL_CODES, canonicalizeUnit, isBloodMaterial, materialPrefix, materialsCompatible } from "./normalize";
 import { prettyUnit } from "./czech";
 import { printedMaterial } from "./pdf/rows";
 
@@ -213,6 +213,15 @@ export function trendable(a: UnmappedAnalyte): boolean {
 export function rematchReport(report: LabReport, registry: Registry): LabReport | null {
   let changed = false;
   const measurements = report.measurements.map((m) => {
+    // A scoped decision for this lab, name and unit (a saved model answer, a
+    // second opinion, a person's correction) applies to every row it names,
+    // mapped or not — that is what it was saved for.
+    const scoped = registry.scopedMatch(m.rawAnalyteName, { lab: report.labName, unit: m.unitRaw });
+    if (scoped !== undefined) {
+      if (scoped === m.canonicalId) return m;
+      changed = true;
+      return { ...m, canonicalId: scoped };
+    }
     if (m.canonicalId !== null) return m;
     const id = registry.match(m.rawAnalyteName, materialOf(m, report)?.code ?? null);
     if (id === null) return m;
@@ -220,6 +229,80 @@ export function rematchReport(report: LabReport, registry: Registry): LabReport 
     return { ...m, canonicalId: id };
   });
   return changed ? { ...report, measurements } : null;
+}
+
+/**
+ * A list match the evidence does not back: the name found an entry, but the
+ * row is printed in a unit that entry neither uses nor converts from, or under
+ * a specimen prefix the catalog does not know. These are where the list's real
+ * errors were (docs/plans/model-loop.md, round 3: prothrombin test in seconds
+ * filed as Quick %, HbA1c % as the mmol/mol entry, a urine strip's "Glukóza"
+ * in arbitrary units as blood glucose) — and the only matches worth a second
+ * opinion. A harmless spelling ("G/l" for 10^9/l) lands here too; the second
+ * opinion confirms it.
+ */
+export interface WeakMatch {
+  analyte: UnmappedAnalyte;
+  /** The entry the list chose. */
+  listId: string;
+  /** The lab the rows were read from, for the decision's scope. */
+  lab: string | null;
+  why: "unit" | "material";
+}
+
+export function weakMatchReason(unitRaw: string, rawName: string, def: AnalyteDef): WeakMatch["why"] | null {
+  const prefix = materialPrefix(rawName);
+  // An unknown prefix is no evidence — unless the catalog lists this exact
+  // spelling ("xxx_eGF (CKD-EPI)" is a shipped synonym).
+  const listed = def.synonyms.includes(rawName) || def.displayNameCs === rawName;
+  if (prefix && !MATERIAL_CODES.has(prefix) && !listed) return "material";
+  const u = unitKey(unitRaw);
+  if (!u) return null;
+  const canon = unitKey(def.canonicalUnit);
+  if (u === canon) return null;
+  if (Object.keys(def.unitConversions ?? {}).some((k) => unitKey(k) === u)) return null;
+  // A dimensionless entry printed as "1" or "-" is the same thing.
+  if (canon === "" && (u === "1" || u === "-")) return null;
+  return "unit";
+}
+
+/** Every weak list match, one per (lab, printed name, unit). */
+export function findWeakMatches(reports: LabReport[], registry: Registry): WeakMatch[] {
+  const seen = new Map<string, WeakMatch>();
+  for (const r of reports) {
+    for (const m of r.measurements) {
+      if (m.canonicalId === null) continue;
+      const def = registry.get(m.canonicalId);
+      if (!def) continue;
+      // A saved scoped decision has already been made about this row.
+      if (registry.scopedMatch(m.rawAnalyteName, { lab: r.labName, unit: m.unitRaw }) !== undefined) continue;
+      const why = weakMatchReason(m.unitRaw, m.rawAnalyteName, def);
+      if (!why) continue;
+      const key = `${r.labName ?? ""}|${m.rawAnalyteName}|${m.unitRaw}`;
+      let w = seen.get(key);
+      if (!w) {
+        const mat = materialOf(m, r);
+        w = {
+          analyte: {
+            rawName: m.rawAnalyteName,
+            unitRaw: m.unitRaw,
+            occurrences: [],
+            refRange: m.refRangeLow !== null && m.refRangeHigh !== null ? { low: m.refRangeLow, high: m.refRangeHigh } : null,
+            refRangeRaw: m.refRangeRaw,
+            refRangeFrom: null,
+            material: mat?.code ?? null,
+            materialSource: mat?.source ?? null,
+          },
+          listId: m.canonicalId,
+          lab: r.labName,
+          why,
+        };
+        seen.set(key, w);
+      }
+      w.analyte.occurrences.push({ reportId: r.id, date: r.reportDate, valueRaw: m.valueRaw, value: m.value, page: m.sourcePage });
+    }
+  }
+  return [...seen.values()];
 }
 
 /** Per-canonical-id evidence from measurements that are already mapped. */
@@ -546,7 +629,7 @@ function czMappingNum(x: number | null | undefined): string {
 
 const MATERIAL_CS: Record<string, string> = {
   s: "sérum", b: "plná krev", p: "plazma", u: "moč", pk: "plazma", fw: "krev",
-  du: "sbíraná moč", l: "likvor", "s,p": "sérum/plazma",
+  du: "sbíraná moč", l: "likvor", "s,p": "sérum/plazma", x: "punktát",
 };
 export const materialCs = (m: string): string => MATERIAL_CS[m] ?? m.toUpperCase();
 
