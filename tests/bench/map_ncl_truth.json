@@ -1,0 +1,319 @@
+{
+ "_note": "Lab test names that are NOT in the 348-entry catalog, as labs print them (LIS-style S_/U_ names and everyday wording), with the NČLP codes of lab-codes.json that are the same test. An empty list means the test is not in the code table (drug levels, a few rare markers): the right answer is 'unknown'. Label text and units only; hand-labelled 2026-10-20 (docs/plans/model-loop.md, round 6). Corrected 2026-10-20: macroprolactin is in the table (58133 'Prolaktin makrokomplex', a fraction).",
+ "items": [
+  {
+   "name": "S_Estron",
+   "unit": "pmol/l",
+   "accept": [
+    "01721"
+   ]
+  },
+  {
+   "name": "Estron",
+   "unit": "pmol/l",
+   "accept": [
+    "01721",
+    "03360"
+   ]
+  },
+  {
+   "name": "S_Dihydrotestosteron",
+   "unit": "nmol/l",
+   "accept": [
+    "08146"
+   ]
+  },
+  {
+   "name": "IGFBP-3",
+   "unit": "mg/l",
+   "accept": [
+    "17407",
+    "17405"
+   ]
+  },
+  {
+   "name": "S_Leptin",
+   "unit": "µg/l",
+   "accept": [
+    "08170"
+   ]
+  },
+  {
+   "name": "Pepsinogen I",
+   "unit": "µg/l",
+   "accept": [
+    "08189",
+    "08186"
+   ]
+  },
+  {
+   "name": "S_Volná měď",
+   "unit": "µmol/l",
+   "accept": [
+    "52518"
+   ]
+  },
+  {
+   "name": "B_Olovo",
+   "unit": "µg/l",
+   "accept": [
+    "55028",
+    "02635"
+   ]
+  },
+  {
+   "name": "U_Olovo",
+   "unit": "µmol/l",
+   "accept": [
+    "02640"
+   ]
+  },
+  {
+   "name": "S_Molybden",
+   "unit": "nmol/l",
+   "accept": [
+    "02489"
+   ]
+  },
+  {
+   "name": "MBL",
+   "unit": "mg/l",
+   "accept": [
+    "12202",
+    "12200"
+   ]
+  },
+  {
+   "name": "S_Prolin",
+   "unit": "µmol/l",
+   "accept": [
+    "02740"
+   ]
+  },
+  {
+   "name": "Interleukin 1 beta",
+   "unit": "ng/l",
+   "accept": [
+    "55525",
+    "55523"
+   ]
+  },
+  {
+   "name": "S_Anti-HSV 2 IgG",
+   "unit": "kU/l",
+   "accept": [
+    "14532"
+   ]
+  },
+  {
+   "name": "S_Anti-VZV IgA",
+   "unit": "arb.j.",
+   "accept": [
+    "52417"
+   ]
+  },
+  {
+   "name": "S_Anti-EBV EA IgM",
+   "unit": "arb.j.",
+   "accept": [
+    "52045"
+   ]
+  },
+  {
+   "name": "P_Inhibitor faktoru VIII",
+   "unit": "kBU/l",
+   "accept": [
+    "16238"
+   ]
+  },
+  {
+   "name": "Fibrin monomery",
+   "unit": "arb.j.",
+   "accept": [
+    "03600"
+   ]
+  },
+  {
+   "name": "U_Citrát",
+   "unit": "mmol/l",
+   "accept": [
+    "01366"
+   ]
+  },
+  {
+   "name": "Oxaláty v moči",
+   "unit": "mmol/l",
+   "accept": [
+    "02603"
+   ]
+  },
+  {
+   "name": "Jód v moči",
+   "unit": "µg/l",
+   "accept": [
+    "04826",
+    "56324"
+   ]
+  },
+  {
+   "name": "U_Albumin",
+   "unit": "mg/l",
+   "accept": [
+    "00509",
+    "16659"
+   ]
+  },
+  {
+   "name": "Albumin/kreatinin v moči (ACR)",
+   "unit": "g/mol",
+   "accept": [
+    "11447",
+    "57850"
+   ]
+  },
+  {
+   "name": "dU_Kortizol volný",
+   "unit": "nmol/d",
+   "accept": [
+    "13278"
+   ]
+  },
+  {
+   "name": "Kyselina hyaluronová",
+   "unit": "µg/l",
+   "accept": [
+    "17956",
+    "17954"
+   ]
+  },
+  {
+   "name": "AMA (antimitochondriální protilátky)",
+   "unit": "-",
+   "accept": [
+    "00595",
+    "00598",
+    "00601",
+    "00604",
+    "00607",
+    "00610",
+    "14571",
+    "14572",
+    "14573",
+    "14574",
+    "51671",
+    "51673",
+    "51675",
+    "51677",
+    "51679",
+    "51681",
+    "53063",
+    "53065"
+   ]
+  },
+  {
+   "name": "ASMA (protilátky proti hladkému svalu)",
+   "unit": "-",
+   "accept": [
+    "00868",
+    "00871",
+    "51719",
+    "51721"
+   ]
+  },
+  {
+   "name": "Anti-AChR",
+   "unit": "nmol/l",
+   "accept": [
+    "18000",
+    "17998"
+   ]
+  },
+  {
+   "name": "Protilátky proti parietálním buňkám",
+   "unit": "-",
+   "accept": [
+    "00684",
+    "00687",
+    "14605",
+    "14606",
+    "51711",
+    "51713"
+   ]
+  },
+  {
+   "name": "S_Lp-PLA2",
+   "unit": "µg/l",
+   "accept": [
+    "58101"
+   ]
+  },
+  {
+   "name": "Renin",
+   "unit": "ng/l",
+   "accept": [
+    "56451",
+    "56450"
+   ]
+  },
+  {
+   "name": "P_Faktor IX",
+   "unit": "%",
+   "accept": [
+    "16189"
+   ]
+  },
+  {
+   "name": "Plazminogen",
+   "unit": "%",
+   "accept": [
+    "16266",
+    "16123"
+   ]
+  },
+  {
+   "name": "S_Kalprotektin",
+   "unit": "mg/l",
+   "accept": [
+    "56622"
+   ]
+  },
+  {
+   "name": "S_Digoxin",
+   "unit": "nmol/l",
+   "accept": []
+  },
+  {
+   "name": "S_Valproát",
+   "unit": "mg/l",
+   "accept": []
+  },
+  {
+   "name": "S_Lithium",
+   "unit": "mmol/l",
+   "accept": []
+  },
+  {
+   "name": "Adiponektin",
+   "unit": "mg/l",
+   "accept": []
+  },
+  {
+   "name": "Vitamin B2",
+   "unit": "µg/l",
+   "accept": []
+  },
+  {
+   "name": "ASCA IgG",
+   "unit": "kU/l",
+   "accept": []
+  },
+  {
+   "name": "Makroprolaktin",
+   "unit": "%",
+   "accept": [
+    "58133",
+    "58132"
+   ]
+  }
+ ]
+}

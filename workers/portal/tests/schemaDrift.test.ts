@@ -22,6 +22,7 @@ describe("reading schema.sql", () => {
     expect([...tables.keys()].sort()).toEqual([
       "ai_shares",
       "aliases",
+      "auto_entries",
       "documents",
       "events",
       "invites",
@@ -231,7 +232,7 @@ describe("reading wrangler's reply", () => {
   it("refuses a reply it cannot match to its questions", () => {
     // Fewer sets than statements, or no array at all, is a schema that was
     // not read — never a pass.
-    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 13 result sets, got 12/);
+    expect(() => columnsFromResultSets(tables, sets.slice(1))).toThrow(/expected 14 result sets, got 13/);
     expect(() => columnsFromResultSets(tables, { error: "SQLITE_AUTH" })).toThrow(/got object/);
   });
 });

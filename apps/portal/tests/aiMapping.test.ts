@@ -20,7 +20,7 @@ import {
   observedStats,
 } from "@bw/lab-core";
 import type { AiAsked, AiMapAnswer, MapSuggestion } from "../src/lib/api";
-import { type Judged, judge, judgeSecondOpinion, namesToAsk, persistable, runAiMapping, runSecondOpinion, scopeOf, sharedLessons, withoutAsked } from "../src/lib/aiMapping";
+import { type Judged, autoEntriesFrom, autoEntryDef, judge, judgeSecondOpinion, namesToAsk, persistable, runAiMapping, runSecondOpinion, scopeOf, sharedLessons, withoutAsked } from "../src/lib/aiMapping";
 
 const m = (name: string, value: string, unit: string, ref: string, cid: string | null) =>
   normalizeMeasurement(makeMeasurement({ rawAnalyteName: name, valueRaw: value, unitRaw: unit, refRangeRaw: ref, canonicalId: cid }));
@@ -402,6 +402,34 @@ describe("scopeOf", () => {
   it("is the lab and unit of the name's first reading", () => {
     expect(scopeOf("S_Na", [report("r1", [m("S_Na", "140", "mmol/l", "", null)])])).toEqual({ lab: "Lab", unit: "mmol/l" });
     expect(scopeOf("nic", [])).toEqual({ lab: "", unit: "" });
+  });
+});
+
+describe("autoEntriesFrom (VITE_AUTO_ENTRIES)", () => {
+  const entry = (over: Record<string, unknown>) => ({ decision: "new", canonicalId: null, confidence: "high", reason: "", model: "claude-haiku-5-5", at: "2026-10-20", code: "01721", proposed: { id: "nclp_01721", displayNameCs: "Estron (S; látková konc. [pmol/l])", unit: "pmol/l" }, ...over });
+  const judged = (entries: Record<string, any>): Judged => ({ entries, applied: [], parked: [] });
+
+  it("off: nothing is added", () => {
+    expect(autoEntriesFrom(judged({ S_Estron: entry({}) }), false)).toEqual([]);
+  });
+
+  it("on: only a 'new' answer at 'high' that carries a code", () => {
+    const out = autoEntriesFrom(
+      judged({
+        S_Estron: entry({}),
+        Estron: entry({ confidence: "medium" }),
+        Neznámé: entry({ code: undefined }),
+        S_Na: entry({ decision: "catalog", canonicalId: "sodik" }),
+      }),
+      true,
+    );
+    expect(out).toEqual([{ code: "01721", canonicalId: "nclp_01721", nameCs: "Estron (S; látková konc. [pmol/l])", unit: "pmol/l", rawName: "S_Estron", model: "claude-haiku-5-5" }]);
+  });
+
+  it("the entry the registry gets maps the founding name", () => {
+    const r = new Registry([]);
+    r.addAnalyte(autoEntryDef({ code: "01721", nameCs: "Estron", unit: "pmol/l", rawName: "S_Estron" }));
+    expect(r.match("S_Estron")).toBe("nclp_01721");
   });
 });
 
