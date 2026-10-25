@@ -269,7 +269,12 @@ async function handleMap(request: Request, env: Env): Promise<Response> {
   const { ok, used } = await consumePage(env.BUDGET, g.claims.sid, g.claims.pages, sessionTtl(env));
   if (!ok) return json({ error: "page_limit", message: "Limit ověření je vyčerpán. Načtěte stránku znovu." }, 429);
 
-  const body = (await request.json().catch(() => ({}))) as { names?: unknown; catalog?: unknown };
+  const body = (await request.json().catch(() => ({}))) as { names?: unknown; catalog?: unknown; purpose?: unknown };
+  // A second opinion asks "is it this catalog entry?" — the catalog question,
+  // whatever MAP_MODE says: through the code table a weak but right match
+  // (anti-CMV IgM printed as an index) came back as a "new" draft and was
+  // taken off its entry (round 7, tests/bench/e2e_switches.ts).
+  const secondOpinion = body.purpose === "second-opinion";
   const names: NameToMap[] = (Array.isArray(body.names) ? body.names : [])
     .slice(0, MAX_MAP_NAMES)
     .map((n: Record<string, unknown>) => ({
@@ -286,7 +291,7 @@ async function handleMap(request: Request, env: Env): Promise<Response> {
   if (names.length === 0 || catalog.length === 0) return json({ error: "missing_names", message: "Není co přiřadit." }, 400);
 
   try {
-    const r = mapByCodesOn(env)
+    const r = mapByCodesOn(env) && !secondOpinion
       ? await mapByCodes(env.ANTHROPIC_API_KEY, mapModel(env), names, catalog, await codeTable(), mapCodeStep(env))
       : await suggestCanonical(env.ANTHROPIC_API_KEY, mapModel(env), names, catalog);
     const spent = priceUsd(r.model, r.usage.inputTokens, r.usage.outputTokens, r.usage.cacheReadTokens, r.usage.cacheWriteTokens);

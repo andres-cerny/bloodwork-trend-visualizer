@@ -484,7 +484,7 @@
     "02324",
     "02322"
    ],
-   "ambiguous": "Synonyms include calculated LDL (LOINC 39469-2 by calculation) while the NCLP item is the measured one; mg/dl is a mass variant (13457-7 calc / 18262-6 direct)."
+   "ambiguous": "A plain 'LDL cholesterol' may be measured or calculated; the names that say výpočet/Friedewald are ldl_vypocet (round 7). mg/dl is a mass variant."
   },
   "non_hdl": {
    "nclp": [
@@ -1110,8 +1110,8 @@
     "03620",
     "03630"
    ],
-   "note": "NČLP fractions [1]; catalog % = fraction x 100. 'Granulocyty' (03556, LOINC 30395-8) is a synonym but not linked (includes eosinophils/basophils).",
-   "ambiguous": "Entry mixes total neutrophils (03620), segmented neutrophils (03630) and 'Granulocyty' (03556) via synonyms; these are different NČLP items."
+   "note": "NČLP fractions [1]; catalog % = fraction x 100. Split 2026-10-21 (docs/plans/model-loop.md round 7). 'Granulocyty' moved to granulocyty.",
+   "ambiguous": "Entry mixes total neutrophils (03620) and segmented neutrophils (03630) via synonyms; these are different NČLP items."
   },
   "lymfocyty": {
    "nclp": [
@@ -1141,7 +1141,7 @@
    "nclp": [
     "03616"
    ],
-   "ambiguous": "Synonyms include 'Gra granulocyty' (total granulocytes) and 'Neutrofilní segmenty - absolutní' (segmented only), which are not exactly total neutrophils."
+   "ambiguous": "Synonyms include 'Neutrofilní segmenty - absolutní' (segmented only), which is not exactly total neutrophils. ('Gra granulocyty' moved to granulocyty_abs, round 7.)"
   },
   "lymfocyty_abs": {
    "nclp": [
@@ -1461,8 +1461,7 @@
     "03492",
     "16432"
    ],
-   "note": "Plasma items; NČLP unit mg/l (catalog µg/l, x1000). 16432 = FEU (LOINC 48065-7); 03492 = plain D-dimer (FEU/DDU unspecified, no LOINC given).",
-   "ambiguous": "Catalog converts both FEU and DDU units into one entry; FEU and DDU are different quantities (factor ~2)."
+   "note": "Plasma items; NČLP unit mg/l (catalog µg/l, x1000). 16432 = FEU (LOINC 48065-7); 03492 = plain D-dimer (FEU/DDU unspecified, no LOINC given). DDU names and conversions moved to d_dimery_ddu (round 7)."
   },
   "faktor_viii": {
    "nclp": [
@@ -2034,8 +2033,7 @@
     "19926",
     "01263"
    ],
-   "note": "Blood, serum and plasma items; arterial/venous/capillary sub-variants skipped. Calculated ionized Ca (synonyms 'výpočet') has no NČLP item.",
-   "ambiguous": "Entry mixes measured and calculated ionized calcium."
+   "note": "Blood, serum and plasma items; arterial/venous/capillary sub-variants skipped. Calculated ionized Ca moved to vapnik_ionizovany_vypocet (round 7)."
   },
   "vapnik_korigovany": {
    "nclp": [
@@ -2142,12 +2140,9 @@
   "parathormon": {
    "nclp": [
     "03452",
-    "03450",
-    "18237",
-    "18235"
+    "03450"
    ],
-   "note": "Intact PTH (03452/03450) and biointact 1-84 PTH (18237/18235, synonym 'S_biointaktní 1-84 parathormon'); only deprecated LOINC exists for biointact, so none given.",
-   "ambiguous": "Entry mixes intact PTH and biointact (1-84) PTH, which are separate NČLP items."
+   "note": "Intact PTH. Biointact 1-84 PTH moved to parathormon_1_84 (round 7)."
   },
   "revmatoidni_faktor": {
    "nclp": [
@@ -2202,12 +2197,9 @@
   "anti_hav_igg": {
    "nclp": [
     "16516",
-    "16514",
-    "00364",
-    "00362"
+    "16514"
    ],
-   "note": "Anti-HAV IgG and Anti-HAV total (celkové), both arb.j.; LOINC Ser-only.",
-   "ambiguous": "Entry mixes anti-HAV IgG and anti-HAV total antibodies (different NČLP items and LOINC codes)."
+   "note": "Anti-HAV IgG, arb.j.; LOINC Ser-only. Total antibodies moved to anti_hav_celkove (round 7)."
   },
   "anti_hbs": {
    "nclp": [
@@ -2273,6 +2265,47 @@
    ],
    "note": "Catalog unit IP: linked arb.j. index items and rel. opt. denzita items (no LOINC). kU/l items 14467/14466 not linked. LOINC Ser-only.",
    "ambiguous": "IP index could be coded as arb. konc. [arb.j.] or relative optical density in NČLP."
+  },
+  "granulocyty": {
+   "nclp": [
+    "03556"
+   ],
+   "note": "NČLP fraction [1] of leukocytes; catalog % = fraction x 100. Split 2026-10-21 (docs/plans/model-loop.md round 7)."
+  },
+  "granulocyty_abs": {
+   "nclp": [
+    "03553"
+   ],
+   "note": "Split 2026-10-21 (docs/plans/model-loop.md round 7)."
+  },
+  "ldl_vypocet": {
+   "nclp": [
+    "03380",
+    "03379"
+   ],
+   "note": "Friedewald items (method 'Výpočet'); Martin/Hopkins (54911/54910) and Sampson (58088/58087) are separate NČLP items. Split 2026-10-21 (docs/plans/model-loop.md round 7)."
+  },
+  "parathormon_1_84": {
+   "nclp": [
+    "18237",
+    "18235"
+   ],
+   "note": "Only deprecated LOINC exists for biointact PTH, so none given. Split 2026-10-21 (docs/plans/model-loop.md round 7)."
+  },
+  "vapnik_ionizovany_vypocet": {
+   "nclp": [],
+   "note": "No NČLP item for ionized calcium estimated by calculation. Split 2026-10-21 (docs/plans/model-loop.md round 7)."
+  },
+  "d_dimery_ddu": {
+   "nclp": [],
+   "note": "No DDU-specific NČLP item. Split 2026-10-21 (docs/plans/model-loop.md round 7)."
+  },
+  "anti_hav_celkove": {
+   "nclp": [
+    "00364",
+    "00362"
+   ],
+   "note": "Anti-HAV total (celkové), arb.j. Split 2026-10-21 (docs/plans/model-loop.md round 7)."
   }
  },
  "loinc": {

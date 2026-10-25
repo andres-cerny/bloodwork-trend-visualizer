@@ -575,7 +575,7 @@ const NCLP_CODE = /^\d{5}$/;
 /** Every catalog entry added without a person, with whether this account added it. */
 async function listAutoEntries(env: Env, user: UserRow): Promise<Response> {
   const { results } = await env.DB.prepare(SQL.allAutoEntries).all<AutoEntryRow>();
-  return json(results.map((r) => ({ code: r.code, nameCs: r.name_cs, unit: r.unit, rawName: r.raw_name, model: r.model, at: r.created_at, mine: r.created_by === user.id })));
+  return json(results.map((r) => ({ code: r.code, nameCs: r.name_cs, unit: r.unit, material: r.mat ?? "", rawName: r.raw_name, model: r.model, at: r.created_at, mine: r.created_by === user.id })));
 }
 
 /** Add one, from an NČLP row; the first account to add a code keeps it. */
@@ -586,10 +586,13 @@ async function addAutoEntry(request: Request, env: Env, user: UserRow): Promise<
   const unit = typeof b?.unit === "string" ? b.unit.trim() : "";
   const rawName = typeof b?.rawName === "string" ? b.rawName.trim() : "";
   const model = typeof b?.model === "string" && MODEL_ID.test(b.model) ? b.model : null;
+  // Moje krev's auto entries are blood entries (serum, plasma, whole blood).
+  const mat = b?.material === "s" || b?.material === "p" || b?.material === "b" ? b.material : "";
+  if (!mat) return json({ error: "bad_request", message: "Neplatný materiál." }, 400);
   if (!NCLP_CODE.test(code) || !nameCs || nameCs.length > 120 || unit.length > 40 || !rawName || rawName.length > MAX_RAW_NAME) {
     return json({ error: "bad_request", message: "Neplatný návrh parametru." }, 400);
   }
-  const r = await env.DB.prepare(SQL.insertAutoEntry).bind(code, nameCs, unit, rawName, model, user.id, new Date().toISOString()).run();
+  const r = await env.DB.prepare(SQL.insertAutoEntry).bind(code, nameCs, unit, rawName, model, user.id, new Date().toISOString(), mat).run();
   return json({ ok: true, added: !!r.meta && r.meta.changes === 1 });
 }
 

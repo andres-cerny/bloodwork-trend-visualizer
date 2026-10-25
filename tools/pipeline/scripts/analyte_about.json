@@ -1390,5 +1390,33 @@
  "so2": {
   "what": "Saturace hemoglobinu kyslíkem (sO2) je podíl hemoglobinu, který právě nese kyslík.",
   "usedFor": "Je součástí vyšetření krevních plynů; ukazuje, jak dobře krev přenáší kyslík."
+ },
+ "granulocyty": {
+  "what": "Granulocyty jsou bílé krvinky s granuly v cytoplazmě: neutrofily, eozinofily a bazofily dohromady; některé analyzátory je vykazují jako jednu skupinu.",
+  "usedFor": "Podíl granulocytů se sleduje v krevním obraze při posuzování zánětů a infekcí; je to jiné číslo než samotné neutrofily."
+ },
+ "granulocyty_abs": {
+  "what": "Absolutní počet granulocytů v litru krve: neutrofily, eozinofily a bazofily dohromady.",
+  "usedFor": "Sleduje se v krevním obraze při posuzování zánětů a infekcí; je o něco vyšší než absolutní počet samotných neutrofilů."
+ },
+ "ldl_vypocet": {
+  "what": "LDL cholesterol vypočtený z celkového cholesterolu, HDL a triacylglycerolů (například podle Friedewalda), ne přímo změřený.",
+  "usedFor": "Slouží k posouzení rizika aterosklerózy; při vysokých triacylglycerolech se od přímo změřeného LDL liší, proto se vede zvlášť."
+ },
+ "parathormon_1_84": {
+  "what": "Biointaktní parathormon (1-84) je jen úplná, biologicky aktivní molekula hormonu příštítných tělísek; běžný „intaktní“ test zachytí i některé její úlomky.",
+  "usedFor": "Sleduje se u poruch vápníku a ledvin; jeho hodnoty jsou nižší než u intaktního parathormonu, proto se vede zvlášť."
+ },
+ "vapnik_ionizovany_vypocet": {
+  "what": "Ionizovaný vápník odhadnutý výpočtem z celkového vápníku a bílkovin, ne přímo změřený.",
+  "usedFor": "Pomáhá posoudit volný vápník v krvi; od přímo změřeného ionizovaného vápníku se může lišit, proto se vede zvlášť."
+ },
+ "d_dimery_ddu": {
+  "what": "D-dimery vyjádřené v jednotkách DDU (D-dimer units), které dávají zhruba poloviční čísla než běžnější jednotky FEU.",
+  "usedFor": "Používají se při podezření na krevní sraženinu; s výsledky v FEU se nesmí přímo srovnávat, proto se vedou zvlášť."
+ },
+ "anti_hav_celkove": {
+  "what": "Celkové protilátky proti viru hepatitidy A (IgG i IgM dohromady).",
+  "usedFor": "Ukazují, zda člověk hepatitidu A prodělal nebo byl očkován; je to jiný test než protilátky IgG samotné."
  }
 }

@@ -594,6 +594,17 @@ describe("PHOTO_READERS", () => {
     expect(models()).toEqual(["claude-sonnet-5", "claude-haiku-4-5"]);
   });
 
+  it("the recommended settings together: text read once by Haiku 5.5, photos by Sonnet 5.5 + Gemini", async () => {
+    const env = makeEnv({ TEXT_READERS: "cheap", MODEL_PRIMARY: "claude-sonnet-5-5", MODEL_SECOND: "claude-haiku-5-5", PHOTO_READERS: "sonnet+gemini", GEMINI_API_KEY: "g" });
+    const s = await mintSession(SECRET, 600, 12);
+    await worker.fetch(post("/api/extract", { rowsText: "S_Glukóza | 5,32" }, s), env);
+    expect(models()).toEqual(["claude-haiku-5-5"]);
+    calls.length = 0;
+    await worker.fetch(post("/api/extract", image, s), env);
+    expect(hosts().sort()).toEqual(["anthropic", "google"]);
+    expect(models().filter((m: string) => m.startsWith("claude"))).toEqual(["claude-sonnet-5-5"]);
+  });
+
   it("never touches the text path", async () => {
     // The characters come from the file there, and that path was measured at
     // 852/877 with zero value errors. Nothing in this change may reach it.
@@ -839,6 +850,23 @@ describe("the mapping fallback", () => {
     const body = (await res.json()) as any;
     expect(body.suggestions[0].decision).toBe("unknown");
     expect(body.suggestions[0].canonicalId).toBeNull();
+  });
+
+  it("MAP_MODE=codes: a name the code table links is answered with its code and no model call", async () => {
+    const s = await mintSession(SECRET, 600, 2);
+    const res = await worker.fetch(post("/api/map", { names, catalog }, s), makeEnv({ MAP_MODE: "codes-retry" }));
+    const body = (await res.json()) as any;
+    expect(body.suggestions[0]).toMatchObject({ decision: "catalog", canonicalId: "sodik", code: "02503" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a second opinion asks the catalog question whatever MAP_MODE says", async () => {
+    const s = await mintSession(SECRET, 600, 2);
+    nextMap = [{ raw_name: "S_Na", decision: "catalog", canonical_id: "sodik", new_id: null, new_name_cs: null, new_unit: null, reason: "x", confidence: "high" }];
+    const res = await worker.fetch(post("/api/map", { names, catalog, purpose: "second-opinion" }, s), makeEnv({ MAP_MODE: "codes-retry" }));
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body.tools[0].name).toBe("file_names");
   });
 
   it("is refused once the ledger is frozen", async () => {

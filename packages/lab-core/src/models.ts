@@ -144,6 +144,13 @@ export interface AnalyteDef {
    */
   referenceRange?: [number, number] | null;
   /**
+   * The entry this one was split out of (seed_registry.SPLITS, round 7 of
+   * docs/plans/model-loop.md): its names used to file under `splitFrom`, and
+   * `rematchReport` moves a stored row here when its printed name now
+   * resolves here.
+   */
+  splitFrom?: string;
+  /**
    * Where `referenceRange` above came from, on a parameter the reader founded
    * in the mapping screen. Absent means the curated table, which is the only
    * source a shipped analyte has.

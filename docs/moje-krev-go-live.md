@@ -153,7 +153,7 @@ abandoned for over an hour.
 
 `claude/model-pipeline-loop` changes how pages are cross-checked and names
 mapped ([what and why](plans/model-loop.md)). It needs **one migration before
-the API worker is deployed** (two, with `claude/mapping-ncl-arms`): deleting
+the API worker is deployed** (three, with `claude/mapping-ncl-arms` and `claude/model-loop-r7`): deleting
 an account now also unlinks the new `aliases` and `auto_entries` tables, and
 `check:schema` says whether they are there.
 
@@ -161,6 +161,7 @@ an account now also unlinks the new `aliases` and `auto_entries` tables, and
 cd workers/portal
 npx wrangler d1 execute moje-krev --remote --file migrations/2026-10-19-aliases.sql
 npx wrangler d1 execute moje-krev --remote --file migrations/2026-10-20-auto-entries.sql
+npx wrangler d1 execute moje-krev --remote --file migrations/2026-10-21-auto-entries-material.sql
 cd ../.. && npm run check:schema
 ```
 

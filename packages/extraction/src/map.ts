@@ -43,8 +43,8 @@ export interface MapSuggestion {
   decision: MapDecision;
   /** For `catalog`: an id from the list it was given, and nothing else. */
   canonicalId: string | null;
-  /** For `new`: the entry it proposes. */
-  proposed: { id: string; displayNameCs: string; unit: string } | null;
+  /** For `new`: the entry it proposes; `material` (s, p, b, u, du) when it came from an NČLP row. */
+  proposed: { id: string; displayNameCs: string; unit: string; material?: string } | null;
   reason: string;
   confidence: "high" | "medium" | "low";
   /** The NČLP code the answer rests on, when it came through the code table (codeMap.ts). */
