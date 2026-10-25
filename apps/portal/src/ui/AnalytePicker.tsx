@@ -36,9 +36,16 @@ interface Props {
   options: PickerOption[];
   onPick: (id: string) => void;
   onClose: () => void;
+  /**
+   * In the flow of a sheet rather than floating over a card: no outside-tap
+   * close (the sheet is the outside) and a group, not a dialog of its own.
+   */
+  inline?: boolean;
+  /** What the list is for, for a screen reader; „Zobrazit parametr" by default. */
+  label?: string;
 }
 
-export default function AnalytePicker({ options, onPick, onClose }: Props) {
+export default function AnalytePicker({ options, onPick, onClose, inline = false, label = "Zobrazit parametr" }: Props) {
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -48,17 +55,18 @@ export default function AnalytePicker({ options, onPick, onClose }: Props) {
 
   useEffect(() => {
     inputRef.current?.focus();
+    if (inline) return;
     const onDown = (e: MouseEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [onClose]);
+  }, [onClose, inline]);
 
   useEffect(() => setCursor(0), [query]);
 
   return (
-    <div className="picker" ref={boxRef} role="dialog" aria-label="Zobrazit parametr">
+    <div className={inline ? "picker inline" : "picker"} ref={boxRef} role={inline ? "group" : "dialog"} aria-label={label}>
       <input
         ref={inputRef}
         type="search"

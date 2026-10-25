@@ -27,8 +27,10 @@ agent changes (context caching, max_tokens check) are parked on branch
    `MODEL_SECOND=claude-haiku-5-5` (text read once by Haiku 5.5), and
    optionally `MODEL_PRIMARY=claude-haiku-5-5` for photos.
 5. **Portal build:** `VITE_SHARE_AI_MAPPINGS=1` and `VITE_SECOND_OPINION=1`.
-6. **`VITE_AUTO_ENTRIES=1` only after** the app shows an auto-added entry as
-   such (UI).
+6. **`VITE_AUTO_ENTRIES=1`** — the app now shows an auto-added entry as
+   such (branch `claude/mapping-ui`, see "Mapping UI" below).
+7. **`VITE_UNRECOGNISED_TRENDS=1`** (portal build): unrecognised readings get
+   their own trend in Trendy.
 
 With 2–5 on, the model cost of an upload's mapping and second opinion
 measured $0.0003 per page vs $0.0006 off. Reading drops from ~$0.06 to
@@ -61,8 +63,8 @@ cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "SELEC
 cd workers/portal && npx wrangler d1 execute moje-krev --remote --command "DELETE FROM aliases WHERE source = 'model' AND lab = 'LAB' AND raw_name = 'NAME' AND unit = 'UNIT'"
 ```
 
-Not a switch yet: unrecognised parameters getting their own trend.
-`buildTrends` can do it, but Trendy has to show it — see "Mapping design".
+Unrecognised parameters getting their own trend: `VITE_UNRECOGNISED_TRENDS=1`
+(portal build) — see "Mapping UI".
 
 Auto-added entries, from the CLI:
 
@@ -90,6 +92,58 @@ the triage model (GLM 5.3 Flash is free and off the user's path), and
 Haiku-first mapping (0 confident errors in 495 names, but more unknowns than
 the table, a wait on every upload, and no gain the table does not already
 give — see round 3).
+
+## Mapping UI (branch `claude/mapping-ui`, 2026-10-21)
+
+The three UI pieces this loop left open. Every one is behind a portal build
+switch; with all of them off the app is as before (portal audit: zero new
+flaws). `npm run test:mapping-ui` builds the portal with
+`VITE_UNRECOGNISED_TRENDS=1 VITE_AUTO_ENTRIES=1` into `apps/portal/dist-mapping-ui`
+and sweeps the new screens (five widths, both palettes) plus the decisions
+they save; `MAPPING_UI_SHOTS=<dir>` adds screenshots.
+
+- **Unrecognised in Trendy** (`VITE_UNRECOGNISED_TRENDS=1`): one
+  `buildTrends(..., { unrecognised: true })`, split into two maps that never
+  meet — Souhrn and AI konzultace read only the recognised one. Each
+  unrecognised series (lab + printed name + unit; blood or unknown specimen,
+  with a number, not parked by the model as another material) is its own
+  card with a dashed edge and a „nerozpoznáno" chip, no „mimo rozmezí"
+  verdict anywhere (headline, chart, table: no red, no „v rozmezí"), the
+  lab's printed range drawn as a band and captioned „(dle laboratoře)", and
+  „Přiřadit ke známému parametru": a sheet with the
+  evidence-backed suggestion, a search, and a link to Přiřazení. The choice
+  is saved as a scoped `person` alias (lab, name, unit) plus the account's
+  learned name, like a click in Přiřazení; undo withdraws both.
+- **„přidáno automaticky"** (`VITE_AUTO_ENTRIES=1`): a quiet dashed mark
+  after the name in Trendy cards, Souhrn rows and Ověření rows (`Mark.tsx`, a
+  context, so nothing else is threaded). It opens a sheet saying in words
+  what NČLP is, the code, specimen, unit, the printed name it came from and
+  what it means for the person; „Nesedí to?" offers another parameter or
+  „Nechat bez přiřazení" (a scoped `person` alias with canonical id NULL).
+  The shared entry itself is not withdrawn by a person's correction. On
+  screen an auto entry's name drops the NČLP system part
+  („Apolipoprotein AII", not „… (S; hmot. konc. [g/l])"); the registry keeps
+  the full name as its key so a short one cannot take a shipped entry's name.
+  A stored row filed under an `nclp_` entry that is gone from the catalog is
+  unfiled and matched again on load.
+- **„Jak čteme názvy z laboratoří"** (Reporty, under „Váš účet, vaše data";
+  on with any mapping switch): every decision that shapes the account's
+  trends, grouped by lab — printed name + unit → parameter, and who decided
+  (vaše rozhodnutí / automaticky — another account's decision also reads
+  „automaticky", so nothing hints that someone else has reports from the
+  same lab). One's own: „Vrátit zpět"
+  after a confirmation. Automatic: „Nesedí" (the sheet; a person's decision
+  always outranks a model's). Another account's: shown, no button (the
+  worker would refuse it). Below: the auto-added parameters in use, each opening its
+  sheet.
+- **No curator view.** The app has no notion of an administrator, so the
+  list of every account's model decisions and auto entries stays on the CLI
+  (the commands under the summary above).
+- `VITE_AUTO_ENTRIES` and `VITE_UNRECOGNISED_TRENDS` also turn on reading
+  `/api/aliases` and saving a click as a scoped `person` decision (they need
+  the `2026-10-19-aliases.sql` migration). Undoing a click in Přiřazení now
+  also withdraws that scoped decision, so a reload does not file the name
+  again.
 
 ## Mapping design (Ondřej's decision, round 3) — today vs after
 
@@ -961,12 +1015,8 @@ Round 7 spend: $0.17.
    recommendation.
 2. **The D1 migrations** before deploying the API worker; then the settings,
    in the order above.
-3. **UI, not done in this loop:**
-   - show an auto-added entry as such, and a curator list (before
-     `VITE_AUTO_ENTRIES`);
-   - Trendy wiring for unrecognised parameters (`buildTrends`
-     `opts.unrecognised`);
-   - a place to see and withdraw the shared decisions (today: CLI).
+3. **UI:** built on `claude/mapping-ui` (see "Mapping UI"); the curator
+   list stays on the CLI — the app has no administrator concept.
 4. **Optional:** share "unknown" answers too, so a second account does not
    re-ask; split vitamin B6 by specimen and the remaining unitless-serology
    entries if they ever trend.

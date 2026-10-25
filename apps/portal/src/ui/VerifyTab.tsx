@@ -13,6 +13,7 @@
  * misread decimal cannot survive review.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import Mark from "./Mark";
 import Flag from "./Flag";
 import SearchParam from "./SearchParam";
 import { dateDoubtOf, localToday } from "../lib/fileChecks";
@@ -412,6 +413,7 @@ export default function VerifyTab({ reports, onCorrect, onSetDate, focus, displa
                       {m.canonicalId && displayName(m.canonicalId) !== m.rawAnalyteName && (
                         <span className="muted"> · {displayName(m.canonicalId)}</span>
                       )}
+                      <Mark id={m.canonicalId} />
                       {/* Review markers ride with the name rather than in a
                           fourth column: on a phone that column sat off-screen,
                           hiding exactly the rows that need attention. */}
