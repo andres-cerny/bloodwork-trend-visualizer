@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.matching import abbreviation_key, norm_key  # noqa: E402
+from src.matching import abbreviation_key, leading_code_key, norm_key  # noqa: E402
 from src.normalize import (  # noqa: E402
     canonicalize_unit,
     censored_flag,
@@ -67,6 +67,7 @@ def main() -> int:
     # Guard seen failing 2026-09-12: BioLAB's "B_Střed.obj.erytr. [MCV]" met
     # no synonym until the bracket became a second key.
     failures += _check("abbreviation_key", abbreviation_key, CASES["abbreviation_key"])
+    failures += _check("leading_code_key", leading_code_key, CASES["leading_code_key"])
 
     total = sum(len(v) for k, v in CASES.items() if not k.startswith("_"))
     if failures:

@@ -14,6 +14,7 @@ const SECRET = "test-portal-secret";
 interface Tables {
   users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null; session_epoch: number }>;
   synonyms: Array<{ raw_name: string; canonical_id: string; taught_by: string | null; created_at: string }>;
+  aliases?: Array<{ lab: string; raw_name: string; unit: string; canonical_id: string | null; source: string; model: string | null; code?: string | null; taught_by: string | null; created_at: string }>;
 }
 
 function fakeD1(t: Tables): D1Database {
@@ -35,6 +36,29 @@ function fakeD1(t: Tables): D1Database {
         const before = t.synonyms.length;
         t.synonyms = t.synonyms.filter((s) => !(s.raw_name === a[0] && s.taught_by === a[1]));
         return { results: [], changes: before - t.synonyms.length };
+      }
+      case SQL.allAliases:
+        return { results: (t.aliases ??= []).map(({ created_at: _c, ...r }) => r), changes: 0 };
+      case SQL.upsertAlias: {
+        // Mirrors the SQL's WHERE: owner (unless a model would replace a
+        // person), nobody's, the demo's, or a person replacing a model.
+        const [lab, raw, unit, cid, source, model, by, at, demo, code] = a as [string, string, string, string | null, string, string | null, string, string, string | null, string | null];
+        const rows = (t.aliases ??= []);
+        const ex = rows.find((r) => r.lab === lab && r.raw_name === raw && r.unit === unit);
+        if (ex) {
+          const may =
+            (ex.taught_by === by && !(ex.source === "person" && source === "model")) ||
+            ex.taught_by === null || ex.taught_by === demo || (ex.source === "model" && source === "person");
+          if (!may) return { results: [], changes: 0 };
+          Object.assign(ex, { canonical_id: cid, source, model, code, taught_by: by, created_at: at });
+        } else rows.push({ lab, raw_name: raw, unit, canonical_id: cid, source, model, code, taught_by: by, created_at: at });
+        return { results: [], changes: 1 };
+      }
+      case SQL.deleteAlias: {
+        const rows = (t.aliases ??= []);
+        const before = rows.length;
+        t.aliases = rows.filter((r) => !(r.lab === a[0] && r.raw_name === a[1] && r.unit === a[2] && r.taught_by === a[3]));
+        return { results: [], changes: before - t.aliases.length };
       }
       default:
         throw new Error(`fakeD1: no branch for: ${sql}`);
@@ -151,3 +175,49 @@ describe("taught spellings", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("scoped aliases (lab, printed name, unit)", () => {
+  it("one account's decision is read by every account, with its scope and source", async () => {
+    current = fresh();
+    const body = { lab: "Stod", rawName: "P_Protrombinový test", unit: "s", canonicalId: "pt_cas", source: "model", model: "claude-haiku-5-5", code: "02213" };
+    expect((await as("u-a", "PUT", "/api/aliases", body)).status).toBe(200);
+    const seen = (await (await as("u-b", "GET", "/api/aliases")).json()) as any[];
+    expect(seen).toEqual([{ lab: "Stod", rawName: "P_Protrombinový test", unit: "s", canonicalId: "pt_cas", source: "model", model: "claude-haiku-5-5", code: "02213", mine: false }]);
+    // A malformed code is dropped, not stored.
+    await as("u-a", "PUT", "/api/aliases", { ...body, code: "DROP TABLE" });
+    expect(current.aliases![0].code).toBeNull();
+  });
+
+  it("a person's decision replaces a model's; a model's never replaces a person's", async () => {
+    current = fresh();
+    const scope = { lab: "Stod", rawName: "Glukóza", unit: "arb.j." };
+    await as("u-a", "PUT", "/api/aliases", { ...scope, canonicalId: null, source: "model", model: "claude-haiku-5-5" });
+    await as("u-b", "PUT", "/api/aliases", { ...scope, canonicalId: "glukoza", source: "person" });
+    expect(current.aliases![0]).toMatchObject({ canonical_id: "glukoza", source: "person", taught_by: "u-b" });
+    const r = (await (await as("u-b", "PUT", "/api/aliases", { ...scope, canonicalId: null, source: "model", model: "claude-haiku-5-5" })).json()) as { taught: boolean };
+    expect(r.taught).toBe(false);
+    expect(current.aliases![0]).toMatchObject({ canonical_id: "glukoza", source: "person" });
+  });
+
+  it("only the account that saved a decision can withdraw it", async () => {
+    current = fresh();
+    const scope = { lab: "Stod", rawName: "B-HbA1c", unit: "%" };
+    await as("u-a", "PUT", "/api/aliases", { ...scope, canonicalId: null, source: "model", model: "claude-haiku-5-5" });
+    expect(((await (await as("u-b", "DELETE", "/api/aliases", scope)).json()) as any).removed).toBe(false);
+    expect(((await (await as("u-a", "DELETE", "/api/aliases", scope)).json()) as any).removed).toBe(true);
+    expect(current.aliases).toEqual([]);
+  });
+
+  it("refuses a malformed decision: no name, a bad id, a model answer without its model", async () => {
+    current = fresh();
+    for (const body of [
+      { lab: "L", rawName: "", unit: "", canonicalId: "sodik" },
+      { lab: "L", rawName: "S_Na", unit: "", canonicalId: "Sodík!" },
+      { lab: "L", rawName: "S_Na", unit: "", canonicalId: "sodik", source: "model" },
+      { lab: "L", rawName: "S_Na", unit: "", source: "person" },
+    ]) {
+      expect((await as("u-a", "PUT", "/api/aliases", body)).status).toBe(400);
+    }
+  });
+});
+

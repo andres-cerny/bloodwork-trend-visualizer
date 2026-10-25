@@ -169,7 +169,8 @@
    "Kyselina mocova",
    "Uric acid",
    "Kyselina močová - urát",
-   "Kyselina močová v séru"
+   "Kyselina močová v séru",
+   "S_Močová kyselina"
   ],
   "canonicalUnit": "µmol/l",
   "unitConversions": {
@@ -2078,7 +2079,8 @@
    "non-HDL cholesterol (výpočet)",
    "nonHDLC",
    "Non-HDL cholesterol - výpočet",
-   "V_non-HDL cholesterol"
+   "V_non-HDL cholesterol",
+   "S- Cholesterol non- HDL"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {
@@ -2412,7 +2414,8 @@
    "S_Trf",
    "Transferín",
    "Transferrin v séru",
-   "Transferin (Trf)"
+   "Transferin (Trf)",
+   "S_Transferin IT"
   ],
   "canonicalUnit": "g/l",
   "unitConversions": {},
@@ -2940,7 +2943,8 @@
    "CRP (kvantitativně)",
    "CRP v séru",
    "C reaktivní protein",
-   "CRP - kvantitativně"
+   "CRP - kvantitativně",
+   "S_C-reaktivní prot."
   ],
   "canonicalUnit": "mg/l",
   "unitConversions": {
@@ -3421,7 +3425,8 @@
    "Poměr albumin/globulin",
    "A/G index",
    "ELFO A/G",
-   "A/G poměr"
+   "A/G poměr",
+   "S_Albumino-globulin.k.(výpočet)"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -3966,7 +3971,8 @@
    "Glykovaný Hb",
    "GHB",
    "B_GHB",
-   "Glykovaný hemoglobin HbA1c chromatograficky"
+   "Glykovaný hemoglobin HbA1c chromatograficky",
+   "B_Glyk.hemoglobin A1c"
   ],
   "canonicalUnit": "mmol/mol",
   "unitConversions": {},
@@ -4199,7 +4205,8 @@
    "Leukocyty celkem",
    "Leukocyty absolutní",
    "Leukocyty (WBC) - počet",
-   "Leukocyty – počet (WBC)"
+   "Leukocyty – počet (WBC)",
+   "B_Leukocyty př. WBC"
   ],
   "canonicalUnit": "10^9/l",
   "unitConversions": {},
@@ -4231,7 +4238,8 @@
    "B_ERY",
    "B_RBC",
    "Erytrocyty (počet)",
-   "Erytrocyty – počet (RBC)"
+   "Erytrocyty – počet (RBC)",
+   "B_Erytrocyty př. RBC"
   ],
   "canonicalUnit": "10^12/l",
   "unitConversions": {},
@@ -4331,7 +4339,10 @@
    "Střední objem erytrocytů (MCV)",
    "Střední objem erytrocytu (MCV)",
    "Stredný objem erytrocytov",
-   "Průměrný objem erytrocytu"
+   "Průměrný objem erytrocytu",
+   "*Střední objem erytr",
+   "B/Stř.objem erytr.(MCV)",
+   "B_Stř.obj.erytr. MCV"
   ],
   "canonicalUnit": "fl",
   "unitConversions": {},
@@ -4364,7 +4375,9 @@
    "Střední množství hemoglobinu v erytrocytu (MCH)",
    "B_Barvivo erytrocytu",
    "Průměrný obsah hemoglobinu v erytrocytu",
-   "Stredné množstvo hemoglobínu v erytrocyte"
+   "Stredné množstvo hemoglobínu v erytrocyte",
+   "*Hemoglobin v ery",
+   "B/Hb erytr.(MCH)"
   ],
   "canonicalUnit": "pg",
   "unitConversions": {},
@@ -4394,7 +4407,10 @@
    "B_Střední barevná koncentrace",
    "Střední koncentrace Hb v erytrocytech",
    "Průměrná koncentrace hemoglobinu v erytrocytech",
-   "Stredná koncentrácia hemoglobínu v erytrocytoch"
+   "Stredná koncentrácia hemoglobínu v erytrocytoch",
+   "*Střed.konc.HGB v ER",
+   "B/Hb konc.(MCHC)",
+   "B_Stř.barev.kon.MCHC"
   ],
   "canonicalUnit": "g/l",
   "unitConversions": {
@@ -4467,7 +4483,9 @@
    "B_PLT",
    "Trombocyty (počet)",
    "Trombocyty – počet (PLT)",
-   "Trombocyty absolutní"
+   "Trombocyty absolutní",
+   "B_Trombocyty př. PLT",
+   "B_Trombocyty TROMBOEXACT"
   ],
   "canonicalUnit": "10^9/l",
   "unitConversions": {},
@@ -4557,7 +4575,8 @@
    "Trombocyty - střední objem",
    "Střední objem trombocytů (MPV)",
    "Střední objem destiček",
-   "Stredný objem trombocytov"
+   "Stredný objem trombocytov",
+   "*Střední objem tromb"
   ],
   "canonicalUnit": "fl",
   "unitConversions": {},
@@ -6890,7 +6909,8 @@
    "R (PT)",
    "PT index",
    "TPP",
-   "Protrombínový čas - pomer"
+   "Protrombínový čas - pomer",
+   "Protrombinový test- Ratio"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -7078,7 +7098,8 @@
    "Screening protilátek",
    "Screening nepravidelných antierytrocytárních protilátek",
    "Nepřímý antiglobulinový test (NAT)",
-   "Nepriamy antiglobulínový test"
+   "Nepriamy antiglobulínový test",
+   "B_Nepřímý antiglobulinový test (Coombs)"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -7102,7 +7123,8 @@
    "Direct Coombs",
    "DAT",
    "Přímý antiglobulinový test (PAT)",
-   "Priamy antiglobulínový test"
+   "Priamy antiglobulínový test",
+   "B_Přímý antiglobulinový test (Coombs)"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -7298,7 +7320,8 @@
    "fPSA/PSA ratio",
    "fPSA/PSA - výpočet",
    "Poměr FPSA/PSA",
-   "PSA volný/celkový"
+   "PSA volný/celkový",
+   "Poměr FreePSA/PSA"
   ],
   "canonicalUnit": "%",
   "unitConversions": {
@@ -7668,7 +7691,8 @@
    "Protilátky proti CMV IgG",
    "CMV protilátky IgG",
    "Anti-CMV IgG (CLIA)",
-   "CMV IgG (ELISA)"
+   "CMV IgG (ELISA)",
+   "Anti CMV IgG (skríning)"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -7692,7 +7716,8 @@
    "Protilátky proti CMV IgM",
    "CMV protilátky IgM",
    "Anti-CMV IgM (CLIA)",
-   "CMV IgM (ELISA)"
+   "CMV IgM (ELISA)",
+   "Anti CMV IgM (skríning)"
   ],
   "canonicalUnit": "",
   "unitConversions": {},
@@ -8493,7 +8518,8 @@
    "MDRD - odhad glomerulární filtrace",
    "GF MDRD (výpočet)",
    "Odhad glomerulární filtrace (MDRD)",
-   "GF MDRD (výpočet) - dospelí (kreatinín)"
+   "GF MDRD (výpočet) - dospelí (kreatinín)",
+   "S_GF_MDRD 6"
   ],
   "canonicalUnit": "ml/s/1,73 m2",
   "unitConversions": {
@@ -8698,7 +8724,8 @@
    "Troponin I- hs",
    "Troponin I ultrasenzitivní",
    "TRPI",
-   "Troponin I (kardiální)"
+   "Troponin I (kardiální)",
+   "S_High Sensitive Troponin I"
   ],
   "canonicalUnit": "µg/l",
   "unitConversions": {
@@ -8830,7 +8857,9 @@
    "Ca ion.",
    "S_Ca ion.",
    "Cai",
-   "Vápník ionizovaný (výpočet)"
+   "Vápník ionizovaný (výpočet)",
+   "S_Ionizovaný Ca",
+   "B_iVápník"
   ],
   "canonicalUnit": "mmol/l",
   "unitConversions": {},
@@ -9776,6 +9805,88 @@
   "about": {
    "what": "Anti-EBV VCA IgM jsou protilátky třídy IgM proti kapsidovému antigenu (VCA) viru Epsteina-Barrové (EBV); tvoří se jako první reakce na infekci a po několika týdnech až měsících mizí.",
    "usedFor": "Vyšetření se používá k rozpoznání čerstvé infekce virem Epsteina-Barrové, která se může projevit jako infekční mononukleóza, na rozdíl od VCA IgG, které přetrvávají i po jejím odeznění."
+  }
+ },
+ {
+  "canonicalId": "pco2",
+  "displayNameCs": "pCO2 (parciální tlak CO2)",
+  "synonyms": [
+   "B_PCO2",
+   "B_pCO2",
+   "pCO2",
+   "PCO2",
+   "pCO2 arteriální",
+   "Parciální tlak CO2"
+  ],
+  "canonicalUnit": "kPa",
+  "unitConversions": {
+   "mmHg": 0.1333
+  },
+  "referenceRange": null,
+  "about": {
+   "what": "pCO2 je parciální tlak oxidu uhličitého v krvi, tedy míra toho, kolik oxidu uhličitého je v ní rozpuštěno.",
+   "usedFor": "Je součástí vyšetření krevních plynů; posuzuje se podle něj dýchání a acidobazická rovnováha."
+  }
+ },
+ {
+  "canonicalId": "po2",
+  "displayNameCs": "pO2 (parciální tlak O2)",
+  "synonyms": [
+   "B_PO2",
+   "B_pO2",
+   "pO2",
+   "PO2",
+   "pO2 arteriální",
+   "Parciální tlak O2"
+  ],
+  "canonicalUnit": "kPa",
+  "unitConversions": {
+   "mmHg": 0.1333
+  },
+  "referenceRange": null,
+  "about": {
+   "what": "pO2 je parciální tlak kyslíku v krvi, tedy míra toho, kolik kyslíku je v ní rozpuštěno.",
+   "usedFor": "Je součástí vyšetření krevních plynů; posuzuje se podle něj okysličení krve a funkce plic."
+  }
+ },
+ {
+  "canonicalId": "base_excess",
+  "displayNameCs": "Base excess (BE)",
+  "synonyms": [
+   "B_Base excess aktuální",
+   "Base excess",
+   "B_BE",
+   "BE aktuální",
+   "ABE",
+   "Aktuální base excess"
+  ],
+  "canonicalUnit": "mmol/l",
+  "unitConversions": {},
+  "referenceRange": null,
+  "about": {
+   "what": "Base excess (nadbytek bází) udává, kolik zásad v krvi přebývá nebo chybí oproti normálu.",
+   "usedFor": "Je součástí vyšetření krevních plynů; pomáhá odlišit metabolické poruchy acidobazické rovnováhy od dechových."
+  }
+ },
+ {
+  "canonicalId": "so2",
+  "displayNameCs": "Saturace hemoglobinu kyslíkem (sO2)",
+  "synonyms": [
+   "B_O2 saturovaný",
+   "sO2",
+   "SO2",
+   "B_sO2",
+   "Saturace O2",
+   "O2 saturace"
+  ],
+  "canonicalUnit": "%",
+  "unitConversions": {
+   "": 100.0
+  },
+  "referenceRange": null,
+  "about": {
+   "what": "Saturace hemoglobinu kyslíkem (sO2) je podíl hemoglobinu, který právě nese kyslík.",
+   "usedFor": "Je součástí vyšetření krevních plynů; ukazuje, jak dobře krev přenáší kyslík."
   }
  }
 ]

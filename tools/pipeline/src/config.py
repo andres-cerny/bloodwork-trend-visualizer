@@ -42,8 +42,12 @@ LOCAL_LLM_URL = os.getenv("BLOODWORK_LOCAL_URL") or None
 
 # USD per million tokens (input, output) — for the per-report cost readout.
 MODEL_PRICING = {
-    "claude-sonnet-5": (3.00, 15.00),
+    "claude-sonnet-5": (2.00, 10.00),  # was (3, 15) until 2026-10-19 — Sonnet 4.6's rate
+    "claude-sonnet-5-5": (2.00, 10.00),
     "claude-opus-4-8": (5.00, 25.00),
+    "claude-opus-5-5": (4.00, 20.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+    "claude-haiku-5-5": (0.10, 0.50),  # prompts up to 100K tokens
 }
 USD_TO_CZK = 23.0  # approximate, display only
 

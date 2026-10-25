@@ -8,9 +8,11 @@
  * portal's one difference: a scan has no printed text, so its rows carry the
  * model's snippet, no highlight, and no provenance check.
  *
- * Since the text path is read once (Moje krev's extractor runs Haiku alone on
- * born-digital pages), three deterministic checks stand in for the second
- * reader, all from lab-core/candidates:
+ * Moje krev's extractor reads born-digital pages with two readers today
+ * (`TEXT_READERS` unset on moje-krev-extract); with `TEXT_READERS=cheap` it
+ * reads them once, and these three deterministic checks stand in for the
+ * second reader (measured in docs/plans/model-loop.md, round 2 — they run
+ * either way), all from lab-core/candidates:
  *   - a `row_index` whose row does not carry the value is moved to the
  *     neighbour that does — a reader once numbered a whole page one too high;
  *   - a returned name that is not printed on its row is replaced by the row's
@@ -20,10 +22,12 @@
  *     ones are reported as unread so the reader looks at the page.
  */
 import {
+  type AliasScope,
   type Measurement,
   type RawRead,
   type TextRow,
   isPrintedOnPage,
+  isPrintedOnRow,
   makeMeasurement,
   nameFromRow,
   nameOnRow,
@@ -66,7 +70,8 @@ export function interpretPage(
   rows: TextRow[],
   pageNum: number,
   isScan: boolean,
-  match: (rawName: string, pageMaterial?: string | null) => string | null,
+  /** `scope`: this page's lab and the row's unit, for saved (lab, name, unit) decisions. */
+  match: (rawName: string, pageMaterial?: string | null, scope?: AliasScope) => string | null,
   /**
    * How many readers the Worker *asked*, not how many answered. Without it a
    * page whose second read failed is indistinguishable from one two readers
@@ -145,12 +150,14 @@ export function interpretPage(
       confidence,
       disagreement,
       // Copied from the text layer, not transcribed: review.ts does not
-      // suspect a moved decimal point in it.
-      printedOnPage: printed,
+      // suspect a moved decimal point in it. Strict on purpose — a whole cell
+      // of the (repaired) row the value is on, not a substring anywhere on the
+      // page, which is what `printed` above answers (fabrication or not).
+      printedOnPage: printed && isPrintedOnRow(m.valueRaw, rows, rowIndex),
       // The row's Materiál cell or heading rides along, so a bare "Glukóza"
       // under Moč is refused the serum glukoza (Registry.match). The index is
       // the repaired one, so the material comes from the row the value is on.
-      canonicalId: match(rawAnalyteName, isScan ? null : printedMaterial(rows, rowIndex)?.code ?? null),
+      canonicalId: match(rawAnalyteName, isScan ? null : printedMaterial(rows, rowIndex)?.code ?? null, { lab: out.labName, unit: m.unitRaw }),
       bbox: isScan ? (onPhoto?.[mi]?.bbox ?? null) : rowBoxAt(rowIndex, rows) ?? rowBoxFor(rawAnalyteName, rows),
       ...(isScan && onPhoto?.[mi] ? { quad: onPhoto[mi]!.quad } : {}),
     });
@@ -179,7 +186,7 @@ export function interpretPage(
             extractedBy: "printed-row",
           }),
           sourcePage: pageNum,
-          canonicalId: match(c.name, printedMaterial(rows, c.index)?.code ?? null),
+          canonicalId: match(c.name, printedMaterial(rows, c.index)?.code ?? null, { lab: out.labName, unit: "" }),
           bbox: rowBoxAt(c.index, rows),
         }),
       );

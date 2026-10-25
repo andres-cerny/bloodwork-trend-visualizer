@@ -20,7 +20,7 @@ import {
   observedStats,
 } from "@bw/lab-core";
 import type { AiAsked, AiMapAnswer, MapSuggestion } from "../src/lib/api";
-import { type Judged, judge, namesToAsk, persistable, runAiMapping, withoutAsked } from "../src/lib/aiMapping";
+import { type Judged, judge, judgeSecondOpinion, namesToAsk, persistable, runAiMapping, runSecondOpinion, scopeOf, sharedLessons, withoutAsked } from "../src/lib/aiMapping";
 
 const m = (name: string, value: string, unit: string, ref: string, cid: string | null) =>
   normalizeMeasurement(makeMeasurement({ rawAnalyteName: name, valueRaw: value, unitRaw: unit, refRangeRaw: ref, canonicalId: cid }));
@@ -315,3 +315,93 @@ describe("persistable", () => {
     expect(Object.keys(persistable(h.ref.current))).toEqual(["S_K"]);
   });
 });
+
+describe("sharedLessons (VITE_SHARE_AI_MAPPINGS)", () => {
+  const judged = {
+    entries: {},
+    applied: [
+      { rawName: "S_K", canonicalId: "draslik" },
+      { rawName: "Můj test", canonicalId: "custom_abc" },
+    ],
+    parked: [],
+  };
+  const shipped = (id: string) => id !== "custom_abc";
+  it("off by default: nothing is taught to every account", () => {
+    expect(sharedLessons(judged, shipped, false)).toEqual([]);
+  });
+  it("on: only filings onto a shipped entry", () => {
+    expect(sharedLessons(judged, shipped, true)).toEqual([{ rawName: "S_K", canonicalId: "draslik" }]);
+  });
+});
+
+describe("judgeSecondOpinion (VITE_SECOND_OPINION)", () => {
+  const weak = (rawName: string, unitRaw: string, listId: string) => ({
+    analyte: { rawName, unitRaw, occurrences: [{ reportId: "r", date: null, valueRaw: "1", value: 1, page: 1 }], refRange: null, refRangeRaw: "", refRangeFrom: null, material: null, materialSource: null },
+    listId,
+    lab: "Stod",
+    why: "unit" as const,
+  });
+  const reg = new Registry([def("glukoza", "Glukóza", "mmol/l"), def("sodik", "Sodík", "mmol/l"), def("draslik", "Draslík", "mmol/l")]);
+
+  it("confirms when the model names the list's entry, unasked", () => {
+    const [o] = judgeSecondOpinion(answer([sug({ rawName: "Glukóza", canonicalId: "glukoza", confidence: "medium" })]), [weak("Glukóza", "mmol/L", "glukoza")], reg, new Map());
+    expect(o).toMatchObject({ verdict: "confirm", canonicalId: "glukoza", lab: "Stod", unit: "mmol/L" });
+  });
+
+  it("remaps only on 'high' with the evidence for the new entry", () => {
+    const [o] = judgeSecondOpinion(answer([sug({ rawName: "X", canonicalId: "draslik" })]), [weak("X", "mmol/l", "sodik")], reg, new Map());
+    expect(o).toMatchObject({ verdict: "remap", canonicalId: "draslik" });
+    const [p] = judgeSecondOpinion(answer([sug({ rawName: "X", canonicalId: "draslik", confidence: "medium" })]), [weak("X", "mmol/l", "sodik")], reg, new Map());
+    expect(p).toMatchObject({ verdict: "unmap", canonicalId: null });
+  });
+
+  it("takes the row off the list's entry on unknown / not blood — a person decides", () => {
+    for (const d of ["unknown", "not_blood", "new"] as const) {
+      const [o] = judgeSecondOpinion(answer([sug({ rawName: "Glukóza", decision: d })]), [weak("Glukóza", "arb.j.", "glukoza")], reg, new Map());
+      expect(o.verdict).toBe("unmap");
+    }
+  });
+
+  it("a name the model did not answer is skipped, not decided", () => {
+    const [o] = judgeSecondOpinion(answer([]), [weak("Glukóza", "arb.j.", "glukoza")], reg, new Map());
+    expect(o.verdict).toBe("skip");
+  });
+});
+
+describe("runSecondOpinion", () => {
+  const reg = () => new Registry([def("glukoza", "Glukóza", "mmol/l"), def("sodik", "Sodík", "mmol/l")]);
+  const reports = [report("r1", [m("Glukóza", "1", "arb.j.", "", "glukoza"), m("S_Na", "140", "mmol/l", "", "sodik")])];
+
+  it("asks only about the weak matches, saves each decision, and the registry applies it", async () => {
+    const r = reg();
+    const asked: string[] = [];
+    const saved: string[] = [];
+    const out = await runSecondOpinion(
+      { reports, registry: r, stats: new Map(), ask: async (names) => (asked.push(...names.map((n) => n.rawName)), answer([sug({ rawName: "Glukóza", decision: "not_blood" })])) },
+      { save: (o, model) => saved.push(`${o.rawName}|${o.unit}|${o.canonicalId}|${model}`) },
+    );
+    expect(asked).toEqual(["Glukóza"]);
+    expect(saved).toEqual(["Glukóza|arb.j.|null|claude-haiku-4-5"]);
+    expect(out.decided.map((o) => o.verdict)).toEqual(["unmap"]);
+    expect(r.match("Glukóza", null, { lab: "Lab", unit: "arb.j." })).toBeNull();
+    expect(r.match("Glukóza", null, { lab: "Lab", unit: "mmol/l" })).toBe("glukoza");
+    // Decided once: the next run has nothing to ask.
+    const again = await runSecondOpinion({ reports, registry: r, stats: new Map(), ask: async () => { throw new Error("must not ask"); } }, { save: () => undefined });
+    expect(again.asked).toBe(0);
+  });
+
+  it("a failed call decides nothing", async () => {
+    const r = reg();
+    const out = await runSecondOpinion({ reports, registry: r, stats: new Map(), ask: async () => { throw new Error("down"); } }, { save: () => { throw new Error("must not save"); } });
+    expect(out.error).toBeInstanceOf(Error);
+    expect(r.match("Glukóza", null, { lab: "Lab", unit: "arb.j." })).toBe("glukoza");
+  });
+});
+
+describe("scopeOf", () => {
+  it("is the lab and unit of the name's first reading", () => {
+    expect(scopeOf("S_Na", [report("r1", [m("S_Na", "140", "mmol/l", "", null)])])).toEqual({ lab: "Lab", unit: "mmol/l" });
+    expect(scopeOf("nic", [])).toEqual({ lab: "", unit: "" });
+  });
+});
+

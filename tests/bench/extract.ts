@@ -56,7 +56,7 @@ export const PRICING: Record<string, [number, number]> = {
 };
 
 export function priceUsd(model: string, u: Usage): number {
-  const [inP, outP] = PRICING[model] ?? [3.0, 15.0];
+  const [inP, outP] = PRICING[model] ?? [5.0, 25.0];
   return (
     (u.inputTokens / 1e6) * inP +
     (u.cacheWriteTokens / 1e6) * inP * 1.25 +

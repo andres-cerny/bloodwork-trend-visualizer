@@ -149,6 +149,22 @@ teach name mappings to other accounts, and a name belongs to the first
 account that mapped it. The 15-minute cron now also gives back documents
 abandoned for over an hour.
 
+## The model loop branch (2026-10-19)
+
+`claude/model-pipeline-loop` changes how pages are cross-checked and names
+mapped ([what and why](plans/model-loop.md)). It needs **one migration before
+the API worker is deployed**: deleting an account now also unlinks the new
+`aliases` table, and `check:schema` says whether it is there.
+
+```sh
+cd workers/portal
+npx wrangler d1 execute moje-krev --remote --file migrations/2026-10-19-aliases.sql
+cd ../.. && npm run check:schema
+```
+
+The settings it adds are all off until set; the order to turn them on is the
+summary at the top of [the loop's playbook](plans/model-loop.md).
+
 ## What is deliberately not done
 
 - Mail, Turnstile, Telegram and Stripe are all **off by default** and each

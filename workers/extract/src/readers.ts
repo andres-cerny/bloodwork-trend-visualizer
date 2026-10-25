@@ -10,7 +10,8 @@
  * nothing else; helpers live here. `tests/guards/entry-exports.test.ts` keeps
  * it that way.
  */
-import { MODEL_ESCALATION, MODEL_GEMINI, MODEL_PRIMARY } from "@bw/extraction";
+import { MODEL_ESCALATION, MODEL_GEMINI, MODEL_MAP, MODEL_PRIMARY, resolveReaderModel } from "@bw/extraction";
+import { LabCodes, type LabCodeTable } from "@bw/lab-core";
 
 export type ReaderId = "sonnet" | "haiku" | "gemini";
 
@@ -19,6 +20,30 @@ export const READER_MODEL: Record<ReaderId, string> = {
   haiku: MODEL_ESCALATION,
   gemini: MODEL_GEMINI,
 };
+
+/**
+ * The model ids the vars may override. The reader *ids* keep their historical
+ * names ("sonnet" is the primary slot, "haiku" the second Claude slot) so
+ * `PHOTO_READERS` values and logs keep meaning what they meant; the model in
+ * each slot is a var. An id outside `READER_MODELS` falls back to the default,
+ * so a typo cannot route pages to an unpriced or unchecked model.
+ */
+export type ModelEnv = {
+  MODEL_PRIMARY?: string;
+  MODEL_SECOND?: string;
+  MODEL_MAP?: string;
+};
+
+export function readerModel(env: ModelEnv, id: ReaderId): string {
+  if (id === "sonnet") return resolveReaderModel(env.MODEL_PRIMARY, MODEL_PRIMARY);
+  if (id === "haiku") return resolveReaderModel(env.MODEL_SECOND, MODEL_ESCALATION);
+  return READER_MODEL[id];
+}
+
+/** The mapping fallback's model; same allowlist. */
+export function mapModel(env: ModelEnv): string {
+  return resolveReaderModel(env.MODEL_MAP, MODEL_MAP);
+}
 
 /**
  * The three settings `PHOTO_READERS` may take, and nothing else.
@@ -86,3 +111,26 @@ export function photoReaders(env: ReaderEnv): { name: string; readers: readonly 
   }
   return { name: asked, readers: pair };
 }
+
+/**
+ * `MAP_MODE`: "codes" — `/api/map` first looks each name up in the lab-code
+ * table (a hit linked to one catalog entry needs no model), sends only the
+ * rest to today's whole-catalog call, and attaches the NČLP code to every
+ * answer it can; "codes-shortlist" — the model picks from 20 table rows per
+ * name instead (measured weaker, round 5). Unset or anything else: today.
+ * docs/plans/model-loop.md.
+ */
+export type MapModeEnv = { MAP_MODE?: string };
+export const mapByCodesOn = (env: MapModeEnv): boolean => env.MAP_MODE === "codes" || env.MAP_MODE === "codes-shortlist";
+export const mapCodeStep = (env: MapModeEnv): "catalog" | "shortlist" => (env.MAP_MODE === "codes-shortlist" ? "shortlist" : "catalog");
+
+let labCodes: Promise<LabCodes> | null = null;
+/**
+ * The compact, pre-normalised NČLP index (docs/plans/lab-codes.md,
+ * "Runtime"), bundled (~180 KiB gzip) but parsed only on the first mapping
+ * call that asks for it — an isolate with MAP_MODE unset never pays for it.
+ */
+export function codeTable(): Promise<LabCodes> {
+  return (labCodes ??= import("@bw/lab-core/codes/lab-codes.index.json").then((m) => new LabCodes((m.default ?? m) as unknown as LabCodeTable)));
+}
+

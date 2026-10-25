@@ -458,15 +458,15 @@ describe("spend ledger", () => {
     const s = await mintSession(SECRET, 600, 12);
     const res = await worker.fetch(post("/api/extract", { rowsText: "x | y" }, s), env);
     const body = (await res.json()) as any;
-    // 2k in + 1k out on Sonnet 5 ($3/$15) = 0.021, and on Haiku 4.5 ($1/$5)
-    // = 0.007. The second reader moved from Opus 4.8 to Haiku 4.5, which is
-    // why this is 0.028 rather than the 0.056 it used to be.
-    expect(body.costUsd).toBeCloseTo(0.028, 3);
-    expect(body.budget.spentUsd).toBeCloseTo(0.028, 3);
+    // 2k in + 1k out on Sonnet 5 ($2/$10) = 0.014, and on Haiku 4.5 ($1/$5)
+    // = 0.007. (Sonnet 5 was priced at $3/$15 until 2026-10-19, which made
+    // this 0.028.)
+    expect(body.costUsd).toBeCloseTo(0.021, 3);
+    expect(body.budget.spentUsd).toBeCloseTo(0.021, 3);
   });
 
   it("freezes both AI routes once the ceiling is reached", async () => {
-    // One extraction costs $0.028, so a $0.02 ceiling is crossed by the first
+    // One extraction costs $0.021, so a $0.02 ceiling is crossed by the first
     // call — the guard is checked before a call, not mid-flight.
     const env = makeEnv({ BUDGET_USD_LIMIT: "0.02" });
     const s = await mintSession(SECRET, 600, 12);
@@ -579,6 +579,19 @@ describe("PHOTO_READERS", () => {
     const res = await extractImage(makeEnv({ PHOTO_READERS: "sonnet+gemini" }));
     expect(hosts()).toEqual(["anthropic", "anthropic"]);
     expect(((await res.json()) as any).readers).toBe("sonnet+haiku");
+  });
+
+  it("MODEL_PRIMARY / MODEL_SECOND swap the model in a slot; an unknown id falls back", async () => {
+    const s = await mintSession(SECRET, 600, 12);
+    await worker.fetch(
+      post("/api/extract", { rowsText: "S_Glukóza | 5,32" }, s),
+      makeEnv({ MODEL_PRIMARY: "claude-haiku-5-5", MODEL_SECOND: "claude-sonnet-5-5" }),
+    );
+    expect(models()).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5"]);
+    calls.length = 0;
+    const s2 = await mintSession(SECRET, 600, 12);
+    await worker.fetch(post("/api/extract", { rowsText: "S_Glukóza | 5,32" }, s2), makeEnv({ MODEL_PRIMARY: "claude-sonet-5-5" }));
+    expect(models()).toEqual(["claude-sonnet-5", "claude-haiku-4-5"]);
   });
 
   it("never touches the text path", async () => {
@@ -705,11 +718,11 @@ describe("the ledger prices the Google reader at Google's rate", () => {
       post("/api/extract", { imageBase64: "AAAA", mediaType: "image/jpeg" }, s),
       env,
     );
-    // Sonnet 2k in + 1k out ($3/$15) = 0.021; Gemini 2k in + 1k out
-    // ($0.75/$3.75) = 0.00525. The fallback rate would have made it 0.042.
-    // 0.02625, rounded to four places by the response.
+    // Sonnet 2k in + 1k out ($2/$10) = 0.014; Gemini 2k in + 1k out
+    // ($0.75/$3.75) = 0.00525. The fallback rate would have made it far more.
+    // 0.01925, rounded to four places by the response.
     const { costUsd } = (await res.json()) as any;
-    expect(costUsd).toBe(0.0262);
+    expect(costUsd).toBe(0.0193);
     // The unknown-model fallback would have charged Sonnet's rate for both.
     expect(costUsd).toBeLessThan(0.042);
   });

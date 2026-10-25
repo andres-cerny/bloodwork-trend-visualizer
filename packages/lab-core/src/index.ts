@@ -38,6 +38,8 @@ export * from "./correction";
 export * from "./chartSpec";
 export * from "./pdf/rows";
 export * from "./chatContext";
+export * from "./labCodes";
+export * from "./labCodeIndex";
 export * from "./learnMore";
 export * from "./aiContext";
 export * from "./aiShare";

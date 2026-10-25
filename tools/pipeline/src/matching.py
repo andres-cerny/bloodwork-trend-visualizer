@@ -58,6 +58,30 @@ def abbreviation_key(name: str) -> Optional[str]:
     return m.group(1).lower() if m else None
 
 
+# A short code printed before the long name and glued onto it by a reader:
+# "URE urea", "KM * kyselina močová". Only when the code can abbreviate what
+# follows (same first letter), so "HDL cholesterol" never becomes "cholesterol".
+_LEADING_CODE = re.compile(r"^([A-Z][A-Z0-9]{1,5})\s*\*?\s+(\S.*)$")
+
+
+def leading_code_key(name: str) -> Optional[str]:
+    """The third key a printed name is looked up under: the long name behind a
+    glued leading code ("urea" for "URE urea"), or None."""
+    m = _LEADING_CODE.match((name or "").strip())
+    if not m or not m.group(2)[0].islower():
+        return None
+    rest = _strip_diacritics(m.group(2)).lower()
+    if rest[0] != m.group(1)[0].lower():
+        return None
+    return norm_key(m.group(2)) or None
+
+
+# Any short capital code before a name ("FE železo"): accepted by `match` only
+# when the code and the name each resolve, to the same entry. Mirrors
+# ANY_LEADING_CODE in registry.ts.
+_ANY_LEADING_CODE = re.compile(r"^([A-Z][A-Z0-9]{1,5})\s*\*?\s+(\S.*)$")
+
+
 class Registry:
     """Loaded analyte registry with a normalized synonym index."""
 
@@ -85,6 +109,15 @@ class Registry:
         if cid is None:
             abbr = abbreviation_key(raw_name)
             cid = self._index.get(abbr) if abbr else None
+        if cid is None:
+            lead = leading_code_key(raw_name)
+            cid = self._index.get(lead) if lead else None
+        if cid is None:
+            m = _ANY_LEADING_CODE.match((raw_name or "").strip())
+            if m and m.group(2)[0].isalpha():
+                by_code = self._index.get(norm_key(m.group(1)))
+                if by_code and by_code == self._index.get(norm_key(m.group(2))):
+                    cid = by_code
         return cid
 
     def get(self, canonical_id: str) -> Optional[AnalyteDef]:

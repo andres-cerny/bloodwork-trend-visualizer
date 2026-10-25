@@ -386,6 +386,29 @@ export const forgetSynonym = (rawName: string) =>
   request<{ ok: true; removed: boolean }>("/api/synonyms", jsonInit("DELETE", { rawName }));
 
 /**
+ * A saved mapping decision for one laboratory's printed name in one unit
+ * (workers/portal `aliases`). `canonicalId: null` is "not the entry the name
+ * would otherwise find"; `source: "model"` is an answer filed without a
+ * click. Lab and unit "" mean any.
+ */
+export interface SavedAlias {
+  lab: string;
+  rawName: string;
+  unit: string;
+  canonicalId: string | null;
+  source: "person" | "model";
+  model: string | null;
+  /** The NČLP code behind the decision, when known. */
+  code: string | null;
+  mine: boolean;
+}
+export const listAliases = () => request<SavedAlias[]>("/api/aliases");
+export const teachAlias = (a: { lab: string; rawName: string; unit: string; canonicalId: string | null; source: "person" | "model"; model?: string; code?: string | null }) =>
+  request<{ ok: true; taught: boolean }>("/api/aliases", jsonInit("PUT", a));
+export const forgetAlias = (a: { lab: string; rawName: string; unit: string }) =>
+  request<{ ok: true; removed: boolean }>("/api/aliases", jsonInit("DELETE", a));
+
+/**
  * The mapping fallback (packages/extraction/src/map.ts), on this account's
  * ledger. The wire shapes are restated here rather than imported: the app
  * must not depend on the extraction package, whose barrel carries the model
@@ -409,6 +432,8 @@ export interface MapSuggestion {
   proposed: { id: string; displayNameCs: string; unit: string } | null;
   reason: string;
   confidence: "high" | "medium" | "low";
+  /** The NČLP code the answer rests on (extract worker with MAP_MODE=codes). */
+  code?: string | null;
 }
 export interface AiMapAnswer {
   suggestions: MapSuggestion[];
@@ -432,6 +457,8 @@ export interface AiAskedEntry {
   at: string;
   /** For `new`: what it proposed, so the founding form opens with it after a reload. */
   proposed?: MapSuggestion["proposed"];
+  /** The NČLP code behind the answer, when the code table gave one. */
+  code?: string;
   applied?: true;
   asking?: true;
 }
