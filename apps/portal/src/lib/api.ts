@@ -403,6 +403,20 @@ export interface SavedAlias {
   mine: boolean;
 }
 export const listAliases = () => request<SavedAlias[]>("/api/aliases");
+
+/** A catalog entry added without a person from one NČLP row (`/api/auto-entries`, VITE_AUTO_ENTRIES). */
+export interface AutoEntry {
+  code: string;
+  nameCs: string;
+  unit: string;
+  rawName: string;
+  model: string | null;
+  at: string;
+  mine: boolean;
+}
+export const listAutoEntries = () => request<AutoEntry[]>("/api/auto-entries");
+export const addAutoEntry = (e: { code: string; nameCs: string; unit: string; rawName: string; model?: string }) =>
+  request<{ ok: true; added: boolean }>("/api/auto-entries", jsonInit("PUT", e));
 export const teachAlias = (a: { lab: string; rawName: string; unit: string; canonicalId: string | null; source: "person" | "model"; model?: string; code?: string | null }) =>
   request<{ ok: true; taught: boolean }>("/api/aliases", jsonInit("PUT", a));
 export const forgetAlias = (a: { lab: string; rawName: string; unit: string }) =>

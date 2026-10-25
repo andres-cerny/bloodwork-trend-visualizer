@@ -148,6 +148,14 @@ export const SQL = {
   // link to the account is what the deletion removes.
   unlinkSynonyms: "UPDATE synonyms SET taught_by = NULL WHERE taught_by = ?1",
   unlinkAliases: "UPDATE aliases SET taught_by = NULL WHERE taught_by = ?1",
+  unlinkAutoEntries: "UPDATE auto_entries SET created_by = NULL WHERE created_by = ?1",
+
+  // Catalog entries added without a person (VITE_AUTO_ENTRIES). The first
+  // writer of a code keeps it; deleting needs the creator.
+  allAutoEntries: "SELECT code, name_cs, unit, raw_name, model, created_by, created_at FROM auto_entries ORDER BY created_at",
+  insertAutoEntry:
+    "INSERT INTO auto_entries (code, name_cs, unit, raw_name, model, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(code) DO NOTHING",
+  deleteAutoEntry: "DELETE FROM auto_entries WHERE code = ?1 AND created_by = ?2",
   deleteDocumentsForUser: "DELETE FROM documents WHERE user_id = ?1",
   // A payment's record stays; whose it was does not.
   unlinkPurchases: "UPDATE purchases SET user_id = NULL WHERE user_id = ?1",
@@ -303,6 +311,16 @@ export interface SynonymRow {
   raw_name: string;
   canonical_id: string;
   taught_by: string | null;
+}
+
+export interface AutoEntryRow {
+  code: string;
+  name_cs: string;
+  unit: string;
+  raw_name: string;
+  model: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface AliasRow {

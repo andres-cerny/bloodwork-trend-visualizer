@@ -45,15 +45,17 @@ import {
 import { ThemeSwitch } from "@bw/ui-kit";
 import DateAsk from "./DateAsk";
 import { dateDoubtOf, forTrends, newFingerprintSalt } from "../lib/fileChecks";
-import { type AiAsked, type Allowance, ApiError, type Budget, type SavedAlias, type Settings, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listAliases, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachAlias, teachSynonym } from "../lib/api";
+import { type AiAsked, type Allowance, ApiError, type AutoEntry, type Budget, type SavedAlias, type Settings, addAutoEntry, deleteAccount, deleteReport, forgetSynonym, getSettings, getStatus, isFatalApiError, listAliases, listAutoEntries, listReports, listSynonyms, logout, putReport, putSettings, suggestWithAi, teachAlias, teachSynonym } from "../lib/api";
 import AllowanceChip from "./AllowanceChip";
 import BuySheet from "./BuySheet";
-import { type Judged, askingEntry, persistable, runAiMapping, runSecondOpinion, scopeOf, sharedLessons, withoutAsked } from "../lib/aiMapping";
+import { type Judged, askingEntry, autoEntriesFrom, autoEntryDef, persistable, runAiMapping, runSecondOpinion, scopeOf, sharedLessons, withoutAsked } from "../lib/aiMapping";
 
 /** Build-time switch, off unless set: the model's confident filings teach every account (lib/aiMapping.ts, `sharedLessons`). */
 const SHARE_AI_MAPPINGS = import.meta.env.VITE_SHARE_AI_MAPPINGS === "1";
 /** Build-time switch, off unless set: weak list matches get the model's second opinion (lib/aiMapping.ts, `runSecondOpinion`). */
 const SECOND_OPINION = import.meta.env.VITE_SECOND_OPINION === "1";
+/** Build-time switch, off unless set: a test the catalog lacks, resolved exactly to one NČLP row, becomes a catalog entry for every account (lib/aiMapping.ts, `autoEntriesFrom`). */
+const AUTO_ENTRIES = import.meta.env.VITE_AUTO_ENTRIES === "1";
 /** The shared scoped decisions (`/api/aliases`) are read only when a switch that writes them is on. */
 const SCOPED_ALIASES = SHARE_AI_MAPPINGS || SECOND_OPINION;
 import { type Batch, holdsSummary } from "../lib/batch";
@@ -209,7 +211,10 @@ export default function Portal({ email, demo, onLogout }: Props) {
           listSynonyms().catch(() => []),
         ]);
         const aliases: SavedAlias[] = SCOPED_ALIASES ? await listAliases().catch(() => []) : [];
+        const autos: AutoEntry[] = AUTO_ENTRIES ? await listAutoEntries().catch(() => []) : [];
         const reg = new Registry(defs);
+        // Entries added from the code table, as every account's catalog.
+        for (const a of autos) reg.addAnalyte(autoEntryDef(a));
         settingsRef.current = settings as Settings;
         // Founded parameters before the learned names, not after: addSynonym
         // is a no-op for an id the registry does not hold yet, so the other
@@ -553,9 +558,18 @@ export default function Portal({ email, demo, onLogout }: Props) {
     (judged: Judged) => {
       const reg = registryRef.current;
       if (!reg) return;
-      for (const { rawName, canonicalId } of judged.applied) reg.addSynonym(canonicalId, rawName);
-      remapMany(judged.applied);
-      const nextLearned = updateLearned((cur) => withFiled(cur, judged.applied));
+      // A test the catalog lacked, resolved exactly to one NČLP row: it becomes
+      // an entry (for every account, through /api/auto-entries) and the name is
+      // filed under it like any applied answer. Off unless VITE_AUTO_ENTRIES=1.
+      const autos = demo ? [] : autoEntriesFrom(judged, AUTO_ENTRIES);
+      for (const a of autos) {
+        reg.addAnalyte(autoEntryDef(a));
+        addAutoEntry({ code: a.code, nameCs: a.nameCs, unit: a.unit, rawName: a.rawName, model: a.model || undefined }).catch(() => undefined);
+      }
+      const filed = [...judged.applied, ...autos.map((a) => ({ rawName: a.rawName, canonicalId: a.canonicalId }))];
+      for (const { rawName, canonicalId } of filed) reg.addSynonym(canonicalId, rawName);
+      remapMany(filed);
+      const nextLearned = updateLearned((cur) => withFiled(cur, filed));
       updateAsked((cur) => ({ ...cur, ...judged.entries }));
       saveSettings({ learned: nextLearned, aiAsked: persistable(aiAskedRef.current) }).catch(() => setSaveError("Přiřazení se nepodařilo uložit."));
       // Off by default; see `sharedLessons`. Best effort, like a click's lesson.

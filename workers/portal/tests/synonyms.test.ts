@@ -14,6 +14,7 @@ const SECRET = "test-portal-secret";
 interface Tables {
   users: Array<{ id: string; email: string; created_at: string; settings: string | null; budget_usd?: number | null; session_epoch: number }>;
   synonyms: Array<{ raw_name: string; canonical_id: string; taught_by: string | null; created_at: string }>;
+  auto?: Array<{ code: string; name_cs: string; unit: string; raw_name: string; model: string | null; created_by: string | null; created_at: string }>;
   aliases?: Array<{ lab: string; raw_name: string; unit: string; canonical_id: string | null; source: string; model: string | null; code?: string | null; taught_by: string | null; created_at: string }>;
 }
 
@@ -59,6 +60,20 @@ function fakeD1(t: Tables): D1Database {
         const before = rows.length;
         t.aliases = rows.filter((r) => !(r.lab === a[0] && r.raw_name === a[1] && r.unit === a[2] && r.taught_by === a[3]));
         return { results: [], changes: before - t.aliases.length };
+      }
+      case SQL.allAutoEntries:
+        return { results: [...(t.auto ??= [])], changes: 0 };
+      case SQL.insertAutoEntry: {
+        const rows = (t.auto ??= []);
+        if (rows.some((r) => r.code === a[0])) return { results: [], changes: 0 };
+        rows.push({ code: a[0] as string, name_cs: a[1] as string, unit: a[2] as string, raw_name: a[3] as string, model: a[4] as string | null, created_by: a[5] as string, created_at: a[6] as string });
+        return { results: [], changes: 1 };
+      }
+      case SQL.deleteAutoEntry: {
+        const rows = (t.auto ??= []);
+        const before = rows.length;
+        t.auto = rows.filter((r) => !(r.code === a[0] && r.created_by === a[1]));
+        return { results: [], changes: before - t.auto.length };
       }
       default:
         throw new Error(`fakeD1: no branch for: ${sql}`);
@@ -217,6 +232,32 @@ describe("scoped aliases (lab, printed name, unit)", () => {
       { lab: "L", rawName: "S_Na", unit: "", source: "person" },
     ]) {
       expect((await as("u-a", "PUT", "/api/aliases", body)).status).toBe(400);
+    }
+  });
+});
+
+describe("auto-added catalog entries (NČLP)", () => {
+  const entry = { code: "01721", nameCs: "Estron (S; látková konc. [pmol/l])", unit: "pmol/l", rawName: "S_Estron", model: "claude-haiku-5-5" };
+
+  it("one account adds, every account sees it — the first writer of a code keeps it", async () => {
+    current = fresh();
+    expect(((await (await as("u-a", "PUT", "/api/auto-entries", entry)).json()) as any).added).toBe(true);
+    expect(((await (await as("u-b", "PUT", "/api/auto-entries", { ...entry, nameCs: "jiný" })).json()) as any).added).toBe(false);
+    const seen = (await (await as("u-b", "GET", "/api/auto-entries")).json()) as any[];
+    expect(seen).toEqual([expect.objectContaining({ code: "01721", nameCs: entry.nameCs, rawName: "S_Estron", mine: false })]);
+  });
+
+  it("only the creator withdraws it through the API", async () => {
+    current = fresh();
+    await as("u-a", "PUT", "/api/auto-entries", entry);
+    expect(((await (await as("u-b", "DELETE", "/api/auto-entries", { code: "01721" })).json()) as any).removed).toBe(false);
+    expect(((await (await as("u-a", "DELETE", "/api/auto-entries", { code: "01721" })).json()) as any).removed).toBe(true);
+  });
+
+  it("refuses a malformed entry", async () => {
+    current = fresh();
+    for (const body of [{ ...entry, code: "1721" }, { ...entry, nameCs: "" }, { ...entry, rawName: "" }]) {
+      expect((await as("u-a", "PUT", "/api/auto-entries", body)).status).toBe(400);
     }
   });
 });
